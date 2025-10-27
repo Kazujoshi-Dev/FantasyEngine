@@ -11,7 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats } from '../../types.js';
 
 
 dotenv.config();
@@ -404,6 +404,331 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     };
 };
 
+// --- EXPEDITION & COMBAT LOGIC ---
+
+function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplates: ItemTemplate[]): { combatLog: CombatLogEntry[], isVictory: boolean, finalPlayerHealth: number, finalPlayerMana: number } {
+    const combatLog: CombatLogEntry[] = [];
+    let turn = 1;
+
+    let playerDerived = calculateDerivedStatsOnServer(player, itemTemplates);
+    let playerStats = playerDerived.stats;
+
+    let enemyStats: EnemyStats = JSON.parse(JSON.stringify(initialEnemy.stats));
+    
+    let playerHealth = playerStats.currentHealth;
+    let playerMana = playerStats.currentMana;
+    let enemyHealth = enemyStats.maxHealth;
+    let enemyMana = enemyStats.maxMana || 0;
+    
+    const mainHandItem = player.equipment[EquipmentSlot.MainHand] || player.equipment[EquipmentSlot.TwoHand];
+    const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+
+    combatLog.push({
+        turn: 0,
+        attacker: player.name,
+        defender: initialEnemy.name,
+        action: 'starts a fight with',
+        playerHealth, playerMana, enemyHealth, enemyMana,
+        playerStats: playerStats, enemyStats: enemyStats, enemyDescription: initialEnemy.description,
+    });
+    
+    const performTurn = (
+        attacker: { name: string, stats: CharacterStats | EnemyStats, race?: Race },
+        defender: { name: string, stats: CharacterStats | EnemyStats, race?: Race }
+    ) => {
+        const isPlayerAttacking = 'strength' in attacker.stats;
+        
+        let attackerCurrentHealth = isPlayerAttacking ? playerHealth : enemyHealth;
+        let attackerMaxHealth = attacker.stats.maxHealth;
+        
+        // --- Attacker Mana Regen ---
+        if (isPlayerAttacking) {
+            const manaRegen = (attacker.stats as CharacterStats).manaRegen;
+            if (manaRegen > 0 && playerMana < playerStats.maxMana) {
+                const newMana = Math.min(playerStats.maxMana, playerMana + manaRegen);
+                combatLog.push({ turn, attacker: attacker.name, defender: defender.name, action: 'manaRegen', manaGained: newMana - playerMana, playerHealth, playerMana: newMana, enemyHealth, enemyMana });
+                playerMana = newMana;
+            }
+        } else {
+            const manaRegen = (attacker.stats as EnemyStats).manaRegen || 0;
+            if (manaRegen > 0 && enemyMana < (enemyStats.maxMana || 0)) {
+                const newMana = Math.min((enemyStats.maxMana || 0), enemyMana + manaRegen);
+                combatLog.push({ turn, attacker: attacker.name, defender: defender.name, action: 'manaRegen', manaGained: newMana - enemyMana, playerHealth, playerMana, enemyHealth, enemyMana: newMana });
+                enemyMana = newMana;
+            }
+        }
+        
+        const attacksPerRound = isPlayerAttacking ? (attacker.stats as CharacterStats).attacksPerRound : ((attacker.stats as EnemyStats).attacksPerTurn || 1);
+
+        for(let i=0; i<attacksPerRound; i++) {
+            if (playerHealth <= 0 || enemyHealth <= 0) break;
+            
+            let damage = 0;
+            let isCrit = false;
+            let isDodge = false;
+            let damageReduced = 0;
+            let healthGained = 0;
+            let manaGained = 0;
+            let magicAttackType: MagicAttackType | undefined = undefined;
+
+            // --- Dodge Check ---
+            // FIX: Refactored dodge calculation. The type guard `isPlayerAttacking` ensures type-safe access to `accuracy`. This assumes enemies have an effective accuracy of 0 for this calculation, resolving a type error where `accuracy` was accessed on `EnemyStats`.
+            if (!isPlayerAttacking && defender.race === Race.Gnome && Math.random() < 0.1) {
+                isDodge = true;
+            } else {
+                const attackerAccuracy = isPlayerAttacking ? attacker.stats.accuracy : 0;
+                const dodgeChance = Math.max(0, (defender.stats.agility - attackerAccuracy) * 0.1);
+                if (Math.random() * 100 < dodgeChance) {
+                    isDodge = true;
+                }
+            }
+
+            if(isDodge) {
+                combatLog.push({ turn, attacker: attacker.name, defender: defender.name, action: 'attacks', isDodge, playerHealth, playerMana, enemyHealth, enemyMana });
+                continue;
+            }
+
+            // --- Determine Attack Type (Magic or Physical) ---
+            let isMagicAttack = false;
+            let notEnoughMana = false;
+            if (isPlayerAttacking) {
+                const pStats = attacker.stats as CharacterStats;
+                if (mainHandTemplate?.isMagical && mainHandTemplate.magicAttackType && mainHandTemplate.manaCost) {
+                    if (playerMana >= mainHandTemplate.manaCost) {
+                        isMagicAttack = true;
+                        playerMana -= mainHandTemplate.manaCost;
+                        magicAttackType = mainHandTemplate.magicAttackType;
+                    } else {
+                        notEnoughMana = true;
+                    }
+                }
+            } else {
+                const eStats = attacker.stats as EnemyStats;
+                if (eStats.magicAttackType && eStats.magicAttackChance && eStats.magicAttackManaCost) {
+                    if (Math.random() * 100 < eStats.magicAttackChance && enemyMana >= eStats.magicAttackManaCost) {
+                        isMagicAttack = true;
+                        enemyMana -= eStats.magicAttackManaCost;
+                        magicAttackType = eStats.magicAttackType;
+                    }
+                }
+            }
+            if (notEnoughMana) {
+                combatLog.push({ turn, attacker: attacker.name, defender: defender.name, action: 'notEnoughMana', playerHealth, playerMana, enemyHealth, enemyMana });
+            }
+
+
+            // --- Damage Calculation ---
+            if (isMagicAttack) {
+                damage = Math.floor(Math.random() * ((attacker.stats.magicDamageMax || 0) - (attacker.stats.magicDamageMin || 0) + 1)) + (attacker.stats.magicDamageMin || 0);
+            } else { // Physical Attack
+                damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
+                if (Math.random() * 100 < attacker.stats.critChance) {
+                    isCrit = true;
+                    damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier || 200) / 100);
+                }
+
+                // Armor Reduction
+                let armorPenPercent = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationPercent : 0;
+                let armorPenFlat = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationFlat : 0;
+                
+                let effectiveArmor = defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat;
+                effectiveArmor = Math.max(0, effectiveArmor);
+
+                const reduction = Math.floor(effectiveArmor * 0.5);
+                damageReduced = Math.min(damage, reduction);
+                damage -= damageReduced;
+            }
+
+            // --- Race/Special Bonuses ---
+            if (isPlayerAttacking && attacker.race === Race.Orc && attackerCurrentHealth < attackerMaxHealth * 0.25) {
+                damage = Math.floor(damage * 1.25);
+            }
+            if (!isPlayerAttacking && defender.race === Race.Dwarf && playerHealth < playerStats.maxHealth * 0.5) {
+                damage = Math.floor(damage * 0.8);
+            }
+            
+            damage = Math.max(0, damage);
+            
+            // --- Life/Mana Steal (Player attacking only for now) ---
+            if (isPlayerAttacking) {
+                const pStats = attacker.stats as CharacterStats;
+                healthGained = Math.floor(damage * (pStats.lifeStealPercent / 100)) + pStats.lifeStealFlat;
+                manaGained = Math.floor(damage * (pStats.manaStealPercent / 100)) + pStats.manaStealFlat;
+
+                if(healthGained > 0) playerHealth = Math.min(pStats.maxHealth, playerHealth + healthGained);
+                if(manaGained > 0) playerMana = Math.min(pStats.maxMana, playerMana + manaGained);
+            }
+
+            // --- Apply Damage ---
+            if (isPlayerAttacking) {
+                enemyHealth -= damage;
+            } else {
+                playerHealth -= damage;
+            }
+        
+            combatLog.push({
+                turn, attacker: attacker.name, defender: defender.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, magicAttackType,
+                playerHealth: Math.max(0, playerHealth), playerMana: Math.max(0, playerMana), enemyHealth: Math.max(0, enemyHealth), enemyMana: Math.max(0, enemyMana),
+                weaponName: isPlayerAttacking ? mainHandTemplate?.name : undefined,
+            });
+        }
+    };
+
+    while (playerHealth > 0 && enemyHealth > 0) {
+        const playerGoesFirst = (turn === 1 && player.race === Race.Elf) || playerStats.agility >= enemyStats.agility;
+
+        if (playerGoesFirst) {
+            performTurn({ name: player.name, stats: playerStats, race: player.race }, { name: initialEnemy.name, stats: enemyStats });
+            if (enemyHealth > 0) {
+                performTurn({ name: initialEnemy.name, stats: enemyStats }, { name: player.name, stats: playerStats, race: player.race });
+            }
+        } else {
+            performTurn({ name: initialEnemy.name, stats: enemyStats }, { name: player.name, stats: playerStats, race: player.race });
+            if (playerHealth > 0) {
+                performTurn({ name: player.name, stats: playerStats, race: player.race }, { name: initialEnemy.name, stats: enemyStats });
+            }
+        }
+        turn++;
+        if (turn > 50) break; // Safety break
+    }
+
+    return {
+        combatLog,
+        isVictory: playerHealth > 0,
+        finalPlayerHealth: playerHealth,
+        finalPlayerMana: playerMana
+    };
+}
+
+
+async function completeExpedition(
+    character: PlayerCharacter,
+    allExpeditions: Expedition[],
+    allEnemies: Enemy[],
+    allItemTemplates: ItemTemplate[]
+): Promise<PlayerCharacter> {
+    const expeditionTemplate = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
+    if (!expeditionTemplate) {
+        character.activeExpedition = null;
+        return character;
+    }
+
+    const encounteredEnemies: Enemy[] = [];
+    const maxEnemies = expeditionTemplate.maxEnemies || expeditionTemplate.enemies.length;
+    let enemyCount = 0;
+    const shuffledPotentialEnemies = [...expeditionTemplate.enemies].sort(() => 0.5 - Math.random());
+
+    for (const expEnemy of shuffledPotentialEnemies) {
+        if (maxEnemies > 0 && enemyCount >= maxEnemies) break;
+        if (Math.random() * 100 < expEnemy.spawnChance) {
+            const enemyTemplate = allEnemies.find(e => e.id === expEnemy.enemyId);
+            if (enemyTemplate) {
+                encounteredEnemies.push({ ...enemyTemplate, uniqueId: crypto.randomUUID() });
+                enemyCount++;
+            }
+        }
+    }
+
+    let overallIsVictory = true;
+    const overallCombatLog: CombatLogEntry[] = [];
+    let tempChar = JSON.parse(JSON.stringify(character));
+
+    for (const enemy of encounteredEnemies) {
+        const fightResult = simulateFight(tempChar, enemy, allItemTemplates);
+        overallCombatLog.push(...fightResult.combatLog);
+        
+        if (fightResult.isVictory) {
+            tempChar.stats.currentHealth = fightResult.finalPlayerHealth;
+            tempChar.stats.currentMana = fightResult.finalPlayerMana;
+        } else {
+            overallIsVictory = false;
+            tempChar.stats.currentHealth = Math.max(0, fightResult.finalPlayerHealth);
+            break; 
+        }
+    }
+    
+    let updatedChar = JSON.parse(JSON.stringify(character));
+    updatedChar.stats.currentHealth = tempChar.stats.currentHealth;
+
+    const summary: ExpeditionRewardSummary = {
+        rewardBreakdown: [],
+        totalGold: 0, totalExperience: 0,
+        combatLog: overallCombatLog,
+        isVictory: overallIsVictory,
+        itemsFound: [],
+        essencesFound: {},
+    };
+
+    if (overallIsVictory) {
+        let totalGold = 0;
+        let totalExperience = 0;
+
+        const baseGold = Math.floor(Math.random() * (expeditionTemplate.maxBaseGoldReward - expeditionTemplate.minBaseGoldReward + 1)) + expeditionTemplate.minBaseGoldReward;
+        const baseExp = Math.floor(Math.random() * (expeditionTemplate.maxBaseExperienceReward - expeditionTemplate.minBaseExperienceReward + 1)) + expeditionTemplate.minBaseExperienceReward;
+        
+        summary.rewardBreakdown.push({ source: expeditionTemplate.name, gold: baseGold, experience: baseExp });
+        totalGold += baseGold;
+        totalExperience += baseExp;
+
+        for (const enemy of encounteredEnemies) {
+            const gold = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
+            const exp = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
+            summary.rewardBreakdown.push({ source: enemy.name, gold: gold, experience: exp });
+            totalGold += gold;
+            totalExperience += exp;
+            
+            (enemy.lootTable || []).forEach((drop: LootDrop) => {
+                if (Math.random() * 100 < drop.chance) {
+                    summary.itemsFound.push({ uniqueId: crypto.randomUUID(), templateId: drop.templateId });
+                }
+            });
+            (enemy.resourceLootTable || []).forEach((drop: ResourceDrop) => {
+                if (Math.random() * 100 < drop.chance) {
+                    const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                    summary.essencesFound[drop.resource] = (summary.essencesFound[drop.resource] || 0) + amount;
+                }
+            });
+        }
+        
+        (expeditionTemplate.lootTable || []).forEach((drop: LootDrop) => {
+            if (Math.random() * 100 < drop.chance) {
+                summary.itemsFound.push({ uniqueId: crypto.randomUUID(), templateId: drop.templateId });
+            }
+        });
+        (expeditionTemplate.resourceLootTable || []).forEach((drop: ResourceDrop) => {
+            if (Math.random() * 100 < drop.chance) {
+                const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                summary.essencesFound[drop.resource] = (summary.essencesFound[drop.resource] || 0) + amount;
+            }
+        });
+
+        if (character.race === Race.Human) totalExperience = Math.floor(totalExperience * 1.1);
+        if (character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.2);
+        
+        summary.totalGold = totalGold;
+        summary.totalExperience = totalExperience;
+
+        updatedChar.resources.gold += totalGold;
+        updatedChar.experience += totalExperience;
+        updatedChar.inventory.push(...summary.itemsFound);
+        for (const key in summary.essencesFound) {
+            const essenceType = key as EssenceType;
+            updatedChar.resources[essenceType] = (updatedChar.resources[essenceType] || 0) + summary.essencesFound[essenceType]!;
+        }
+    }
+
+    while (updatedChar.experience >= updatedChar.experienceToNextLevel) {
+        updatedChar.experience -= updatedChar.experienceToNextLevel;
+        updatedChar.level += 1;
+        updatedChar.stats.statPoints += 1;
+        updatedChar.experienceToNextLevel = Math.floor(100 * Math.pow(updatedChar.level, 1.3));
+    }
+
+    updatedChar.activeExpedition = null;
+    updatedChar.lastReward = summary;
+    
+    return updatedChar;
+}
 
 // Middleware
 app.use(cors());
@@ -646,28 +971,32 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         if (!characterResult.rowCount) {
             return res.status(404).json({ message: 'Character not found.' });
         }
-
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-
+        
         let character: PlayerCharacter = characterResult.rows[0].data;
         character.username = characterResult.rows[0].username;
         character.id = req.user!.id;
         
-        let needsDbUpdate = false;
+        const gameDataRes = await client.query('SELECT key, data FROM game_data');
+        const gameData = gameDataRes.rows.reduce((acc, row) => {
+            acc[row.key] = row.data;
+            return acc;
+        }, {} as any);
 
+        let expeditionCompleted = false;
+        if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
+            character = await completeExpedition(character, gameData.expeditions, gameData.enemies, gameData.itemTemplates);
+            expeditionCompleted = true;
+        }
+
+        let needsDbUpdate = expeditionCompleted;
+
+        const itemTemplates: ItemTemplate[] = gameData.itemTemplates || [];
         let characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates);
         const currentMaxEnergy = characterWithDerivedStats.stats.maxEnergy;
 
         // --- Offline Energy Regeneration Logic ---
         const now = Date.now();
-
-        if (!characterWithDerivedStats.lastEnergyUpdateTime) {
-            characterWithDerivedStats.lastEnergyUpdateTime = Math.floor(now / (1000 * 60 * 60)) * (1000 * 60 * 60);
-            needsDbUpdate = true;
-        }
-
-        const lastUpdate = characterWithDerivedStats.lastEnergyUpdateTime;
+        const lastUpdate = characterWithDerivedStats.lastEnergyUpdateTime || now;
         const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
         
         if (hoursPassed > 0 && characterWithDerivedStats.stats.currentEnergy < currentMaxEnergy) {
@@ -682,7 +1011,7 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         }
         
         const currentHour = new Date().getUTCHours();
-        const characterLastPurchaseHour = new Date(character.lastEnergyUpdateTime).getUTCHours();
+        const characterLastPurchaseHour = new Date(lastUpdate).getUTCHours();
         if(currentHour !== characterLastPurchaseHour){
             character.traderPurchases = [];
             needsDbUpdate = true;
