@@ -1318,11 +1318,11 @@ apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Respo
 app.use('/api', apiRouter);
 
 // Serve static assets in production
-app.use(express.static(path.join(__dirname, '..', '..', 'dist')));
+app.use(express.static(path.join(__dirname, '..', '..', '..', '..', 'dist')));
 
 // For any other request, serve the index.html file
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', '..', 'dist', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', '..', '..', '..', 'dist', 'index.html'));
 });
 
 // Start the server after DB initialization
