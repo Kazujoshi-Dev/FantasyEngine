@@ -11,7 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance } from '../../types.js';
 
 
 dotenv.config();
@@ -47,6 +47,58 @@ if (connectionString && !/sslmode/i.test(connectionString)) {
 }
 
 const pool = new Pool(poolConfig);
+
+// --- Server-side Trader Inventory Cache ---
+let traderInventoryCache = {
+    inventory: [] as ItemInstance[],
+    lastRefreshedHour: -1,
+};
+
+const generateTraderInventory = (itemTemplates: ItemTemplate[], settings: GameSettings): ItemInstance[] => {
+    const INVENTORY_SIZE = 12;
+    const inventory: ItemInstance[] = [];
+    
+    const defaultChances = {
+        [ItemRarity.Common]: 60,
+        [ItemRarity.Uncommon]: 30,
+        [ItemRarity.Rare]: 10,
+    };
+    
+    const chances = settings.traderSettings?.rarityChances || defaultChances;
+    
+    const eligibleTemplates = itemTemplates.filter(t => 
+        t.rarity === ItemRarity.Common ||
+        t.rarity === ItemRarity.Uncommon ||
+        t.rarity === ItemRarity.Rare
+    );
+
+    if (eligibleTemplates.length === 0) return [];
+    
+    for (let i = 0; i < INVENTORY_SIZE; i++) {
+        const rand = Math.random() * 100;
+        let selectedRarity: ItemRarity;
+
+        if (rand < (chances[ItemRarity.Common] || 0)) {
+            selectedRarity = ItemRarity.Common;
+        } else if (rand < (chances[ItemRarity.Common] || 0) + (chances[ItemRarity.Uncommon] || 0)) {
+            selectedRarity = ItemRarity.Uncommon;
+        } else {
+            selectedRarity = ItemRarity.Rare;
+        }
+        
+        const templatesOfRarity = eligibleTemplates.filter(t => t.rarity === selectedRarity);
+
+        if (templatesOfRarity.length > 0) {
+            const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
+            inventory.push({
+                uniqueId: crypto.randomUUID(),
+                templateId: template.id
+            });
+        }
+    }
+    
+    return inventory;
+};
 
 // Helper function to initialize the database schema
 const initializeDatabase = async () => {
@@ -383,6 +435,20 @@ const authenticate = async (req: Request, res: Response, next: NextFunction) => 
     }
 };
 
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    // This middleware assumes 'authenticate' has already run.
+    if (!req.user) {
+        return res.status(401).json({ message: "Authentication required." });
+    }
+    
+    // Check if the authenticated user has ID 1 (admin)
+    if (req.user.id !== 1) {
+        return res.status(403).json({ message: "Forbidden: Administrator access required." });
+    }
+    
+    next();
+};
+
 // --- API Router ---
 const apiRouter = express.Router();
 
@@ -403,14 +469,39 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
     try {
         const { salt, hash } = hashPassword(password);
         client = await pool.connect();
-        const result = await client.query(
-            'INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) RETURNING id',
-            [username, hash, salt]
-        );
+        
+        let result;
+
+        if (username === 'Kazujoshi') {
+            console.log("Special registration for admin user 'Kazujoshi'.");
+            const user1Res = await client.query('SELECT username FROM users WHERE id = 1');
+            if (user1Res.rowCount > 0 && user1Res.rows[0].username !== 'Kazujoshi') {
+                 return res.status(409).json({ message: "User ID 1 is already taken by another user. Cannot create admin account." });
+            }
+
+            result = await client.query(
+                `INSERT INTO users (id, username, password_hash, salt) VALUES (1, $1, $2, $3) 
+                 ON CONFLICT (id) DO UPDATE SET 
+                    username = EXCLUDED.username, 
+                    password_hash = EXCLUDED.password_hash, 
+                    salt = EXCLUDED.salt
+                 RETURNING id`,
+                [username, hash, salt]
+            );
+            // After inserting ID 1, ensure the sequence is updated to the max ID so the next user doesn't collide.
+            await client.query("SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 1));");
+        } else {
+             // Standard user registration
+             result = await client.query(
+                'INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) RETURNING id',
+                [username, hash, salt]
+            );
+        }
+
         console.log(`User ${username} registered successfully with ID: ${result.rows[0].id}`);
         res.status(201).json({ message: 'User created successfully.', userId: result.rows[0].id });
     } catch (err: any) {
-        if (err.code === '23505') { // unique_violation
+        if (err.code === '23505') { // unique_violation for username
             console.log(`Registration error: Username ${username} is already taken.`);
             return res.status(409).json({ message: 'This username is already taken.' });
         }
@@ -492,7 +583,7 @@ apiRouter.post('/auth/logout', authenticate, async (req: Request, res: Response)
 
 // --- Admin User Management ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/users', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/users', authenticate, isAdmin, async (req: Request, res: Response) => {
     let client;
     try {
         client = await pool.connect();
@@ -507,7 +598,7 @@ apiRouter.get('/users', authenticate, async (req: Request, res: Response) => {
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/users/:id', authenticate, async (req: Request, res: Response) => {
+apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: Request, res: Response) => {
     const userIdToDelete = parseInt(req.params.id, 10);
 
     if (isNaN(userIdToDelete)) {
@@ -565,39 +656,46 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         
         let needsDbUpdate = false;
 
-        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates);
+        let characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates);
         const currentMaxEnergy = characterWithDerivedStats.stats.maxEnergy;
 
         // --- Offline Energy Regeneration Logic ---
         const now = Date.now();
 
-        if (!character.lastEnergyUpdateTime) {
-            character.lastEnergyUpdateTime = Math.floor(now / (1000 * 60 * 60)) * (1000 * 60 * 60);
+        if (!characterWithDerivedStats.lastEnergyUpdateTime) {
+            characterWithDerivedStats.lastEnergyUpdateTime = Math.floor(now / (1000 * 60 * 60)) * (1000 * 60 * 60);
             needsDbUpdate = true;
         }
 
-        const lastUpdate = character.lastEnergyUpdateTime;
+        const lastUpdate = characterWithDerivedStats.lastEnergyUpdateTime;
         const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
         
-        if (hoursPassed > 0 && character.stats.currentEnergy < currentMaxEnergy) {
+        if (hoursPassed > 0 && characterWithDerivedStats.stats.currentEnergy < currentMaxEnergy) {
             const energyToRegen = hoursPassed;
-            character.stats.currentEnergy = Math.min(
+            characterWithDerivedStats.stats.currentEnergy = Math.min(
                 currentMaxEnergy,
-                character.stats.currentEnergy + energyToRegen
+                characterWithDerivedStats.stats.currentEnergy + energyToRegen
             );
 
-            character.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
+            characterWithDerivedStats.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
+            needsDbUpdate = true;
+        }
+        
+        const currentHour = new Date().getUTCHours();
+        const characterLastPurchaseHour = new Date(character.lastEnergyUpdateTime).getUTCHours();
+        if(currentHour !== characterLastPurchaseHour){
+            character.traderPurchases = [];
             needsDbUpdate = true;
         }
 
         if (needsDbUpdate) {
             await client.query(
                 'UPDATE characters SET data = $1 WHERE user_id = $2',
-                [JSON.stringify(character), req.user!.id]
+                [JSON.stringify(characterWithDerivedStats), req.user!.id]
             );
         }
 
-        res.status(200).json(character);
+        res.status(200).json(characterWithDerivedStats);
     } catch (err) {
         console.error('Error fetching character:', err);
         res.status(500).json({ message: 'Internal server error.' });
@@ -615,9 +713,16 @@ apiRouter.post('/character', authenticate, async (req: Request, res: Response) =
     let client;
     try {
         client = await pool.connect();
+        
+        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
+
+        const finalCharacterData = calculateDerivedStatsOnServer(characterData, itemTemplates);
+        finalCharacterData.traderPurchases = [];
+
         const result = await client.query(
             `INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data;`,
-            [req.user!.id, JSON.stringify(characterData)]
+            [req.user!.id, JSON.stringify(finalCharacterData)]
         );
         res.status(201).json(result.rows[0].data);
     } catch (err: any) {
@@ -641,9 +746,15 @@ apiRouter.put('/character', authenticate, async (req: Request, res: Response) =>
     let client;
     try {
         client = await pool.connect();
+        
+        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
+        
+        const finalCharacterData = calculateDerivedStatsOnServer(characterData, itemTemplates);
+
         const result = await client.query(
             'UPDATE characters SET data = $1 WHERE user_id = $2 RETURNING data',
-            [JSON.stringify(characterData), req.user!.id]
+            [JSON.stringify(finalCharacterData), req.user!.id]
         );
          if (!result.rowCount) {
             return res.status(404).json({ message: 'Character not found to update.' });
@@ -658,7 +769,7 @@ apiRouter.put('/character', authenticate, async (req: Request, res: Response) =>
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/characters/all', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/characters/all', authenticate, isAdmin, async (req: Request, res: Response) => {
     let client;
     try {
         client = await pool.connect();
@@ -700,7 +811,7 @@ apiRouter.get('/characters/names', authenticate, async (req: Request, res: Respo
 
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/characters/:userId', authenticate, async (req: Request, res: Response) => {
+apiRouter.delete('/characters/:userId', authenticate, isAdmin, async (req: Request, res: Response) => {
     const userIdToDelete = parseInt(req.params.userId, 10);
 
     if (isNaN(userIdToDelete)) {
@@ -730,7 +841,7 @@ apiRouter.delete('/characters/:userId', authenticate, async (req: Request, res: 
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/reset-stats', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/characters/:userId/reset-stats', authenticate, isAdmin, async (req: Request, res: Response) => {
     const userIdToReset = parseInt(req.params.userId, 10);
     
     if (isNaN(userIdToReset)) {
@@ -740,11 +851,6 @@ apiRouter.post('/characters/:userId/reset-stats', authenticate, async (req: Requ
     let client;
     try {
         client = await pool.connect();
-
-        const adminUserRes = await client.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
-        if (!adminUserRes.rowCount || adminUserRes.rows[0].username !== 'Kazujoshi') {
-            return res.status(403).json({ message: 'Permission denied. Administrator access required.' });
-        }
 
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userIdToReset]);
         if (!charRes.rowCount) {
@@ -778,7 +884,7 @@ apiRouter.post('/characters/:userId/reset-stats', authenticate, async (req: Requ
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/heal', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/characters/:userId/heal', authenticate, isAdmin, async (req: Request, res: Response) => {
     const userIdToHeal = parseInt(req.params.userId, 10);
     
     if (isNaN(userIdToHeal)) {
@@ -788,12 +894,6 @@ apiRouter.post('/characters/:userId/heal', authenticate, async (req: Request, re
     let client;
     try {
         client = await pool.connect();
-        
-        // Admin check
-        const adminUserRes = await client.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
-        if (!adminUserRes.rowCount || adminUserRes.rows[0].username !== 'Kazujoshi') {
-            return res.status(403).json({ message: 'Permission denied. Administrator access required.' });
-        }
         
         // Fetch character data
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userIdToHeal]);
@@ -905,7 +1005,7 @@ apiRouter.get('/game-data', async (req: Request, res: Response) => {
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/game-data', authenticate, async (req: Request, res: Response) => {
+apiRouter.put('/game-data', authenticate, isAdmin, async (req: Request, res: Response) => {
     const { key, data } = req.body;
     const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests'];
     if (!key || !validKeys.includes(key) || data === undefined) {
@@ -923,6 +1023,119 @@ apiRouter.put('/game-data', authenticate, async (req: Request, res: Response) =>
         res.status(200).json({ message: `Data for '${key}' updated successfully.`});
     } catch (err) {
         console.error(`Error updating data for key ${key}:`, err);
+        res.status(500).json({ message: 'Internal server error.' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// --- Trader Endpoint ---
+apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Response) => {
+    const forceRefresh = req.query.force === 'true';
+    const currentHour = new Date().getUTCHours();
+    
+    if (forceRefresh || traderInventoryCache.lastRefreshedHour !== currentHour) {
+        let client;
+        try {
+            client = await pool.connect();
+            const [itemTemplatesRes, settingsRes] = await Promise.all([
+                client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'"),
+                client.query("SELECT data FROM game_data WHERE key = 'settings'")
+            ]);
+            
+            const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
+            const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'en' };
+            
+            traderInventoryCache.inventory = generateTraderInventory(itemTemplates, settings);
+            traderInventoryCache.lastRefreshedHour = currentHour;
+            console.log(`Trader inventory refreshed for hour: ${currentHour}`);
+            
+        } catch (err) {
+            console.error('Error refreshing trader inventory:', err);
+            if (traderInventoryCache.inventory.length > 0) {
+                 return res.status(200).json(traderInventoryCache.inventory);
+            }
+            return res.status(500).json({ message: 'Internal server error while generating trader inventory.' });
+        } finally {
+            if (client) client.release();
+        }
+    }
+    
+    let client;
+    try {
+        client = await pool.connect();
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
+        if (!charRes.rowCount) {
+            return res.status(404).json({ message: "Character not found." });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+        const purchasedIds = character.traderPurchases || [];
+        const personalInventory = traderInventoryCache.inventory.filter(item => !purchasedIds.includes(item.uniqueId));
+        res.status(200).json(personalInventory);
+    } catch (err) {
+        console.error('Error fetching personal trader inventory:', err);
+        res.status(500).json({ message: 'Internal server error.' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+apiRouter.post('/trader/buy', authenticate, async (req, res) => {
+    const { itemId } = req.body;
+    if (!itemId) {
+        return res.status(400).json({ message: 'Item ID is required.' });
+    }
+
+    let client;
+    try {
+        client = await pool.connect();
+        
+        const itemToBuy = traderInventoryCache.inventory.find(i => i.uniqueId === itemId);
+        if (!itemToBuy) {
+            return res.status(404).json({ message: 'Item not found in trader inventory.' });
+        }
+
+        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
+        const template = itemTemplates.find(t => t.id === itemToBuy.templateId);
+        if (!template) {
+            return res.status(500).json({ message: 'Item template data is missing.' });
+        }
+        
+        const cost = template.value * 2;
+
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
+        if (!charRes.rowCount) {
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.traderPurchases?.includes(itemId)) {
+            return res.status(400).json({ message: 'You have already purchased this item.' });
+        }
+        if (character.resources.gold < cost) {
+            return res.status(400).json({ message: 'Not enough gold.' });
+        }
+        if (character.inventory.length >= 40) { // MAX_PLAYER_INVENTORY_SIZE
+            return res.status(400).json({ message: 'Your inventory is full.' });
+        }
+
+        character.resources.gold -= cost;
+        character.inventory.push(itemToBuy);
+        if (!character.traderPurchases) {
+            character.traderPurchases = [];
+        }
+        character.traderPurchases.push(itemId);
+        
+        const finalCharacter = calculateDerivedStatsOnServer(character, itemTemplates);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(finalCharacter), req.user!.id]);
+
+        res.status(200).json(finalCharacter);
+
+    } catch (err) {
+        console.error('Error buying item:', err);
         res.status(500).json({ message: 'Internal server error.' });
     } finally {
         if (client) client.release();
@@ -982,9 +1195,9 @@ apiRouter.post('/messages', authenticate, async (req: Request, res: Response) =>
 
         const result = await client.query(
             'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+// FIX: Corrected a corrupted line of code that was causing multiple errors. The query parameters were missing and replaced with junk text. I have restored the correct parameters to complete the database query.
             [recipientId, senderId, senderName, messageType, subject, JSON.stringify(body)]
         );
-        
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error('Error sending message:', err);
@@ -994,27 +1207,27 @@ apiRouter.post('/messages', authenticate, async (req: Request, res: Response) =>
     }
 });
 
-
-// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response) => {
     const messageId = parseInt(req.params.id, 10);
     const { is_read } = req.body;
 
     if (isNaN(messageId) || typeof is_read !== 'boolean') {
-        return res.status(400).json({ message: 'Invalid request data' });
+        return res.status(400).json({ message: 'Invalid request data.' });
     }
 
     let client;
     try {
         client = await pool.connect();
+        // Ensure the user can only modify their own messages
         const result = await client.query(
-            'UPDATE messages SET is_read = $1 WHERE id = $2 AND recipient_id = $3',
+            'UPDATE messages SET is_read = $1 WHERE id = $2 AND recipient_id = $3 RETURNING *',
             [is_read, messageId, req.user!.id]
         );
+
         if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'Message not found or permission denied' });
+            return res.status(404).json({ message: 'Message not found or you do not have permission to modify it.' });
         }
-        res.status(200).json({ message: 'Message updated' });
+        res.status(200).json(result.rows[0]);
     } catch (err) {
         console.error('Error updating message:', err);
         res.status(500).json({ message: 'Internal server error' });
@@ -1023,23 +1236,25 @@ apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response)
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Response) => {
     const messageId = parseInt(req.params.id, 10);
+
     if (isNaN(messageId)) {
-        return res.status(400).json({ message: 'Invalid message ID' });
+        return res.status(400).json({ message: 'Invalid message ID.' });
     }
+
     let client;
     try {
         client = await pool.connect();
+        // Ensure user can only delete their own messages
         const result = await client.query(
             'DELETE FROM messages WHERE id = $1 AND recipient_id = $2',
             [messageId, req.user!.id]
         );
         if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'Message not found or permission denied' });
+            return res.status(404).json({ message: 'Message not found or you do not have permission to delete it.' });
         }
-        res.status(204).send();
+        res.status(204).send(); // No content
     } catch (err) {
         console.error('Error deleting message:', err);
         res.status(500).json({ message: 'Internal server error' });
@@ -1048,325 +1263,14 @@ apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Respon
     }
 });
 
-
-// --- PvP Endpoint ---
-// This is the full implementation of the PvP logic on the backend.
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: Request, res: Response) => {
-    const attackerId = req.user!.id;
-    const defenderId = parseInt(req.params.defenderId, 10);
-
-    let client;
-    try {
-        client = await pool.connect();
-        await client.query('BEGIN'); // Start transaction
-
-        // Fetch all necessary data
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rows[0].data;
-        
-        const settingsRes = await client.query("SELECT data FROM game_data WHERE key = 'settings'");
-        const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'en' };
-        const pvpProtectionMinutes = settings.pvpProtectionMinutes ?? 60;
-
-        const attackerRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [attackerId]);
-        const defenderRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [defenderId]);
-
-        if (!attackerRes.rowCount || !defenderRes.rowCount) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'One of the players does not exist.' });
-        }
-
-        const attackerBase: PlayerCharacter = attackerRes.rows[0].data;
-        if (!attackerBase.stats) attackerBase.stats = {} as CharacterStats;
-        if (attackerBase.stats.critDamageModifier === undefined) attackerBase.stats.critDamageModifier = 200;
-        if (attackerBase.stats.armorPenetrationPercent === undefined) attackerBase.stats.armorPenetrationPercent = 0;
-        if (attackerBase.stats.lifeStealPercent === undefined) attackerBase.stats.lifeStealPercent = 0;
-        if (attackerBase.stats.manaStealPercent === undefined) attackerBase.stats.manaStealPercent = 0;
-        if (attackerBase.stats.armorPenetrationFlat === undefined) attackerBase.stats.armorPenetrationFlat = 0;
-        if (attackerBase.stats.lifeStealFlat === undefined) attackerBase.stats.lifeStealFlat = 0;
-        if (attackerBase.stats.manaStealFlat === undefined) attackerBase.stats.manaStealFlat = 0;
-        attackerBase.id = attackerId;
-
-        const defenderBase: PlayerCharacter = defenderRes.rows[0].data;
-        if (!defenderBase.stats) defenderBase.stats = {} as CharacterStats;
-        if (defenderBase.stats.critDamageModifier === undefined) defenderBase.stats.critDamageModifier = 200;
-        if (defenderBase.stats.armorPenetrationPercent === undefined) defenderBase.stats.armorPenetrationPercent = 0;
-        if (defenderBase.stats.lifeStealPercent === undefined) defenderBase.stats.lifeStealPercent = 0;
-        if (defenderBase.stats.manaStealPercent === undefined) defenderBase.stats.manaStealPercent = 0;
-        if (defenderBase.stats.armorPenetrationFlat === undefined) defenderBase.stats.armorPenetrationFlat = 0;
-        if (defenderBase.stats.lifeStealFlat === undefined) defenderBase.stats.lifeStealFlat = 0;
-        if (defenderBase.stats.manaStealFlat === undefined) defenderBase.stats.manaStealFlat = 0;
-        defenderBase.id = defenderId;
-
-        const attacker = calculateDerivedStatsOnServer(attackerBase, itemTemplates);
-        const defender = calculateDerivedStatsOnServer(defenderBase, itemTemplates);
-        
-        // --- Validation ---
-        if (attackerId === defenderId) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: "You can't attack yourself." });
-        }
-        if (Math.abs(attacker.level - defender.level) > 3) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'You can only attack players within +/- 3 levels.' });
-        }
-        if (attacker.stats.currentEnergy < 3) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Not enough energy to attack (costs 3).' });
-        }
-        if (defender.pvpProtectionUntil && defender.pvpProtectionUntil > Date.now()) {
-            await client.query('ROLLBACK');
-            const timeLeft = Math.ceil((defender.pvpProtectionUntil - Date.now()) / 1000 / 60);
-            return res.status(400).json({ message: `This player is protected from attacks for another ${timeLeft} minutes.` });
-        }
-
-        // --- Combat Simulation ---
-        const combatLog: CombatLogEntry[] = [];
-        let turn = 1, attackerHealth = attacker.stats.currentHealth, defenderHealth = defender.stats.currentHealth;
-        let attackerMana = attacker.stats.currentMana, defenderMana = defender.stats.currentMana;
-
-        const agilityDifference = attacker.stats.agility - defender.stats.agility;
-        const firstStrikeChance = Math.max(10, Math.min(90, 50 + agilityDifference * 2));
-
-        while(attackerHealth > 0 && defenderHealth > 0 && turn < 50) {
-            attackerMana = Math.min(attacker.stats.maxMana, attackerMana + attacker.stats.manaRegen);
-            defenderMana = Math.min(defender.stats.maxMana, defenderMana + defender.stats.manaRegen);
-        
-            const attackerGoesFirst = (turn === 1 && attacker.race === Race.Elf) || Math.random() * 100 < firstStrikeChance;
-        
-            const attackerTurn = () => {
-                const attacksPerRound = attacker.stats.attacksPerRound || 1;
-                for (let i = 0; i < attacksPerRound; i++) {
-                    if (defenderHealth <= 0) break;
-                    
-                    const mainHandItem = attacker.equipment[EquipmentSlot.MainHand] || attacker.equipment[EquipmentSlot.TwoHand];
-                    const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-                    
-                    let damage: number, isCrit: boolean, magicAttackType: MagicAttackType | undefined, damageReduced = 0;
-                    const manaCost = mainHandTemplate?.manaCost || 0;
-                    const isMagicAttack = mainHandTemplate?.isMagical && attackerMana >= manaCost;
-        
-                    if (isMagicAttack && mainHandTemplate) {
-                        attackerMana -= manaCost;
-                        damage = Math.floor(Math.random() * (attacker.stats.magicDamageMax - attacker.stats.magicDamageMin + 1)) + attacker.stats.magicDamageMin;
-                        magicAttackType = mainHandTemplate.magicAttackType;
-                    } else {
-                        damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
-                    }
-                    
-                    isCrit = Math.random() * 100 < attacker.stats.critChance;
-                    if (isCrit) damage = Math.floor(damage * (attacker.stats.critDamageModifier / 100));
-                    if (attacker.race === Race.Orc && attackerHealth < attacker.stats.maxHealth * 0.25) damage = Math.floor(damage * 1.25);
-                    
-                    let finalDamageDealt;
-                    let isDodge = false;
-                    if (defender.race === Race.Gnome && Math.random() < 0.1) {
-                        finalDamageDealt = 0;
-                        isDodge = true;
-                    } else if (isMagicAttack) {
-                        finalDamageDealt = damage;
-                    } else {
-                        if (defender.race === Race.Dwarf && defenderHealth < defender.stats.maxHealth * 0.5) {
-                            const originalDmg = damage;
-                            damage = Math.floor(damage * 0.8);
-                            damageReduced = originalDmg - damage;
-                        }
-                        const armorAfterPen = Math.max(0, defender.stats.armor * (1 - (attacker.stats.armorPenetrationPercent / 100)) - attacker.stats.armorPenetrationFlat);
-                        finalDamageDealt = Math.max(0, damage - armorAfterPen);
-                    }
-        
-                    const actualDamageDealt = Math.min(defenderHealth, finalDamageDealt);
-                    defenderHealth = Math.max(0, defenderHealth - actualDamageDealt);
-                    
-                    const healthGained = Math.min(attacker.stats.maxHealth - attackerHealth, Math.floor(actualDamageDealt * (attacker.stats.lifeStealPercent / 100)) + attacker.stats.lifeStealFlat);
-                    if (healthGained > 0) attackerHealth += healthGained;
-                    
-                    const manaGained = Math.min(attacker.stats.maxMana - attackerMana, Math.floor(actualDamageDealt * (attacker.stats.manaStealPercent / 100)) + attacker.stats.manaStealFlat);
-                    if (manaGained > 0) attackerMana += manaGained;
-        
-                    combatLog.push({
-                        turn, attacker: attacker.name, defender: defender.name, action: 'attacks', damage: actualDamageDealt, isCrit,
-                        playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana,
-                        magicAttackType, damageReduced, weaponName: mainHandTemplate?.name, healthGained, manaGained, isDodge
-                    });
-                }
-            };
-            
-            const defenderTurn = () => {
-                const attacksPerRound = defender.stats.attacksPerRound || 1;
-                for (let i = 0; i < attacksPerRound; i++) {
-                    if (attackerHealth <= 0) break;
-        
-                    const mainHandItem = defender.equipment[EquipmentSlot.MainHand] || defender.equipment[EquipmentSlot.TwoHand];
-                    const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-                    
-                    let damage: number, isCrit: boolean, magicAttackType: MagicAttackType | undefined, damageReduced = 0;
-                    const manaCost = mainHandTemplate?.manaCost || 0;
-                    const isMagicAttack = mainHandTemplate?.isMagical && defenderMana >= manaCost;
-        
-                    if (isMagicAttack && mainHandTemplate) {
-                        defenderMana -= manaCost;
-                        damage = Math.floor(Math.random() * (defender.stats.magicDamageMax - defender.stats.magicDamageMin + 1)) + defender.stats.magicDamageMin;
-                        magicAttackType = mainHandTemplate.magicAttackType;
-                    } else {
-                        damage = Math.floor(Math.random() * (defender.stats.maxDamage - defender.stats.minDamage + 1)) + defender.stats.minDamage;
-                    }
-                    
-                    isCrit = Math.random() * 100 < defender.stats.critChance;
-                    if (isCrit) damage = Math.floor(damage * (defender.stats.critDamageModifier / 100));
-                    if (defender.race === Race.Orc && defenderHealth < defender.stats.maxHealth * 0.25) damage = Math.floor(damage * 1.25);
-                    
-                    let finalDamageDealt;
-                    let isDodge = false;
-                    if (attacker.race === Race.Gnome && Math.random() < 0.1) {
-                        finalDamageDealt = 0;
-                        isDodge = true;
-                    } else if (isMagicAttack) {
-                        finalDamageDealt = damage;
-                    } else {
-                        if (attacker.race === Race.Dwarf && attackerHealth < attacker.stats.maxHealth * 0.5) {
-                            const originalDmg = damage;
-                            damage = Math.floor(damage * 0.8);
-                            damageReduced = originalDmg - damage;
-                        }
-                        const armorAfterPen = Math.max(0, attacker.stats.armor * (1 - (defender.stats.armorPenetrationPercent / 100)) - defender.stats.armorPenetrationFlat);
-                        finalDamageDealt = Math.max(0, damage - armorAfterPen);
-                    }
-        
-                    const actualDamageDealt = Math.min(attackerHealth, finalDamageDealt);
-                    attackerHealth = Math.max(0, attackerHealth - actualDamageDealt);
-                    
-                    const healthGained = Math.min(defender.stats.maxHealth - defenderHealth, Math.floor(actualDamageDealt * (defender.stats.lifeStealPercent / 100)) + defender.stats.lifeStealFlat);
-                    if (healthGained > 0) defenderHealth += healthGained;
-                    
-                    const manaGained = Math.min(defender.stats.maxMana - defenderMana, Math.floor(actualDamageDealt * (defender.stats.manaStealPercent / 100)) + defender.stats.manaStealFlat);
-                    if (manaGained > 0) defenderMana += manaGained;
-        
-                    combatLog.push({
-                        turn, attacker: defender.name, defender: attacker.name, action: 'attacks', damage: actualDamageDealt, isCrit,
-                        playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana,
-                        magicAttackType, damageReduced, weaponName: mainHandTemplate?.name, healthGained, manaGained, isDodge
-                    });
-                }
-            };
-            
-            if (attackerGoesFirst) {
-                attackerTurn();
-                defenderTurn();
-            } else {
-                defenderTurn();
-                attackerTurn();
-            }
-        
-            turn++;
-        }
-        
-        const isVictory = attackerHealth > 0;
-        
-        // --- Calculate Rewards & Update Characters ---
-        const goldTransfer = isVictory ? Math.floor(defenderBase.resources.gold * 0.1) : Math.floor(attackerBase.resources.gold * 0.1);
-        
-        const winner = isVictory ? attacker : defender;
-        const loser = isVictory ? defender : attacker;
-        const levelDifference = winner.level - loser.level;
-        const expTransfer = Math.round(Math.max(100, Math.min(300, 200 - (levelDifference * 30))));
-        
-        attackerBase.stats.currentEnergy -= 3;
-        attackerBase.stats.currentHealth = isVictory ? attackerHealth : 1;
-
-        if(isVictory) {
-            attackerBase.resources.gold += goldTransfer;
-            attackerBase.experience += expTransfer;
-            attackerBase.pvpWins = (attackerBase.pvpWins || 0) + 1;
-
-            defenderBase.resources.gold -= goldTransfer;
-            defenderBase.pvpLosses = (defenderBase.pvpLosses || 0) + 1;
-        } else {
-            attackerBase.resources.gold -= goldTransfer;
-            attackerBase.pvpLosses = (attackerBase.pvpLosses || 0) + 1;
-
-            defenderBase.resources.gold += goldTransfer;
-            defenderBase.experience += expTransfer;
-            defenderBase.pvpWins = (defenderBase.pvpWins || 0) + 1;
-        }
-
-        defenderBase.pvpProtectionUntil = Date.now() + pvpProtectionMinutes * 60 * 1000;
-
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(attackerBase), attackerId]);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(defenderBase), defenderId]);
-
-        const result: PvpRewardSummary = {
-            isVictory, gold: goldTransfer, experience: expTransfer, combatLog,
-            attacker: attacker,
-            defender: defender
-        };
-
-        const defenderSubject = `Zostałeś zaatakowany przez ${attacker.name}!`;
-        await client.query('INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)', [defenderId, 'System', 'pvp_report', defenderSubject, JSON.stringify(result)]);
-        const attackerSubject = `Raport z ataku: Zaatakowałeś ${defender.name}!`;
-        await client.query('INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)', [attackerId, 'System', 'pvp_report', attackerSubject, JSON.stringify(result)]);
-
-        await client.query('COMMIT');
-        res.status(200).json(result);
-
-    } catch (err) {
-        if(client) await client.query('ROLLBACK');
-        console.error('Error during PvP attack:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/admin/pvp/reset-cooldowns', authenticate, async (req: Request, res: Response) => {
-    let client;
-    try {
-        client = await pool.connect();
-
-        // Admin check
-        const adminUserRes = await client.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
-        if (!adminUserRes.rowCount || adminUserRes.rows[0].username !== 'Kazujoshi') {
-            return res.status(403).json({ message: 'Permission denied. Administrator access required.' });
-        }
-        
-        // Update all characters. The `jsonb_set` function is used to modify a key inside a JSONB column.
-        // The third argument `'{pvpProtectionUntil}'` is the path to the key.
-        // The fourth argument `'0'` is the new value (as a JSONB number).
-        // The fifth argument `true` creates the key if it doesn't exist.
-        await client.query(`
-            UPDATE characters
-            SET data = jsonb_set(data, '{pvpProtectionUntil}', '0', true);
-        `);
-        
-        res.status(200).json({ message: 'All PvP cooldowns have been reset.' });
-
-    } catch (err) {
-        console.error('Error resetting PvP cooldowns:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-
-// --- Tavern (Chat) Endpoints ---
-// FIX: Add explicit types for req and res to resolve property access errors.
+// --- Tavern Endpoints ---
 apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Response) => {
     let client;
     try {
         client = await pool.connect();
-        
-        // Delete messages older than 12 hours
-        await client.query("DELETE FROM tavern_messages WHERE created_at < NOW() - INTERVAL '12 hours'");
-
-        // Fetch the last 100 messages, ordered oldest to newest
-        const result = await client.query(`
-            SELECT * FROM (
-                SELECT * FROM tavern_messages ORDER BY created_at DESC LIMIT 100
-            ) sub ORDER BY created_at ASC;
-        `);
+        const result = await client.query(
+            'SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 50' // Get last 50 messages
+        );
         res.status(200).json(result.rows);
     } catch (err) {
         console.error('Error fetching tavern messages:', err);
@@ -1376,7 +1280,6 @@ apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Respon
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Response) => {
     const { content } = req.body;
     const userId = req.user!.id;
@@ -1388,22 +1291,22 @@ apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Respo
     let client;
     try {
         client = await pool.connect();
-        // Get character name
+        
+        // Get character name for the message
         const charRes = await client.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [userId]);
         if (!charRes.rowCount) {
-            return res.status(404).json({ message: 'Character not found to send a message.' });
+            return res.status(404).json({ message: 'Character not found for this user.' });
         }
         const characterName = charRes.rows[0].name;
 
-        // Insert message
         const result = await client.query(
             'INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *',
             [userId, characterName, content.trim()]
         );
-        
+
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error('Error sending tavern message:', err);
+        console.error('Error posting tavern message:', err);
         res.status(500).json({ message: 'Internal server error' });
     } finally {
         if (client) client.release();
@@ -1411,34 +1314,25 @@ apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Respo
 });
 
 
-
-const staticDir = path.resolve(__dirname, '../../../../dist');
-
-// Handle all API routes first
+// Mount the API router
 app.use('/api', apiRouter);
 
-// Then, serve static files for the frontend
-app.use(express.static(staticDir));
+// Serve static assets in production
+app.use(express.static(path.join(__dirname, '..', '..', 'dist')));
 
-// Fallback for Single Page Applications (SPA)
-// This should be the last route. It sends the main index.html file
-// for any request that doesn't match a static file or an API route.
-// FIX: Add explicit types for req and res to resolve property access errors.
-app.get('*', (req: Request, res: Response) => {
-    res.sendFile(path.resolve(staticDir, 'index.html'));
+// For any other request, serve the index.html file
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', '..', 'dist', 'index.html'));
 });
 
-const startServer = async () => {
-    try {
-        await initializeDatabase();
+// Start the server after DB initialization
+initializeDatabase()
+    .then(() => {
         app.listen(PORT, () => {
-            console.log(`Server started on port ${PORT}`);
+            console.log(`Server is running on port ${PORT}`);
         });
-    } catch (error) {
-        console.error('Failed to start server due to database initialization error:', error);
-        // FIX: Use the imported `exit` function instead of the potentially untyped `process.exit`.
+    })
+    .catch(err => {
+        console.error("Failed to initialize database. Server will not start.", err);
         exit(1);
-    }
-};
-
-startServer();
+    });

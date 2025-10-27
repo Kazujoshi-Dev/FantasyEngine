@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -30,44 +26,88 @@ const slotOrder: EquipmentSlot[] = [
     EquipmentSlot.TwoHand,
 ];
 
-
 export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, onEquipItem, onUnequipItem }) => {
   const { t } = useTranslation();
   
-  const [selected, setSelected] = useState<{ item: ItemInstance; source: 'equipped' | 'inventory' } | null>(null);
-  const [filterSlot, setFilterSlot] = useState<EquipmentSlot | 'consumable' | 'all'>('all');
+  const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
+  const [draggedItemInfo, setDraggedItemInfo] = useState<{ item: ItemInstance; sourceSlot: EquipmentSlot | 'inventory' } | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<EquipmentSlot | 'inventory' | null>(null);
 
   const selectedTemplate = useMemo(() => {
-    if (!selected) return null;
-    return itemTemplates.find(t => t.id === selected.item.templateId) || null;
-  }, [selected, itemTemplates]);
+    if (!selectedItem) return null;
+    return itemTemplates.find(t => t.id === selectedItem.templateId) || null;
+  }, [selectedItem, itemTemplates]);
 
-  const filteredInventory = useMemo(() => {
-    if (filterSlot === 'all') {
-        return character.inventory;
-    }
-    return character.inventory.filter(item => {
-        const template = itemTemplates.find(t => t.id === item.templateId);
-        if (!template) return false;
-        if (filterSlot === EquipmentSlot.Ring1 || filterSlot === EquipmentSlot.Ring2) {
-            return template.slot === 'ring';
-        }
-        return template.slot === filterSlot;
-    });
-  }, [character.inventory, filterSlot, itemTemplates]);
+  // --- Drag and Drop Handlers ---
 
-  const handleSelectItem = (item: ItemInstance, source: 'equipped' | 'inventory') => {
-    setSelected({ item, source });
+  const handleDragStart = (e: React.DragEvent, item: ItemInstance, sourceSlot: EquipmentSlot | 'inventory') => {
+    setDraggedItemInfo({ item, sourceSlot });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.uniqueId); // Necessary for Firefox compatibility
   };
 
-  const getSlotForEquippedItem = (itemInstance: ItemInstance): EquipmentSlot | undefined => {
-      for (const slot in character.equipment) {
-          if (character.equipment[slot as EquipmentSlot]?.uniqueId === itemInstance.uniqueId) {
-              return slot as EquipmentSlot;
-          }
-      }
-      return undefined;
-  }
+  const handleDragEnd = () => {
+    setDraggedItemInfo(null);
+    setDragOverTarget(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // This is crucial to allow dropping
+  };
+  
+  const handleDragEnter = (target: EquipmentSlot | 'inventory') => {
+    if(draggedItemInfo) {
+      setDragOverTarget(target);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverTarget(null);
+  };
+
+  const handleDrop = (target: EquipmentSlot | 'inventory') => {
+    if (!draggedItemInfo || !dragOverTarget) return;
+
+    const { item, sourceSlot } = draggedItemInfo;
+
+    // Case 1: Unequipping (Equipped -> Inventory)
+    if (sourceSlot !== 'inventory' && target === 'inventory') {
+      onUnequipItem(item, sourceSlot);
+    } 
+    // Case 2: Equipping (Inventory -> Equipment Slot or Equipped -> Equipment Slot)
+    else if (target !== 'inventory') {
+       const template = itemTemplates.find(t => t.id === item.templateId);
+       if (!template) return;
+       
+       const isCompatible = template.slot === target || (template.slot === 'ring' && (target === EquipmentSlot.Ring1 || target === EquipmentSlot.Ring2));
+       
+       if (isCompatible) {
+         onEquipItem(item);
+       }
+    }
+
+    handleDragEnd(); // Reset state after drop
+  };
+  
+  const getDropZoneClassName = (target: EquipmentSlot | 'inventory'): string => {
+    if (!draggedItemInfo || dragOverTarget !== target) return '';
+
+    const { item, sourceSlot } = draggedItemInfo;
+    const template = itemTemplates.find(t => t.id === item.templateId);
+    if (!template) return 'bg-red-900/50';
+
+    let isValid = false;
+    // Dragging from equipped to inventory (unequip)
+    if (sourceSlot !== 'inventory' && target === 'inventory') {
+      isValid = character.inventory.length < 40; // MAX_PLAYER_INVENTORY_SIZE
+    } 
+    // Dragging to an equipment slot (equip or swap)
+    else if (target !== 'inventory') {
+      isValid = template.slot === target || (template.slot === 'ring' && (target === EquipmentSlot.Ring1 || target === EquipmentSlot.Ring2));
+    }
+    
+    return isValid ? 'bg-green-900/50' : 'bg-red-900/50';
+  };
 
   return (
     <ContentPanel title={t('equipment.title')}>
@@ -79,93 +119,77 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {slotOrder.map(slot => {
                 const item = character.equipment[slot];
-                if (item) {
-                    const template = itemTemplates.find(t => t.id === item.templateId);
-                    if (!template) return null;
-                    return (
-                        <ItemListItem
-                            key={item.uniqueId}
-                            item={item}
-                            template={template}
-                            isSelected={selected?.item.uniqueId === item.uniqueId}
-                            onClick={() => handleSelectItem(item, 'equipped')}
-                        />
-                    );
-                } else {
-                    return (
-                        <EmptySlotListItem
-                            key={slot}
-                            slotName={t(`equipment.slot.${slot}`)}
-                            onClick={() => setSelected(null)}
-                        />
-                    );
-                }
+                const template = item ? itemTemplates.find(t => t.id === item.templateId) : null;
+                const dropZoneClassName = getDropZoneClassName(slot);
+                
+                return (
+                    <div
+                        key={slot}
+                        onDrop={() => handleDrop(slot)}
+                        onDragOver={handleDragOver}
+                        onDragEnter={() => handleDragEnter(slot)}
+                        onDragLeave={handleDragLeave}
+                        className={`rounded-lg transition-colors duration-150 ${dropZoneClassName}`}
+                    >
+                        {item && template ? (
+                            <ItemListItem
+                                item={item}
+                                template={template}
+                                isSelected={selectedItem?.uniqueId === item.uniqueId}
+                                onClick={() => setSelectedItem(item)}
+                                draggable
+                                onDragStart={e => handleDragStart(e, item, slot)}
+                                onDragEnd={handleDragEnd}
+                                className={draggedItemInfo?.item.uniqueId === item.uniqueId ? 'opacity-40' : ''}
+                            />
+                        ) : (
+                            <EmptySlotListItem
+                                slotName={t(`equipment.slot.${slot}`)}
+                                onClick={() => setSelectedItem(null)}
+                            />
+                        )}
+                    </div>
+                );
             })}
-        </div>
+          </div>
         </div>
 
-        {/* Details Panel */}
+        {/* Details Panel - No buttons needed anymore */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-           <ItemDetailsPanel item={selected?.item} template={selectedTemplate}>
-              {selected && (
-                <div className="mt-4">
-                  {selected.source === 'inventory' ? (
-                    <button 
-                      onClick={() => onEquipItem(selected.item)}
-                      className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      {t('equipment.equip')}
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => {
-                          const fromSlot = getSlotForEquippedItem(selected.item);
-                          if(fromSlot) {
-                            onUnequipItem(selected.item, fromSlot);
-                            setSelected(null);
-                          }
-                      }}
-                      className="w-full bg-amber-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-amber-700 transition-colors"
-                    >
-                      {t('equipment.unequip')}
-                    </button>
-                  )}
-                </div>
-              )}
-           </ItemDetailsPanel>
+           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} />
         </div>
 
         {/* Backpack List */}
-        <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+        <div 
+            className={`bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 transition-colors duration-150 ${getDropZoneClassName('inventory')}`}
+            onDrop={() => handleDrop('inventory')}
+            onDragOver={handleDragOver}
+            onDragEnter={() => handleDragEnter('inventory')}
+            onDragLeave={handleDragLeave}
+        >
           <div className="flex justify-between items-center mb-4 px-2">
             <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
-            <div className="flex items-center space-x-2">
-                <label htmlFor="item-filter" className="text-sm text-gray-400">{t('equipment.filterByType')}:</label>
-                <select
-                    id="item-filter"
-                    value={filterSlot}
-                    onChange={(e) => {
-                        setFilterSlot(e.target.value as EquipmentSlot | 'consumable' | 'all');
-                        setSelected(null); // Deselect item when filter changes
-                    }}
-                    className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                >
-                    <option value="all">{t('equipment.showAll')}</option>
-                    {Object.values(EquipmentSlot).map(slot => (
-                        <option key={slot} value={slot}>{t(`equipment.slot.${slot}`)}</option>
-                    ))}
-                    <option value="consumable">{t('item.slot.consumable')}</option>
-                </select>
-            </div>
           </div>
-          <ItemList
-            items={filteredInventory}
-            itemTemplates={itemTemplates}
-            selectedItem={selected?.source === 'inventory' ? selected.item : null}
-            onSelectItem={(item) => handleSelectItem(item, 'inventory')}
-          />
+          <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+              {character.inventory.map(item => {
+                  const template = itemTemplates.find(t => t.id === item.templateId);
+                  if (!template) return null;
+                  return (
+                      <ItemListItem
+                          key={item.uniqueId}
+                          item={item}
+                          template={template}
+                          isSelected={selectedItem?.uniqueId === item.uniqueId}
+                          onClick={() => setSelectedItem(item)}
+                          draggable
+                          onDragStart={e => handleDragStart(e, item, 'inventory')}
+                          onDragEnd={handleDragEnd}
+                          className={draggedItemInfo?.item.uniqueId === item.uniqueId ? 'opacity-40' : ''}
+                      />
+                  );
+              })}
+          </div>
         </div>
-
       </div>
     </ContentPanel>
   );

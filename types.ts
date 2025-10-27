@@ -377,6 +377,7 @@ export interface PlayerCharacter {
   camp: CharacterCamp;
   isResting: boolean;
   restStartHealth: number;
+  lastRestTime?: number;
   lastEnergyUpdateTime: number;
   equipment: Record<EquipmentSlot, ItemInstance | null>;
   inventory: ItemInstance[];
@@ -385,6 +386,8 @@ export interface PlayerCharacter {
   pvpProtectionUntil: number; // Timestamp
   questProgress: PlayerQuestProgress[];
   acceptedQuests: string[];
+  lastReward?: ExpeditionRewardSummary | null;
+  traderPurchases?: string[];
 }
 
 export interface TraderSettings {

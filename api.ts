@@ -32,6 +32,9 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
         if (response.status === 401 && errorData.message === 'Invalid credentials.') {
              throw new Error('Invalid username or password.');
         }
+        if (response.status === 401 || response.status === 403) {
+            throw new Error('Invalid token');
+        }
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
     
@@ -66,24 +69,6 @@ export const api = {
              headers: { 'Authorization': `Bearer ${token}` }
         });
     },
-    
-    // NOTE: Direct token verification is replaced by implicit verification
-    // on authenticated endpoints. If a call to getCharacter fails with 401/403,
-    // the token is invalid.
-    async verifyToken(token: string): Promise<void> {
-        // This function is kept for compatibility with the App logic structure,
-        // but the real test is fetching user-specific data. We can make a lightweight
-        // check here, for example by trying to fetch the character.
-        try {
-            await this.getCharacter();
-        } catch (error: any) {
-             if (error.message.includes('Character not found')) {
-                return; // Token is valid, user just doesn't have a character yet.
-             }
-             throw new Error("Invalid token"); // Any other error (like 401/403) means the token is bad.
-        }
-    },
-
 
     // --- Character Management ---
     async getCharacter(): Promise<PlayerCharacter> {
@@ -218,7 +203,13 @@ export const api = {
 
     // --- Game Data Management ---
     async getGameData(): Promise<GameData> {
-        return fetchApi('/game-data');
+        // This endpoint is public, so we call fetch directly without auth
+        const response = await fetch(`${API_BASE_URL}/game-data`);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred fetching game data.' }));
+            throw new Error(errorData.message);
+        }
+        return response.json();
     },
 
     async updateGameData(key: keyof Omit<GameData, 'settings'>, data: any): Promise<void> {
@@ -232,6 +223,19 @@ export const api = {
         return fetchApi('/game-data', {
             method: 'PUT',
             body: JSON.stringify({ key: 'settings', data: settings }),
+        });
+    },
+
+    // --- Trader ---
+    async getTraderInventory(forceRefresh = false): Promise<ItemInstance[]> {
+        const endpoint = forceRefresh ? '/trader/inventory?force=true' : '/trader/inventory';
+        return fetchApi(endpoint);
+    },
+    
+    async buyItem(itemId: string): Promise<PlayerCharacter> {
+        return fetchApi('/trader/buy', {
+            method: 'POST',
+            body: JSON.stringify({ itemId }),
         });
     },
 

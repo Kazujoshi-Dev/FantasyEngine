@@ -31,7 +31,6 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
         return base + Math.round(base * upgradeBonusFactor);
     };
 
-    // FIX: Widened array type to include 'ring' to match the type of template.slot.
     const weaponSlots: (EquipmentSlot | 'consumable' | 'ring')[] = [
         EquipmentSlot.MainHand,
         EquipmentSlot.TwoHand,
@@ -133,13 +132,19 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
 //                                Item List Item
 // ===================================================================================
 
-export const ItemListItem: React.FC<{
+interface ItemListItemProps {
     item: ItemInstance;
     template: ItemTemplate;
     isSelected: boolean;
     onClick: () => void;
     price?: number;
-}> = ({ item, template, isSelected, onClick, price }) => {
+    draggable?: boolean;
+    onDragStart?: (e: React.DragEvent) => void;
+    onDragEnd?: (e: React.DragEvent) => void;
+    className?: string;
+}
+
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, draggable, onDragStart, onDragEnd, className }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
     
@@ -150,9 +155,12 @@ export const ItemListItem: React.FC<{
     return (
         <div
             onClick={onClick}
-            className={`flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-colors duration-150 ${
+            draggable={draggable}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            className={`flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-all duration-150 ${
                 isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : 'hover:bg-slate-700/50'
-            }`}
+            } ${className}`}
         >
             <div className={`relative flex-shrink-0 w-10 h-10 rounded-md border-2 flex items-center justify-center ${rarityStyles[template.rarity].border} ${rarityStyles[template.rarity].bg}`}>
                 {template.icon ? <img src={template.icon} alt={template.name} className="h-full w-full object-contain" /> : <span className="text-xs text-slate-500">?</span>}
@@ -238,7 +246,6 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, select
     );
 };
 
-// FIX: Add missing ItemTooltip component.
 export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate }> = ({ instance, template }) => {
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
