@@ -475,7 +475,7 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
         if (username === 'Kazujoshi') {
             console.log("Special registration for admin user 'Kazujoshi'.");
             const user1Res = await client.query('SELECT username FROM users WHERE id = 1');
-            if (user1Res.rowCount > 0 && user1Res.rows[0].username !== 'Kazujoshi') {
+            if (user1Res.rowCount != null && user1Res.rowCount > 0 && user1Res.rows[0].username !== 'Kazujoshi') {
                  return res.status(409).json({ message: "User ID 1 is already taken by another user. Cannot create admin account." });
             }
 
@@ -716,7 +716,7 @@ apiRouter.post('/character', authenticate, async (req: Request, res: Response) =
         
         const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-
+        
         const finalCharacterData = calculateDerivedStatsOnServer(characterData, itemTemplates);
         finalCharacterData.traderPurchases = [];
 
