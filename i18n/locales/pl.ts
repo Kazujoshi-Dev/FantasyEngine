@@ -284,7 +284,7 @@ export default {
         currentLocation: 'Aktualnie przebywasz w:',
         travels: 'Dostępne Podróże',
         travel: 'Podróżuj',
-        noLocations: 'Nie ma innych lokacji, do których można podróżować.',
+        noLocations: 'Nie ma innych odkrytych lokacji, do których można podróżować.',
         cannotTravel: 'Nie możesz podróżować.',
         lackGold: 'Brakuje Ci złota.',
         lackEnergy: 'Brakuje Ci energii.',

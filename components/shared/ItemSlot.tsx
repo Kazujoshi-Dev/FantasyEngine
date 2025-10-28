@@ -138,19 +138,22 @@ interface ItemListItemProps {
     isSelected: boolean;
     onClick: () => void;
     price?: number;
+    showPrimaryStat?: boolean;
     draggable?: boolean;
     onDragStart?: (e: React.DragEvent) => void;
     onDragEnd?: (e: React.DragEvent) => void;
     className?: string;
 }
 
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, draggable, onDragStart, onDragEnd, className }) => {
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
     
     let primaryStat = '';
-    if (template.damageMin !== undefined) primaryStat = `${template.damageMin}-${template.damageMax} ${t('item.damage')}`;
-    else if (template.armorBonus) primaryStat = `+${template.armorBonus} ${t('statistics.armor')}`;
+    if (showPrimaryStat) {
+        if (template.damageMin !== undefined) primaryStat = `${template.damageMin}-${template.damageMax} ${t('item.damage')}`;
+        else if (template.armorBonus) primaryStat = `+${template.armorBonus} ${t('statistics.armor')}`;
+    }
     
     return (
         <div
@@ -173,14 +176,16 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSe
             </div>
             <div className="flex-grow overflow-hidden">
                 <p className={`font-semibold truncate text-sm ${rarityStyles[template.rarity].text}`}>{template.name}</p>
-                <div className="flex justify-between items-center">
-                    <p className="text-xs text-slate-400">{primaryStat}</p>
-                    {price !== undefined && (
-                        <p className="text-xs text-amber-400 font-semibold flex items-center">
-                            {price} <CoinsIcon className="h-3 w-3 ml-1" />
-                        </p>
-                    )}
-                </div>
+                {(primaryStat || price !== undefined) && (
+                    <div className="flex justify-between items-center">
+                        <p className="text-xs text-slate-400">{primaryStat}</p>
+                        {price !== undefined && (
+                            <p className="text-xs text-amber-400 font-semibold flex items-center">
+                                {price} <CoinsIcon className="h-3 w-3 ml-1" />
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

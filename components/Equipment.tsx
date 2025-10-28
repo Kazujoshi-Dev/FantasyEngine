@@ -163,6 +163,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
                                 onDragStart={e => handleDragStart(e, item, slot)}
                                 onDragEnd={handleDragEnd}
                                 className={draggedItemInfo?.item.uniqueId === item.uniqueId ? 'opacity-40' : ''}
+                                showPrimaryStat={false}
                             />
                         ) : (
                             <EmptySlotListItem
