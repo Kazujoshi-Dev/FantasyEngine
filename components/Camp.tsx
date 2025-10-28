@@ -11,6 +11,7 @@ import { rarityStyles } from './shared/ItemSlot';
 
 interface CampProps {
     character: PlayerCharacter;
+    baseCharacter: PlayerCharacter;
     onToggleResting: () => void;
     onUpgradeCamp: () => void;
     getUpgradeCost: (level: number) => number;
@@ -20,7 +21,7 @@ interface CampProps {
 const REGEN_INTERVAL_SECONDS = 5;
 
 // --- Chest Calculation Helpers ---
-const getChestCapacity = (level: number) => Math.floor(1000 * Math.pow(level, 1.8));
+const getChestCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
 const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
     const gold = Math.floor(500 * Math.pow(level, 2.1));
@@ -46,24 +47,26 @@ const getChestUpgradeCost = (level: number): { gold: number; essences: { type: E
 };
 
 
-const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (character: PlayerCharacter) => void; }> = ({ character, onCharacterUpdate }) => {
+const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCharacter; onCharacterUpdate: (character: PlayerCharacter) => void; }> = ({ character, baseCharacter, onCharacterUpdate }) => {
     const { t } = useTranslation();
-    const { chest, resources } = character;
+    const { chest, resources: displayResources } = character; // Use derived character for UI display
     const [amount, setAmount] = useState<string>('');
     
     const capacity = getChestCapacity(chest.level);
     const upgradeCost = getChestUpgradeCost(chest.level);
-    const canAffordUpgrade = resources.gold >= upgradeCost.gold && upgradeCost.essences.every(e => (resources[e.type] || 0) >= e.amount);
+    
+    // Use baseCharacter for all logic to ensure source of truth
+    const canAffordUpgrade = baseCharacter.resources.gold >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
 
     const handleDeposit = (value: number | 'all') => {
-        const depositAmount = value === 'all' ? resources.gold : Math.min(resources.gold, Number(value));
+        const depositAmount = value === 'all' ? baseCharacter.resources.gold : Math.min(baseCharacter.resources.gold, Number(value));
         if (isNaN(depositAmount) || depositAmount <= 0) return;
 
-        const newChestGold = Math.min(capacity, chest.gold + depositAmount);
-        const actualDeposit = newChestGold - chest.gold;
+        const newChestGold = Math.min(capacity, baseCharacter.chest.gold + depositAmount);
+        const actualDeposit = newChestGold - baseCharacter.chest.gold;
 
         if(actualDeposit > 0) {
-            const newChar = JSON.parse(JSON.stringify(character));
+            const newChar = JSON.parse(JSON.stringify(baseCharacter));
             newChar.resources.gold -= actualDeposit;
             newChar.chest.gold = newChestGold;
             onCharacterUpdate(newChar);
@@ -72,10 +75,10 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (cha
     };
 
     const handleWithdraw = (value: number | 'all') => {
-        const withdrawAmount = value === 'all' ? chest.gold : Math.min(chest.gold, Number(value));
+        const withdrawAmount = value === 'all' ? baseCharacter.chest.gold : Math.min(baseCharacter.chest.gold, Number(value));
         if (isNaN(withdrawAmount) || withdrawAmount <= 0) return;
 
-        const newChar = JSON.parse(JSON.stringify(character));
+        const newChar = JSON.parse(JSON.stringify(baseCharacter));
         newChar.chest.gold -= withdrawAmount;
         newChar.resources.gold += withdrawAmount;
         onCharacterUpdate(newChar);
@@ -84,7 +87,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (cha
     
     const handleUpgrade = () => {
         if (!canAffordUpgrade) return;
-        const newChar = JSON.parse(JSON.stringify(character));
+        const newChar = JSON.parse(JSON.stringify(baseCharacter));
         newChar.resources.gold -= upgradeCost.gold;
         upgradeCost.essences.forEach(e => {
             newChar.resources[e.type] -= e.amount;
@@ -131,8 +134,8 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (cha
                  <div className="space-y-1 text-sm">
                     <p className="flex justify-between items-center">
                         <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
-                        <span className={`font-mono ${resources.gold >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
-                            {resources.gold.toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                        <span className={`font-mono ${displayResources.gold >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                            {displayResources.gold.toLocaleString()} / {upgradeCost.gold.toLocaleString()}
                         </span>
                     </p>
                     {upgradeCost.essences.map(e => {
@@ -140,8 +143,8 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (cha
                          return (
                             <p key={e.type} className="flex justify-between items-center">
                                 <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
-                                <span className={`font-mono ${(resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(resources[e.type] || 0)} / {e.amount}
+                                <span className={`font-mono ${(displayResources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(displayResources[e.type] || 0)} / {e.amount}
                                 </span>
                             </p>
                         )
@@ -154,7 +157,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (cha
 }
 
 
-export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgradeCamp, getUpgradeCost, onCharacterUpdate }) => {
+export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleResting, onUpgradeCamp, getUpgradeCost, onCharacterUpdate }) => {
     const { t } = useTranslation();
     const { camp, isResting, resources, stats, restStartHealth, activeTravel, activeExpedition } = character;
     const isTraveling = activeTravel !== null;
@@ -282,7 +285,7 @@ export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgrad
                 </div>
                 
                 {/* Chest Panel */}
-                <ChestPanel character={character} onCharacterUpdate={onCharacterUpdate} />
+                <ChestPanel character={character} baseCharacter={baseCharacter} onCharacterUpdate={onCharacterUpdate} />
 
             </div>
         </ContentPanel>
