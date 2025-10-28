@@ -26,6 +26,43 @@ const slotOrder: EquipmentSlot[] = [
     EquipmentSlot.TwoHand,
 ];
 
+const StatDisplayRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+    <div className="flex justify-between items-center py-1 px-2 rounded-lg text-sm hover:bg-slate-800/50">
+        <span className="font-medium text-gray-400">{label}</span>
+        <span className="font-mono font-bold text-white">{value}</span>
+    </div>
+);
+
+const CombatStatsPanel: React.FC<{ character: PlayerCharacter }> = ({ character }) => {
+    const { t } = useTranslation();
+    const stats = character.stats;
+
+    return (
+        <div className="flex flex-col h-full">
+            <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.combatStats')}</h3>
+            <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-2 mb-1">{t('statistics.vitals')}</h4>
+                <StatDisplayRow label={t('statistics.health')} value={`${stats.currentHealth.toFixed(0)} / ${stats.maxHealth}`} />
+                <StatDisplayRow label={t('statistics.mana')} value={`${stats.currentMana.toFixed(0)} / ${stats.maxMana}`} />
+                <StatDisplayRow label={t('statistics.energyLabel')} value={`${stats.currentEnergy} / ${stats.maxEnergy}`} />
+
+                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-4 mb-1">{t('statistics.combatStats')}</h4>
+                <StatDisplayRow label={t('statistics.physicalDamage')} value={`${stats.minDamage} - ${stats.maxDamage}`} />
+                <StatDisplayRow label={t('statistics.magicDamage')} value={`${stats.magicDamageMin} - ${stats.magicDamageMax}`} />
+                <StatDisplayRow label={t('statistics.armor')} value={stats.armor} />
+                <StatDisplayRow label={t('statistics.critChance')} value={`${stats.critChance.toFixed(1)}%`} />
+                <StatDisplayRow label={t('statistics.critDamageModifier')} value={`${stats.critDamageModifier}%`} />
+                <StatDisplayRow label={t('statistics.attacksPerTurn')} value={stats.attacksPerRound} />
+                <StatDisplayRow label={t('statistics.manaRegen')} value={stats.manaRegen} />
+                <StatDisplayRow label={t('statistics.armorPenetration')} value={`${stats.armorPenetrationPercent}% / ${stats.armorPenetrationFlat}`} />
+                <StatDisplayRow label={t('statistics.lifeSteal')} value={`${stats.lifeStealPercent}% / ${stats.lifeStealFlat}`} />
+                <StatDisplayRow label={t('statistics.manaSteal')} value={`${stats.manaStealPercent}% / ${stats.manaStealFlat}`} />
+            </div>
+        </div>
+    );
+};
+
+
 export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, onEquipItem, onUnequipItem }) => {
   const { t } = useTranslation();
   
@@ -98,7 +135,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
 
   return (
     <ContentPanel title={t('equipment.title')}>
-       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
+       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 h-[75vh]">
         
         {/* Equipped Items Panel - NOW A DROPZONE */}
         <div 
@@ -143,6 +180,12 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
            <ItemDetailsPanel item={selectedItem} template={selectedTemplate} />
         </div>
+
+        {/* Combat Stats Panel */}
+        <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
+            <CombatStatsPanel character={character} />
+        </div>
+
 
         {/* Backpack Panel - NOW A DROPZONE */}
         <div 
