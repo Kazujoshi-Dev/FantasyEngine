@@ -398,9 +398,21 @@ const App: React.FC = () => {
     if (!baseCharacter || !gameData) return;
     const template = gameData.itemTemplates.find(t => t.id === itemToEquip.templateId);
     if (!template) return;
+    
+    // Level check
     if (baseCharacter.level < template.requiredLevel) {
         alert(t('equipment.levelTooLow'));
         return;
+    }
+    
+    // Stats check
+    if (template.requiredStats) {
+        for (const [stat, requiredValue] of Object.entries(template.requiredStats)) {
+            if (baseCharacter.stats[stat as keyof CharacterStats] < requiredValue) {
+                alert(t('equipment.attributeRequirementNotMet', { stat: t(`statistics.${stat}`), value: requiredValue }));
+                return;
+            }
+        }
     }
 
     const newChar = JSON.parse(JSON.stringify(baseCharacter));
@@ -446,14 +458,82 @@ const App: React.FC = () => {
   };
   
   const handleUnequipItem = (itemToUnequip: ItemInstance, fromSlot: EquipmentSlot) => {
-    if (!baseCharacter) return;
-    if (baseCharacter.inventory.length >= MAX_PLAYER_INVENTORY_SIZE) {
-        alert(t('equipment.backpackFull'));
+    if (!baseCharacter || !gameData) return;
+    
+    const newChar = JSON.parse(JSON.stringify(baseCharacter));
+    
+    // --- Start Cascade Unequip Logic ---
+    let itemsToBeUnequipped: ItemInstance[] = [itemToUnequip];
+    let automaticallyUnequipped: ItemInstance[] = [];
+    
+    // Simulate removing the initial item to check consequences
+    const simulatedEquipment = { ...newChar.equipment };
+    simulatedEquipment[fromSlot] = null;
+    
+    let itemWasRemoved: boolean;
+    do {
+        itemWasRemoved = false;
+        for (const slot in simulatedEquipment) {
+            const equippedItem = simulatedEquipment[slot as EquipmentSlot];
+            if (equippedItem) {
+                const template = gameData.itemTemplates.find(t => t.id === equippedItem.templateId);
+                if (template?.requiredStats) {
+                    // Check requirements against base stats MINUS bonuses from items that are already marked for removal
+                    const tempCharWithoutBonuses: PlayerCharacter = {
+                        ...baseCharacter,
+                        equipment: simulatedEquipment
+                    };
+                    const charWithSimulatedBonuses = calculateDerivedStats(tempCharWithoutBonuses, gameData);
+
+                    let meetsReqs = true;
+                    for (const [stat, requiredValue] of Object.entries(template.requiredStats)) {
+                        // IMPORTANT: We check against BASE stats, not derived stats
+                        if (baseCharacter.stats[stat as keyof CharacterStats] < requiredValue) {
+                            meetsReqs = false;
+                            break;
+                        }
+                    }
+
+                    if (!meetsReqs) {
+                        itemsToBeUnequipped.push(equippedItem);
+                        simulatedEquipment[slot as EquipmentSlot] = null;
+                        itemWasRemoved = true;
+                    }
+                }
+            }
+        }
+    } while (itemWasRemoved);
+
+    // --- Inventory Space Check ---
+    if (newChar.inventory.length + itemsToBeUnequipped.length > MAX_PLAYER_INVENTORY_SIZE) {
+        alert(t('equipment.cascadeUnequipNoSpace', { count: itemsToBeUnequipped.length - 1 }));
         return;
     }
-    const newChar = JSON.parse(JSON.stringify(baseCharacter));
+    
+    // --- Apply the unequip ---
     newChar.equipment[fromSlot] = null;
     newChar.inventory.push(itemToUnequip);
+
+    // Process cascaded items
+    itemsToBeUnequipped.slice(1).forEach(item => {
+        for (const slot in newChar.equipment) {
+            if (newChar.equipment[slot as EquipmentSlot]?.uniqueId === item.uniqueId) {
+                newChar.equipment[slot as EquipmentSlot] = null;
+                newChar.inventory.push(item);
+                automaticallyUnequipped.push(item);
+                break;
+            }
+        }
+    });
+
+    if (automaticallyUnequipped.length > 0) {
+        const itemNames = automaticallyUnequipped.map(item => {
+            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+            return template?.name || 'Unknown Item';
+        }).join(', ');
+        setTimeout(() => alert(t('equipment.autoUnequipped', { itemsList: itemNames })), 100);
+    }
+    
     handleCharacterUpdate(newChar);
   };
 
@@ -779,7 +859,7 @@ const App: React.FC = () => {
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} />}
-          {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
+          {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
           {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onClaimRewards={handleClaimRewards} lastReward={lastReward} onClearLastReward={() => setLastReward(null)} itemTemplates={gameData.itemTemplates} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}

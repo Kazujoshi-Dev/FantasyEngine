@@ -121,7 +121,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                 </div>
 
                 {/* Requirements */}
-                 {hasRequirements && baseStats && (
+                 {hasRequirements && baseCharacter && (
                      <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-300 space-y-1">
                         <h5 className="font-semibold text-gray-400 text-base mb-1">{t('item.requirements')}</h5>
                         <p className={`flex justify-between ${baseCharacter.level >= template.requiredLevel ? 'text-green-400' : 'text-red-400'}`}>
@@ -129,7 +129,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                             <span>{template.requiredLevel}</span>
                         </p>
                         {template.requiredStats && Object.entries(template.requiredStats).map(([stat, value]) => {
-                            if (!value) return null;
+                            if (!value || !baseStats) return null;
                             const meetsReq = baseStats[stat as keyof CharacterStats] >= value;
                             return (
                                 <p key={stat} className={`flex justify-between ${meetsReq ? 'text-green-400' : 'text-red-400'}`}>
@@ -275,7 +275,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, select
     );
 };
 
-export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate }> = ({ instance, template }) => {
+export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, baseCharacter?: PlayerCharacter }> = ({ instance, template, baseCharacter }) => {
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
 
@@ -327,7 +327,7 @@ export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTempl
             style={style}
             className="absolute w-72 p-3 bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20"
         >
-            <ItemDetailsPanel item={instance} template={template} />
+            <ItemDetailsPanel item={instance} template={template} baseCharacter={baseCharacter} />
         </div>
     );
 };
