@@ -209,6 +209,11 @@ const App: React.FC = () => {
         api.getTraderInventory(), // Now authenticated
       ]);
       
+      // Ensure chest exists for old characters
+      if (!charData.chest) {
+        charData.chest = { level: 1, gold: 0 };
+      }
+      
       setAllCharacterNames(allNamesData);
       setTraderInventory(traderData);
 
@@ -242,12 +247,16 @@ const App: React.FC = () => {
 
   const handleCharacterUpdate = useCallback(async (character: PlayerCharacter, fromServer = false) => {
     if (!gameData) return;
-    const calculatedForUI = calculateDerivedStats(character, gameData);
+    
+    // Ensure chest exists for old characters on any update
+    const sanitizedCharacter = character.chest ? character : { ...character, chest: { level: 1, gold: 0 }};
+
+    const calculatedForUI = calculateDerivedStats(sanitizedCharacter, gameData);
     setPlayerCharacter(calculatedForUI); // Optimistic UI update
     
     if (!fromServer) {
         try {
-            const serverChar = await api.updateCharacter(character);
+            const serverChar = await api.updateCharacter(sanitizedCharacter);
             const finalChar = calculateDerivedStats(serverChar, gameData);
             setPlayerCharacter(finalChar); // Final update from server
             setBaseCharacter(JSON.parse(JSON.stringify(serverChar)));
@@ -256,7 +265,7 @@ const App: React.FC = () => {
             await fullCharacterSync(); // On error, resync with server to prevent desync
         }
     } else {
-        setBaseCharacter(JSON.parse(JSON.stringify(character)));
+        setBaseCharacter(JSON.parse(JSON.stringify(sanitizedCharacter)));
     }
   }, [calculateDerivedStats, gameData, fullCharacterSync]);
 
