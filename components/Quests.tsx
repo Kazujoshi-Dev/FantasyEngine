@@ -1,10 +1,11 @@
 import React from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType } from '../types';
+import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { QuestIcon } from './icons/QuestIcon';
+import { rarityStyles } from './shared/ItemSlot';
 
 interface QuestsProps {
     character: PlayerCharacter;
@@ -65,6 +66,14 @@ const QuestCard: React.FC<{
 
 
     const progressPercentage = (progress.progress / quest.objective.amount) * 100;
+    
+    const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+        [EssenceType.Common]: ItemRarity.Common,
+        [EssenceType.Uncommon]: ItemRarity.Uncommon,
+        [EssenceType.Rare]: ItemRarity.Rare,
+        [EssenceType.Epic]: ItemRarity.Epic,
+        [EssenceType.Legendary]: ItemRarity.Legendary,
+    };
 
     return (
         <div key={quest.id} className="bg-slate-900/40 p-6 rounded-xl border border-slate-700/50">
@@ -93,8 +102,44 @@ const QuestCard: React.FC<{
                 <div>
                     <h4 className="font-semibold text-gray-300 mb-2">{t('quests.rewards')}</h4>
                     <div className="bg-slate-800/50 p-4 rounded-lg space-y-2">
-                        <p className="flex items-center text-amber-400 font-semibold"><CoinsIcon className="h-5 w-5 mr-2"/> {quest.rewards.gold.toLocaleString()} {t('resources.gold')}</p>
-                        <p className="flex items-center text-sky-400 font-semibold"><StarIcon className="h-5 w-5 mr-2"/> {quest.rewards.experience.toLocaleString()} XP</p>
+                        {quest.rewards.gold > 0 && (
+                            <p className="flex items-center text-amber-400 font-semibold"><CoinsIcon className="h-5 w-5 mr-2"/> {quest.rewards.gold.toLocaleString()} {t('resources.gold')}</p>
+                        )}
+                        {quest.rewards.experience > 0 && (
+                            <p className="flex items-center text-sky-400 font-semibold"><StarIcon className="h-5 w-5 mr-2"/> {quest.rewards.experience.toLocaleString()} XP</p>
+                        )}
+                        {quest.rewards.itemRewards?.map((reward, index) => {
+                            const template = itemTemplates.find(t => t.id === reward.templateId);
+                            if (!template) return null;
+                            return (
+                                <p key={`item-${index}`} className={`flex items-center font-semibold text-sm ${rarityStyles[template.rarity].text}`}>
+                                    {reward.quantity}x {template.name}
+                                </p>
+                            );
+                        })}
+                        {quest.rewards.resourceRewards?.map((reward, index) => {
+                            const rarity = essenceToRarityMap[reward.resource];
+                            const colorClass = rarityStyles[rarity]?.text || 'text-gray-300';
+                            return (
+                                <p key={`resource-${index}`} className={`flex items-center font-semibold text-sm ${colorClass}`}>
+                                    {reward.quantity}x {t(`resources.${reward.resource}`)}
+                                </p>
+                            );
+                        })}
+                        {quest.rewards.lootTable && quest.rewards.lootTable.length > 0 && (
+                            <div className="pt-2 mt-2 border-t border-slate-700/50">
+                                <p className="text-xs text-gray-400 mb-1">Możliwe łupy:</p>
+                                {quest.rewards.lootTable.map((drop, index) => {
+                                    const template = itemTemplates.find(t => t.id === drop.templateId);
+                                    if (!template) return null;
+                                    return (
+                                        <p key={`loot-${index}`} className={`text-sm ${rarityStyles[template.rarity].text}`}>
+                                            {template.name} ({drop.chance}%)
+                                        </p>
+                                    )
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
