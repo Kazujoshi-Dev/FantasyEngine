@@ -644,7 +644,7 @@ async function completeExpedition(
             // --- Quest Progress Update Logic ---
             const acceptedKillQuests = tempChar.acceptedQuests
                 .map((questId: string) => allQuests.find((q: Quest) => q.id === questId))
-                .filter((q): q is Quest => !!q && q.objective.type === QuestType.Kill && q.objective.targetId === enemy.id);
+                .filter((q: Quest | undefined): q is Quest => !!q && q.objective.type === QuestType.Kill && q.objective.targetId === enemy.id);
             
             for (const quest of acceptedKillQuests) {
                 const progressIndex = tempChar.questProgress.findIndex((p: PlayerQuestProgress) => p.questId === quest.id);
