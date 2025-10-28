@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer } from '../types';
