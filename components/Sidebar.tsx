@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tab, PlayerCharacter, Location } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
@@ -67,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
           </div>
         )}
       </div>
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-3 overflow-y-auto">
         {visibleMenuItems.map((item) => {
           const isResting = playerCharacter?.isResting;
           const isTraveling = !!playerCharacter?.activeTravel;
@@ -112,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
           )
         })}
       </nav>
-      <div className="p-4 mt-auto border-t border-slate-700/50">
+      <div className="p-4 border-t border-slate-700/50">
          <a
             href="https://suppi.pl/kazujoshi-dev"
             target="_blank"
