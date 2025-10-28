@@ -282,7 +282,17 @@ export default {
         upgrade: 'Upgrade',
         notEnoughGold: "You don't have enough gold to upgrade the camp.",
         mustStopResting: 'You must stop resting to upgrade the camp.',
-        unavailableDuringTravel: 'Camp actions are unavailable while traveling.'
+        unavailableDuringTravel: 'Camp actions are unavailable while traveling.',
+        chestTitle: 'Chest',
+        chestLevel: 'Chest Level',
+        chestCapacity: 'Capacity',
+        amount: 'Amount',
+        deposit: 'Deposit',
+        withdraw: 'Withdraw',
+        depositAll: 'Deposit All',
+        withdrawAll: 'Withdraw All',
+        upgradeChest: 'Upgrade Chest',
+        notEnoughEssenceForChest: "You don't have enough essence to upgrade the chest."
     },
     location: {
         title: 'Your Location',

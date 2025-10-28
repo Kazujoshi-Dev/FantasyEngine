@@ -282,7 +282,17 @@ export default {
         upgrade: 'Ulepsz',
         notEnoughGold: "Nie masz wystarczająco złota, aby ulepszyć obóz.",
         mustStopResting: 'Musisz przestać odpoczywać, aby ulepszyć obóz.',
-        unavailableDuringTravel: 'Akcje w obozie są niedostępne podczas podróży.'
+        unavailableDuringTravel: 'Akcje w obozie są niedostępne podczas podróży.',
+        chestTitle: 'Skrzynia',
+        chestLevel: 'Poziom Skrzyni',
+        chestCapacity: 'Pojemność',
+        amount: 'Ilość',
+        deposit: 'Wpłać',
+        withdraw: 'Wypłać',
+        depositAll: 'Wpłać wszystko',
+        withdrawAll: 'Wypłać wszystko',
+        upgradeChest: 'Ulepsz Skrzynię',
+        notEnoughEssenceForChest: "Nie masz wystarczająco esencji, aby ulepszyć skrzynię."
     },
     location: {
         title: 'Twoja Lokacja',

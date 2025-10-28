@@ -245,6 +245,11 @@ export interface CharacterCamp {
     level: number;
 }
 
+export interface CharacterChest {
+    level: number;
+    gold: number;
+}
+
 export interface ActiveTravel {
   destinationLocationId: string;
   finishTime: number; // timestamp
@@ -376,6 +381,7 @@ export interface PlayerCharacter {
   activeExpedition: ActiveExpedition | null;
   activeTravel: ActiveTravel | null;
   camp: CharacterCamp;
+  chest: CharacterChest;
   isResting: boolean;
   restStartHealth: number;
   lastRestTime?: number;

@@ -1,21 +1,160 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter } from '../types';
+import { PlayerCharacter, CharacterChest, EssenceType, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { HomeIcon } from './icons/HomeIcon';
+import { ChestIcon } from './icons/ChestIcon';
 import { useTranslation } from '../contexts/LanguageContext';
+import { rarityStyles } from './shared/ItemSlot';
 
 interface CampProps {
     character: PlayerCharacter;
     onToggleResting: () => void;
     onUpgradeCamp: () => void;
     getUpgradeCost: (level: number) => number;
+    onCharacterUpdate: (character: PlayerCharacter) => void;
 }
 
 const REGEN_INTERVAL_SECONDS = 5;
 
-export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgradeCamp, getUpgradeCost }) => {
+// --- Chest Calculation Helpers ---
+const getChestCapacity = (level: number) => Math.floor(1000 * Math.pow(level, 1.8));
+
+const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
+    const gold = Math.floor(500 * Math.pow(level, 2.1));
+    const essences: { type: EssenceType; amount: number }[] = [];
+
+    if (level <= 10) {
+        essences.push({ type: EssenceType.Common, amount: level * 5 });
+    } else if (level <= 20) {
+        essences.push({ type: EssenceType.Common, amount: 50 });
+        essences.push({ type: EssenceType.Uncommon, amount: (level - 10) * 2 });
+    } else if (level <= 30) {
+        essences.push({ type: EssenceType.Uncommon, amount: 20 });
+        essences.push({ type: EssenceType.Rare, amount: (level - 20) * 1 });
+    } else if (level <= 40) {
+        essences.push({ type: EssenceType.Rare, amount: 10 });
+        essences.push({ type: EssenceType.Epic, amount: Math.ceil((level - 30) / 2) });
+    } else {
+        essences.push({ type: EssenceType.Epic, amount: 5 });
+        essences.push({ type: EssenceType.Legendary, amount: Math.ceil((level - 40) / 5) });
+    }
+    
+    return { gold, essences };
+};
+
+
+const ChestPanel: React.FC<{ character: PlayerCharacter; onCharacterUpdate: (character: PlayerCharacter) => void; }> = ({ character, onCharacterUpdate }) => {
+    const { t } = useTranslation();
+    const { chest, resources } = character;
+    const [amount, setAmount] = useState<string>('');
+    
+    const capacity = getChestCapacity(chest.level);
+    const upgradeCost = getChestUpgradeCost(chest.level);
+    const canAffordUpgrade = resources.gold >= upgradeCost.gold && upgradeCost.essences.every(e => (resources[e.type] || 0) >= e.amount);
+
+    const handleDeposit = (value: number | 'all') => {
+        const depositAmount = value === 'all' ? resources.gold : Math.min(resources.gold, Number(value));
+        if (isNaN(depositAmount) || depositAmount <= 0) return;
+
+        const newChestGold = Math.min(capacity, chest.gold + depositAmount);
+        const actualDeposit = newChestGold - chest.gold;
+
+        if(actualDeposit > 0) {
+            const newChar = JSON.parse(JSON.stringify(character));
+            newChar.resources.gold -= actualDeposit;
+            newChar.chest.gold = newChestGold;
+            onCharacterUpdate(newChar);
+        }
+        setAmount('');
+    };
+
+    const handleWithdraw = (value: number | 'all') => {
+        const withdrawAmount = value === 'all' ? chest.gold : Math.min(chest.gold, Number(value));
+        if (isNaN(withdrawAmount) || withdrawAmount <= 0) return;
+
+        const newChar = JSON.parse(JSON.stringify(character));
+        newChar.chest.gold -= withdrawAmount;
+        newChar.resources.gold += withdrawAmount;
+        onCharacterUpdate(newChar);
+        setAmount('');
+    };
+    
+    const handleUpgrade = () => {
+        if (!canAffordUpgrade) return;
+        const newChar = JSON.parse(JSON.stringify(character));
+        newChar.resources.gold -= upgradeCost.gold;
+        upgradeCost.essences.forEach(e => {
+            newChar.resources[e.type] -= e.amount;
+        });
+        newChar.chest.level += 1;
+        onCharacterUpdate(newChar);
+    };
+
+    const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+        [EssenceType.Common]: ItemRarity.Common,
+        [EssenceType.Uncommon]: ItemRarity.Uncommon,
+        [EssenceType.Rare]: ItemRarity.Rare,
+        [EssenceType.Epic]: ItemRarity.Epic,
+        [EssenceType.Legendary]: ItemRarity.Legendary,
+    };
+
+    return (
+         <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between h-full">
+            <div>
+                <h3 className="text-2xl font-bold text-indigo-400 mb-4 flex items-center">
+                    <ChestIcon className="h-6 w-6 mr-2" />
+                    {t('camp.chestTitle')}
+                </h3>
+                <div className="space-y-2 text-lg mb-4">
+                    <p className="flex justify-between"><span className="text-gray-300">{t('camp.chestLevel')}:</span> <span className="font-bold text-white">{chest.level}</span></p>
+                    <p className="flex justify-between"><span className="text-gray-300">{t('camp.chestCapacity')}:</span> <span className="font-mono font-bold text-amber-400">{capacity.toLocaleString()}</span></p>
+                </div>
+                 <div className="w-full bg-slate-700 rounded-full h-4 relative my-4">
+                    <div className="bg-amber-600 h-4 rounded-full" style={{ width: `${(chest.gold / capacity) * 100}%` }}></div>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{chest.gold.toLocaleString()} / {capacity.toLocaleString()}</span>
+                </div>
+                <div className="space-y-2">
+                    <input type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder={t('camp.amount') || 'Amount'} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-center" />
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <button onClick={() => handleDeposit(Number(amount))} className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-700 font-bold">{t('camp.deposit')}</button>
+                        <button onClick={() => handleWithdraw(Number(amount))} className="w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-700 font-bold">{t('camp.withdraw')}</button>
+                        <button onClick={() => handleDeposit('all')} className="w-full py-2 rounded-lg bg-green-800 hover:bg-green-700">{t('camp.depositAll')}</button>
+                        <button onClick={() => handleWithdraw('all')} className="w-full py-2 rounded-lg bg-amber-800 hover:bg-amber-700">{t('camp.withdrawAll')}</button>
+                    </div>
+                </div>
+            </div>
+            <div className="border-t border-slate-700/50 mt-6 pt-4">
+                <h4 className="text-lg font-bold text-gray-300 mb-2">{t('camp.upgradeChest')} (Lvl {chest.level + 1})</h4>
+                 <div className="space-y-1 text-sm">
+                    <p className="flex justify-between items-center">
+                        <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
+                        <span className={`font-mono ${resources.gold >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                            {resources.gold.toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                        </span>
+                    </p>
+                    {upgradeCost.essences.map(e => {
+                         const rarity = essenceToRarityMap[e.type];
+                         return (
+                            <p key={e.type} className="flex justify-between items-center">
+                                <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
+                                <span className={`font-mono ${(resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(resources[e.type] || 0)} / {e.amount}
+                                </span>
+                            </p>
+                        )
+                    })}
+                </div>
+                <button onClick={handleUpgrade} disabled={!canAffordUpgrade} className="w-full mt-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed">{t('camp.upgrade')}</button>
+            </div>
+        </div>
+    );
+}
+
+
+export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgradeCamp, getUpgradeCost, onCharacterUpdate }) => {
     const { t } = useTranslation();
     const { camp, isResting, resources, stats, restStartHealth, activeTravel, activeExpedition } = character;
     const isTraveling = activeTravel !== null;
@@ -43,7 +182,7 @@ export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgrad
 
     return (
         <ContentPanel title={t('camp.title')}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {/* Status and Resting Panel */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between">
                     <div>
@@ -141,6 +280,10 @@ export const Camp: React.FC<CampProps> = ({ character, onToggleResting, onUpgrad
                         </div>
                     )}
                 </div>
+                
+                {/* Chest Panel */}
+                <ChestPanel character={character} onCharacterUpdate={onCharacterUpdate} />
+
             </div>
         </ContentPanel>
     );

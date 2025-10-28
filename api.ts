@@ -120,6 +120,7 @@ export const api = {
             activeExpedition: null,
             activeTravel: null,
             camp: { level: 1 },
+            chest: { level: 1, gold: 0 },
             isResting: false,
             restStartHealth: 0,
             lastEnergyUpdateTime: lastFullHourTimestamp,
