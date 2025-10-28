@@ -83,29 +83,24 @@ const DisenchantPanel: React.FC<{
                     onSelectItem={setSelectedItem}
                 />
             </div>
-            <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center text-center min-h-0">
+            <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center justify-start text-center min-h-0">
+                 <AnvilIcon className="h-10 w-10 text-slate-500 mb-2" />
                  {selectedTemplate && selectedItem ? (
-                     <div className="w-full max-w-sm flex flex-col justify-between h-full">
-                         {/* Top Part */}
-                         <div>
-                            <AnvilIcon className="h-12 w-12 text-slate-500 mb-4 mx-auto" />
-                            <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('blacksmith.disenchantItem')}</h3>
-                            <ItemDetailsPanel item={selectedItem} template={selectedTemplate}/>
-                         </div>
+                     <div className="w-full max-w-sm">
+                         <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('blacksmith.disenchantItem')}</h3>
+                         
+                         <ItemDetailsPanel item={selectedItem} template={selectedTemplate} showIcon={false}/>
 
-                        {/* Bottom Part */}
-                        <div>
-                             <div className="space-y-3 bg-slate-800/50 p-4 rounded-lg mt-6">
-                                 <div className="flex justify-between text-lg"><span className="text-gray-300">{t('blacksmith.disenchantCost')}</span><span className="font-mono font-bold text-amber-400 flex items-center">{disenchantCost} <CoinsIcon className="h-4 w-4 ml-1" /></span></div>
-                                 <div className="flex justify-between text-lg">
-                                    <span className="text-gray-300">{t('blacksmith.potentialYield')}</span>
-                                    <span className={`font-mono font-bold ${textColorClass}`}>{yieldAmount} {yieldEssenceType ? t(`resources.${yieldEssenceType}`) : ''}</span>
-                                 </div>
+                         <div className="space-y-3 bg-slate-800/50 p-4 rounded-lg mt-6">
+                             <div className="flex justify-between text-lg"><span className="text-gray-300">{t('blacksmith.disenchantCost')}</span><span className="font-mono font-bold text-amber-400 flex items-center">{disenchantCost} <CoinsIcon className="h-4 w-4 ml-1" /></span></div>
+                             <div className="flex justify-between text-lg">
+                                <span className="text-gray-300">{t('blacksmith.potentialYield')}</span>
+                                <span className={`font-mono font-bold ${textColorClass}`}>{yieldAmount} {yieldEssenceType ? t(`resources.${yieldEssenceType}`) : ''}</span>
                              </div>
-                             <button onClick={handleDisenchantClick} disabled={character.resources.gold < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
-                                {t('blacksmith.disenchant')}
-                             </button>
-                        </div>
+                         </div>
+                         <button onClick={handleDisenchantClick} disabled={character.resources.gold < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+                            {t('blacksmith.disenchant')}
+                         </button>
                     </div>
                  ) : (
                     <div className="flex-grow flex flex-col items-center justify-center">
