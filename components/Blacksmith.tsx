@@ -7,6 +7,7 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { AnvilIcon } from './icons/AnvilIcon';
 import { ArrowRightIcon } from './icons/ArrowRightIcon';
 import { rarityStyles } from './shared/ItemSlot';
+import { StarIcon } from './icons/StarIcon';
 
 type BlacksmithTab = 'disenchant' | 'upgrade';
 type NotificationType = { message: string; type: 'success' | 'error' };
@@ -72,6 +73,32 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
+    // Stat calculation logic moved here from ItemDetailsPanel for a custom compact view
+    const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
+        if (!selectedItem || !selectedTemplate) return { upgradeLevel: 0 };
+
+        const upgradeLevel = selectedItem.upgradeLevel || 0;
+        const upgradeBonusFactor = upgradeLevel * 0.1;
+        
+        const calculateUpgradedStat = (base?: number): number | undefined => {
+            if (base === undefined) return undefined;
+            return base + Math.round(base * upgradeBonusFactor);
+        };
+
+        return {
+            upgradeLevel,
+            finalDamageMin: calculateUpgradedStat(selectedTemplate.damageMin),
+            finalDamageMax: calculateUpgradedStat(selectedTemplate.damageMax),
+            finalCritChanceBonus: selectedTemplate.critChanceBonus !== undefined ? (selectedTemplate.critChanceBonus + selectedTemplate.critChanceBonus * upgradeBonusFactor) : undefined,
+            attacksPerRound: selectedTemplate.attacksPerRound,
+            finalArmorBonus: calculateUpgradedStat(selectedTemplate.armorBonus),
+            statBonusEntries: Object.entries(selectedTemplate.statsBonus)
+                .filter(([, value]) => value)
+                .map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) })),
+        };
+    }, [selectedItem, selectedTemplate]);
+
+
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fade-in h-[70vh]">
              <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
@@ -89,7 +116,30 @@ const DisenchantPanel: React.FC<{
                      <div className="w-full max-w-sm">
                          <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('blacksmith.disenchantItem')}</h3>
                          
-                         <ItemDetailsPanel item={selectedItem} template={selectedTemplate} showIcon={false}/>
+                         <div className="bg-slate-800/50 p-4 rounded-lg text-left">
+                            <h4 className={`font-bold text-xl mb-1 ${rarityStyles[selectedTemplate.rarity].text}`}>
+                                {selectedTemplate.name} {upgradeLevel > 0 && `+${upgradeLevel}`}
+                            </h4>
+                            <p className="text-xs text-gray-400 italic mb-3">{selectedTemplate.description}</p>
+                            
+                            <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
+                                {finalDamageMin !== undefined && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
+                                {attacksPerRound && <p className="flex justify-between"><span>{t('item.attacksPerRound')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
+                                {finalArmorBonus && finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
+                                {finalCritChanceBonus && finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}
+                                {statBonusEntries?.map(({ key, value }) => (
+                                    <p key={key} className="flex justify-between text-green-300/80"><span>{t(`statistics.${key}`)}</span> <span className="font-mono">+{value}</span></p>
+                                ))}
+                            </div>
+
+                            <div className="border-t border-slate-700/50 mt-2 pt-2">
+                                <p className="flex justify-between text-sm">
+                                    <span>{t('item.value')}:</span> 
+                                    <span className="font-mono text-amber-400 flex items-center">{selectedTemplate.value} <CoinsIcon className="h-4 w-4 ml-1"/></span>
+                                </p>
+                            </div>
+                        </div>
+
 
                          <div className="space-y-3 bg-slate-800/50 p-4 rounded-lg mt-6">
                              <div className="flex justify-between text-lg"><span className="text-gray-300">{t('blacksmith.disenchantCost')}</span><span className="font-mono font-bold text-amber-400 flex items-center">{disenchantCost} <CoinsIcon className="h-4 w-4 ml-1" /></span></div>
