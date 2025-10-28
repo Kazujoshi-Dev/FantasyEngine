@@ -1,7 +1,4 @@
 
-
-
-
 import React from 'react';
 import { Tab, PlayerCharacter, Location } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
@@ -58,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
   });
 
   return (
-    <aside className="w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex-shrink-0 flex flex-col">
+    <aside className="w-56 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex-shrink-0 flex flex-col">
       <div className="p-6 border-b border-slate-700/50">
         <h1 className="text-2xl font-bold text-white tracking-wider mb-2">
           {t('sidebar.title')}
