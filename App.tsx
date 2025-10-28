@@ -722,9 +722,38 @@ const App: React.FC = () => {
       if (!baseCharacter || !gameData) return;
       const quest = gameData.quests.find(q => q.id === questId);
       if (!quest) return;
-
+  
       let newChar = JSON.parse(JSON.stringify(baseCharacter));
-
+      
+      // --- Calculate item rewards and check for inventory space BEFORE making changes ---
+      const itemsToAdd: ItemInstance[] = [];
+      if (quest.rewards.itemRewards) {
+          for (const reward of quest.rewards.itemRewards) {
+              for (let i = 0; i < reward.quantity; i++) {
+                  itemsToAdd.push({ uniqueId: crypto.randomUUID(), templateId: reward.templateId });
+              }
+          }
+      }
+      if (quest.rewards.lootTable) {
+          for (const drop of quest.rewards.lootTable) {
+              if (Math.random() * 100 < drop.chance) {
+                  itemsToAdd.push({ uniqueId: crypto.randomUUID(), templateId: drop.templateId });
+              }
+          }
+      }
+  
+      let itemsToRemoveCount = 0;
+      if (quest.objective.type === QuestType.Gather) {
+          itemsToRemoveCount = quest.objective.amount;
+      }
+      
+      if (newChar.inventory.length - itemsToRemoveCount + itemsToAdd.length > MAX_PLAYER_INVENTORY_SIZE) {
+          alert(t('equipment.backpackFull'));
+          return;
+      }
+      // --- End of pre-check ---
+  
+      // --- Handle Objective (remove items/gold/resources) ---
       if (quest.objective.type === QuestType.Gather) {
           let needed = quest.objective.amount;
           const newInventory = [];
@@ -745,10 +774,19 @@ const App: React.FC = () => {
            if ((newChar.resources[resourceType] || 0) < quest.objective.amount) { alert(t('quests.notEnoughEssence')); return; }
            newChar.resources[resourceType] -= quest.objective.amount;
       }
-
+  
+      // --- Add Rewards ---
       newChar.resources.gold += quest.rewards.gold;
       newChar.experience += quest.rewards.experience;
-
+      newChar.inventory.push(...itemsToAdd);
+      
+      if (quest.rewards.resourceRewards) {
+          for (const reward of quest.rewards.resourceRewards) {
+              newChar.resources[reward.resource] = (newChar.resources[reward.resource] || 0) + reward.quantity;
+          }
+      }
+  
+      // --- Update Progress & Level ---
       const progressIndex = newChar.questProgress.findIndex((p: PlayerQuestProgress) => p.questId === questId);
       if (progressIndex > -1) {
           newChar.questProgress[progressIndex].completions += 1;
@@ -760,14 +798,14 @@ const App: React.FC = () => {
       } else {
           newChar.questProgress.push({ questId, progress: 0, completions: 1 });
       }
-
+  
       while (newChar.experience >= newChar.experienceToNextLevel) {
           newChar.experience -= newChar.experienceToNextLevel;
           newChar.level += 1;
           newChar.stats.statPoints += 1;
           newChar.experienceToNextLevel = Math.floor(100 * Math.pow(newChar.level, 1.3));
       }
-
+  
       handleCharacterUpdate(newChar);
   };
 
