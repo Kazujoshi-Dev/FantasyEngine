@@ -990,40 +990,46 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         let needsDbUpdate = expeditionCompleted;
 
         const itemTemplates: ItemTemplate[] = gameData.itemTemplates || [];
-        let characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates);
-        const currentMaxEnergy = characterWithDerivedStats.stats.maxEnergy;
+        // Calculate derived stats once to get max values needed for logic
+        const tempDerivedChar = calculateDerivedStatsOnServer(character, itemTemplates);
+        const currentMaxEnergy = tempDerivedChar.stats.maxEnergy;
 
         // --- Offline Energy Regeneration Logic ---
         const now = Date.now();
-        const lastUpdate = characterWithDerivedStats.lastEnergyUpdateTime || now;
+        const lastUpdate = character.lastEnergyUpdateTime || now;
         const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
         
-        if (hoursPassed > 0 && characterWithDerivedStats.stats.currentEnergy < currentMaxEnergy) {
+        if (hoursPassed > 0 && character.stats.currentEnergy < currentMaxEnergy) {
             const energyToRegen = hoursPassed;
-            characterWithDerivedStats.stats.currentEnergy = Math.min(
+            // Update the BASE character object
+            character.stats.currentEnergy = Math.min(
                 currentMaxEnergy,
-                characterWithDerivedStats.stats.currentEnergy + energyToRegen
+                character.stats.currentEnergy + energyToRegen
             );
-
-            characterWithDerivedStats.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
+            character.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
             needsDbUpdate = true;
         }
         
         const currentHour = new Date().getUTCHours();
-        const characterLastPurchaseHour = new Date(lastUpdate).getUTCHours();
+        const characterLastUpdateDate = new Date(lastUpdate);
+        const characterLastPurchaseHour = characterLastUpdateDate.getUTCHours();
         if(currentHour !== characterLastPurchaseHour){
             character.traderPurchases = [];
             needsDbUpdate = true;
         }
 
         if (needsDbUpdate) {
+            // Save the updated BASE character, not the one with derived stats
             await client.query(
                 'UPDATE characters SET data = $1 WHERE user_id = $2',
-                [JSON.stringify(characterWithDerivedStats), req.user!.id]
+                [JSON.stringify(character), req.user!.id]
             );
         }
 
-        res.status(200).json(characterWithDerivedStats);
+        // Now create the final response object with up-to-date derived stats
+        const finalResponseCharacter = calculateDerivedStatsOnServer(character, itemTemplates);
+        res.status(200).json(finalResponseCharacter);
+
     } catch (err) {
         console.error('Error fetching character:', err);
         res.status(500).json({ message: 'Internal server error.' });
@@ -1042,15 +1048,11 @@ apiRouter.post('/character', authenticate, async (req: Request, res: Response) =
     try {
         client = await pool.connect();
         
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-        
-        const finalCharacterData = calculateDerivedStatsOnServer(characterData, itemTemplates);
-        finalCharacterData.traderPurchases = [];
-
+        // When creating a character, we save the base data directly.
+        // No need to calculate derived stats as there's no equipment yet.
         const result = await client.query(
             `INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data;`,
-            [req.user!.id, JSON.stringify(finalCharacterData)]
+            [req.user!.id, JSON.stringify(characterData)]
         );
         res.status(201).json(result.rows[0].data);
     } catch (err: any) {
@@ -1075,18 +1077,16 @@ apiRouter.put('/character', authenticate, async (req: Request, res: Response) =>
     try {
         client = await pool.connect();
         
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-        
-        const finalCharacterData = calculateDerivedStatsOnServer(characterData, itemTemplates);
-
+        // The client sends the base character data with updates (e.g., spent stat points).
+        // The server should save this data directly without recalculating derived stats.
         const result = await client.query(
             'UPDATE characters SET data = $1 WHERE user_id = $2 RETURNING data',
-            [JSON.stringify(finalCharacterData), req.user!.id]
+            [JSON.stringify(characterData), req.user!.id]
         );
          if (!result.rowCount) {
             return res.status(404).json({ message: 'Character not found to update.' });
         }
+        // Respond with the saved base data. The client will handle recalculating derived stats.
         res.status(200).json(result.rows[0].data);
     } catch (err) {
         console.error('Error updating character:', err);
@@ -1456,11 +1456,10 @@ apiRouter.post('/trader/buy', authenticate, async (req, res) => {
         }
         character.traderPurchases.push(itemId);
         
-        const finalCharacter = calculateDerivedStatsOnServer(character, itemTemplates);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user!.id]);
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(finalCharacter), req.user!.id]);
-
-        res.status(200).json(finalCharacter);
+        // Respond with the updated base character data
+        res.status(200).json(character);
 
     } catch (err) {
         console.error('Error buying item:', err);

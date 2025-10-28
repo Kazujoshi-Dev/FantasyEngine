@@ -1200,7 +1200,7 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
         setLocalSettings(prev => ({
             ...prev,
             traderSettings: {
-                ...prev.traderSettings,
+                ...(prev.traderSettings as object),
                 rarityChances: {
                     ...(prev.traderSettings?.rarityChances || { [ItemRarity.Common]: 0, [ItemRarity.Uncommon]: 0, [ItemRarity.Rare]: 0 }),
                     [rarity]: value
@@ -1224,8 +1224,9 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
                 <label className="block mb-2 text-sm font-medium text-gray-300">{t('admin.rarityChances')}</label>
                 <p className="text-xs text-gray-400 mb-2">{t('admin.rarityChancesDesc')}</p>
                 <div className="flex gap-4">
-                    {Object.values(ItemRarity).filter(r => r === ItemRarity.Common || r === ItemRarity.Uncommon || r === ItemRarity.Rare).map(rarity => (
-                         <div key={rarity}><label className={`block text-sm mb-1 ${rarityStyles[rarity].text}`}>{rarity}</label><input type="number" min="0" max="100" value={localSettings.traderSettings?.rarityChances?.[rarity] || ''} onChange={e => handleTraderRarityChange(rarity, parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
+                    {/* FIX: Replaced Object.values().filter().map() with a direct array to avoid a potential TypeScript error where `map` is not found on `unknown`. */}
+                    {[ItemRarity.Common, ItemRarity.Uncommon, ItemRarity.Rare].map(rarity => (
+                         <div key={rarity}><label className={`block text-sm mb-1 ${rarityStyles[rarity].text}`}>{rarity}</label><input type="number" min="0" max="100" value={localSettings.traderSettings?.rarityChances?.[rarity] || ''} onChange={e => handleTraderRarityChange(rarity, parseInt(e.target.value) || 0)} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
                     ))}
                 </div>
             </div>
