@@ -1,11 +1,11 @@
 import React from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity } from '../types';
+import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity, ItemInstance } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { QuestIcon } from './icons/QuestIcon';
-import { rarityStyles } from './shared/ItemSlot';
+import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
 
 interface QuestsProps {
     character: PlayerCharacter;
@@ -111,10 +111,14 @@ const QuestCard: React.FC<{
                         {quest.rewards.itemRewards?.map((reward, index) => {
                             const template = itemTemplates.find(t => t.id === reward.templateId);
                             if (!template) return null;
+                            const dummyInstance: ItemInstance = { uniqueId: `quest-reward-${index}-${template.id}`, templateId: template.id };
                             return (
-                                <p key={`item-${index}`} className={`flex items-center font-semibold text-sm ${rarityStyles[template.rarity].text}`}>
-                                    {reward.quantity}x {template.name}
-                                </p>
+                                <div key={`item-${index}`} className="relative group flex items-center">
+                                    <p className={`font-semibold text-sm cursor-help ${rarityStyles[template.rarity].text}`}>
+                                        {reward.quantity}x {template.name}
+                                    </p>
+                                    <ItemTooltip instance={dummyInstance} template={template} />
+                                </div>
                             );
                         })}
                         {quest.rewards.resourceRewards?.map((reward, index) => {

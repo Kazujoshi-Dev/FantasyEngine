@@ -11,7 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress } from '../../types.js';
 
 
 dotenv.config();
@@ -604,7 +604,8 @@ async function completeExpedition(
     character: PlayerCharacter,
     allExpeditions: Expedition[],
     allEnemies: Enemy[],
-    allItemTemplates: ItemTemplate[]
+    allItemTemplates: ItemTemplate[],
+    allQuests: Quest[]
 ): Promise<PlayerCharacter> {
     const expeditionTemplate = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expeditionTemplate) {
@@ -639,6 +640,22 @@ async function completeExpedition(
         if (fightResult.isVictory) {
             tempChar.stats.currentHealth = fightResult.finalPlayerHealth;
             tempChar.stats.currentMana = fightResult.finalPlayerMana;
+            
+            // --- Quest Progress Update Logic ---
+            const acceptedKillQuests = tempChar.acceptedQuests
+                .map((questId: string) => allQuests.find(q => q.id === questId))
+                .filter((q): q is Quest => !!q && q.objective.type === QuestType.Kill && q.objective.targetId === enemy.id);
+            
+            for (const quest of acceptedKillQuests) {
+                const progressIndex = tempChar.questProgress.findIndex((p: PlayerQuestProgress) => p.questId === quest.id);
+                if (progressIndex > -1) {
+                    const progress = tempChar.questProgress[progressIndex];
+                    if (progress.progress < quest.objective.amount) {
+                        progress.progress += 1;
+                    }
+                }
+            }
+            // --- End Quest Progress Update Logic ---
         } else {
             overallIsVictory = false;
             tempChar.stats.currentHealth = Math.max(0, fightResult.finalPlayerHealth);
@@ -646,8 +663,9 @@ async function completeExpedition(
         }
     }
     
-    let updatedChar = JSON.parse(JSON.stringify(character));
-    updatedChar.stats.currentHealth = tempChar.stats.currentHealth;
+    // The character state after all fights (health, mana, quest progress) is in tempChar.
+    // We'll use this as the base for applying rewards.
+    let updatedChar = tempChar;
 
     const summary: ExpeditionRewardSummary = {
         rewardBreakdown: [],
@@ -983,7 +1001,7 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
 
         let expeditionCompleted = false;
         if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
-            character = await completeExpedition(character, gameData.expeditions, gameData.enemies, gameData.itemTemplates);
+            character = await completeExpedition(character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
             expeditionCompleted = true;
         }
 
