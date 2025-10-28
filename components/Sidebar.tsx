@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
           </div>
         )}
       </div>
-      <nav className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-2">
         {visibleMenuItems.map((item) => {
           const isResting = playerCharacter?.isResting;
           const isTraveling = !!playerCharacter?.activeTravel;
