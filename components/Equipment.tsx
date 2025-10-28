@@ -31,7 +31,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
   
   const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
   const [draggedItemInfo, setDraggedItemInfo] = useState<{ item: ItemInstance; sourceSlot: EquipmentSlot | 'inventory' } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<EquipmentSlot | 'inventory' | null>(null);
+  const [dragOverPanel, setDragOverPanel] = useState<'equipped' | 'inventory' | null>(null);
 
   const selectedTemplate = useMemo(() => {
     if (!selectedItem) return null;
@@ -48,62 +48,49 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
 
   const handleDragEnd = () => {
     setDraggedItemInfo(null);
-    setDragOverTarget(null);
+    setDragOverPanel(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault(); // This is crucial to allow dropping
   };
-  
-  const handleDragEnter = (target: EquipmentSlot | 'inventory') => {
-    if(draggedItemInfo) {
-      setDragOverTarget(target);
-    }
-  };
 
-  const handleDragLeave = () => {
-    setDragOverTarget(null);
-  };
-
-  const handleDrop = (target: EquipmentSlot | 'inventory') => {
-    if (!draggedItemInfo || !dragOverTarget) return;
+  const handleDropOnPanel = (panel: 'equipped' | 'inventory') => {
+    if (!draggedItemInfo) return;
 
     const { item, sourceSlot } = draggedItemInfo;
 
-    // Case 1: Unequipping (Equipped -> Inventory)
-    if (sourceSlot !== 'inventory' && target === 'inventory') {
-      onUnequipItem(item, sourceSlot);
+    // Case 1: Unequipping (Equipped item -> Inventory panel)
+    if (panel === 'inventory' && sourceSlot !== 'inventory') {
+      onUnequipItem(item, sourceSlot as EquipmentSlot);
     } 
-    // Case 2: Equipping (Inventory -> Equipment Slot or Equipped -> Equipment Slot)
-    else if (target !== 'inventory') {
-       const template = itemTemplates.find(t => t.id === item.templateId);
-       if (!template) return;
-       
-       const isCompatible = template.slot === target || (template.slot === 'ring' && (target === EquipmentSlot.Ring1 || target === EquipmentSlot.Ring2));
-       
-       if (isCompatible) {
-         onEquipItem(item);
-       }
+    // Case 2: Equipping (Inventory item -> Equipped panel)
+    else if (panel === 'equipped' && sourceSlot === 'inventory') {
+       onEquipItem(item);
+    }
+    // Case 3: Swapping equipped items by dropping on the panel
+    else if (panel === 'equipped' && sourceSlot !== 'inventory') {
+      onEquipItem(item);
     }
 
     handleDragEnd(); // Reset state after drop
   };
   
-  const getDropZoneClassName = (target: EquipmentSlot | 'inventory'): string => {
-    if (!draggedItemInfo || dragOverTarget !== target) return '';
+  const getPanelDropZoneClassName = (panel: 'equipped' | 'inventory'): string => {
+    if (!draggedItemInfo || dragOverPanel !== panel) return '';
 
-    const { item, sourceSlot } = draggedItemInfo;
-    const template = itemTemplates.find(t => t.id === item.templateId);
-    if (!template) return 'bg-red-900/50';
-
+    const { sourceSlot } = draggedItemInfo;
+    
     let isValid = false;
-    // Dragging from equipped to inventory (unequip)
-    if (sourceSlot !== 'inventory' && target === 'inventory') {
-      isValid = character.inventory.length < 40; // MAX_PLAYER_INVENTORY_SIZE
+    // Dragging to inventory panel (unequipping)
+    if (panel === 'inventory') {
+      if (sourceSlot !== 'inventory') {
+        isValid = character.inventory.length < 40; // MAX_PLAYER_INVENTORY_SIZE
+      }
     } 
-    // Dragging to an equipment slot (equip or swap)
-    else if (target !== 'inventory') {
-      isValid = template.slot === target || (template.slot === 'ring' && (target === EquipmentSlot.Ring1 || target === EquipmentSlot.Ring2));
+    // Dragging to equipment panel (equipping/swapping)
+    else if (panel === 'equipped') {
+      isValid = true; // Always allow the attempt, App.tsx will alert if validation fails
     }
     
     return isValid ? 'bg-green-900/50' : 'bg-red-900/50';
@@ -113,24 +100,22 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
     <ContentPanel title={t('equipment.title')}>
        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
         
-        {/* Equipped Items List */}
-        <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+        {/* Equipped Items Panel - NOW A DROPZONE */}
+        <div 
+            className={`bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 transition-colors duration-150 ${getPanelDropZoneClassName('equipped')}`}
+            onDrop={() => handleDropOnPanel('equipped')}
+            onDragOver={handleDragOver}
+            onDragEnter={() => setDragOverPanel('equipped')}
+            onDragLeave={() => setDragOverPanel(null)}
+        >
           <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {slotOrder.map(slot => {
                 const item = character.equipment[slot];
                 const template = item ? itemTemplates.find(t => t.id === item.templateId) : null;
-                const dropZoneClassName = getDropZoneClassName(slot);
                 
                 return (
-                    <div
-                        key={slot}
-                        onDrop={() => handleDrop(slot)}
-                        onDragOver={handleDragOver}
-                        onDragEnter={() => handleDragEnter(slot)}
-                        onDragLeave={handleDragLeave}
-                        className={`rounded-lg transition-colors duration-150 ${dropZoneClassName}`}
-                    >
+                    <div key={slot}>
                         {item && template ? (
                             <ItemListItem
                                 item={item}
@@ -154,18 +139,18 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
           </div>
         </div>
 
-        {/* Details Panel - No buttons needed anymore */}
+        {/* Details Panel */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
            <ItemDetailsPanel item={selectedItem} template={selectedTemplate} />
         </div>
 
-        {/* Backpack List */}
+        {/* Backpack Panel - NOW A DROPZONE */}
         <div 
-            className={`bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 transition-colors duration-150 ${getDropZoneClassName('inventory')}`}
-            onDrop={() => handleDrop('inventory')}
+            className={`bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 transition-colors duration-150 ${getPanelDropZoneClassName('inventory')}`}
+            onDrop={() => handleDropOnPanel('inventory')}
             onDragOver={handleDragOver}
-            onDragEnter={() => handleDragEnter('inventory')}
-            onDragLeave={handleDragLeave}
+            onDragEnter={() => setDragOverPanel('inventory')}
+            onDragLeave={() => setDragOverPanel(null)}
         >
           <div className="flex justify-between items-center mb-4 px-2">
             <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
