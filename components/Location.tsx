@@ -137,7 +137,8 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
                 <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center">
                   <div>
                     <p className="text-lg font-semibold text-white">{loc.name}</p>
-                    <div className="flex items-center text-sm mt-1 space-x-4">
+                    <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
+                    <div className="flex items-center text-sm mt-2 space-x-4">
                       <div className="flex items-center text-amber-400">
                         <CoinsIcon className="h-4 w-4 mr-1" />
                         <span>{loc.travelCost}</span>
