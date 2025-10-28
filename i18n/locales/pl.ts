@@ -372,7 +372,10 @@ export default {
         sell: 'Sprzedaj',
         notEnoughGold: "Nie masz wystarczająco złota.",
         inventoryFull: 'Twój ekwipunek jest pełny.',
-        newWaresIn: 'Nowe towary za:'
+        newWaresIn: 'Nowe towary za:',
+        sellMultipleItems: 'Sprzedaj {count} przedmiotów',
+        totalValue: 'Łączna wartość',
+        sellAllFor: 'Sprzedaj wszystko za {value}'
     },
     blacksmith: {
         title: 'Kowal',

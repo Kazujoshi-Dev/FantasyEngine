@@ -2,26 +2,79 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings } from '../types';
-import { ItemList, ItemDetailsPanel } from './shared/ItemSlot';
+import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
 
 interface TraderProps {
     character: PlayerCharacter;
+    baseCharacter: PlayerCharacter;
     itemTemplates: ItemTemplate[];
     settings: GameSettings;
     traderInventory: ItemInstance[];
     onBuyItem: (item: ItemInstance, cost: number) => void;
-    onSellItem: (item: ItemInstance, value: number) => void;
+    onSellItems: (items: ItemInstance[]) => void;
 }
 
 const MAX_PLAYER_INVENTORY_SIZE = 40;
 
-export const Trader: React.FC<TraderProps> = ({ character, itemTemplates, settings, traderInventory, onBuyItem, onSellItem }) => {
+const BulkSellPanel: React.FC<{
+    items: ItemInstance[];
+    itemTemplates: ItemTemplate[];
+    onSell: () => void;
+}> = ({ items, itemTemplates, onSell }) => {
+    const { t } = useTranslation();
+    const totalValue = useMemo(() => {
+        return items.reduce((sum, item) => {
+            const template = itemTemplates.find(t => t.id === item.templateId);
+            return sum + (template?.value || 0);
+        }, 0);
+    }, [items, itemTemplates]);
+
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="font-bold text-xl mb-4 text-center text-indigo-400">
+                {t('trader.sellMultipleItems', { count: items.length })}
+            </h4>
+            <div className="flex-grow overflow-y-auto pr-2 space-y-2 bg-slate-800/50 p-2 rounded-lg">
+                {items.map(item => {
+                    const template = itemTemplates.find(t => t.id === item.templateId);
+                    if (!template) return null;
+                    return (
+                        <div key={item.uniqueId} className="flex justify-between items-center text-sm">
+                            <span className={rarityStyles[template.rarity].text}>{template.name}</span>
+                            <span className="font-mono text-amber-400 flex items-center">
+                                {template.value} <CoinsIcon className="h-3 w-3 ml-1" />
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="mt-4">
+                <div className="flex justify-between items-center font-bold text-lg bg-slate-800 p-3 rounded-lg">
+                    <span>{t('trader.totalValue')}:</span>
+                    <span className="font-mono text-amber-300 flex items-center">
+                        {totalValue} <CoinsIcon className="h-5 w-5 ml-1" />
+                    </span>
+                </div>
+                <button
+                    onClick={onSell}
+                    className="w-full mt-4 bg-amber-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-amber-700 transition-colors"
+                >
+                    {t('trader.sellAllFor', { value: totalValue })}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+
+export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, settings, traderInventory, onBuyItem, onSellItems }) => {
     const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState('');
     
-    const [selected, setSelected] = useState<{ item: ItemInstance; source: 'trader' | 'player' } | null>(null);
+    const [detailsItem, setDetailsItem] = useState<{ item: ItemInstance; source: 'trader' } | null>(null);
+    const [itemsToSellIds, setItemsToSellIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const timerId = setInterval(() => {
@@ -36,13 +89,27 @@ export const Trader: React.FC<TraderProps> = ({ character, itemTemplates, settin
         return () => clearInterval(timerId);
     }, []);
 
-    const selectedTemplate = useMemo(() => {
-        if (!selected) return null;
-        return itemTemplates.find(t => t.id === selected.item.templateId) || null;
-    }, [selected, itemTemplates]);
+    const selectedItemsToSell = useMemo(() => 
+        character.inventory.filter(i => itemsToSellIds.has(i.uniqueId)),
+        [itemsToSellIds, character.inventory]
+    );
 
-    const handleSelectItem = (item: ItemInstance, source: 'trader' | 'player') => {
-        setSelected({ item, source });
+    const handleTraderItemClick = (item: ItemInstance) => {
+        setDetailsItem({ item, source: 'trader' });
+        setItemsToSellIds(new Set());
+    };
+
+    const handlePlayerItemClick = (item: ItemInstance) => {
+        setDetailsItem(null);
+        setItemsToSellIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(item.uniqueId)) {
+                newSet.delete(item.uniqueId);
+            } else {
+                newSet.add(item.uniqueId);
+            }
+            return newSet;
+        });
     };
 
     const handleBuyClick = (item: ItemInstance, cost: number) => {
@@ -55,13 +122,64 @@ export const Trader: React.FC<TraderProps> = ({ character, itemTemplates, settin
             return;
         }
         onBuyItem(item, cost);
-        setSelected(null);
+        setDetailsItem(null);
     };
     
-    const handleSellClick = (item: ItemInstance, value: number) => {
-        onSellItem(item, value);
-        setSelected(null);
+    const handleSellClick = () => {
+        if (selectedItemsToSell.length > 0) {
+            onSellItems(selectedItemsToSell);
+            setItemsToSellIds(new Set());
+        }
     }
+
+    const renderMiddlePanel = () => {
+        if (detailsItem) {
+            const template = itemTemplates.find(t => t.id === detailsItem.item.templateId);
+            if (!template) return null;
+            return (
+                <ItemDetailsPanel item={detailsItem.item} template={template} baseCharacter={baseCharacter}>
+                    <div className="mt-4">
+                        <button
+                            onClick={() => handleBuyClick(detailsItem.item, template.value * 2)}
+                            className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-green-700 transition-colors"
+                        >
+                            {t('trader.buy')} ({template.value * 2} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
+                        </button>
+                    </div>
+                </ItemDetailsPanel>
+            );
+        }
+
+        if (selectedItemsToSell.length === 1) {
+            const item = selectedItemsToSell[0];
+            const template = itemTemplates.find(t => t.id === item.templateId);
+            if (!template) return null;
+            return (
+                <ItemDetailsPanel item={item} template={template}>
+                    <div className="mt-4">
+                        <button
+                            onClick={handleSellClick}
+                            className="w-full bg-amber-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-amber-700 transition-colors"
+                        >
+                            {t('trader.sell')} ({template.value} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
+                        </button>
+                    </div>
+                </ItemDetailsPanel>
+            );
+        }
+        
+        if (selectedItemsToSell.length > 1) {
+            return (
+                <BulkSellPanel
+                    items={selectedItemsToSell}
+                    itemTemplates={itemTemplates}
+                    onSell={handleSellClick}
+                />
+            );
+        }
+        
+        return <div className="flex items-center justify-center h-full text-slate-500">{t('equipment.selectItemPrompt')}</div>;
+    };
 
     return (
          <ContentPanel title={t('trader.title')}>
@@ -78,35 +196,15 @@ export const Trader: React.FC<TraderProps> = ({ character, itemTemplates, settin
                     <ItemList
                         items={traderInventory}
                         itemTemplates={itemTemplates}
-                        selectedItem={selected?.source === 'trader' ? selected.item : null}
-                        onSelectItem={(item) => handleSelectItem(item, 'trader')}
+                        selectedItem={detailsItem ? detailsItem.item : null}
+                        onSelectItem={handleTraderItemClick}
                         showPrice="buy"
                     />
                 </div>
 
                 {/* Details Panel */}
                 <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-                    <ItemDetailsPanel item={selected?.item} template={selectedTemplate}>
-                        {selected && selectedTemplate && (
-                            <div className="mt-4">
-                                {selected.source === 'trader' ? (
-                                    <button
-                                        onClick={() => handleBuyClick(selected.item, selectedTemplate.value * 2)}
-                                        className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-green-700 transition-colors"
-                                    >
-                                        {t('trader.buy')} ({selectedTemplate.value * 2} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => handleSellClick(selected.item, selectedTemplate.value)}
-                                        className="w-full bg-amber-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-amber-700 transition-colors"
-                                    >
-                                        {t('trader.sell')} ({selectedTemplate.value} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </ItemDetailsPanel>
+                    {renderMiddlePanel()}
                 </div>
 
                 {/* Player's Inventory */}
@@ -118,13 +216,25 @@ export const Trader: React.FC<TraderProps> = ({ character, itemTemplates, settin
                             <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
                          </div>
                     </div>
-                    <ItemList
-                        items={character.inventory}
-                        itemTemplates={itemTemplates}
-                        selectedItem={selected?.source === 'player' ? selected.item : null}
-                        onSelectItem={(item) => handleSelectItem(item, 'player')}
-                        showPrice="sell"
-                    />
+                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+                        {character.inventory.map(item => {
+                            const template = itemTemplates.find(t => t.id === item.templateId);
+                            if (!template) return null;
+                            const isSelected = itemsToSellIds.has(item.uniqueId);
+
+                            return (
+                                <ItemListItem
+                                    key={item.uniqueId}
+                                    item={item}
+                                    template={template}
+                                    isSelected={isSelected}
+                                    onClick={() => handlePlayerItemClick(item)}
+                                    price={template.value}
+                                    showPrimaryStat={false}
+                                />
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
          </ContentPanel>

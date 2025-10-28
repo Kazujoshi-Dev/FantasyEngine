@@ -372,7 +372,10 @@ export default {
         sell: 'Sell',
         notEnoughGold: "You don't have enough gold.",
         inventoryFull: 'Your inventory is full.',
-        newWaresIn: 'New wares in:'
+        newWaresIn: 'New wares in:',
+        sellMultipleItems: 'Sell {count} items',
+        totalValue: 'Total Value',
+        sellAllFor: 'Sell all for {value}'
     },
     blacksmith: {
         title: 'Blacksmith',

@@ -562,12 +562,20 @@ const App: React.FC = () => {
     }
   };
   
-  const handleSellItem = (item: ItemInstance, value: number) => {
-    if (!baseCharacter) return;
+  const handleSellItems = (itemsToSell: ItemInstance[]) => {
+    if (!baseCharacter || !gameData || itemsToSell.length === 0) return;
+
+    const totalValue = itemsToSell.reduce((sum, item) => {
+      const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+      return sum + (template?.value || 0);
+    }, 0);
 
     const newChar = JSON.parse(JSON.stringify(baseCharacter));
-    newChar.resources.gold += value;
-    newChar.inventory = newChar.inventory.filter((i: ItemInstance) => i.uniqueId !== item.uniqueId);
+    newChar.resources.gold += totalValue;
+
+    const idsToSell = new Set(itemsToSell.map(i => i.uniqueId));
+    newChar.inventory = newChar.inventory.filter((i: ItemInstance) => !idsToSell.has(i.uniqueId));
+    
     handleCharacterUpdate(newChar);
   };
 
@@ -865,7 +873,7 @@ const App: React.FC = () => {
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
           {activeTab === Tab.Ranking && <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fullCharacterSync} isLoading={isRankingLoading} onAttack={async (defenderId) => { await api.attackPlayer(defenderId); await fullCharacterSync(); }} onComposeMessage={handleComposeMessage} />}
-          {activeTab === Tab.Trader && gameData && <Trader character={playerCharacter} itemTemplates={gameData.itemTemplates} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItem={handleSellItem}/>}
+          {activeTab === Tab.Trader && gameData && <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems}/>}
           {activeTab === Tab.Blacksmith && gameData && <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />}
           {activeTab === Tab.Messages && gameData && <Messages messages={messages} onDeleteMessage={async (id) => { await api.deleteMessage(id); await fullCharacterSync(); }} onMarkAsRead={async (id) => { await api.markMessageAsRead(id); setMessages(m => m.map(msg => msg.id === id ? {...msg, is_read: true} : msg)) }} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} currentPlayer={playerCharacter} />}
           {activeTab === Tab.Quests && gameData && <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />}
