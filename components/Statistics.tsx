@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, CharacterStats } from '../types';
+import { PlayerCharacter, CharacterStats, GameData } from '../types';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import { MinusCircleIcon } from './icons/MinusCircleIcon';
 import { InfoIcon } from './icons/InfoIcon';
@@ -10,7 +10,8 @@ interface StatisticsProps {
   character: PlayerCharacter;
   baseCharacter: PlayerCharacter;
   onCharacterUpdate: (character: PlayerCharacter) => void;
-  calculateDerivedStats: (character: PlayerCharacter) => PlayerCharacter;
+  calculateDerivedStats: (character: PlayerCharacter, gameData: GameData | null) => PlayerCharacter;
+  gameData: GameData | null;
 }
 
 const StatTooltip: React.FC<{ text: string }> = ({ text }) => {
@@ -103,7 +104,7 @@ const StatRow: React.FC<{
   </div>
 );
 
-export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats }) => {
+export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData }) => {
   const { t } = useTranslation();
   
   const [pendingStats, setPendingStats] = useState(baseCharacter.stats);
@@ -147,7 +148,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     stats: pendingStats,
   }), [baseCharacter, pendingStats]);
 
-  const previewCharacter = useMemo(() => calculateDerivedStats(tempCharacterForPreview), [tempCharacterForPreview, calculateDerivedStats]);
+  const previewCharacter = useMemo(() => calculateDerivedStats(tempCharacterForPreview, gameData), [tempCharacterForPreview, calculateDerivedStats, gameData]);
   
   const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
 

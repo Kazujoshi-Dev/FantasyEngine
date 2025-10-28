@@ -1224,7 +1224,7 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
                 <label className="block mb-2 text-sm font-medium text-gray-300">{t('admin.rarityChances')}</label>
                 <p className="text-xs text-gray-400 mb-2">{t('admin.rarityChancesDesc')}</p>
                 <div className="flex gap-4">
-                    {/* FIX: The array map expression was not wrapped in curly braces, causing a JSX parsing error which could lead to a confusing TypeScript error. */}
+                    {/* FIX: The array map expression was not wrapped in curly braces, causing a JSX parsing error. */}
                     {[ItemRarity.Common, ItemRarity.Uncommon, ItemRarity.Rare].map(rarity => (
                          <div key={rarity}><label className={`block text-sm mb-1 ${rarityStyles[rarity].text}`}>{rarity}</label><input type="number" min="0" max="100" value={localSettings.traderSettings?.rarityChances?.[rarity] || ''} onChange={e => handleTraderRarityChange(rarity, parseInt(e.target.value) || 0)} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
                     ))}

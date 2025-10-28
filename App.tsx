@@ -65,8 +65,8 @@ const App: React.FC = () => {
   const hasUnreadMessages = useMemo(() => messages.some(m => !m.is_read), [messages]);
 
   // Derived Stat Calculation for UI Previews
-  const calculateDerivedStats = useCallback((character: PlayerCharacter): PlayerCharacter => {
-      if (!gameData) return character;
+  const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
+      if (!gameDataForCalc) return character;
       
       const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
           strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
@@ -83,7 +83,7 @@ const App: React.FC = () => {
       for (const slot in character.equipment) {
           const itemInstance = character.equipment[slot as EquipmentSlot];
           if (itemInstance) {
-              const template = gameData.itemTemplates.find(t => t.id === itemInstance.templateId);
+              const template = gameDataForCalc.itemTemplates.find(t => t.id === itemInstance.templateId);
               if (template) {
                   const upgradeLevel = itemInstance.upgradeLevel || 0;
                   const upgradeBonusFactor = upgradeLevel * 0.1;
@@ -118,7 +118,7 @@ const App: React.FC = () => {
       }
       
       const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
-      const mainHandTemplate = mainHandItem ? gameData.itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+      const mainHandTemplate = mainHandItem ? gameDataForCalc.itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
       const attacksPerRound = mainHandTemplate?.attacksPerRound || 1;
 
       const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
@@ -170,7 +170,7 @@ const App: React.FC = () => {
               lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,
           }
       };
-  }, [gameData]);
+  }, []);
 
   const fetchTavernMessages = useCallback(async () => {
     try {
@@ -194,30 +194,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCharacterUpdate = useCallback(async (character: PlayerCharacter, fromServer = false) => {
-    const calculatedForUI = calculateDerivedStats(character);
-    setPlayerCharacter(calculatedForUI); // Optimistic UI update
-    
-    if (!fromServer) {
-        try {
-            const serverChar = await api.updateCharacter(character);
-            const finalChar = calculateDerivedStats(serverChar);
-            setPlayerCharacter(finalChar); // Final update from server
-            setBaseCharacter(JSON.parse(JSON.stringify(serverChar)));
-        } catch (err: any) {
-            setError(err.message);
-            await fullCharacterSync(); // On error, resync with server to prevent desync
-        }
-    } else {
-        setBaseCharacter(JSON.parse(JSON.stringify(character)));
-    }
-  }, [calculateDerivedStats]);
-
   const fullCharacterSync = useCallback(async () => {
     try {
       // First, fetch game data which is not behind auth
-      const gameData = await api.getGameData();
-      setGameData(gameData);
+      const localGameData = await api.getGameData();
+      setGameData(localGameData);
       
       // Then, fetch all authenticated data
       const [charData, rankingData, messagesData, allNamesData, traderData] = await Promise.all([
@@ -231,7 +212,7 @@ const App: React.FC = () => {
       setAllCharacterNames(allNamesData);
       setTraderInventory(traderData);
 
-      const calculatedChar = calculateDerivedStats(charData);
+      const calculatedChar = calculateDerivedStats(charData, localGameData);
       setPlayerCharacter(calculatedChar);
       setBaseCharacter(JSON.parse(JSON.stringify(charData)));
       setRanking(rankingData);
@@ -259,6 +240,26 @@ const App: React.FC = () => {
     }
   }, [calculateDerivedStats, startTavernPolling]);
 
+  const handleCharacterUpdate = useCallback(async (character: PlayerCharacter, fromServer = false) => {
+    if (!gameData) return;
+    const calculatedForUI = calculateDerivedStats(character, gameData);
+    setPlayerCharacter(calculatedForUI); // Optimistic UI update
+    
+    if (!fromServer) {
+        try {
+            const serverChar = await api.updateCharacter(character);
+            const finalChar = calculateDerivedStats(serverChar, gameData);
+            setPlayerCharacter(finalChar); // Final update from server
+            setBaseCharacter(JSON.parse(JSON.stringify(serverChar)));
+        } catch (err: any) {
+            setError(err.message);
+            await fullCharacterSync(); // On error, resync with server to prevent desync
+        }
+    } else {
+        setBaseCharacter(JSON.parse(JSON.stringify(character)));
+    }
+  }, [calculateDerivedStats, gameData, fullCharacterSync]);
+
   useEffect(() => {
     if (token) {
       fullCharacterSync(); // Directly attempt to sync data, which also verifies the token
@@ -283,7 +284,7 @@ const App: React.FC = () => {
             
             // Note: Decisions should use stats calculated from the potentially updated character
             // inside this loop, not from an outer scope.
-            const derivedStatsForDecisions = calculateDerivedStats(updatedChar).stats;
+            const derivedStatsForDecisions = calculateDerivedStats(updatedChar, gameData).stats;
 
             // Travel
             if (updatedChar.activeTravel && now >= updatedChar.activeTravel.finishTime) {
@@ -314,7 +315,7 @@ const App: React.FC = () => {
                     // Consider a full resync on persistent failure
                 });
                 // Optimistically update the main UI state
-                setPlayerCharacter(calculateDerivedStats(updatedChar));
+                setPlayerCharacter(calculateDerivedStats(updatedChar, gameData));
                 return updatedChar; // Return the new state for setBaseCharacter
             }
 
@@ -778,7 +779,7 @@ const App: React.FC = () => {
           hasUnreadMessages={hasUnreadMessages}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-          {activeTab === Tab.Statistics && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} />}
+          {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} />}
           {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
           {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onClaimRewards={handleClaimRewards} lastReward={lastReward} onClearLastReward={() => setLastReward(null)} itemTemplates={gameData.itemTemplates} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} />}
