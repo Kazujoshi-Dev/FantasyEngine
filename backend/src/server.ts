@@ -1678,7 +1678,7 @@ const cleanupOldTavernMessages = async () => {
         const result = await client.query(
             "DELETE FROM tavern_messages WHERE created_at < NOW() - INTERVAL '24 hours'"
         );
-        if (result.rowCount > 0) {
+        if (result.rowCount && result.rowCount > 0) {
             console.log(`Successfully deleted ${result.rowCount} old tavern messages.`);
         } else {
             console.log('No old tavern messages to delete.');
