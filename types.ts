@@ -282,6 +282,7 @@ export interface ItemTemplate {
     icon: string; // Placeholder for image path or ID
     value: number; // Gold value
     requiredLevel: number;
+    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     // Bonuses
     statsBonus: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     damageMin?: number;

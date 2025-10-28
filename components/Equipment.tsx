@@ -6,6 +6,7 @@ import { ItemList, ItemDetailsPanel, ItemListItem, EmptySlotListItem } from './s
 
 interface EquipmentProps {
   character: PlayerCharacter;
+  baseCharacter: PlayerCharacter;
   itemTemplates: ItemTemplate[];
   onEquipItem: (item: ItemInstance) => void;
   onUnequipItem: (item: ItemInstance, fromSlot: EquipmentSlot) => void;
@@ -63,7 +64,7 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter }> = ({ character 
 };
 
 
-export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, onEquipItem, onUnequipItem }) => {
+export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, itemTemplates, onEquipItem, onUnequipItem }) => {
   const { t } = useTranslation();
   
   const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
@@ -179,7 +180,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
 
         {/* Details Panel */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} />
+           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} baseCharacter={baseCharacter} />
         </div>
 
         {/* Combat Stats Panel */}

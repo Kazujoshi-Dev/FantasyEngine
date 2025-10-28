@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot } from '../../types';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
@@ -16,7 +16,7 @@ export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shad
 //                                Item Details Panel
 // ===================================================================================
 
-export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; children?: React.ReactNode; showIcon?: boolean }> = ({ item, template, children, showIcon = true }) => {
+export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; children?: React.ReactNode; showIcon?: boolean, baseCharacter?: PlayerCharacter; }> = ({ item, template, children, showIcon = true, baseCharacter }) => {
     const { t } = useTranslation();
     
     if (!item || !template) {
@@ -49,6 +49,9 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
     const statBonusEntries = Object.entries(template.statsBonus)
         .filter(([, value]) => value)
         .map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) }));
+        
+    const hasRequirements = template.requiredLevel > 1 || (template.requiredStats && Object.keys(template.requiredStats).length > 0);
+    const baseStats = baseCharacter?.stats;
 
     return (
         <div className="flex flex-col h-full">
@@ -117,9 +120,30 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                     )}
                 </div>
 
+                {/* Requirements */}
+                 {hasRequirements && baseStats && (
+                     <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-300 space-y-1">
+                        <h5 className="font-semibold text-gray-400 text-base mb-1">{t('item.requirements')}</h5>
+                        <p className={`flex justify-between ${baseCharacter.level >= template.requiredLevel ? 'text-green-400' : 'text-red-400'}`}>
+                            <span>{t('item.levelRequirement')}:</span>
+                            <span>{template.requiredLevel}</span>
+                        </p>
+                        {template.requiredStats && Object.entries(template.requiredStats).map(([stat, value]) => {
+                            if (!value) return null;
+                            const meetsReq = baseStats[stat as keyof CharacterStats] >= value;
+                            return (
+                                <p key={stat} className={`flex justify-between ${meetsReq ? 'text-green-400' : 'text-red-400'}`}>
+                                    <span>{t(`statistics.${stat}`)}:</span>
+                                    <span>{value}</span>
+                                </p>
+                            )
+                        })}
+                     </div>
+                 )}
+
+
                 {/* General Info */}
                 <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-400 space-y-1">
-                    <p className="flex justify-between"><span>{t('item.levelRequirement')}:</span> <span>{template.requiredLevel}</span></p>
                     <p className="flex justify-between items-center"><span>{t('item.value')}:</span> <span className="text-amber-400 flex items-center">{template.value} <CoinsIcon className="h-4 w-4 ml-1"/></span></p>
                 </div>
             </div>
