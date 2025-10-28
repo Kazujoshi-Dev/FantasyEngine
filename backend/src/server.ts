@@ -1026,9 +1026,8 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
             );
         }
 
-        // Now create the final response object with up-to-date derived stats
-        const finalResponseCharacter = calculateDerivedStatsOnServer(character, itemTemplates);
-        res.status(200).json(finalResponseCharacter);
+        // Respond with the updated BASE character. The client is responsible for calculating derived stats for the UI.
+        res.status(200).json(character);
 
     } catch (err) {
         console.error('Error fetching character:', err);
