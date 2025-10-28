@@ -780,45 +780,67 @@ const QuestEditor: React.FC<{
     };
 
     const handleLocationToggle = (locationId: string) => {
-        const currentIds = formData.locationIds || [];
-        const newIds = currentIds.includes(locationId) ? currentIds.filter(id => id !== locationId) : [...currentIds, locationId];
-        setFormData(prev => ({ ...prev, locationIds: newIds }));
+        setFormData(prev => {
+            const currentIds = prev.locationIds || [];
+            const newIds = currentIds.includes(locationId) ? currentIds.filter(id => id !== locationId) : [...currentIds, locationId];
+            return { ...prev, locationIds: newIds };
+        });
     };
     
     const handleObjectiveChange = (field: keyof Quest['objective'], value: any) => {
-        const newObjective = { ...(formData.objective as Quest['objective']), [field]: value };
-        // Reset targetId if type changes to PayGold
-        if (field === 'type' && value === QuestType.PayGold) {
-            newObjective.targetId = undefined;
-        }
-        setFormData(prev => ({ ...prev, objective: newObjective }));
+        setFormData(prev => {
+            const newObjective = { ...(prev.objective as Quest['objective']), [field]: value };
+            // Reset targetId if type changes to PayGold
+            if (field === 'type' && value === QuestType.PayGold) {
+                newObjective.targetId = undefined;
+            }
+            return { ...prev, objective: newObjective };
+        });
     };
 
-    const handleRewardChange = (field: keyof Quest['rewards'], value: any) => {
-        setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards as Quest['rewards']), [field]: parseInt(value) || 0 }}));
+    const handleRewardChange = (field: 'gold' | 'experience', value: any) => {
+        setFormData(prev => {
+            const currentRewards = prev.rewards || { gold: 0, experience: 0 };
+            return {
+                ...prev,
+                rewards: {
+                    ...currentRewards,
+                    [field]: parseInt(value) || 0
+                }
+            };
+        });
     };
 
     const handleDynamicRewardChange = (rewardType: 'itemRewards' | 'resourceRewards' | 'lootTable', index: number, field: string, value: any) => {
-        const rewards = formData.rewards as Quest['rewards'];
-        const updatedList = [...(rewards[rewardType] || [])];
-        updatedList[index] = { ...updatedList[index], [field]: value };
-        setFormData(prev => ({ ...prev, rewards: { ...rewards, [rewardType]: updatedList }}));
+        setFormData(prev => {
+            const rewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+            const list = (rewards[rewardType] as any[] | undefined) || [];
+            const updatedList = [...list];
+            updatedList[index] = { ...updatedList[index], [field]: value };
+            return { ...prev, rewards: { ...rewards, [rewardType]: updatedList }};
+        });
     };
     
     const addDynamicReward = (rewardType: 'itemRewards' | 'resourceRewards' | 'lootTable') => {
-        const rewards = formData.rewards as Quest['rewards'];
-        let newItem: any;
-        if (rewardType === 'itemRewards') newItem = { templateId: '', quantity: 1 };
-        else if (rewardType === 'resourceRewards') newItem = { resource: EssenceType.Common, quantity: 1 };
-        else newItem = { templateId: '', chance: 10 };
-        const updatedList = [...(rewards[rewardType] || []), newItem];
-        setFormData(prev => ({ ...prev, rewards: { ...rewards, [rewardType]: updatedList }}));
+        setFormData(prev => {
+            const rewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+            let newItem: any;
+            if (rewardType === 'itemRewards') newItem = { templateId: '', quantity: 1 };
+            else if (rewardType === 'resourceRewards') newItem = { resource: EssenceType.Common, quantity: 1 };
+            else newItem = { templateId: '', chance: 10 };
+            const list = (rewards[rewardType] as any[] | undefined) || [];
+            const updatedList = [...list, newItem];
+            return { ...prev, rewards: { ...rewards, [rewardType]: updatedList }};
+        });
     };
 
     const removeDynamicReward = (rewardType: 'itemRewards' | 'resourceRewards' | 'lootTable', index: number) => {
-        const rewards = formData.rewards as Quest['rewards'];
-        const updatedList = (rewards[rewardType] || []).filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, rewards: { ...rewards, [rewardType]: updatedList }}));
+        setFormData(prev => {
+            const rewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+            const list = (rewards[rewardType] as any[] | undefined) || [];
+            const updatedList = list.filter((_, i) => i !== index);
+            return { ...prev, rewards: { ...rewards, [rewardType]: updatedList }};
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {

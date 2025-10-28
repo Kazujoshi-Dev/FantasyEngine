@@ -472,11 +472,10 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
             let magicAttackType: MagicAttackType | undefined = undefined;
 
             // --- Dodge Check ---
-            // FIX: Refactored dodge calculation. The type guard `isPlayerAttacking` ensures type-safe access to `accuracy`. This assumes enemies have an effective accuracy of 0 for this calculation, resolving a type error where `accuracy` was accessed on `EnemyStats`.
             if (!isPlayerAttacking && defender.race === Race.Gnome && Math.random() < 0.1) {
                 isDodge = true;
             } else {
-                const attackerAccuracy = isPlayerAttacking ? attacker.stats.accuracy : 0;
+                const attackerAccuracy = isPlayerAttacking ? (attacker.stats as CharacterStats).accuracy : 0;
                 const dodgeChance = Math.max(0, (defender.stats.agility - attackerAccuracy) * 0.1);
                 if (Math.random() * 100 < dodgeChance) {
                     isDodge = true;
