@@ -177,6 +177,10 @@ const UpgradePanel: React.FC<{
         ...Object.values(character.equipment).filter((i): i is ItemInstance => i !== null),
         ...character.inventory
     ], [character.equipment, character.inventory]);
+
+    const equippedItemIds = useMemo(() => 
+        new Set(Object.values(character.equipment).filter(i => i).map(i => i!.uniqueId)),
+    [character.equipment]);
     
     const filteredItems = useMemo(() => {
         if (filterSlot === 'all') {
@@ -291,6 +295,7 @@ const UpgradePanel: React.FC<{
                                 template={template}
                                 isSelected={selectedItem?.uniqueId === item.uniqueId}
                                 onClick={() => setSelectedItem(item)}
+                                isEquipped={equippedItemIds.has(item.uniqueId)}
                             />
                         );
                     })}

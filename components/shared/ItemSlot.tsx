@@ -3,6 +3,7 @@ import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter,
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
+import { ShieldIcon } from '../icons/ShieldIcon';
 
 export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shadow: string; text: string; }> = {
     [ItemRarity.Common]: { border: 'border-slate-700', bg: 'bg-slate-800', shadow: 'shadow-none', text: 'text-gray-300' },
@@ -167,9 +168,10 @@ interface ItemListItemProps {
     onDragStart?: (e: React.DragEvent) => void;
     onDragEnd?: (e: React.DragEvent) => void;
     className?: string;
+    isEquipped?: boolean;
 }
 
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className }) => {
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className, isEquipped }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
     
@@ -185,10 +187,15 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSe
             draggable={draggable}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
-            className={`flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-all duration-150 ${
+            className={`relative flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-all duration-150 ${
                 isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : 'hover:bg-slate-700/50'
             } ${className}`}
         >
+             {isEquipped && (
+                <div className="absolute top-0 left-0 z-10" title={t('equipment.equipped') || 'Equipped'}>
+                    <ShieldIcon className="h-4 w-4 text-sky-300 bg-slate-900/50 rounded-full" />
+                </div>
+            )}
             <div className={`relative flex-shrink-0 w-10 h-10 rounded-md border-2 flex items-center justify-center ${rarityStyles[template.rarity].border} ${rarityStyles[template.rarity].bg}`}>
                 {template.icon ? <img src={template.icon} alt={template.name} className="h-full w-full object-contain" /> : <span className="text-xs text-slate-500">?</span>}
                 {upgradeLevel > 0 && (
