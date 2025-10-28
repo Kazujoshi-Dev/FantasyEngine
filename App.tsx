@@ -300,11 +300,10 @@ const App: React.FC = () => {
                     const regenAmount = derivedStatsForDecisions.maxHealth * (updatedChar.camp.level / 100) * (REGEN_INTERVAL_MS / 60000);
                     const newHealth = Math.min(derivedStatsForDecisions.maxHealth, updatedChar.stats.currentHealth + regenAmount);
                     
-                    if (newHealth !== updatedChar.stats.currentHealth) {
-                        updatedChar.stats.currentHealth = newHealth;
-                        updatedChar.lastRestTime = now;
-                        needsServerUpdate = true;
-                    }
+                    // Always update time and health to accumulate fractional values and prevent loops.
+                    updatedChar.stats.currentHealth = newHealth;
+                    updatedChar.lastRestTime = now;
+                    needsServerUpdate = true;
                 }
             }
             
