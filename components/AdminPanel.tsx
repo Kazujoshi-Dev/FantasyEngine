@@ -333,7 +333,7 @@ const ExpeditionEditor: React.FC<{
                         <label className="block text-sm font-medium text-gray-300 mb-2">Dostępna w lokacjach</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {allLocations.map(loc => (
-                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
+                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
                             ))}
                         </div>
                     </div>
@@ -662,6 +662,16 @@ const ItemEditor: React.FC<{
             }
         }));
     };
+    
+    const handleRequiredStatsChange = (stat: keyof CharacterStats, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            requiredStats: {
+                ...prev.requiredStats,
+                [stat]: parseInt(value, 10) || 0
+            }
+        }));
+    };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -690,6 +700,7 @@ const ItemEditor: React.FC<{
             icon: formData.icon || '',
             value: formData.value || 0,
             requiredLevel: formData.requiredLevel || 1,
+            requiredStats: formData.requiredStats || {},
             statsBonus: formData.statsBonus || {},
             damageMin: formData.damageMin,
             damageMax: formData.damageMax,
@@ -744,6 +755,16 @@ const ItemEditor: React.FC<{
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.value')}</label><input type="number" name="value" value={formData.value || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.levelRequirement')}</label><input type="number" name="requiredLevel" value={formData.requiredLevel || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.attacksPerRound')}</label><input type="number" name="attacksPerRound" value={formData.attacksPerRound || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+            </div>
+
+            <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.requiredStats')}</h4>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                {primaryStatKeys.map(key => (
+                    <div key={key}>
+                        <label className="block text-xs font-medium text-gray-300">{t(`statistics.${key}`)}</label>
+                        <input type="number" name={key} value={formData.requiredStats?.[key] || ''} onChange={(e) => handleRequiredStatsChange(key, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
+                    </div>
+                ))}
             </div>
 
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.statBonuses')}</h4>
@@ -932,16 +953,16 @@ const QuestEditor: React.FC<{
                 </div>
                 {/* Item Rewards */}
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.itemRewards')}</label>{
-// FIX: Add type assertion to resolve 'map does not exist on type unknown' error
-(formData.rewards?.itemRewards as ItemReward[] | undefined)?.map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.templateId} onChange={e => handleDynamicRewardChange('itemRewards', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('itemRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('itemRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('itemRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Item</button></div>
+// FIX: Ensure formData.rewards.itemRewards is an array before calling map.
+(formData.rewards?.itemRewards || []).map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.templateId} onChange={e => handleDynamicRewardChange('itemRewards', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('itemRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('itemRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('itemRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Item</button></div>
                 {/* Resource Rewards */}
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.resourceRewards')}</label>{
-// FIX: Add type assertion to resolve 'map does not exist on type unknown' error
-(formData.rewards?.resourceRewards as ResourceReward[] | undefined)?.map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.resource} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'resource', e.target.value as EssenceType)} className="flex-grow bg-slate-700 p-2 rounded-md">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('resourceRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('resourceRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Resource</button></div>
+// FIX: Ensure formData.rewards.resourceRewards is an array before calling map.
+(formData.rewards?.resourceRewards || []).map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.resource} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'resource', e.target.value as EssenceType)} className="flex-grow bg-slate-700 p-2 rounded-md">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('resourceRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('resourceRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Resource</button></div>
                 {/* Loot Table Rewards */}
                  <div><label className="block text-sm font-medium text-gray-300">{t('admin.lootTable')}</label>{
-// FIX: Add type assertion to resolve 'map does not exist on type unknown' error
-(formData.rewards?.lootTable as LootDrop[] | undefined)?.map((drop, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md" placeholder="Chance %"/><button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Drop</button></div>
+// FIX: Ensure formData.rewards.lootTable is an array before calling map.
+(formData.rewards?.lootTable || []).map((drop, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md" placeholder="Chance %"/><button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Drop</button></div>
             </fieldset>
 
             <div className="flex justify-end space-x-4 pt-4">
