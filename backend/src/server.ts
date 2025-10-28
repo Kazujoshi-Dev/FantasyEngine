@@ -1669,9 +1669,38 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', '..', '..', '..', 'dist', 'index.html'));
 });
 
+// --- Scheduled jobs ---
+const cleanupOldTavernMessages = async () => {
+    console.log('Running scheduled job: cleaning up old tavern messages...');
+    const client = await pool.connect();
+    try {
+        // Delete messages older than 24 hours
+        const result = await client.query(
+            "DELETE FROM tavern_messages WHERE created_at < NOW() - INTERVAL '24 hours'"
+        );
+        if (result.rowCount > 0) {
+            console.log(`Successfully deleted ${result.rowCount} old tavern messages.`);
+        } else {
+            console.log('No old tavern messages to delete.');
+        }
+    } catch (err) {
+        console.error('Error during tavern message cleanup:', err);
+    } finally {
+        client.release();
+    }
+};
+
+
 // Start the server after DB initialization
 initializeDatabase()
     .then(() => {
+        // Start the scheduled cleanup job to run every hour
+        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        setInterval(cleanupOldTavernMessages, ONE_HOUR_IN_MS);
+        
+        // Run it once on startup as well
+        cleanupOldTavernMessages();
+        
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });
