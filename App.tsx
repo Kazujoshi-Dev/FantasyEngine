@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -58,8 +59,8 @@ const App: React.FC = () => {
   const tavernIntervalRef = useRef<number | null>(null);
 
   // i18n
-  const t = useMemo(() => getT(gameData?.settings?.language || Language.EN), [gameData?.settings?.language]);
-  const currentLanguage = gameData?.settings?.language || Language.EN;
+  const t = useMemo(() => getT(Language.PL), []);
+  const currentLanguage = Language.PL;
 
   // Derived State
   const currentLocation = useMemo(() => gameData?.locations.find(loc => loc.id === playerCharacter?.currentLocationId), [gameData, playerCharacter]);

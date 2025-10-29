@@ -252,7 +252,7 @@ const initializeDatabase = async () => {
         }
 
         if (!existingKeys.includes('settings')) {
-            const defaultSettings = { language: 'en' };
+            const defaultSettings = { language: 'pl' };
             await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['settings', JSON.stringify(defaultSettings)]);
             console.log('Populated with initial game settings.');
         }
@@ -1389,7 +1389,7 @@ apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Respo
             ]);
             
             const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-            const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'en' };
+            const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'pl' };
             
             traderInventoryCache.inventory = generateTraderInventory(itemTemplates, settings);
             traderInventoryCache.lastRefreshedHour = currentHour;
@@ -1681,31 +1681,4 @@ const cleanupOldTavernMessages = async () => {
         if (result.rowCount && result.rowCount > 0) {
             console.log(`Successfully deleted ${result.rowCount} old tavern messages.`);
         } else {
-            console.log('No old tavern messages to delete.');
-        }
-    } catch (err) {
-        console.error('Error during tavern message cleanup:', err);
-    } finally {
-        client.release();
-    }
-};
-
-
-// Start the server after DB initialization
-initializeDatabase()
-    .then(() => {
-        // Start the scheduled cleanup job to run every hour
-        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
-        setInterval(cleanupOldTavernMessages, ONE_HOUR_IN_MS);
-        
-        // Run it once on startup as well
-        cleanupOldTavernMessages();
-        
-        app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
-        });
-    })
-    .catch(err => {
-        console.error("Failed to initialize database. Server will not start.", err);
-        exit(1);
-    });
+            console.log('No old tavern

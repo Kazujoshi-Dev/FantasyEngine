@@ -25,7 +25,6 @@ export enum Race {
 }
 
 export enum Language {
-    EN = 'en',
     PL = 'pl',
 }
 

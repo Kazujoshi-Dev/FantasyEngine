@@ -9,8 +9,8 @@ interface LanguageContextType {
 }
 
 export const LanguageContext = createContext<LanguageContextType>({
-    lang: Language.EN,
-    t: getT(Language.EN),
+    lang: Language.PL,
+    t: getT(Language.PL),
 });
 
 export const useTranslation = () => useContext(LanguageContext);

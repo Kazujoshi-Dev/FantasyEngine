@@ -1,9 +1,7 @@
 import { Language } from '../types';
-import en from './locales/en';
 import pl from './locales/pl';
 
 export const translations = {
-    [Language.EN]: en,
     [Language.PL]: pl,
 };
 
@@ -14,7 +12,7 @@ const getNestedValue = (obj: any, path: string): string => {
 
 // FIX: Changed signature to accept an options object for interpolation.
 export const getT = (lang: Language) => (key: string, options?: { [key: string]: string | number }): string => {
-    const langFile = translations[lang] || translations[Language.EN];
+    const langFile = translations[Language.PL];
     let value = getNestedValue(langFile, key);
 
     if (value && options) {

@@ -1239,10 +1239,6 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
     const [localSettings, setLocalSettings] = useState(settings);
     
     useEffect(() => setLocalSettings(settings), [settings]);
-    
-    const handleLangChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setLocalSettings(prev => ({ ...prev, language: e.target.value as Language }));
-    };
 
     const handleTraderRarityChange = (rarity: ItemRarity, value: number) => {
         setLocalSettings(prev => ({
@@ -1260,14 +1256,6 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
     return (
         <div className="space-y-6">
             <div className="bg-slate-800/50 p-6 rounded-lg">
-                 <h3 className="text-lg font-semibold text-white mb-4">{t('admin.gameSettings')}</h3>
-                 <label className="block mb-2 text-sm font-medium text-gray-300">{t('admin.language')}</label>
-                 <select value={localSettings.language} onChange={handleLangChange} className="bg-slate-700 p-2 rounded-md">
-                    <option value={Language.EN}>{t('admin.languages.en')}</option>
-                    <option value={Language.PL}>{t('admin.languages.pl')}</option>
-                 </select>
-            </div>
-            <div className="bg-slate-800/50 p-6 rounded-lg">
                 <h3 className="text-lg font-semibold text-white mb-4">{t('admin.traderSettings')}</h3>
                 <label className="block mb-2 text-sm font-medium text-gray-300">{t('admin.rarityChances')}</label>
                 <p className="text-xs text-gray-400 mb-2">{t('admin.rarityChancesDesc')}</p>
@@ -1281,7 +1269,7 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
                 <h3 className="text-lg font-semibold text-white mb-4">{t('admin.traderActions')}</h3>
                 <button onClick={onForceTraderRefresh} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded text-white">{t('admin.forceTraderRefresh')}</button>
             </div>
-            <button onClick={() => onSettingsUpdate(localSettings)} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg">{t('admin.saveSettings')}</button>
+            <button onClick={() => onSettingsUpdate({ ...localSettings, language: Language.PL })} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg">{t('admin.saveSettings')}</button>
         </div>
     );
 };
