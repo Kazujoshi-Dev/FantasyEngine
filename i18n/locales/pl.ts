@@ -85,7 +85,8 @@ export default {
             cost: '{cost} złota',
             free: 'darmowe',
             notEnoughGold: 'Nie masz wystarczająco złota, aby zresetować atrybuty (koszt: {cost} złota).',
-            applyChangesFirst: 'Najpierw zapisz lub anuluj obecne zmiany atrybutów.'
+            applyChangesFirst: 'Najpierw zapisz lub anuluj obecne zmiany atrybutów.',
+            freeResetNote: 'Pierwszy reset atrybutów jest darmowy.'
         },
         derivedStats: 'Statystyki Pochodne',
         preview: '(Podgląd)',

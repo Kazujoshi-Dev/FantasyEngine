@@ -223,6 +223,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                 >
                     {t('statistics.reset.button')} ({isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost })})
                 </button>
+                {isFreeReset && <p className="text-xs text-gray-500 mt-2">{t('statistics.reset.freeResetNote')}</p>}
             </div>
           </div>
         </div>

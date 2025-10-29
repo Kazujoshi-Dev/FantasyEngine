@@ -85,7 +85,8 @@ export default {
             cost: '{cost} gold',
             free: 'free',
             notEnoughGold: 'You do not have enough gold to reset your attributes (cost: {cost} gold).',
-            applyChangesFirst: 'Apply or cancel your current changes before resetting all attributes.'
+            applyChangesFirst: 'Apply or cancel your current changes before resetting all attributes.',
+            freeResetNote: 'The first attribute reset is free.'
         },
         derivedStats: 'Derived Statistics',
         preview: '(Preview)',
