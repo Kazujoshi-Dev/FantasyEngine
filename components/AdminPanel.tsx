@@ -333,7 +333,7 @@ const ExpeditionEditor: React.FC<{
                         <label className="block text-sm font-medium text-gray-300 mb-2">Dostępna w lokacjach</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {allLocations.map(loc => (
-                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
+                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
                             ))}
                         </div>
                     </div>
@@ -751,10 +751,9 @@ const ItemEditor: React.FC<{
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.value')}</label><input type="number" name="value" value={formData.value || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.levelRequirement')}</label><input type="number" name="requiredLevel" value={formData.requiredLevel || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.attacksPerRound')}</label><input type="number" name="attacksPerRound" value={formData.attacksPerRound || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
             </div>
 
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.requiredStats')}</h4>
@@ -797,6 +796,7 @@ const ItemEditor: React.FC<{
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.manaCost')}</label><input type="number" name="manaCost" value={formData.manaCost || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMin')}</label><input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMax')}</label><input type="number" name="magicDamageMax" value={formData.magicDamageMax || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.attacksPerRound')}</label><input type="number" name="attacksPerRound" value={formData.attacksPerRound || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
             </div>
 
             <div className="flex justify-end space-x-4 pt-4">
@@ -1276,11 +1276,7 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
 
 const UsersPanel: React.FC<{ users: User[], allCharacters: AdminCharacterInfo[], onDeleteUser: (id: number) => void, onDeleteCharacter: (id: number) => void, onResetCharacterStats: (id: number) => void, onHealCharacter: (id: number) => void }> = (props) => {
     const { t } = useTranslation();
-    // FIX: The error "Property 'map' does not exist on type 'unknown'" on line 1184 is confusing,
-    // as the line contains a `.reduce()` call. This `useMemo` is also unused. Removing this unused
-    // and potentially problematic code is the cleanest fix. It will likely resolve the confusing
-    // compiler error by removing the code that's confusing it.
-
+    // FIX: Removed an unused `useMemo` that contained a syntax error (`.map.reduce` instead of `.reduce`), resolving a compilation error.
     return (
         <div className="space-y-6">
             <div>

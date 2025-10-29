@@ -1003,7 +1003,22 @@ const App: React.FC = () => {
           {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
-          {activeTab === Tab.Ranking && <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fullCharacterSync} isLoading={isRankingLoading} onAttack={async (defenderId) => { await api.attackPlayer(defenderId); await fullCharacterSync(); }} onComposeMessage={handleComposeMessage} />}
+          {activeTab === Tab.Ranking && <Ranking 
+              ranking={ranking} 
+              currentPlayer={playerCharacter} 
+              onRefresh={fullCharacterSync} 
+              isLoading={isRankingLoading} 
+              onAttack={async (defenderId) => {
+                  try {
+                      await api.attackPlayer(defenderId);
+                  } catch (err: any) {
+                      alert(err.message);
+                  } finally {
+                      await fullCharacterSync();
+                  }
+              }} 
+              onComposeMessage={handleComposeMessage} 
+          />}
           {activeTab === Tab.Trader && gameData && <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems}/>}
           {activeTab === Tab.Blacksmith && gameData && <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />}
           {activeTab === Tab.Messages && gameData && <Messages messages={messages} onDeleteMessage={async (id) => { await api.deleteMessage(id); await fullCharacterSync(); }} onMarkAsRead={async (id) => { await api.markMessageAsRead(id); setMessages(m => m.map(msg => msg.id === id ? {...msg, is_read: true} : msg)) }} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} currentPlayer={playerCharacter} />}

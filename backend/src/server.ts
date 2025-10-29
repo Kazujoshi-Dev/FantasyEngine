@@ -599,6 +599,183 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
     };
 }
 
+function simulatePvpFight(
+    initialAttacker: PlayerCharacter, 
+    initialDefender: PlayerCharacter, 
+    itemTemplates: ItemTemplate[]
+): { combatLog: CombatLogEntry[], isVictory: boolean, finalAttackerHealth: number, finalAttackerMana: number, finalDefenderHealth: number, finalDefenderMana: number } {
+    const combatLog: CombatLogEntry[] = [];
+    let turn = 1;
+
+    const attacker = calculateDerivedStatsOnServer(initialAttacker, itemTemplates);
+    const defender = calculateDerivedStatsOnServer(initialDefender, itemTemplates);
+
+    let attackerHealth = attacker.stats.currentHealth;
+    let attackerMana = attacker.stats.currentMana;
+    let defenderHealth = defender.stats.currentHealth;
+    let defenderMana = defender.stats.currentMana;
+    
+    const getWeaponTemplate = (p: PlayerCharacter) => {
+        const mainHandItem = p.equipment[EquipmentSlot.MainHand] || p.equipment[EquipmentSlot.TwoHand];
+        return mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+    }
+
+    combatLog.push({
+        turn: 0,
+        attacker: attacker.name,
+        defender: defender.name,
+        action: 'starts a fight with',
+        playerHealth: attackerHealth,
+        playerMana: attackerMana,
+        enemyHealth: defenderHealth,
+        enemyMana: defenderMana,
+        playerStats: attacker.stats,
+        enemyStats: defender.stats,
+    });
+    
+    const performTurn = (
+        atk: PlayerCharacter,
+        def: PlayerCharacter,
+    ) => {
+        
+        if (atk.id === attacker.id) {
+            const manaRegen = atk.stats.manaRegen;
+            if (manaRegen > 0 && attackerMana < atk.stats.maxMana) {
+                const newMana = Math.min(atk.stats.maxMana, attackerMana + manaRegen);
+                combatLog.push({ turn, attacker: atk.name, defender: def.name, action: 'manaRegen', manaGained: newMana - attackerMana, playerHealth: attackerHealth, playerMana: newMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+                attackerMana = newMana;
+            }
+        } else {
+             const manaRegen = atk.stats.manaRegen;
+            if (manaRegen > 0 && defenderMana < atk.stats.maxMana) {
+                const newMana = Math.min(atk.stats.maxMana, defenderMana + manaRegen);
+                combatLog.push({ turn, attacker: atk.name, defender: def.name, action: 'manaRegen', manaGained: newMana - defenderMana, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: newMana });
+                defenderMana = newMana;
+            }
+        }
+
+        const attacksPerRound = atk.stats.attacksPerRound;
+        const weaponTemplate = getWeaponTemplate(atk);
+
+        for(let i=0; i < attacksPerRound; i++) {
+            if (attackerHealth <= 0 || defenderHealth <= 0) break;
+            
+            let damage = 0;
+            let isCrit = false;
+            let isDodge = false;
+            let damageReduced = 0;
+            let healthGained = 0;
+            let manaGained = 0;
+            let magicAttackType: MagicAttackType | undefined = undefined;
+
+            if (def.race === Race.Gnome && Math.random() < 0.1) isDodge = true;
+            else {
+                const dodgeChance = Math.max(0, (def.stats.agility - atk.stats.accuracy) * 0.1);
+                if (Math.random() * 100 < dodgeChance) isDodge = true;
+            }
+
+            if(isDodge) {
+                const logEntry = {
+                    turn, attacker: atk.name, defender: def.name, action: 'attacks', isDodge,
+                    playerHealth: atk.id === attacker.id ? attackerHealth : defenderHealth,
+                    playerMana: atk.id === attacker.id ? attackerMana : defenderMana,
+                    enemyHealth: def.id === defender.id ? defenderHealth : attackerHealth,
+                    enemyMana: def.id === defender.id ? defenderMana : attackerMana,
+                };
+                if (atk.id === defender.id) { // Swap if defender is attacking
+                    [logEntry.playerHealth, logEntry.enemyHealth] = [logEntry.enemyHealth, logEntry.playerHealth];
+                    [logEntry.playerMana, logEntry.enemyMana] = [logEntry.enemyMana, logEntry.playerMana];
+                }
+                combatLog.push(logEntry);
+                continue;
+            }
+
+            let isMagicAttack = false;
+            let notEnoughMana = false;
+            let currentMana = (atk.id === attacker.id) ? attackerMana : defenderMana;
+
+            if (weaponTemplate?.isMagical && weaponTemplate.magicAttackType && weaponTemplate.manaCost) {
+                if (currentMana >= weaponTemplate.manaCost) {
+                    isMagicAttack = true;
+                    currentMana -= weaponTemplate.manaCost;
+                    magicAttackType = weaponTemplate.magicAttackType;
+                } else {
+                    notEnoughMana = true;
+                }
+            }
+            if (atk.id === attacker.id) attackerMana = currentMana; else defenderMana = currentMana;
+            
+            if (notEnoughMana) {
+                combatLog.push({ turn, attacker: atk.name, defender: def.name, action: 'notEnoughMana', playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+            }
+
+            if (isMagicAttack) {
+                damage = Math.floor(Math.random() * (atk.stats.magicDamageMax - atk.stats.magicDamageMin + 1)) + atk.stats.magicDamageMin;
+            } else {
+                damage = Math.floor(Math.random() * (atk.stats.maxDamage - atk.stats.minDamage + 1)) + atk.stats.minDamage;
+                if (Math.random() * 100 < atk.stats.critChance) {
+                    isCrit = true;
+                    damage = Math.floor(damage * (atk.stats.critDamageModifier / 100));
+                }
+                let effectiveArmor = def.stats.armor * (1 - atk.stats.armorPenetrationPercent / 100) - atk.stats.armorPenetrationFlat;
+                effectiveArmor = Math.max(0, effectiveArmor);
+                damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
+                damage -= damageReduced;
+            }
+            
+            let currentAtkHealth = (atk.id === attacker.id) ? attackerHealth : defenderHealth;
+            let currentDefHealth = (def.id === attacker.id) ? attackerHealth : defenderHealth;
+
+            if (atk.race === Race.Orc && currentAtkHealth < atk.stats.maxHealth * 0.25) damage = Math.floor(damage * 1.25);
+            if (def.race === Race.Dwarf && currentDefHealth < def.stats.maxHealth * 0.5) damage = Math.floor(damage * 0.8);
+            damage = Math.max(0, damage);
+            
+            healthGained = Math.floor(damage * (atk.stats.lifeStealPercent / 100)) + atk.stats.lifeStealFlat;
+            manaGained = Math.floor(damage * (atk.stats.manaStealPercent / 100)) + atk.stats.manaStealFlat;
+
+            if(healthGained > 0) currentAtkHealth = Math.min(atk.stats.maxHealth, currentAtkHealth + healthGained);
+            if(manaGained > 0) currentMana = Math.min(atk.stats.maxMana, currentMana + manaGained);
+            
+            if (atk.id === attacker.id) { attackerHealth = currentAtkHealth; attackerMana = currentMana; }
+            else { defenderHealth = currentAtkHealth; defenderMana = currentMana; }
+
+            if (atk.id === attacker.id) defenderHealth -= damage; else attackerHealth -= damage;
+
+            const logEntry = {
+                turn, attacker: atk.name, defender: def.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, magicAttackType,
+                playerHealth: Math.max(0, attackerHealth), playerMana: Math.max(0, attackerMana),
+                enemyHealth: Math.max(0, defenderHealth), enemyMana: Math.max(0, defenderMana),
+                weaponName: weaponTemplate?.name,
+            };
+
+            combatLog.push(logEntry);
+        }
+    };
+
+    while (attackerHealth > 0 && defenderHealth > 0) {
+        const attackerGoesFirst = (turn === 1 && attacker.race === Race.Elf) || attacker.stats.agility >= defender.stats.agility;
+
+        if (attackerGoesFirst) {
+            performTurn(attacker, defender);
+            if (defenderHealth > 0) performTurn(defender, attacker);
+        } else {
+            performTurn(defender, attacker);
+            if (attackerHealth > 0) performTurn(attacker, defender);
+        }
+        turn++;
+        if (turn > 50) break;
+    }
+
+    return {
+        combatLog,
+        isVictory: attackerHealth > 0,
+        finalAttackerHealth: attackerHealth,
+        finalAttackerMana: attackerMana,
+        finalDefenderHealth: defenderHealth,
+        finalDefenderMana: defenderMana
+    };
+}
+
 
 async function completeExpedition(
     client: any, // PoolClient
@@ -1343,6 +1520,123 @@ apiRouter.get('/ranking', async (req: Request, res: Response) => {
     }
 });
 
+// --- PVP ATTACK ENDPOINT ---
+// FIX: Add explicit types for req and res to resolve property access errors.
+apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: Request, res: Response) => {
+    const attackerId = req.user!.id;
+    const defenderId = parseInt(req.params.defenderId, 10);
+
+    if (isNaN(defenderId) || attackerId === defenderId) {
+        return res.status(400).json({ message: 'Invalid opponent.' });
+    }
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('settings', 'itemTemplates')");
+        const charRes = await client.query('SELECT user_id, data FROM characters WHERE user_id = ANY($1::int[]) FOR UPDATE', [[attackerId, defenderId]]);
+
+        if (charRes.rowCount !== 2) {
+            throw new Error('Could not find both attacker and defender.');
+        }
+
+        const settingsRow = gameDataRes.rows.find(r => r.key === 'settings');
+        const itemTemplatesRow = gameDataRes.rows.find(r => r.key === 'itemTemplates');
+        const settings: GameSettings = settingsRow ? settingsRow.data : { pvpProtectionMinutes: 60, language: 'pl' };
+        const itemTemplates: ItemTemplate[] = itemTemplatesRow ? itemTemplatesRow.data : [];
+
+        let attacker: PlayerCharacter = charRes.rows.find(r => r.user_id === attackerId)!.data;
+        let defender: PlayerCharacter = charRes.rows.find(r => r.user_id === defenderId)!.data;
+        attacker.id = attackerId;
+        defender.id = defenderId;
+
+        // Server-side validation
+        if (Math.abs(attacker.level - defender.level) > 3) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Target is outside your level range.' });
+        }
+        if (attacker.stats.currentEnergy < 3) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough energy to attack.' });
+        }
+        if (defender.pvpProtectionUntil > Date.now()) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Target is currently protected from attacks.' });
+        }
+        
+        const attackerWithStats = calculateDerivedStatsOnServer(attacker, itemTemplates);
+        const defenderWithStats = calculateDerivedStatsOnServer(defender, itemTemplates);
+        
+        const fightResult = simulatePvpFight(attackerWithStats, defenderWithStats, itemTemplates);
+        
+        let goldStolen = 0;
+        let xpGained = 0;
+        let xpLost = 0;
+
+        if (fightResult.isVictory) {
+            goldStolen = Math.min(defender.resources.gold, Math.floor(defender.resources.gold * 0.1));
+            xpGained = Math.max(1, Math.floor(50 * (defender.level / attacker.level)));
+            attacker.pvpWins = (attacker.pvpWins || 0) + 1;
+            defender.pvpLosses = (defender.pvpLosses || 0) + 1;
+        } else {
+            attacker.pvpLosses = (attacker.pvpLosses || 0) + 1;
+            defender.pvpWins = (defender.pvpWins || 0) + 1;
+        }
+
+        attacker.stats.currentEnergy -= 3;
+        attacker.resources.gold += goldStolen;
+        attacker.experience = Math.max(0, attacker.experience + xpGained - xpLost);
+
+        defender.resources.gold -= goldStolen;
+        
+        const protectionDuration = (settings.pvpProtectionMinutes || 60) * 60 * 1000;
+        defender.pvpProtectionUntil = Date.now() + protectionDuration;
+
+        while (attacker.experience >= attacker.experienceToNextLevel) {
+            attacker.experience -= attacker.experienceToNextLevel;
+            attacker.level += 1;
+            attacker.stats.statPoints += 1;
+            attacker.experienceToNextLevel = Math.floor(100 * Math.pow(attacker.level, 1.3));
+        }
+
+        const pvpSummary: PvpRewardSummary = {
+            isVictory: fightResult.isVictory,
+            gold: goldStolen,
+            experience: fightResult.isVictory ? xpGained : xpLost,
+            combatLog: fightResult.combatLog,
+            attacker: attackerWithStats,
+            defender: defenderWithStats,
+        };
+
+        const attackerSubject = `Raport z ataku: Zaatakowałeś ${defender.name}!`;
+        const defenderSubject = `Zostałeś zaatakowany przez ${attacker.name}!`;
+        
+        await client.query(
+            'INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)',
+            [attackerId, 'System', 'pvp_report', attackerSubject, JSON.stringify(pvpSummary)]
+        );
+         await client.query(
+            'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)',
+            [defenderId, attackerId, attacker.name, 'pvp_report', defenderSubject, JSON.stringify(pvpSummary)]
+        );
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(attacker), attackerId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(defender), defenderId]);
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Attack completed.' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error during PvP attack:', err);
+        res.status(500).json({ message: 'Internal server error.' });
+    } finally {
+        client.release();
+    }
+});
+
+
 // --- Game Data Endpoints ---
 // FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.get('/game-data', async (req: Request, res: Response) => {
@@ -1389,6 +1683,7 @@ apiRouter.put('/game-data', authenticate, isAdmin, async (req: Request, res: Res
 });
 
 // --- Trader Endpoint ---
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     const currentHour = new Date().getUTCHours();
@@ -1439,7 +1734,8 @@ apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Respo
     }
 });
 
-apiRouter.post('/trader/buy', authenticate, async (req, res) => {
+// FIX: Add explicit types for req and res to resolve property access errors.
+apiRouter.post('/trader/buy', authenticate, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     if (!itemId) {
         return res.status(400).json({ message: 'Item ID is required.' });
@@ -1565,6 +1861,7 @@ apiRouter.post('/messages', authenticate, async (req: Request, res: Response) =>
     }
 });
 
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response) => {
     const messageId = parseInt(req.params.id, 10);
     const { is_read } = req.body;
@@ -1594,6 +1891,7 @@ apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response)
     }
 });
 
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Response) => {
     const messageId = parseInt(req.params.id, 10);
 
@@ -1622,6 +1920,7 @@ apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Respon
 });
 
 // --- Tavern Endpoints ---
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Response) => {
     let client;
     try {
@@ -1638,6 +1937,7 @@ apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Respon
     }
 });
 
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Response) => {
     const { content } = req.body;
     const userId = req.user!.id;
@@ -1679,7 +1979,8 @@ app.use('/api', apiRouter);
 app.use(express.static(path.join(__dirname, '..', '..', '..', '..', 'dist')));
 
 // For any other request, serve the index.html file
-app.get('*', (req, res) => {
+// FIX: Add explicit types for req and res to resolve property access errors.
+app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '..', '..', '..', '..', 'dist', 'index.html'));
 });
 
