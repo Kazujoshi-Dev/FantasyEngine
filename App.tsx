@@ -1,12 +1,8 @@
-
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
-import { Expedition as ExpeditionComponent } from './components/Expedition';
+import { Expedition as ExpeditionComponent, ExpeditionSummaryModal } from './components/Expedition';
 import { Camp } from './components/Camp';
 import { Location as LocationComponent } from './components/Location';
 import { Resources } from './components/Resources';
@@ -36,6 +32,7 @@ const App: React.FC = () => {
   const [playerCharacter, setPlayerCharacter] = useState<PlayerCharacter | null>(null);
   const [baseCharacter, setBaseCharacter] = useState<PlayerCharacter | null>(null);
   const [gameData, setGameData] = useState<GameData | null>(null);
+  const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
   
   // UI State
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
@@ -202,13 +199,19 @@ const App: React.FC = () => {
       setGameData(localGameData);
       
       // Then, fetch all authenticated data
-      const [charData, rankingData, messagesData, allNamesData, traderData] = await Promise.all([
+      const [charDataResponse, rankingData, messagesData, allNamesData, traderData] = await Promise.all([
         api.getCharacter(),
         api.getRanking(),
         api.getMessages(),
         api.getCharacterNames(),
         api.getTraderInventory(), // Now authenticated
       ]);
+
+      const { expeditionSummary, ...charData } = charDataResponse;
+
+      if (expeditionSummary) {
+          setExpeditionReport(expeditionSummary as ExpeditionRewardSummary);
+      }
       
       // Data Sanitization & Backward compatibility
       if (localGameData.itemTemplates) {
@@ -352,6 +355,16 @@ const App: React.FC = () => {
 
     return () => clearInterval(intervalId);
   }, [gameData, calculateDerivedStats]); // Dependencies are now safer
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+        if (playerCharacter?.activeExpedition && Date.now() >= playerCharacter.activeExpedition.finishTime && !expeditionReport) {
+            fullCharacterSync();
+        }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [playerCharacter, fullCharacterSync, expeditionReport]);
 
 
   // Handlers
@@ -660,6 +673,20 @@ const App: React.FC = () => {
     handleCharacterUpdate(newChar);
   };
 
+  const handleHealToFull = () => {
+    if (!baseCharacter || !playerCharacter) return;
+    if (
+      playerCharacter.stats.currentHealth >= playerCharacter.stats.maxHealth ||
+      baseCharacter.isResting ||
+      baseCharacter.activeTravel ||
+      baseCharacter.activeExpedition
+    ) return;
+
+    const newChar = JSON.parse(JSON.stringify(baseCharacter));
+    newChar.stats.currentHealth = playerCharacter.stats.maxHealth;
+    handleCharacterUpdate(newChar);
+  };
+
   const handleDisenchantItem = (item: ItemInstance): { success: boolean; amount?: number; essenceType?: EssenceType } => {
     if (!baseCharacter || !gameData) return { success: false };
 
@@ -958,7 +985,7 @@ const App: React.FC = () => {
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}
           {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
           {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onFinishExpedition={fullCharacterSync} itemTemplates={gameData.itemTemplates} />}
-          {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} />}
+          {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
           {activeTab === Tab.Ranking && <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fullCharacterSync} isLoading={isRankingLoading} onAttack={async (defenderId) => { await api.attackPlayer(defenderId); await fullCharacterSync(); }} onComposeMessage={handleComposeMessage} />}
@@ -970,6 +997,14 @@ const App: React.FC = () => {
           {activeTab === Tab.Admin && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel locations={gameData.locations} onLocationsUpdate={(d) => handleGameDataUpdate('locations', d)} expeditions={gameData.expeditions} onExpeditionsUpdate={(d) => handleGameDataUpdate('expeditions', d)} enemies={gameData.enemies} onEnemiesUpdate={(d) => handleGameDataUpdate('enemies', d)} itemTemplates={gameData.itemTemplates} onItemTemplatesUpdate={(d) => handleGameDataUpdate('itemTemplates', d)} quests={gameData.quests} onQuestsUpdate={(d) => handleGameDataUpdate('quests', d)} settings={gameData.settings} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} />}
         </main>
         {isComposingMessage && <ComposeMessageModal allCharacterNames={allCharacterNames} onClose={() => setIsComposingMessage(false)} onSendMessage={async (data) => { await api.sendMessage(data); await fullCharacterSync(); }} initialRecipient={composeInitialData?.recipient} initialSubject={composeInitialData?.subject} />}
+        {expeditionReport && gameData && playerCharacter && (
+          <ExpeditionSummaryModal
+            reward={expeditionReport}
+            onClose={() => setExpeditionReport(null)}
+            characterName={playerCharacter.name}
+            itemTemplates={gameData.itemTemplates}
+          />
+        )}
       </div>
     </LanguageContext.Provider>
   );

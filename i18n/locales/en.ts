@@ -301,7 +301,8 @@ export default {
         depositAll: 'Deposit All',
         withdrawAll: 'Withdraw All',
         upgradeChest: 'Upgrade Chest',
-        notEnoughEssenceForChest: "You don't have enough essence to upgrade the chest."
+        notEnoughEssenceForChest: "You don't have enough essence to upgrade the chest.",
+        healToFull: 'Heal to Full (Free)',
     },
     location: {
         title: 'Your Location',

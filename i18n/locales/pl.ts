@@ -301,7 +301,8 @@ export default {
         depositAll: 'Wpłać wszystko',
         withdrawAll: 'Wypłać wszystko',
         upgradeChest: 'Ulepsz Skrzynię',
-        notEnoughEssenceForChest: "Nie masz wystarczająco esencji, aby ulepszyć skrzynię."
+        notEnoughEssenceForChest: "Nie masz wystarczająco esencji, aby ulepszyć skrzynię.",
+        healToFull: 'Ulecz do Pełna (za darmo)',
     },
     location: {
         title: 'Twoja Lokacja',

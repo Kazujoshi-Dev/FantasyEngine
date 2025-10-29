@@ -1,4 +1,4 @@
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, TavernMessage } from './types';
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage } from './types';
 
 const API_BASE_URL = '/api';
 
@@ -71,7 +71,7 @@ export const api = {
     },
 
     // --- Character Management ---
-    async getCharacter(): Promise<PlayerCharacter> {
+    async getCharacter(): Promise<PlayerCharacter & { expeditionSummary?: ExpeditionRewardSummary }> {
         return fetchApi('/character');
     },
     

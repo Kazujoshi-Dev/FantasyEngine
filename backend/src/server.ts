@@ -608,11 +608,11 @@ async function completeExpedition(
     allEnemies: Enemy[],
     allItemTemplates: ItemTemplate[],
     allQuests: Quest[]
-): Promise<PlayerCharacter> {
+): Promise<{ character: PlayerCharacter; summary: ExpeditionRewardSummary }> {
     const expeditionTemplate = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expeditionTemplate) {
         character.activeExpedition = null;
-        return character;
+        return { character, summary: {} as ExpeditionRewardSummary };
     }
 
     const encounteredEnemies: Enemy[] = [];
@@ -753,7 +753,7 @@ async function completeExpedition(
     
     delete (updatedChar as any).lastReward;
 
-    return updatedChar;
+    return { character: updatedChar, summary };
 }
 
 // Middleware
@@ -999,6 +999,7 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         }
         
         let character: PlayerCharacter = characterResult.rows[0].data;
+        let expeditionSummary: ExpeditionRewardSummary | null = null;
         character.username = characterResult.rows[0].username;
         character.id = req.user!.id;
         
@@ -1010,7 +1011,9 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
 
         let expeditionCompleted = false;
         if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
-            character = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
+            const result = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
+            character = result.character;
+            expeditionSummary = result.summary;
             expeditionCompleted = true;
         }
 
@@ -1046,15 +1049,17 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
         }
 
         if (needsDbUpdate) {
-            // Save the updated BASE character, not the one with derived stats
             await client.query(
                 'UPDATE characters SET data = $1 WHERE user_id = $2',
                 [JSON.stringify(character), req.user!.id]
             );
         }
 
-        // Respond with the updated BASE character. The client is responsible for calculating derived stats for the UI.
-        res.status(200).json(character);
+        const responsePayload = { ...character };
+        if (expeditionSummary) {
+            (responsePayload as any).expeditionSummary = expeditionSummary;
+        }
+        res.status(200).json(responsePayload);
 
     } catch (err) {
         console.error('Error fetching character:', err);

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterChest, EssenceType, ItemRarity } from '../types';
@@ -16,6 +17,7 @@ interface CampProps {
     onUpgradeCamp: () => void;
     getUpgradeCost: (level: number) => number;
     onCharacterUpdate: (character: PlayerCharacter) => void;
+    onHealToFull: () => void;
 }
 
 const REGEN_INTERVAL_SECONDS = 5;
@@ -157,7 +159,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCh
 }
 
 
-export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleResting, onUpgradeCamp, getUpgradeCost, onCharacterUpdate }) => {
+export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleResting, onUpgradeCamp, getUpgradeCost, onCharacterUpdate, onHealToFull }) => {
     const { t } = useTranslation();
     const { camp, isResting, resources, stats, restStartHealth, activeTravel, activeExpedition } = character;
     const isTraveling = activeTravel !== null;
@@ -229,6 +231,17 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                             `}
                         >
                             {isResting ? t('camp.stopResting') : t('camp.startResting')}
+                        </button>
+                        <button
+                            onClick={onHealToFull}
+                            disabled={activeExpedition !== null || isTraveling || stats.currentHealth >= stats.maxHealth}
+                            className={`w-full mt-2 py-2 rounded-lg font-bold text-sm transition-colors duration-200 shadow-md
+                                bg-emerald-600 hover:bg-emerald-700 text-white
+                                disabled:bg-slate-600 disabled:cursor-not-allowed
+                            `}
+                            title={stats.currentHealth >= stats.maxHealth ? "You are already at full health." : ""}
+                        >
+                            {t('camp.healToFull')}
                         </button>
                         {isResting && (
                              <div className="text-center mt-4 bg-slate-800/50 p-4 rounded-lg">
