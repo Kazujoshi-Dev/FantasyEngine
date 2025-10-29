@@ -1110,7 +1110,8 @@ apiRouter.post('/auth/logout', authenticate, async (req: ExpressRequest, res: Ex
      }
 });
 
-// --- Admin User Management ---
+// --- Admin Endpoints ---
+
 // FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.get('/users', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
@@ -1155,6 +1156,49 @@ apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: ExpressRequest
         res.status(500).json({ message: 'Internal server error.' });
     } finally {
         if (client) client.release();
+    }
+});
+
+apiRouter.post('/admin/global-message', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
+    const { subject, content } = req.body;
+    const adminId = req.user!.id;
+
+    if (!subject || !content) {
+        return res.status(400).json({ message: 'Subject and content are required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const usersRes = await client.query('SELECT id FROM users');
+        if (usersRes.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'No users found to send message to.' });
+        }
+
+        const userIds: number[] = usersRes.rows.map(r => r.id);
+        const body = { content };
+        const messageType = 'player_message';
+        const senderName = 'Administrator';
+
+        const query = 'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)';
+        
+        for (const userId of userIds) {
+            if (userId === adminId) continue; // Don't send to self
+            await client.query(query, [userId, adminId, senderName, messageType, subject, JSON.stringify(body)]);
+        }
+
+        await client.query('COMMIT');
+        const sentCount = userIds.includes(adminId) ? userIds.length - 1 : userIds.length;
+        res.status(200).json({ message: `Global message sent to ${sentCount} players.` });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error sending global message:', err);
+        res.status(500).json({ message: 'Internal server error while sending global message.' });
+    } finally {
+        client.release();
     }
 });
 

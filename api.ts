@@ -266,6 +266,13 @@ export const api = {
         });
     },
 
+    async sendGlobalMessage(data: { subject: string; content: string }): Promise<void> {
+        return fetchApi('/admin/global-message', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
     async markMessageAsRead(messageId: number): Promise<void> {
         return fetchApi(`/messages/${messageId}`, {
             method: 'PUT',

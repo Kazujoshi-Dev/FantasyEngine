@@ -998,6 +998,15 @@ const App: React.FC = () => {
     setComposeInitialData(recipientName ? { recipient: recipientName, subject: subject || '' } : undefined);
     setIsComposingMessage(true);
   };
+
+  const handleSendGlobalMessage = async (data: { subject: string; content: string }) => {
+    try {
+      await api.sendGlobalMessage(data);
+    } catch(err: any) {
+      // The component will handle showing the error, re-throw it so it knows.
+      throw err;
+    }
+  };
   
   // Render Logic
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p>{t('loading')}</p></div>;
@@ -1052,7 +1061,7 @@ const App: React.FC = () => {
           {activeTab === Tab.Messages && gameData && <Messages messages={messages} onDeleteMessage={async (id) => { await api.deleteMessage(id); await fullCharacterSync(); }} onMarkAsRead={async (id) => { await api.markMessageAsRead(id); setMessages(m => m.map(msg => msg.id === id ? {...msg, is_read: true} : msg)) }} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} currentPlayer={playerCharacter} />}
           {activeTab === Tab.Quests && gameData && <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />}
           {activeTab === Tab.Tavern && <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>}
-          {activeTab === Tab.Admin && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel locations={gameData.locations} onLocationsUpdate={(d) => handleGameDataUpdate('locations', d)} expeditions={gameData.expeditions} onExpeditionsUpdate={(d) => handleGameDataUpdate('expeditions', d)} enemies={gameData.enemies} onEnemiesUpdate={(d) => handleGameDataUpdate('enemies', d)} itemTemplates={gameData.itemTemplates} onItemTemplatesUpdate={(d) => handleGameDataUpdate('itemTemplates', d)} quests={gameData.quests} onQuestsUpdate={(d) => handleGameDataUpdate('quests', d)} settings={gameData.settings} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} />}
+          {activeTab === Tab.Admin && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel locations={gameData.locations} onLocationsUpdate={(d) => handleGameDataUpdate('locations', d)} expeditions={gameData.expeditions} onExpeditionsUpdate={(d) => handleGameDataUpdate('expeditions', d)} enemies={gameData.enemies} onEnemiesUpdate={(d) => handleGameDataUpdate('enemies', d)} itemTemplates={gameData.itemTemplates} onItemTemplatesUpdate={(d) => handleGameDataUpdate('itemTemplates', d)} quests={gameData.quests} onQuestsUpdate={(d) => handleGameDataUpdate('quests', d)} settings={gameData.settings} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />}
         </main>
         {isComposingMessage && <ComposeMessageModal allCharacterNames={allCharacterNames} onClose={() => setIsComposingMessage(false)} onSendMessage={async (data) => { await api.sendMessage(data); await fullCharacterSync(); }} initialRecipient={composeInitialData?.recipient} initialSubject={composeInitialData?.subject} />}
         {expeditionReport && gameData && playerCharacter && (
