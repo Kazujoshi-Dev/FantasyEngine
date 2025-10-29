@@ -102,7 +102,12 @@ const DisenchantPanel: React.FC<{
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fade-in h-[70vh]">
              <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
-                 <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('blacksmith.yourBag')}</h3>
+                 <div className="flex justify-between items-center mb-4 px-2">
+                    <h3 className="text-xl font-bold text-indigo-400">{t('blacksmith.yourBag')}</h3>
+                    <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
+                        {character.inventory.length} / 40
+                    </div>
+                </div>
                 <ItemList
                     items={character.inventory}
                     itemTemplates={itemTemplates}
@@ -179,7 +184,8 @@ const UpgradePanel: React.FC<{
     ], [character.equipment, character.inventory]);
 
     const equippedItemIds = useMemo(() => 
-        new Set(Object.values(character.equipment).filter(i => i).map(i => i!.uniqueId)),
+        // FIX: Replaced `.filter(i => i).map(i => i!.uniqueId)` with a proper type guard to ensure type safety and prevent potential compiler errors.
+        new Set(Object.values(character.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
     [character.equipment]);
     
     const filteredItems = useMemo(() => {
@@ -263,7 +269,12 @@ const UpgradePanel: React.FC<{
          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fade-in h-[70vh]">
             <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                 <div className="flex justify-between items-center mb-4 px-2">
-                     <h3 className="text-xl font-bold text-indigo-400">{t('equipment.title')} / {t('equipment.backpack')}</h3>
+                     <div className="flex items-center gap-4">
+                        <h3 className="text-xl font-bold text-indigo-400">{t('equipment.title')} / {t('equipment.backpack')}</h3>
+                        <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
+                            {character.inventory.length} / 40
+                        </div>
+                     </div>
                      <div className="flex items-center space-x-2">
                         <label htmlFor="item-filter" className="text-sm text-gray-400">{t('equipment.filterByType')}:</label>
                         <select

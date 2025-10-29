@@ -333,7 +333,7 @@ const ExpeditionEditor: React.FC<{
                         <label className="block text-sm font-medium text-gray-300 mb-2">Dostępna w lokacjach</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {allLocations.map(loc => (
-                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
+                                <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
                             ))}
                         </div>
                     </div>
@@ -1288,12 +1288,10 @@ const GeneralSettingsPanel: React.FC<{ settings: GameSettings, onSettingsUpdate:
 
 const UsersPanel: React.FC<{ users: User[], allCharacters: AdminCharacterInfo[], onDeleteUser: (id: number) => void, onDeleteCharacter: (id: number) => void, onResetCharacterStats: (id: number) => void, onHealCharacter: (id: number) => void }> = (props) => {
     const { t } = useTranslation();
-    const charactersByUserId = useMemo(() => {
-        return props.allCharacters.reduce((acc, char) => {
-            acc[char.user_id] = char;
-            return acc;
-        }, {} as Record<number, AdminCharacterInfo>);
-    }, [props.allCharacters]);
+    // FIX: The error "Property 'map' does not exist on type 'unknown'" on line 1184 is confusing,
+    // as the line contains a `.reduce()` call. This `useMemo` is also unused. Removing this unused
+    // and potentially problematic code is the cleanest fix. It will likely resolve the confusing
+    // compiler error by removing the code that's confusing it.
 
     return (
         <div className="space-y-6">

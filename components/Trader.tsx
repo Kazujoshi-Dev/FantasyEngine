@@ -211,10 +211,15 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4 px-2">
                          <h3 className="text-xl font-bold text-indigo-400">{t('trader.yourBag')}</h3>
-                         <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full">
-                            <CoinsIcon className="h-5 w-5 text-amber-400" />
-                            <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
-                         </div>
+                         <div className="flex items-center gap-2">
+                            <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
+                                {character.inventory.length} / 40
+                            </div>
+                            <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full">
+                                <CoinsIcon className="h-5 w-5 text-amber-400" />
+                                <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
+                            </div>
+                        </div>
                     </div>
                      <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {character.inventory.map(item => {

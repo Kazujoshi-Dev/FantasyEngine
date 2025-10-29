@@ -199,6 +199,9 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         >
           <div className="flex justify-between items-center mb-4 px-2">
             <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
+            <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
+                {character.inventory.length} / 40
+            </div>
           </div>
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
               {character.inventory.map(item => {
