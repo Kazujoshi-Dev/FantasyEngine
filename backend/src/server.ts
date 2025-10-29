@@ -964,6 +964,7 @@ const authenticate = async (req: ExpressRequest, res: ExpressResponse, next: Exp
     }
 };
 
+// FIX: Add explicit types for req, res, and next to resolve overload errors and property access errors.
 const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
     // This middleware assumes 'authenticate' has already run.
     if (!req.user) {
@@ -1159,6 +1160,7 @@ apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: ExpressRequest
     }
 });
 
+// FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.post('/admin/global-message', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const { subject, content } = req.body;
     const adminId = req.user!.id;
@@ -1171,13 +1173,14 @@ apiRouter.post('/admin/global-message', authenticate, isAdmin, async (req: Expre
     try {
         await client.query('BEGIN');
 
-        const usersRes = await client.query('SELECT id FROM users');
+        // FIX: Send messages only to users who have created a character.
+        const usersRes = await client.query('SELECT user_id FROM characters');
         if (usersRes.rowCount === 0) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'No users found to send message to.' });
+            return res.status(404).json({ message: 'No players with characters found to send message to.' });
         }
 
-        const userIds: number[] = usersRes.rows.map(r => r.id);
+        const userIds: number[] = usersRes.rows.map(r => r.user_id);
         const body = { content };
         const messageType = 'player_message';
         const senderName = 'Administrator';
