@@ -394,6 +394,7 @@ export interface PlayerCharacter {
   acceptedQuests: string[];
   lastReward?: ExpeditionRewardSummary | null;
   traderPurchases?: string[];
+  freeStatResetUsed?: boolean;
 }
 
 export interface TraderSettings {

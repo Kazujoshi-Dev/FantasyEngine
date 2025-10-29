@@ -12,6 +12,7 @@ interface StatisticsProps {
   onCharacterUpdate: (character: PlayerCharacter) => void;
   calculateDerivedStats: (character: PlayerCharacter, gameData: GameData | null) => PlayerCharacter;
   gameData: GameData | null;
+  onResetAttributes: () => void;
 }
 
 const StatTooltip: React.FC<{ text: string }> = ({ text }) => {
@@ -104,7 +105,7 @@ const StatRow: React.FC<{
   </div>
 );
 
-export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData }) => {
+export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData, onResetAttributes }) => {
   const { t } = useTranslation();
   
   const [pendingStats, setPendingStats] = useState(baseCharacter.stats);
@@ -154,6 +155,10 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
 
   const experiencePercentage = (character.experience / character.experienceToNextLevel) * 100;
 
+  const isFreeReset = !baseCharacter.freeStatResetUsed;
+  const resetCost = 100 * baseCharacter.level;
+  const canAffordReset = isFreeReset || baseCharacter.resources.gold >= resetCost;
+
   return (
     <ContentPanel title={t('statistics.title')}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -192,22 +197,34 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
             </div>
              <p className="text-xs text-gray-500 italic mt-4 px-3">{t('statistics.itemBonusNote')}</p>
           </div>
-          {spentPoints > 0 && (
-            <div className="flex gap-4 mt-6">
-              <button
-                onClick={handleResetChanges}
-                className="w-full py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-bold transition-colors text-sm"
-              >
-                {t('statistics.reset')}
-              </button>
-              <button
-                onClick={handleSaveChanges}
-                className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors text-sm"
-              >
-                {t('statistics.save')}
-              </button>
+          <div className="flex flex-col gap-4 mt-6">
+            {spentPoints > 0 && (
+                <div className="flex gap-4">
+                <button
+                    onClick={handleResetChanges}
+                    className="w-full py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-bold transition-colors text-sm"
+                >
+                    {t('statistics.cancelChanges')}
+                </button>
+                <button
+                    onClick={handleSaveChanges}
+                    className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors text-sm"
+                >
+                    {t('statistics.save')}
+                </button>
+                </div>
+            )}
+            <div className="text-center">
+                <button
+                    onClick={onResetAttributes}
+                    disabled={spentPoints > 0 || !canAffordReset}
+                    className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold transition-colors text-sm disabled:bg-slate-600 disabled:cursor-not-allowed"
+                    title={spentPoints > 0 ? t('statistics.reset.applyChangesFirst') : !canAffordReset ? t('statistics.reset.notEnoughGold', { cost: resetCost }) : ''}
+                >
+                    {t('statistics.reset.button')} ({isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost })})
+                </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Column 2: Vitals */}

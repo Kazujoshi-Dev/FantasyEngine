@@ -77,8 +77,16 @@ export default {
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
         intelligenceDesc: 'Zwiększa maksymalną manę (+10 na punkt) i regenerację many w walce (+2 na turę na punkt). Zwiększa również obrażenia magiczne.',
         energyDesc: 'Zwiększa maksymalną energię. Używana do akcji takich jak ekspedycje i podróże. Regeneruje się o 1 punkt na godzinę.',
-        reset: 'Resetuj',
+        cancelChanges: 'Anuluj',
         save: 'Zapisz Zmiany',
+        reset: {
+            button: 'Zresetuj Atrybuty',
+            confirm: 'Czy na pewno chcesz zresetować atrybuty? Ta operacja będzie kosztować {costText}. Wszystkie punkty zostaną zwrócone.',
+            cost: '{cost} złota',
+            free: 'darmowe',
+            notEnoughGold: 'Nie masz wystarczająco złota, aby zresetować atrybuty (koszt: {cost} złota).',
+            applyChangesFirst: 'Najpierw zapisz lub anuluj obecne zmiany atrybutów.'
+        },
         derivedStats: 'Statystyki Pochodne',
         preview: '(Podgląd)',
         health: 'Punkty Zdrowia',

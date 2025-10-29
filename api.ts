@@ -145,6 +145,7 @@ export const api = {
             pvpProtectionUntil: 0,
             questProgress: [],
             acceptedQuests: [],
+            freeStatResetUsed: false,
         };
 
         return fetchApi('/character', {

@@ -77,8 +77,16 @@ export default {
         staminaDesc: 'Increases maximum health.',
         intelligenceDesc: 'Increases maximum mana (+10 per point) and mana regeneration in combat (+2 per turn per point). Also increases magic damage.',
         energyDesc: 'Increases maximum energy. Used for actions like expeditions and travel. Regenerates by 1 point per hour.',
-        reset: 'Reset',
+        cancelChanges: 'Cancel',
         save: 'Save Changes',
+        reset: {
+            button: 'Reset Attributes',
+            confirm: 'Are you sure you want to reset your attributes? This will cost {costText}. All points will be refunded.',
+            cost: '{cost} gold',
+            free: 'free',
+            notEnoughGold: 'You do not have enough gold to reset your attributes (cost: {cost} gold).',
+            applyChangesFirst: 'Apply or cancel your current changes before resetting all attributes.'
+        },
         derivedStats: 'Derived Statistics',
         preview: '(Preview)',
         health: 'Health Points',

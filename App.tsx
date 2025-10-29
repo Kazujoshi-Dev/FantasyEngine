@@ -211,7 +211,7 @@ const App: React.FC = () => {
         api.getTraderInventory(), // Now authenticated
       ]);
       
-      // Data Sanitization: Remove items from inventory/equipment if their template no longer exists.
+      // Data Sanitization & Backward compatibility
       if (localGameData.itemTemplates) {
           const validTemplateIds = new Set(localGameData.itemTemplates.map(t => t.id));
 
@@ -223,6 +223,10 @@ const App: React.FC = () => {
                   charData.equipment[slot as EquipmentSlot] = null;
               }
           }
+      }
+
+      if (charData.freeStatResetUsed === undefined) {
+          charData.freeStatResetUsed = false;
       }
 
       // Ensure chest exists for old characters
@@ -378,6 +382,43 @@ const App: React.FC = () => {
     } catch (err: any) {
       alert(`Error: ${err.message}`);
       throw err; // re-throw to keep loading state in component
+    }
+  };
+
+  const handleResetAttributes = () => {
+    if (!baseCharacter) return;
+
+    const isFree = !baseCharacter.freeStatResetUsed;
+    const cost = 100 * baseCharacter.level;
+    const costText = isFree ? t('statistics.reset.free') : t('statistics.reset.cost', { cost });
+
+    if (!isFree && baseCharacter.resources.gold < cost) {
+        alert(t('statistics.reset.notEnoughGold', { cost }));
+        return;
+    }
+
+    if (window.confirm(t('statistics.reset.confirm', { costText }))) {
+        const newChar = JSON.parse(JSON.stringify(baseCharacter));
+
+        // Calculate total points to be refunded
+        const spentPoints = newChar.stats.strength + newChar.stats.agility + newChar.stats.accuracy + newChar.stats.stamina + newChar.stats.intelligence + newChar.stats.energy;
+
+        // Reset stats and add points back
+        newChar.stats.strength = 0;
+        newChar.stats.agility = 0;
+        newChar.stats.accuracy = 0;
+        newChar.stats.stamina = 0;
+        newChar.stats.intelligence = 0;
+        newChar.stats.energy = 0;
+        newChar.stats.statPoints += spentPoints;
+
+        // Deduct cost and mark free reset as used
+        if (!isFree) {
+            newChar.resources.gold -= cost;
+        }
+        newChar.freeStatResetUsed = true;
+
+        handleCharacterUpdate(newChar);
     }
   };
 
@@ -929,7 +970,7 @@ const App: React.FC = () => {
           hasUnreadMessages={hasUnreadMessages}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-          {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} />}
+          {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}
           {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
           {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onClaimRewards={handleClaimRewards} lastReward={lastReward} onClearLastReward={() => setLastReward(null)} itemTemplates={gameData.itemTemplates} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} />}
