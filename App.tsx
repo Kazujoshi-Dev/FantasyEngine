@@ -211,6 +211,20 @@ const App: React.FC = () => {
         api.getTraderInventory(), // Now authenticated
       ]);
       
+      // Data Sanitization: Remove items from inventory/equipment if their template no longer exists.
+      if (localGameData.itemTemplates) {
+          const validTemplateIds = new Set(localGameData.itemTemplates.map(t => t.id));
+
+          charData.inventory = charData.inventory.filter(item => validTemplateIds.has(item.templateId));
+
+          for (const slot in charData.equipment) {
+              const item = charData.equipment[slot as EquipmentSlot];
+              if (item && !validTemplateIds.has(item.templateId)) {
+                  charData.equipment[slot as EquipmentSlot] = null;
+              }
+          }
+      }
+
       // Ensure chest exists for old characters
       if (!charData.chest) {
         charData.chest = { level: 1, gold: 0 };
