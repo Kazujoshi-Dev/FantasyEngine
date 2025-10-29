@@ -392,7 +392,6 @@ export interface PlayerCharacter {
   pvpProtectionUntil: number; // Timestamp
   questProgress: PlayerQuestProgress[];
   acceptedQuests: string[];
-  lastReward?: ExpeditionRewardSummary | null;
   traderPurchases?: string[];
   freeStatResetUsed?: boolean;
 }
@@ -439,13 +438,13 @@ export interface AdminCharacterInfo {
     level: number;
 }
 
-export type MessageType = 'pvp_report' | 'player_message';
+export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report';
 
 export interface PlayerMessageBody {
     content: string;
 }
 
-export type MessageBody = PvpRewardSummary | PlayerMessageBody;
+export type MessageBody = PvpRewardSummary | PlayerMessageBody | ExpeditionRewardSummary;
 
 export interface Message {
     id: number;

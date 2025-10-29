@@ -601,6 +601,8 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
 
 
 async function completeExpedition(
+    client: any, // PoolClient
+    userId: number,
     character: PlayerCharacter,
     allExpeditions: Expedition[],
     allEnemies: Enemy[],
@@ -742,8 +744,15 @@ async function completeExpedition(
     }
 
     updatedChar.activeExpedition = null;
-    updatedChar.lastReward = summary;
+
+    const subject = `Raport z ekspedycji: ${expeditionTemplate.name}`;
+    await client.query(
+        'INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)',
+        [userId, 'System', 'expedition_report', subject, JSON.stringify(summary)]
+    );
     
+    delete (updatedChar as any).lastReward;
+
     return updatedChar;
 }
 
@@ -1001,7 +1010,7 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
 
         let expeditionCompleted = false;
         if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
-            character = await completeExpedition(character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
+            character = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
             expeditionCompleted = true;
         }
 

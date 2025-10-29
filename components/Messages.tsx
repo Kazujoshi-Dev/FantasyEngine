@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody } from '../types';
+import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './Expedition';
 import { MailIcon } from './icons/MailIcon';
@@ -140,6 +140,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
     const { t } = useTranslation();
     const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
     const [viewingPvpReport, setViewingPvpReport] = useState<{ report: PvpRewardSummary, isDefenderView: boolean } | null>(null);
+    const [viewingExpeditionReport, setViewingExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
 
     const sortedMessages = useMemo(() => {
         return [...messages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -152,6 +153,8 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
         if (msg.message_type === 'pvp_report') {
             const isDefender = (msg.body as PvpRewardSummary).defender.id === currentPlayer.id;
             setViewingPvpReport({ report: msg.body as PvpRewardSummary, isDefenderView: isDefender });
+        } else if (msg.message_type === 'expedition_report') {
+            setViewingExpeditionReport(msg.body as ExpeditionRewardSummary);
         } else {
             setViewingMessage(msg);
         }
@@ -251,6 +254,15 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
                         defender: viewingPvpReport.report.defender,
                     }}
                     isDefenderView={viewingPvpReport.isDefenderView}
+                />
+            )}
+
+            {viewingExpeditionReport && (
+                <ExpeditionSummaryModal
+                    reward={viewingExpeditionReport}
+                    onClose={() => setViewingExpeditionReport(null)}
+                    characterName={currentPlayer.name}
+                    itemTemplates={itemTemplates}
                 />
             )}
         </>

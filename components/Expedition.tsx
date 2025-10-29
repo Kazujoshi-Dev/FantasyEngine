@@ -11,14 +11,11 @@ import { ItemTooltip, rarityStyles } from './shared/ItemSlot';
 
 interface ExpeditionProps {
     character: PlayerCharacter;
-    onCharacterUpdate: (character: PlayerCharacter) => void;
     expeditions: ExpeditionType[];
     enemies: Enemy[];
     currentLocation: Location;
     onStartExpedition: (expeditionId: string) => void;
-    onClaimRewards: () => void;
-    lastReward: ExpeditionRewardSummary | null;
-    onClearLastReward: () => void;
+    onFinishExpedition: () => void;
     itemTemplates: ItemTemplate[];
 }
 
@@ -423,8 +420,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 const ActiveExpeditionPanel: React.FC<{
     character: PlayerCharacter;
     expeditions: ExpeditionType[];
-    onClaimRewards: () => void;
-}> = ({ character, expeditions, onClaimRewards }) => {
+    onFinishExpedition: () => void;
+}> = ({ character, expeditions, onFinishExpedition }) => {
     const { t } = useTranslation();
     const activeExpeditionDetails = expeditions.find(e => e.id === character.activeExpedition?.expeditionId);
     const [timeLeft, setTimeLeft] = useState(0);
@@ -453,7 +450,7 @@ const ActiveExpeditionPanel: React.FC<{
             <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
             <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
             <button
-                onClick={onClaimRewards}
+                onClick={onFinishExpedition}
                 disabled={!isFinished}
                 className="w-full max-w-sm mx-auto bg-indigo-600 text-white font-bold py-4 rounded-lg text-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-200 ease-in-out shadow-lg disabled:shadow-none"
             >
@@ -463,7 +460,7 @@ const ActiveExpeditionPanel: React.FC<{
     );
 };
 
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, onClaimRewards, lastReward, onClearLastReward, itemTemplates }) => {
+export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, onFinishExpedition, itemTemplates }) => {
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
@@ -472,7 +469,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
           <ActiveExpeditionPanel 
             character={character}
             expeditions={expeditions}
-            onClaimRewards={onClaimRewards}
+            onFinishExpedition={onFinishExpedition}
           />
       </ContentPanel>
   ) : (
@@ -560,7 +557,6 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
 
   return (
     <>
-        {lastReward && <ExpeditionSummaryModal reward={lastReward} onClose={onClearLastReward} characterName={character.name} itemTemplates={itemTemplates} />}
         {content}
     </>
   );

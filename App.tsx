@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
-import { Expedition as ExpeditionComponent, ExpeditionSummaryModal } from './components/Expedition';
+import { Expedition as ExpeditionComponent } from './components/Expedition';
 import { Camp } from './components/Camp';
 import { Location as LocationComponent } from './components/Location';
 import { Resources } from './components/Resources';
@@ -39,7 +39,6 @@ const App: React.FC = () => {
   
   // UI State
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
-  const [lastReward, setLastReward] = useState<ExpeditionRewardSummary | null>(null);
   
   // Admin & Social State
   const [ranking, setRanking] = useState<RankingPlayer[]>([]);
@@ -444,20 +443,6 @@ const App: React.FC = () => {
           }
       };
       handleCharacterUpdate(updatedCharacter);
-  };
-  
-  const handleClaimRewards = async () => {
-    try {
-        const charFromServer = await api.getCharacter(); // This triggers server-side completion
-        if (charFromServer.lastReward) {
-            setLastReward(charFromServer.lastReward as ExpeditionRewardSummary);
-            handleCharacterUpdate(charFromServer, true);
-        } else {
-             handleCharacterUpdate(charFromServer, true);
-        }
-    } catch (err: any) {
-        setError(err.message);
-    }
   };
   
   const handleEquipItem = (itemToEquip: ItemInstance) => {
@@ -972,7 +957,7 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}
           {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
-          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onClaimRewards={handleClaimRewards} lastReward={lastReward} onClearLastReward={() => setLastReward(null)} itemTemplates={gameData.itemTemplates} />}
+          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onFinishExpedition={fullCharacterSync} itemTemplates={gameData.itemTemplates} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
