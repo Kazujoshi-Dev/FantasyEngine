@@ -1030,7 +1030,12 @@ const App: React.FC = () => {
         {expeditionReport && gameData && playerCharacter && (
           <ExpeditionSummaryModal
             reward={expeditionReport}
-            onClose={() => setExpeditionReport(null)}
+            onClose={() => {
+              if (expeditionReport && !expeditionReport.isVictory) {
+                setActiveTab(Tab.Camp);
+              }
+              setExpeditionReport(null);
+            }}
             characterName={playerCharacter.name}
             itemTemplates={gameData.itemTemplates}
           />

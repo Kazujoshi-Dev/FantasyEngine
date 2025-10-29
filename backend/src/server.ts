@@ -91,7 +91,7 @@ const generateTraderInventory = (itemTemplates: ItemTemplate[], settings: GameSe
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
             inventory.push({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: randomUUID(),
                 templateId: template.id
             });
         }
@@ -802,7 +802,7 @@ async function completeExpedition(
         if (Math.random() * 100 < expEnemy.spawnChance) {
             const enemyTemplate = allEnemies.find(e => e.id === expEnemy.enemyId);
             if (enemyTemplate) {
-                encounteredEnemies.push({ ...enemyTemplate, uniqueId: crypto.randomUUID() });
+                encounteredEnemies.push({ ...enemyTemplate, uniqueId: randomUUID() });
                 enemyCount++;
             }
         }
@@ -875,7 +875,7 @@ async function completeExpedition(
             
             (enemy.lootTable || []).forEach((drop: LootDrop) => {
                 if (Math.random() * 100 < drop.chance) {
-                    summary.itemsFound.push({ uniqueId: crypto.randomUUID(), templateId: drop.templateId });
+                    summary.itemsFound.push({ uniqueId: randomUUID(), templateId: drop.templateId });
                 }
             });
             (enemy.resourceLootTable || []).forEach((drop: ResourceDrop) => {
@@ -888,7 +888,7 @@ async function completeExpedition(
         
         (expeditionTemplate.lootTable || []).forEach((drop: LootDrop) => {
             if (Math.random() * 100 < drop.chance) {
-                summary.itemsFound.push({ uniqueId: crypto.randomUUID(), templateId: drop.templateId });
+                summary.itemsFound.push({ uniqueId: randomUUID(), templateId: drop.templateId });
             }
         });
         (expeditionTemplate.resourceLootTable || []).forEach((drop: ResourceDrop) => {

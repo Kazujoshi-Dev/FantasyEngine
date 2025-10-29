@@ -80,8 +80,8 @@ export const api = {
         const initialStats: CharacterStats = {
           strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
           statPoints: 10,
-          currentHealth: 0, maxHealth: 0, currentEnergy: 0, maxEnergy: 0,
-          currentMana: 0, maxMana: 0,
+          currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10,
+          currentMana: 20, maxMana: 20,
           minDamage: 0, maxDamage: 0,
           magicDamageMin: 0, magicDamageMax: 0,
           critChance: 0,
