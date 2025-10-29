@@ -15,7 +15,6 @@ interface ExpeditionProps {
     enemies: Enemy[];
     currentLocation: Location;
     onStartExpedition: (expeditionId: string) => void;
-    onFinishExpedition: () => void;
     itemTemplates: ItemTemplate[];
 }
 
@@ -420,8 +419,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 const ActiveExpeditionPanel: React.FC<{
     character: PlayerCharacter;
     expeditions: ExpeditionType[];
-    onFinishExpedition: () => void;
-}> = ({ character, expeditions, onFinishExpedition }) => {
+}> = ({ character, expeditions }) => {
     const { t } = useTranslation();
     const activeExpeditionDetails = expeditions.find(e => e.id === character.activeExpedition?.expeditionId);
     const [timeLeft, setTimeLeft] = useState(0);
@@ -447,20 +445,21 @@ const ActiveExpeditionPanel: React.FC<{
         <div className="bg-slate-900/40 p-8 rounded-xl text-center">
             <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
             <p className="text-4xl font-extrabold text-white mb-4">{activeExpeditionDetails.name}</p>
-            <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
+            <p className="text-lg text-gray-400 mb-6">{isFinished ? t('expedition.finalizing') : t('expedition.endsIn')}</p>
             <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
-            <button
-                onClick={onFinishExpedition}
-                disabled={!isFinished}
-                className="w-full max-w-sm mx-auto bg-indigo-600 text-white font-bold py-4 rounded-lg text-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-200 ease-in-out shadow-lg disabled:shadow-none"
-            >
-                {isFinished ? t('expedition.finish') : t('expedition.inProgress')}
-            </button>
+            {/* The button is removed, and a status message is shown instead when finished */}
+            {isFinished ? (
+                 <div className="mt-8 h-14 flex items-center justify-center"> {/* Set a fixed height to prevent layout shift from the removed button */}
+                    <p className="text-lg text-gray-300 animate-pulse">{t('expedition.generatingReport')}</p>
+                </div>
+            ) : (
+                <div className="mt-8 h-14"></div> // Placeholder to keep layout consistent
+            )}
         </div>
     );
 };
 
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, onFinishExpedition, itemTemplates }) => {
+export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates }) => {
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
@@ -469,7 +468,6 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
           <ActiveExpeditionPanel 
             character={character}
             expeditions={expeditions}
-            onFinishExpedition={onFinishExpedition}
           />
       </ContentPanel>
   ) : (

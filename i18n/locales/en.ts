@@ -57,6 +57,7 @@ export default {
         tavern: 'Tavern',
         logout: 'Logout',
         actionBlockedWarning: 'This action cannot be performed while resting or traveling.',
+        actionBlockedExpeditionWarning: 'This action is unavailable during an expedition.',
         buyCoffee: 'Buy the creator a coffee',
     },
     statistics: {
@@ -229,6 +230,8 @@ export default {
         endsIn: 'The expedition will end in:',
         finish: 'Finish Expedition',
         inProgress: 'In progress...',
+        finalizing: 'Finalizing expedition...',
+        generatingReport: 'Generating combat report...',
         potentialEnemies: 'Potential Enemies',
         noEnemies: 'No enemies',
         reqsAndRewards: 'Requirements and Rewards',

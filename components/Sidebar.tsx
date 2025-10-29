@@ -70,10 +70,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
         {visibleMenuItems.map((item) => {
           const isResting = playerCharacter?.isResting;
           const isTraveling = !!playerCharacter?.activeTravel;
+          const isExpeditionActive = !!playerCharacter?.activeExpedition;
 
-          const isRestricted = 
-            (isResting && (item.id === Tab.Expedition || item.id === Tab.Location || item.id === Tab.Trader || item.id === Tab.Blacksmith || item.id === Tab.Quests)) ||
-            (isTraveling && (item.id === Tab.Expedition || item.id === Tab.Camp || item.id === Tab.Trader || item.id === Tab.Blacksmith || item.id === Tab.Quests));
+          const isRestrictedByResting = isResting && [Tab.Expedition, Tab.Location, Tab.Trader, Tab.Blacksmith, Tab.Quests].includes(item.id);
+          const isRestrictedByTraveling = isTraveling && [Tab.Expedition, Tab.Camp, Tab.Trader, Tab.Blacksmith, Tab.Quests].includes(item.id);
+          const isRestrictedByExpedition = isExpeditionActive && ![Tab.Tavern, Tab.Resources, Tab.Messages].includes(item.id);
+
+          const isRestricted = isRestrictedByResting || isRestrictedByTraveling || isRestrictedByExpedition;
+
+          let restrictionTitle = "";
+          if (isRestricted) {
+              if (isRestrictedByExpedition) {
+                  restrictionTitle = t('sidebar.actionBlockedExpeditionWarning');
+              } else {
+                  restrictionTitle = t('sidebar.actionBlockedWarning');
+              }
+          }
             
           const showEnergy = (item.id === Tab.Expedition || item.id === Tab.Location) && playerCharacter;
           
@@ -90,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
                 }
                 ${isRestricted ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}
               `}
-              title={isRestricted ? t('sidebar.actionBlockedWarning') : ""}
+              title={restrictionTitle}
             >
               <div className="flex items-center space-x-3">
                 {item.icon}

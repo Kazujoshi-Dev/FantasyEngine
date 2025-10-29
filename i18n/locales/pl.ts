@@ -57,6 +57,7 @@ export default {
         tavern: 'Tawerna',
         logout: 'Wyloguj',
         actionBlockedWarning: 'Ta akcja jest niemożliwa podczas odpoczynku lub podróży.',
+        actionBlockedExpeditionWarning: 'Ta akcja jest niedostępna podczas ekspedycji.',
         buyCoffee: 'Postaw kawę twórcy',
     },
     statistics: {
@@ -229,6 +230,8 @@ export default {
         endsIn: 'Ekspedycja zakończy się za:',
         finish: 'Zakończ Ekspedycję',
         inProgress: 'W toku...',
+        finalizing: 'Finalizowanie ekspedycji...',
+        generatingReport: 'Generowanie raportu z walki...',
         potentialEnemies: 'Potencjalni wrogowie',
         noEnemies: 'Brak wrogów',
         reqsAndRewards: 'Wymagania i Nagrody',

@@ -366,6 +366,21 @@ const App: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [playerCharacter, fullCharacterSync, expeditionReport]);
 
+  // Refresh messages when entering the Messages tab
+  useEffect(() => {
+    if (activeTab === Tab.Messages) {
+      const refreshMessages = async () => {
+        try {
+          const messagesData = await api.getMessages();
+          setMessages(messagesData);
+        } catch (error) {
+          console.error("Failed to refresh messages on tab switch:", error);
+        }
+      };
+      refreshMessages();
+    }
+  }, [activeTab]);
+
 
   // Handlers
   const handleLoginSuccess = (newToken: string) => {
@@ -984,7 +999,7 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}
           {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
-          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} onFinishExpedition={fullCharacterSync} itemTemplates={gameData.itemTemplates} />}
+          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
