@@ -1681,4 +1681,30 @@ const cleanupOldTavernMessages = async () => {
         if (result.rowCount && result.rowCount > 0) {
             console.log(`Successfully deleted ${result.rowCount} old tavern messages.`);
         } else {
-            console.log('No old tavern
+            console.log('No old tavern messages to delete.');
+        }
+    } catch (err) {
+        console.error('Error cleaning up old tavern messages:', err);
+    } finally {
+        client.release();
+    }
+};
+
+// Run the cleanup job every hour
+setInterval(cleanupOldTavernMessages, 60 * 60 * 1000);
+
+
+// --- Server Start ---
+const startServer = async () => {
+    try {
+        await initializeDatabase();
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err);
+        exit(1);
+    }
+};
+
+startServer();
