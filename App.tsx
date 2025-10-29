@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [isComposingMessage, setIsComposingMessage] = useState(false);
   const [composeInitialData, setComposeInitialData] = useState<{ recipient: string; subject: string } | undefined>(undefined);
   const [allCharacterNames, setAllCharacterNames] = useState<string[]>([]);
+  const [hasNewTavernMessages, setHasNewTavernMessages] = useState(false);
   
   // Trader State
   const [traderInventory, setTraderInventory] = useState<ItemInstance[]>([]);
@@ -53,6 +54,8 @@ const App: React.FC = () => {
   // Tavern State
   const [tavernMessages, setTavernMessages] = useState<TavernMessage[]>([]);
   const tavernIntervalRef = useRef<number | null>(null);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
 
   // i18n
   const t = useMemo(() => getT(Language.PL), []);
@@ -61,6 +64,7 @@ const App: React.FC = () => {
   // Derived State
   const currentLocation = useMemo(() => gameData?.locations.find(loc => loc.id === playerCharacter?.currentLocationId), [gameData, playerCharacter]);
   const hasUnreadMessages = useMemo(() => messages.some(m => !m.is_read), [messages]);
+  const lastReadTavernMessageIdRef = useRef<number | null>(null);
 
   // Derived Stat Calculation for UI Previews
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
@@ -174,6 +178,23 @@ const App: React.FC = () => {
     try {
         const freshMessages = await api.getTavernMessages();
         setTavernMessages(freshMessages);
+        if (freshMessages.length > 0) {
+            const latestMessageId = freshMessages[freshMessages.length - 1].id;
+    
+            if (activeTabRef.current === Tab.Tavern) {
+                // User is viewing the tab, so mark as read and no notification
+                lastReadTavernMessageIdRef.current = latestMessageId;
+                setHasNewTavernMessages(false);
+            } else {
+                // User is not viewing, check if there's anything new
+                if (lastReadTavernMessageIdRef.current === null) {
+                    // First load, don't show notification
+                    lastReadTavernMessageIdRef.current = latestMessageId;
+                } else if (latestMessageId > lastReadTavernMessageIdRef.current) {
+                    setHasNewTavernMessages(true);
+                }
+            }
+        }
     } catch (e) {
         console.error("Failed to fetch tavern messages", e);
     }
@@ -378,8 +399,14 @@ const App: React.FC = () => {
         }
       };
       refreshMessages();
+    } else if (activeTab === Tab.Tavern) {
+      setHasNewTavernMessages(false);
+      // Update the last read ID to the latest one currently loaded
+      if (tavernMessages.length > 0) {
+          lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, tavernMessages]);
 
 
   // Handlers
@@ -427,17 +454,17 @@ const App: React.FC = () => {
     if (window.confirm(t('statistics.reset.confirm', { costText }))) {
         const newChar = JSON.parse(JSON.stringify(baseCharacter));
 
-        // Calculate total points to be refunded
-        const spentPoints = newChar.stats.strength + newChar.stats.agility + newChar.stats.accuracy + newChar.stats.stamina + newChar.stats.intelligence + newChar.stats.energy;
+        // Recalculate total points based on level to prevent exploits/fix corruption
+        const totalPoints = 10 + (newChar.level - 1);
 
-        // Reset stats and add points back
+        // Reset stats and assign the correct total points
         newChar.stats.strength = 0;
         newChar.stats.agility = 0;
         newChar.stats.accuracy = 0;
         newChar.stats.stamina = 0;
         newChar.stats.intelligence = 0;
         newChar.stats.energy = 0;
-        newChar.stats.statPoints += spentPoints;
+        newChar.stats.statPoints = totalPoints;
 
         // Deduct cost and mark free reset as used
         if (!isFree) {
@@ -995,6 +1022,7 @@ const App: React.FC = () => {
           currentLocation={currentLocation}
           onLogout={handleLogout}
           hasUnreadMessages={hasUnreadMessages}
+          hasNewTavernMessages={hasNewTavernMessages}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}

@@ -25,9 +25,10 @@ interface SidebarProps {
   currentLocation: Location | undefined;
   onLogout: () => void;
   hasUnreadMessages: boolean;
+  hasNewTavernMessages: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playerCharacter, currentLocation, onLogout, hasUnreadMessages }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playerCharacter, currentLocation, onLogout, hasUnreadMessages, hasNewTavernMessages }) => {
   const { t } = useTranslation();
 
   const allMenuItems = [
@@ -35,7 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
     { id: Tab.Equipment, label: t('sidebar.equipment'), icon: <ShieldIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Expedition, label: t('sidebar.expedition'), icon: <MapIcon className="h-5 w-5" /> },
     { id: Tab.Quests, label: t('sidebar.quests'), icon: <QuestIcon className="h-5 w-5" /> },
-    { id: Tab.Tavern, label: t('sidebar.tavern'), icon: <MessageSquareIcon className="h-5 w-5" />, alwaysVisible: true },
+    { id: Tab.Tavern, label: t('sidebar.tavern'), icon: <MessageSquareIcon className="h-5 w-5" />, alwaysVisible: true, notification: hasNewTavernMessages },
     { id: Tab.Trader, label: t('sidebar.trader'), icon: <HandshakeIcon className="h-5 w-5" /> },
     { id: Tab.Blacksmith, label: t('sidebar.blacksmith'), icon: <AnvilIcon className="h-5 w-5" /> },
     { id: Tab.Camp, label: t('sidebar.camp'), icon: <HomeIcon className="h-5 w-5" /> },

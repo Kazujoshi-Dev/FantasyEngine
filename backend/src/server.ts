@@ -1,5 +1,6 @@
 // FIX: Import types directly and use them in handlers to resolve type errors.
-import express, { Request, Response, NextFunction } from 'express';
+// By aliasing the types, we avoid potential conflicts with other global types (e.g. from DOM's Request/Response).
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -938,7 +939,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // FIX: Add explicit types for req, res, and next to resolve overload errors and property access errors.
-const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+const authenticate = async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -963,7 +964,7 @@ const authenticate = async (req: Request, res: Response, next: NextFunction) => 
     }
 };
 
-const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
     // This middleware assumes 'authenticate' has already run.
     if (!req.user) {
         return res.status(401).json({ message: "Authentication required." });
@@ -983,7 +984,7 @@ const apiRouter = express.Router();
 
 // --- Authentication Endpoints ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/register', async (req: Request, res: Response) => {
+apiRouter.post('/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     
     console.log(`Received registration request for user: ${username}`);
@@ -1041,7 +1042,7 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/login', async (req: Request, res: Response) => {
+apiRouter.post('/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     console.log(`[LOGIN_START] Attempting login for user: ${username}`);
 
@@ -1093,7 +1094,7 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/logout', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/auth/logout', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
      const authHeader = req.headers['authorization'];
      const token = authHeader && authHeader.split(' ')[1];
      let client;
@@ -1111,7 +1112,7 @@ apiRouter.post('/auth/logout', authenticate, async (req: Request, res: Response)
 
 // --- Admin User Management ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/users', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.get('/users', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1126,7 +1127,7 @@ apiRouter.get('/users', authenticate, isAdmin, async (req: Request, res: Respons
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const userIdToDelete = parseInt(req.params.id, 10);
 
     if (isNaN(userIdToDelete)) {
@@ -1160,7 +1161,7 @@ apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: Request, res: 
 
 // --- Character Endpoints (protected) ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/character', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1247,7 +1248,7 @@ apiRouter.get('/character', authenticate, async (req: Request, res: Response) =>
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/character', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const characterData = req.body;
     if (!characterData || !characterData.name || !characterData.race) {
         return res.status(400).json({ message: 'Invalid character data.' });
@@ -1276,7 +1277,7 @@ apiRouter.post('/character', authenticate, async (req: Request, res: Response) =
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/character', authenticate, async (req: Request, res: Response) => {
+apiRouter.put('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const characterData = req.body;
      if (!characterData || !characterData.name || !characterData.race) {
         return res.status(400).json({ message: 'Invalid character data.' });
@@ -1305,7 +1306,7 @@ apiRouter.put('/character', authenticate, async (req: Request, res: Response) =>
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/characters/all', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.get('/characters/all', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1330,7 +1331,7 @@ apiRouter.get('/characters/all', authenticate, isAdmin, async (req: Request, res
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/characters/names', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/characters/names', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1347,7 +1348,7 @@ apiRouter.get('/characters/names', authenticate, async (req: Request, res: Respo
 
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/characters/:userId', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.delete('/characters/:userId', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const userIdToDelete = parseInt(req.params.userId, 10);
 
     if (isNaN(userIdToDelete)) {
@@ -1377,7 +1378,7 @@ apiRouter.delete('/characters/:userId', authenticate, isAdmin, async (req: Reque
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/reset-stats', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.post('/characters/:userId/reset-stats', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const userIdToReset = parseInt(req.params.userId, 10);
     
     if (isNaN(userIdToReset)) {
@@ -1420,7 +1421,7 @@ apiRouter.post('/characters/:userId/reset-stats', authenticate, isAdmin, async (
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/heal', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.post('/characters/:userId/heal', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const userIdToHeal = parseInt(req.params.userId, 10);
     
     if (isNaN(userIdToHeal)) {
@@ -1473,7 +1474,7 @@ const calculateTotalExperience = (level: number, currentExperience: number): num
 };
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/ranking', async (req: Request, res: Response) => {
+apiRouter.get('/ranking', async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1522,7 +1523,7 @@ apiRouter.get('/ranking', async (req: Request, res: Response) => {
 
 // --- PVP ATTACK ENDPOINT ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 
@@ -1639,7 +1640,7 @@ apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: Request, res
 
 // --- Game Data Endpoints ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/game-data', async (req: Request, res: Response) => {
+apiRouter.get('/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1658,7 +1659,7 @@ apiRouter.get('/game-data', async (req: Request, res: Response) => {
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/game-data', authenticate, isAdmin, async (req: Request, res: Response) => {
+apiRouter.put('/game-data', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const { key, data } = req.body;
     const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests'];
     if (!key || !validKeys.includes(key) || data === undefined) {
@@ -1684,7 +1685,7 @@ apiRouter.put('/game-data', authenticate, isAdmin, async (req: Request, res: Res
 
 // --- Trader Endpoint ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/trader/inventory', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const forceRefresh = req.query.force === 'true';
     const currentHour = new Date().getUTCHours();
     
@@ -1735,7 +1736,7 @@ apiRouter.get('/trader/inventory', authenticate, async (req: Request, res: Respo
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/trader/buy', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/trader/buy', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemId } = req.body;
     if (!itemId) {
         return res.status(400).json({ message: 'Item ID is required.' });
@@ -1798,7 +1799,7 @@ apiRouter.post('/trader/buy', authenticate, async (req: Request, res: Response) 
 
 // --- Messages Endpoints ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/messages', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1816,7 +1817,7 @@ apiRouter.get('/messages', authenticate, async (req: Request, res: Response) => 
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/messages', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const { recipientName, subject, content } = req.body;
     const senderId = req.user!.id;
 
@@ -1862,7 +1863,7 @@ apiRouter.post('/messages', authenticate, async (req: Request, res: Response) =>
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response) => {
+apiRouter.put('/messages/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const messageId = parseInt(req.params.id, 10);
     const { is_read } = req.body;
 
@@ -1892,7 +1893,7 @@ apiRouter.put('/messages/:id', authenticate, async (req: Request, res: Response)
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Response) => {
+apiRouter.delete('/messages/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const messageId = parseInt(req.params.id, 10);
 
     if (isNaN(messageId)) {
@@ -1921,7 +1922,7 @@ apiRouter.delete('/messages/:id', authenticate, async (req: Request, res: Respon
 
 // --- Tavern Endpoints ---
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Response) => {
+apiRouter.get('/tavern/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     let client;
     try {
         client = await pool.connect();
@@ -1938,7 +1939,7 @@ apiRouter.get('/tavern/messages', authenticate, async (req: Request, res: Respon
 });
 
 // FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/tavern/messages', authenticate, async (req: Request, res: Response) => {
+apiRouter.post('/tavern/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     const { content } = req.body;
     const userId = req.user!.id;
 
@@ -1980,7 +1981,7 @@ app.use(express.static(path.join(__dirname, '..', '..', '..', '..', 'dist')));
 
 // For any other request, serve the index.html file
 // FIX: Add explicit types for req and res to resolve property access errors.
-app.get('*', (req: Request, res: Response) => {
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
     res.sendFile(path.join(__dirname, '..', '..', '..', '..', 'dist', 'index.html'));
 });
 
