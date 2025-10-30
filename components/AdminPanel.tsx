@@ -855,20 +855,45 @@ const AffixEditor: React.FC<{
         subKey: 'min' | 'max',
         value: string
     ) => {
-        setFormData(prev => ({
-            ...prev,
-            [category]: {
-                ...(prev[category] as any),
-                [key]: {
-                    ...((prev[category] as any)?.[key] || {}),
-                    [subKey]: parseFloat(value) || 0
+        const parsed = parseFloat(value);
+        const result = isNaN(parsed) ? undefined : parsed;
+
+        setFormData(prev => {
+            const newFormData = { ...prev };
+            
+            if (category === 'statsBonus') {
+                const newStatsBonus = { ...(newFormData.statsBonus || {}) };
+                const statBonuses = (newStatsBonus as any);
+                if (!statBonuses[key]) {
+                    statBonuses[key] = {};
+                }
+                statBonuses[key][subKey] = result;
+
+                if (statBonuses[key].min === undefined && statBonuses[key].max === undefined) {
+                    delete statBonuses[key];
+                }
+                
+                newFormData.statsBonus = newStatsBonus;
+
+            } else {
+                const newBonus = { ...(newFormData[category] as any || {}) };
+                newBonus[subKey] = result;
+                
+                if (newBonus.min === undefined && newBonus.max === undefined) {
+                    (newFormData as any)[category] = undefined;
+                } else {
+                    (newFormData as any)[category] = newBonus;
                 }
             }
-        }));
+            
+            return newFormData;
+        });
     };
     
     const handleSpawnChanceChange = (category: ItemCategory, value: string) => {
-        setFormData(prev => ({ ...prev, spawnChances: { ...prev.spawnChances, [category]: parseInt(value, 10) || 0 }}));
+        const parsed = parseInt(value, 10);
+        const result = isNaN(parsed) ? undefined : parsed;
+        setFormData(prev => ({ ...prev, spawnChances: { ...prev.spawnChances, [category]: result }}));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
