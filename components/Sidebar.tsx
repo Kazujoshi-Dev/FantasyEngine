@@ -46,11 +46,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
     { id: Tab.Ranking, label: t('sidebar.ranking'), icon: <TrophyIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Messages, label: t('sidebar.messages'), icon: <MailIcon className="h-5 w-5" />, alwaysVisible: true, notification: hasUnreadMessages },
     { id: Tab.Admin, label: t('sidebar.admin'), icon: <SettingsIcon className="h-5 w-5" /> },
-    { id: Tab.Affixes, label: t('sidebar.affixes'), icon: <SparklesIcon className="h-5 w-5" /> },
   ];
 
   const visibleMenuItems = allMenuItems.filter(item => {
-    if (item.id === Tab.Admin || item.id === Tab.Affixes) {
+    if (item.id === Tab.Admin) {
       return playerCharacter?.username === 'Kazujoshi';
     }
     return item.alwaysVisible || (currentLocation && currentLocation.availableTabs.includes(item.id));

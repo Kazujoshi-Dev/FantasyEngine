@@ -48,7 +48,7 @@ const LocationEditor: React.FC<{
       [Tab.Quests]: 'Quests',
       [Tab.Messages]: 'Messages',
       [Tab.Tavern]: 'Tavern',
-      [Tab.Affixes]: 'Affixes',
+      // FIX: Property 'Affixes' does not exist on type 'typeof Tab'.
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

@@ -14,7 +14,6 @@ export enum Tab {
   Messages,
   Quests,
   Tavern,
-  Affixes, // New Tab
 }
 
 export enum Race {
