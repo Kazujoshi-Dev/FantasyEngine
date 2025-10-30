@@ -940,8 +940,15 @@ const QuestEditor: React.FC<{
                 <legend className="px-2 font-semibold">{t('admin.quest.objective')}</legend>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.objectiveType')}</label><select value={formData.objective?.type || ''} onChange={(e) => handleObjectiveChange('type', e.target.value as QuestType)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(QuestType).map(type => <option key={type} value={type}>{t(`admin.quest.types.${type}`)}</option>)}</select></div>
-                    {formData.objective?.type !== QuestType.PayGold && (<div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.target')}</label><select value={formData.objective?.targetId || ''} onChange={(e) => handleObjectiveChange('targetId', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.objective?.type}><option value="">{t('admin.select')}</option>{formData.objective?.type === QuestType.Kill && allEnemies.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}{formData.objective?.type === QuestType.Gather && allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}{formData.objective?.type === QuestType.GatherResource && Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select></div>)}
-                    <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.amount')}</label><input type="number" min="1" value={formData.objective?.amount || 1} onChange={(e) => handleObjectiveChange('amount', parseInt(e.target.value) || 1)} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.objective?.type}/></div>
+                    {formData.objective?.type !== QuestType.PayGold && (<div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.target')}</label><select value={formData.objective?.targetId || ''} onChange={(e) => handleObjectiveChange('targetId', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.objective?.type}><option value="">{t('admin.select')}</option>
+                            {formData.objective?.type === QuestType.Kill && allEnemies.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                            {formData.objective?.type === QuestType.Gather && allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                            {formData.objective?.type === QuestType.GatherResource && Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}
+                        </select></div>)}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300">{t('admin.quest.amount')}</label>
+                        <input type="number" min="1" value={formData.objective?.amount || 1} onChange={(e) => handleObjectiveChange('amount', parseInt(e.target.value) || 1)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
+                    </div>
                 </div>
             </fieldset>
 
@@ -949,15 +956,51 @@ const QuestEditor: React.FC<{
             <fieldset className="border border-slate-700 p-4 rounded-md space-y-4">
                 <legend className="px-2 font-semibold">{t('admin.quest.rewards')}</legend>
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-medium text-gray-300">{t('resources.gold')}</label><input type="number" value={formData.rewards?.gold || ''} onChange={(e) => handleRewardChange('gold', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                    <div><label className="block text-sm font-medium text-gray-300">{t('expedition.experience')}</label><input type="number" value={formData.rewards?.experience || ''} onChange={(e) => handleRewardChange('experience', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div><label className="block text-sm font-medium text-gray-300">{t('resources.gold')}</label><input type="number" min="0" value={formData.rewards?.gold || 0} onChange={(e) => handleRewardChange('gold', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div><label className="block text-sm font-medium text-gray-300">{t('statistics.level')} XP</label><input type="number" min="0" value={formData.rewards?.experience || 0} onChange={(e) => handleRewardChange('experience', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 </div>
                 {/* Item Rewards */}
-                <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.itemRewards')}</label>{(formData.rewards?.itemRewards || []).map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.templateId} onChange={e => handleDynamicRewardChange('itemRewards', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('itemRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('itemRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('itemRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Item</button></div>
+                <div>
+                    <h5 className="font-semibold text-gray-300 mb-2">{t('admin.quest.itemRewards')}</h5>
+                    <div className="space-y-2">
+                        {(formData.rewards?.itemRewards || []).map((reward, index) => (
+                            <div key={index} className="flex gap-2 items-end">
+                                <div className="flex-grow"><label className="text-xs text-gray-400">Item</label><select value={reward.templateId} onChange={e => handleDynamicRewardChange('itemRewards', index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select Item</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>
+                                <div><label className="text-xs text-gray-400">{t('admin.quest.quantity')}</label><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('itemRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
+                                <button type="button" onClick={() => removeDynamicReward('itemRewards', index)} className="px-2 py-2 bg-red-800 rounded-md">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => addDynamicReward('itemRewards')} className="mt-2 text-sm text-indigo-400">+ Add Item Reward</button>
+                </div>
                 {/* Resource Rewards */}
-                <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.resourceRewards')}</label>{(formData.rewards?.resourceRewards || []).map((reward, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={reward.resource} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'resource', e.target.value as EssenceType)} className="flex-grow bg-slate-700 p-2 rounded-md">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/><button type="button" onClick={() => removeDynamicReward('resourceRewards', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('resourceRewards')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Resource</button></div>
-                {/* Loot Table Rewards */}
-                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.lootTable')}</label>{(formData.rewards?.lootTable || []).map((drop, index) => (<div key={index} className="flex items-center gap-2 mt-2"><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md" placeholder="Chance %"/><button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-1 bg-red-800 rounded">X</button></div>))}<button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">+ Add Drop</button></div>
+                <div>
+                    <h5 className="font-semibold text-gray-300 mb-2">{t('admin.quest.resourceRewards')}</h5>
+                    <div className="space-y-2">
+                        {(formData.rewards?.resourceRewards || []).map((reward, index) => (
+                            <div key={index} className="flex gap-2 items-end">
+                                <div className="flex-grow"><label className="text-xs text-gray-400">{t('admin.resource')}</label><select value={reward.resource} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'resource', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select></div>
+                                <div><label className="text-xs text-gray-400">{t('admin.quest.quantity')}</label><input type="number" min="1" value={reward.quantity} onChange={e => handleDynamicRewardChange('resourceRewards', index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
+                                <button type="button" onClick={() => removeDynamicReward('resourceRewards', index)} className="px-2 py-2 bg-red-800 rounded-md">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => addDynamicReward('resourceRewards')} className="mt-2 text-sm text-indigo-400">+ Add Resource Reward</button>
+                </div>
+                {/* Loot Table */}
+                <div>
+                    <h5 className="font-semibold text-gray-300 mb-2">{t('admin.lootTable')}</h5>
+                     <div className="space-y-2">
+                        {(formData.rewards?.lootTable || []).map((drop, index) => (
+                            <div key={index} className="flex gap-2 items-end">
+                                <div className="flex-grow"><label className="text-xs text-gray-400">Item</label><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select Item</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>
+                                <div><label className="text-xs text-gray-400">{t('admin.chance')}</label><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
+                                <button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-2 bg-red-800 rounded-md">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400">+ Add Loot Drop</button>
+                </div>
             </fieldset>
 
             <div className="flex justify-end space-x-4 pt-4">
@@ -969,128 +1012,124 @@ const QuestEditor: React.FC<{
 };
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  locations, onLocationsUpdate, expeditions, onExpeditionsUpdate, enemies, onEnemiesUpdate, 
-  itemTemplates, onItemTemplatesUpdate, quests, onQuestsUpdate, settings, onSettingsUpdate, users, 
-  onDeleteUser, allCharacters, onDeleteCharacter, onResetCharacterStats, onHealCharacter,
+  locations, onLocationsUpdate,
+  expeditions, onExpeditionsUpdate,
+  enemies, onEnemiesUpdate,
+  itemTemplates, onItemTemplatesUpdate,
+  quests, onQuestsUpdate,
+  settings, onSettingsUpdate,
+  users, onDeleteUser,
+  allCharacters, onDeleteCharacter, onResetCharacterStats, onHealCharacter,
   onForceTraderRefresh, onResetAllPvpCooldowns, onSendGlobalMessage
 }) => {
     const { t } = useTranslation();
-    const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('general');
+    const [activeTab, setActiveTab] = useState<AdminTab>('general');
     
-    // Editor states
-    const [isLocationEditorOpen, setIsLocationEditorOpen] = useState(false);
+    // State for editors
     const [editingLocation, setEditingLocation] = useState<Partial<Location> | null>(null);
-    const [isExpeditionEditorOpen, setIsExpeditionEditorOpen] = useState(false);
     const [editingExpedition, setEditingExpedition] = useState<Partial<Expedition> | null>(null);
-    const [isEnemyEditorOpen, setIsEnemyEditorOpen] = useState(false);
-    // FIX: Completed truncated line and added other missing state variables
     const [editingEnemy, setEditingEnemy] = useState<Partial<Enemy> | null>(null);
-    const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Partial<ItemTemplate> | null>(null);
-    const [isQuestEditorOpen, setIsQuestEditorOpen] = useState(false);
     const [editingQuest, setEditingQuest] = useState<Partial<Quest> | null>(null);
+
+    // State for General tab
+    const [currentSettings, setCurrentSettings] = useState<GameSettings>(settings);
     const [globalMessageSubject, setGlobalMessageSubject] = useState('');
     const [globalMessageContent, setGlobalMessageContent] = useState('');
     const [isSendingGlobal, setIsSendingGlobal] = useState(false);
 
-    const handleSaveLocation = (locationToSave: Location) => {
-        let updatedLocations;
-        if (editingLocation?.id) {
-            updatedLocations = locations.map(loc => loc.id === locationToSave.id ? locationToSave : loc);
-        } else {
-            updatedLocations = [...locations, locationToSave];
+    useEffect(() => {
+        setCurrentSettings(settings);
+    }, [settings]);
+
+    const handleSaveSettings = () => {
+        onSettingsUpdate(currentSettings);
+    };
+
+    const handleSendGlobal = async () => {
+        if (!globalMessageSubject || !globalMessageContent) {
+            alert('Subject and content are required for a global message.');
+            return;
         }
-        if (locationToSave.isStartLocation) {
-            updatedLocations = updatedLocations.map(loc => loc.id === locationToSave.id ? loc : { ...loc, isStartLocation: false });
-        }
-        onLocationsUpdate(updatedLocations);
-        setIsLocationEditorOpen(false);
-        setEditingLocation(null);
-    };
-
-    const handleDeleteLocation = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this location?')) {
-            onLocationsUpdate(locations.filter(loc => loc.id !== id));
-        }
-    };
-
-    const handleSaveExpedition = (expeditionToSave: Expedition) => {
-        const updatedExpeditions = editingExpedition?.id
-            ? expeditions.map(exp => exp.id === expeditionToSave.id ? expeditionToSave : exp)
-            : [...expeditions, expeditionToSave];
-        onExpeditionsUpdate(updatedExpeditions);
-        setIsExpeditionEditorOpen(false);
-        setEditingExpedition(null);
-    };
-
-    const handleDeleteExpedition = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this expedition?')) {
-            onExpeditionsUpdate(expeditions.filter(exp => exp.id !== id));
-        }
-    };
-    
-    const handleSaveEnemy = (enemyToSave: Enemy) => {
-        const updatedEnemies = editingEnemy?.id
-            ? enemies.map(e => e.id === enemyToSave.id ? enemyToSave : e)
-            : [...enemies, enemyToSave];
-        onEnemiesUpdate(updatedEnemies);
-        setIsEnemyEditorOpen(false);
-        setEditingEnemy(null);
-    };
-
-    const handleDeleteEnemy = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this enemy?')) {
-            onEnemiesUpdate(enemies.filter(e => e.id !== id));
-        }
-    };
-
-    const handleSaveItem = (itemToSave: ItemTemplate) => {
-        const updatedItems = editingItem?.id
-            ? itemTemplates.map(i => i.id === itemToSave.id ? itemToSave : i)
-            : [...itemTemplates, itemToSave];
-        onItemTemplatesUpdate(updatedItems);
-        setIsItemEditorOpen(false);
-        setEditingItem(null);
-    };
-
-    const handleDeleteItem = (id: string) => {
-        if (window.confirm(t('admin.item.deleteConfirm'))) {
-            onItemTemplatesUpdate(itemTemplates.filter(i => i.id !== id));
-        }
-    };
-
-    const handleSaveQuest = (questToSave: Quest) => {
-        const updatedQuests = editingQuest?.id
-            ? quests.map(q => q.id === questToSave.id ? questToSave : q)
-            : [...quests, questToSave];
-        onQuestsUpdate(updatedQuests);
-        setIsQuestEditorOpen(false);
-        setEditingQuest(null);
-    };
-
-    const handleDeleteQuest = (id: string) => {
-        if (window.confirm(t('admin.quest.deleteConfirm'))) {
-            onQuestsUpdate(quests.filter(q => q.id !== id));
-        }
-    };
-    
-    const handleSendGlobal = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!globalMessageSubject || !globalMessageContent) return;
         setIsSendingGlobal(true);
         try {
             await onSendGlobalMessage({ subject: globalMessageSubject, content: globalMessageContent });
             alert('Global message sent successfully!');
-            setGlobalMessageContent('');
             setGlobalMessageSubject('');
+            setGlobalMessageContent('');
         } catch (err: any) {
             alert(`Error: ${err.message}`);
         } finally {
             setIsSendingGlobal(false);
         }
     };
+
+    const handleSaveLocation = (loc: Location) => {
+        const newLocations = [...locations];
+        const index = newLocations.findIndex(l => l.id === loc.id);
+        if (index > -1) {
+            newLocations[index] = loc;
+        } else {
+            newLocations.push(loc);
+        }
+
+        if (loc.isStartLocation) {
+            onLocationsUpdate(newLocations.map(l => l.id === loc.id ? loc : { ...l, isStartLocation: false }));
+        } else {
+            onLocationsUpdate(newLocations);
+        }
+        setEditingLocation(null);
+    };
     
-    const ADMIN_TABS: { id: AdminTab, label: string }[] = [
+    // Similar save handlers for other editors...
+    const handleSaveExpedition = (exp: Expedition) => {
+        const newExps = [...expeditions];
+        const index = newExps.findIndex(e => e.id === exp.id);
+        if (index > -1) newExps[index] = exp;
+        else newExps.push(exp);
+        onExpeditionsUpdate(newExps);
+        setEditingExpedition(null);
+    };
+
+    const handleSaveEnemy = (enemy: Enemy) => {
+        const newEnemies = [...enemies];
+        const index = newEnemies.findIndex(e => e.id === enemy.id);
+        if (index > -1) newEnemies[index] = enemy;
+        else newEnemies.push(enemy);
+        onEnemiesUpdate(newEnemies);
+        setEditingEnemy(null);
+    };
+
+    const handleSaveItem = (item: ItemTemplate) => {
+        const newItems = [...itemTemplates];
+        const index = newItems.findIndex(i => i.id === item.id);
+        if (index > -1) newItems[index] = item;
+        else newItems.push(item);
+        onItemTemplatesUpdate(newItems);
+        setEditingItem(null);
+    };
+    
+    const handleSaveQuest = (quest: Quest) => {
+        const newQuests = [...quests];
+        const index = newQuests.findIndex(q => q.id === quest.id);
+        if (index > -1) newQuests[index] = quest;
+        else newQuests.push(quest);
+        onQuestsUpdate(newQuests);
+        setEditingQuest(null);
+    };
+
+    const handleDelete = (key: 'locations' | 'expeditions' | 'enemies' | 'itemTemplates' | 'quests', id: string) => {
+        if (!window.confirm('Are you sure you want to delete this item?')) return;
+        switch (key) {
+            case 'locations': onLocationsUpdate(locations.filter(l => l.id !== id)); break;
+            case 'expeditions': onExpeditionsUpdate(expeditions.filter(e => e.id !== id)); break;
+            case 'enemies': onEnemiesUpdate(enemies.filter(e => e.id !== id)); break;
+            case 'itemTemplates': onItemTemplatesUpdate(itemTemplates.filter(i => i.id !== id)); break;
+            case 'quests': onQuestsUpdate(quests.filter(q => q.id !== id)); break;
+        }
+    };
+    
+    const TABS: { id: AdminTab, label: string }[] = [
         { id: 'general', label: t('admin.tabs.general') },
         { id: 'users', label: t('admin.tabs.users') },
         { id: 'locations', label: t('admin.tabs.locations') },
@@ -1101,220 +1140,134 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         { id: 'pvp', label: t('admin.tabs.pvp') },
     ];
     
-    // FIX: Added missing return statement with full JSX for the AdminPanel component.
     return (
         <ContentPanel title={t('admin.title')}>
-            <div className="flex border-b border-slate-700 mb-6">
-                {ADMIN_TABS.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveAdminTab(tab.id)}
-                        className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${activeAdminTab === tab.id ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                    >
-                        {tab.label}
-                    </button>
+            <div className="flex border-b border-slate-700 mb-6 flex-wrap">
+                {TABS.map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                        className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${activeTab === tab.id ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
+                    >{tab.label}</button>
                 ))}
             </div>
+            
+            {/* General Tab */}
+            {activeTab === 'general' && <div className="animate-fade-in space-y-8">
+                <div>
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.gameSettings')}</h3>
+                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                        <label className="block">
+                            <span className="text-gray-300">{t('admin.language')}</span>
+                            <select value={currentSettings.language} onChange={e => setCurrentSettings(s => ({...s, language: e.target.value as Language}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md">
+                                <option value="pl">{t('admin.languages.pl')}</option>
+                            </select>
+                        </label>
+                        <div>
+                            <h4 className="font-semibold text-gray-300 mb-2">{t('admin.traderSettings')}</h4>
+                             <label className="block text-sm text-gray-400 mb-2">{t('admin.rarityChancesDesc')}</label>
+                            <div className="space-y-2">
+                               {Object.values(ItemRarity).filter(r => [ItemRarity.Common, ItemRarity.Uncommon, ItemRarity.Rare].includes(r)).map(rarity => (
+                                    <label key={rarity} className="flex justify-between items-center">
+                                        <span className={rarityStyles[rarity].text}>{rarity}</span>
+                                        <input type="number" min="0" max="100" value={currentSettings.traderSettings?.rarityChances[rarity] || 0}
+                                            onChange={e => setCurrentSettings(s => ({...s, traderSettings: { ...s.traderSettings, rarityChances: {...s.traderSettings?.rarityChances, [rarity]: parseInt(e.target.value) || 0} } as TraderSettings }))}
+                                            className="w-24 bg-slate-700 p-1 rounded-md text-center" />
+                                    </label>
+                               ))}
+                            </div>
+                        </div>
+                        <button onClick={handleSaveSettings} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save Settings</button>
+                    </div>
+                </div>
+                 <div>
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4">Send Global Message</h3>
+                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                        <input type="text" placeholder="Subject" value={globalMessageSubject} onChange={e => setGlobalMessageSubject(e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
+                        <textarea placeholder="Message content..." value={globalMessageContent} onChange={e => setGlobalMessageContent(e.target.value)} rows={4} className="w-full bg-slate-700 p-2 rounded-md" />
+                        <button onClick={handleSendGlobal} disabled={isSendingGlobal} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:bg-slate-500">{isSendingGlobal ? 'Sending...' : 'Send to All Players'}</button>
+                    </div>
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.traderActions')}</h3>
+                     <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                        <button onClick={onForceTraderRefresh} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
+                     </div>
+                </div>
+            </div>}
+            
+            {/* Users & Characters Tab */}
+            {activeTab === 'users' && <div className="animate-fade-in">
+                 <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.managePlayers')}</h3>
+                {users.map(user => <div key={user.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{user.username} (ID: {user.id})</span><button onClick={() => onDeleteUser(user.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700 text-white">{t('admin.deletePlayer')}</button></div>)}
+                 <h3 className="text-xl font-bold text-indigo-400 mt-8 mb-4">{t('admin.manageCharacters')}</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {allCharacters.map(char => <div key={char.user_id} className="bg-slate-800/50 p-4 rounded-lg">
+                    <p className="font-bold">{char.name} <span className="text-sm font-normal text-gray-400">({char.race}, Lvl {char.level})</span></p>
+                    <p className="text-xs text-gray-500">{t('admin.owner')}: {char.username} (ID: {char.user_id})</p>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                        <button onClick={() => onHealCharacter(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-green-700 hover:bg-green-600">{t('admin.heal')}</button>
+                        <button onClick={() => onResetCharacterStats(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-amber-700 hover:bg-amber-600">{t('admin.resetStats')}</button>
+                        <button onClick={() => onDeleteCharacter(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-red-800 hover:bg-red-700">{t('admin.deleteCharacter')}</button>
+                    </div>
+                 </div>)}
+                 </div>
+            </div>}
 
-            <div className="bg-slate-900/40 p-6 rounded-xl">
-                {activeAdminTab === 'general' && (
-                    <div>
-                        <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.gameSettings')}</h3>
-                        <form onSubmit={(e) => { e.preventDefault(); onSettingsUpdate(settings); }} className="space-y-4 max-w-md">
-                           {/* Other settings can be added here */}
-                           <div className="border-t border-slate-700 pt-4">
-                                <h4 className="font-semibold mb-2">{t('admin.traderSettings')}</h4>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.rarityChances')}</label>
-                                <p className="text-xs text-gray-500 mb-2">{t('admin.rarityChancesDesc')}</p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {Object.values(ItemRarity).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
-                                        <div key={rarity}>
-                                            <label className="text-xs">{rarity}</label>
-                                            <input type="number" min="0" max="100" value={settings.traderSettings?.rarityChances[rarity] || 0}
-                                                onChange={e => onSettingsUpdate({ ...settings, traderSettings: { ...settings.traderSettings, rarityChances: { ...settings.traderSettings?.rarityChances, [rarity]: parseInt(e.target.value) || 0 } } as TraderSettings })}
-                                                className="w-full bg-slate-700 p-2 rounded-md"/>
-                                        </div>
-                                    ))}
-                                </div>
-                           </div>
-                           <div className="border-t border-slate-700 pt-4">
-                               <h4 className="font-semibold mb-2">{t('admin.traderActions')}</h4>
-                               <button type="button" onClick={onForceTraderRefresh} className="px-4 py-2 rounded-md bg-amber-700 hover:bg-amber-600 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
-                           </div>
-                           <div className="border-t border-slate-700 pt-4">
-                                <h4 className="font-semibold mb-2">Global Message</h4>
-                                <form onSubmit={handleSendGlobal} className="space-y-2">
-                                    <input type="text" placeholder="Subject" value={globalMessageSubject} onChange={e => setGlobalMessageSubject(e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
-                                    <textarea placeholder="Content" value={globalMessageContent} onChange={e => setGlobalMessageContent(e.target.value)} rows={3} className="w-full bg-slate-700 p-2 rounded-md"></textarea>
-                                    <button type="submit" disabled={isSendingGlobal} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:bg-slate-600">Send to All Players</button>
-                                </form>
-                           </div>
-                        </form>
+            {/* Other resource tabs */}
+            {activeTab === 'locations' && <div className="animate-fade-in">
+                {editingLocation ? <LocationEditor location={editingLocation} onSave={handleSaveLocation} onCancel={() => setEditingLocation(null)} isEditing={!!editingLocation.id} allLocations={locations} /> : <>
+                    <button onClick={() => setEditingLocation({isStartLocation: false, availableTabs: []})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Location</button>
+                    {locations.map(loc => <div key={loc.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{loc.name} {loc.isStartLocation && '(Start)'}</span><div className="space-x-2"><button onClick={() => setEditingLocation(loc)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('locations', loc.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                </>}
+            </div>}
+            
+             {activeTab === 'expeditions' && <div className="animate-fade-in">
+                {editingExpedition ? <ExpeditionEditor expedition={editingExpedition} onSave={handleSaveExpedition} onCancel={() => setEditingExpedition(null)} isEditing={!!editingExpedition.id} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates}/> : <>
+                    <button onClick={() => setEditingExpedition({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Expedition</button>
+                    {expeditions.map(exp => <div key={exp.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{exp.name}</span><div className="space-x-2"><button onClick={() => setEditingExpedition(exp)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('expeditions', exp.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                </>}
+            </div>}
+
+             {activeTab === 'enemies' && <div className="animate-fade-in">
+                {editingEnemy ? <EnemyEditor enemy={editingEnemy} onSave={handleSaveEnemy} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates}/> : <>
+                    <button onClick={() => setEditingEnemy({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Enemy</button>
+                    {enemies.map(enemy => <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{enemy.name}</span><div className="space-x-2"><button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('enemies', enemy.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                </>}
+            </div>}
+            
+            {activeTab === 'items' && <div className="animate-fade-in">
+                {editingItem ? <ItemEditor item={editingItem} onSave={handleSaveItem} onCancel={() => setEditingItem(null)} /> : <>
+                    <button onClick={() => setEditingItem({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.item.add')}</button>
+                    {itemTemplates.map(item => <div key={item.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span className={rarityStyles[item.rarity].text}>{item.name}</span><div className="space-x-2"><button onClick={() => setEditingItem(item)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('itemTemplates', item.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                </>}
+            </div>}
+            
+            {activeTab === 'quests' && <div className="animate-fade-in">
+                {editingQuest ? <QuestEditor quest={editingQuest} onSave={handleSaveQuest} onCancel={() => setEditingQuest(null)} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates} /> : <>
+                    <button onClick={() => setEditingQuest({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.quest.add')}</button>
+                    {quests.map(quest => <div key={quest.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{quest.name}</span><div className="space-x-2"><button onClick={() => setEditingQuest(quest)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('quests', quest.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                </>}
+            </div>}
+
+            {activeTab === 'pvp' && <div className="animate-fade-in space-y-8">
+                 <div>
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.title')}</h3>
+                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                        <label className="block">
+                            <span className="text-gray-300">{t('admin.pvp.protectionDuration')}</span>
+                            <input type="number" min="0" value={currentSettings.pvpProtectionMinutes || 60} onChange={e => setCurrentSettings(s => ({...s, pvpProtectionMinutes: parseInt(e.target.value) || 60}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
+                             <p className="text-xs text-gray-500 mt-1">{t('admin.pvp.protectionDurationDesc')}</p>
+                        </label>
+                        <button onClick={handleSaveSettings} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save Settings</button>
                     </div>
-                )}
-                {activeAdminTab === 'users' && (
-                    <div>
-                        <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.managePlayers')}</h3>
-                        <div className="space-y-2">
-                            {users.map(user => (
-                                <div key={user.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                    <span>{user.username} (ID: {user.id})</span>
-                                    <button onClick={() => onDeleteUser(user.id)} className="px-3 py-1 bg-red-800 rounded text-sm font-semibold">Delete</button>
-                                </div>
-                            ))}
-                        </div>
-                         <h3 className="text-xl font-bold text-indigo-400 mb-4 mt-6">{t('admin.manageCharacters')}</h3>
-                         <div className="space-y-2">
-                            {allCharacters.length > 0 ? allCharacters.map(char => (
-                                <div key={char.user_id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                    <div>
-                                        <span className="font-semibold">{char.name}</span> <span className="text-sm text-gray-400">({char.race}, Lvl {char.level})</span>
-                                        <p className="text-xs text-gray-500">Owner: {char.username} (ID: {char.user_id})</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => onHealCharacter(char.user_id)} className="px-3 py-1 bg-green-700 rounded text-sm font-semibold">{t('admin.heal')}</button>
-                                        <button onClick={() => onResetCharacterStats(char.user_id)} className="px-3 py-1 bg-amber-700 rounded text-sm font-semibold">{t('admin.resetStats')}</button>
-                                        <button onClick={() => onDeleteCharacter(char.user_id)} className="px-3 py-1 bg-red-800 rounded text-sm font-semibold">{t('admin.deleteCharacter')}</button>
-                                    </div>
-                                </div>
-                            )) : <p className="text-gray-500">{t('admin.noCharacters')}</p>}
-                        </div>
-                    </div>
-                )}
-                {activeAdminTab === 'locations' && (
-                    <div>
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Manage Locations</h3>
-                            <button onClick={() => { setEditingLocation({}); setIsLocationEditorOpen(true); }} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 text-white font-semibold">Add Location</button>
-                        </div>
-                        {isLocationEditorOpen ? (
-                            <LocationEditor location={editingLocation || {}} onSave={handleSaveLocation} onCancel={() => { setIsLocationEditorOpen(false); setEditingLocation(null); }} isEditing={!!editingLocation} allLocations={locations} />
-                        ) : (
-                            <div className="space-y-2 mt-4">
-                                {locations.map(loc => (
-                                    <div key={loc.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                        <span>{loc.name} {loc.isStartLocation && <span className="text-xs text-amber-400">(Start)</span>}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingLocation(loc); setIsLocationEditorOpen(true); }} className="px-3 py-1 bg-sky-700 rounded text-sm">Edit</button>
-                                            <button onClick={() => handleDeleteLocation(loc.id)} className="px-3 py-1 bg-red-800 rounded text-sm">Delete</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                {activeAdminTab === 'expeditions' && (
-                    <div>
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Manage Expeditions</h3>
-                            <button onClick={() => { setEditingExpedition({}); setIsExpeditionEditorOpen(true); }} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 text-white font-semibold">Add Expedition</button>
-                        </div>
-                        {isExpeditionEditorOpen ? (
-                            <ExpeditionEditor expedition={editingExpedition || {}} onSave={handleSaveExpedition} onCancel={() => { setIsExpeditionEditorOpen(false); setEditingExpedition(null); }} isEditing={!!editingExpedition} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates} />
-                        ) : (
-                             <div className="space-y-2 mt-4">
-                                {expeditions.map(exp => (
-                                    <div key={exp.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                        <span>{exp.name}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingExpedition(exp); setIsExpeditionEditorOpen(true); }} className="px-3 py-1 bg-sky-700 rounded text-sm">Edit</button>
-                                            <button onClick={() => handleDeleteExpedition(exp.id)} className="px-3 py-1 bg-red-800 rounded text-sm">Delete</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                {activeAdminTab === 'enemies' && (
-                     <div>
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Manage Enemies</h3>
-                            <button onClick={() => { setEditingEnemy({}); setIsEnemyEditorOpen(true); }} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 text-white font-semibold">Add Enemy</button>
-                        </div>
-                        {isEnemyEditorOpen ? (
-                            <EnemyEditor enemy={editingEnemy || {}} onSave={handleSaveEnemy} onCancel={() => { setIsEnemyEditorOpen(false); setEditingEnemy(null); }} isEditing={!!editingEnemy} allItemTemplates={itemTemplates} />
-                        ) : (
-                             <div className="space-y-2 mt-4">
-                                {enemies.map(enemy => (
-                                    <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                        <span>{enemy.name}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingEnemy(enemy); setIsEnemyEditorOpen(true); }} className="px-3 py-1 bg-sky-700 rounded text-sm">Edit</button>
-                                            <button onClick={() => handleDeleteEnemy(enemy.id)} className="px-3 py-1 bg-red-800 rounded text-sm">Delete</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                {activeAdminTab === 'items' && (
-                    <div>
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.manageItems')}</h3>
-                            <button onClick={() => { setEditingItem({}); setIsItemEditorOpen(true); }} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 text-white font-semibold">{t('admin.item.add')}</button>
-                        </div>
-                        {isItemEditorOpen ? (
-                            <ItemEditor item={editingItem || {}} onSave={handleSaveItem} onCancel={() => { setIsItemEditorOpen(false); setEditingItem(null); }} />
-                        ) : (
-                            <div className="space-y-2 mt-4">
-                                {itemTemplates.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                        <span className={rarityStyles[item.rarity].text}>{item.name}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingItem(item); setIsItemEditorOpen(true); }} className="px-3 py-1 bg-sky-700 rounded text-sm">{t('admin.edit')}</button>
-                                            <button onClick={() => handleDeleteItem(item.id)} className="px-3 py-1 bg-red-800 rounded text-sm">{t('admin.delete')}</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                 {activeAdminTab === 'quests' && (
-                    <div>
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.quest.manage')}</h3>
-                            <button onClick={() => { setEditingQuest({}); setIsQuestEditorOpen(true); }} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 text-white font-semibold">{t('admin.quest.add')}</button>
-                        </div>
-                        {isQuestEditorOpen ? (
-                            <QuestEditor quest={editingQuest || {}} onSave={handleSaveQuest} onCancel={() => { setIsQuestEditorOpen(false); setEditingQuest(null); }} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates} />
-                        ) : (
-                            <div className="space-y-2 mt-4">
-                                {quests.map(quest => (
-                                    <div key={quest.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-md">
-                                        <span>{quest.name}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingQuest(quest); setIsQuestEditorOpen(true); }} className="px-3 py-1 bg-sky-700 rounded text-sm">{t('admin.edit')}</button>
-                                            <button onClick={() => handleDeleteQuest(quest.id)} className="px-3 py-1 bg-red-800 rounded text-sm">{t('admin.delete')}</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                {activeAdminTab === 'pvp' && (
-                    <div>
-                        <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.title')}</h3>
-                        <div className="space-y-4 max-w-md">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300">{t('admin.pvp.protectionDuration')}</label>
-                                <input type="number" value={settings.pvpProtectionMinutes || 60}
-                                    onChange={e => onSettingsUpdate({ ...settings, pvpProtectionMinutes: parseInt(e.target.value) || 60 })}
-                                    className="w-full bg-slate-700 p-2 rounded-md mt-1"/>
-                                <p className="text-xs text-gray-500 mt-1">{t('admin.pvp.protectionDurationDesc')}</p>
-                            </div>
-                            <div className="border-t border-slate-700 pt-4">
-                               <h4 className="font-semibold mb-2">{t('admin.pvp.actions')}</h4>
-                               <button type="button" onClick={onResetAllPvpCooldowns} className="px-4 py-2 rounded-md bg-amber-700 hover:bg-amber-600 text-white font-semibold">{t('admin.pvp.resetCooldowns')}</button>
-                           </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+                </div>
+                 <div>
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.actions')}</h3>
+                     <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                        <button onClick={onResetAllPvpCooldowns} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.pvp.resetCooldowns')}</button>
+                     </div>
+                </div>
+            </div>}
+
         </ContentPanel>
     );
 };

@@ -406,7 +406,7 @@ const App: React.FC = () => {
           lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
       }
     }
-  }, [activeTab, tavernMessages]);
+  }, [activeTab]);
 
 
   // Handlers

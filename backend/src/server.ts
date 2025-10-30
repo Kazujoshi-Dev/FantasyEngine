@@ -1173,8 +1173,8 @@ apiRouter.post('/admin/global-message', authenticate, isAdmin, async (req: Expre
     try {
         await client.query('BEGIN');
 
-        // FIX: Send messages only to users who have created a character.
-        const usersRes = await client.query('SELECT user_id FROM characters');
+        // FIX: Send messages only to users who have created a character and have a valid user_id.
+        const usersRes = await client.query('SELECT user_id FROM characters WHERE user_id IS NOT NULL');
         if (usersRes.rowCount === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'No players with characters found to send message to.' });
