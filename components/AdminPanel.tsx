@@ -31,22 +31,23 @@ const LocationEditor: React.FC<{
   isEditing: boolean;
   allLocations: Location[];
 }> = ({ location, onSave, onCancel, isEditing, allLocations }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<Partial<Location>>(location);
   const allTabs = (Object.values(Tab).filter(v => typeof v === 'number') as Tab[]).filter(t => t !== Tab.Admin);
   
   const tabLabels: { [key in Tab]?: string } = {
-      [Tab.Statistics]: 'Statistics',
-      [Tab.Equipment]: 'Equipment',
-      [Tab.Expedition]: 'Expedition',
-      [Tab.Trader]: 'Trader',
-      [Tab.Blacksmith]: 'Blacksmith',
-      [Tab.Camp]: 'Camp',
-      [Tab.Location]: 'Location',
-      [Tab.Resources]: 'Resources',
-      [Tab.Ranking]: 'Ranking',
-      [Tab.Quests]: 'Quests',
-      [Tab.Messages]: 'Messages',
-      [Tab.Tavern]: 'Tavern',
+      [Tab.Statistics]: t('sidebar.statistics'),
+      [Tab.Equipment]: t('sidebar.equipment'),
+      [Tab.Expedition]: t('sidebar.expedition'),
+      [Tab.Trader]: t('sidebar.trader'),
+      [Tab.Blacksmith]: t('sidebar.blacksmith'),
+      [Tab.Camp]: t('sidebar.camp'),
+      [Tab.Location]: t('sidebar.location'),
+      [Tab.Resources]: t('sidebar.resources'),
+      [Tab.Ranking]: t('sidebar.ranking'),
+      [Tab.Quests]: t('sidebar.quests'),
+      [Tab.Messages]: t('sidebar.messages'),
+      [Tab.Tavern]: t('sidebar.tavern'),
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -72,7 +73,7 @@ const LocationEditor: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
-        alert("Location name is required.");
+        alert(t('admin.location.nameRequired'));
         return;
     }
 
@@ -97,31 +98,31 @@ const LocationEditor: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
-        <h3 className="text-xl font-bold text-indigo-400 mb-2">{isEditing ? "Edit Location" : "Create New Location"}</h3>
+        <h3 className="text-xl font-bold text-indigo-400 mb-2">{isEditing ? t('admin.location.edit') : t('admin.location.create')}</h3>
         <div>
-            <label className="block text-sm font-medium text-gray-300">Name</label>
+            <label className="block text-sm font-medium text-gray-300">{t('admin.general.name')}</label>
             <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"/>
         </div>
         <div>
-            <label className="block text-sm font-medium text-gray-300">Description</label>
+            <label className="block text-sm font-medium text-gray-300">{t('admin.general.description')}</label>
             <textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={3} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="block">
-                <span className="text-sm font-medium text-gray-300">Travel cost (gold)</span>
+                <span className="text-sm font-medium text-gray-300">{t('admin.location.travelCostGold')}</span>
                 <input type="number" name="travelCost" value={formData.travelCost || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"/>
             </label>
             <label className="block">
-                <span className="text-sm font-medium text-gray-300">Travel cost (energy)</span>
+                <span className="text-sm font-medium text-gray-300">{t('admin.location.travelCostEnergy')}</span>
                 <input type="number" name="travelEnergyCost" value={formData.travelEnergyCost || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"/>
             </label>
             <label className="block">
-                <span className="text-sm font-medium text-gray-300">Travel time (seconds)</span>
+                <span className="text-sm font-medium text-gray-300">{t('admin.location.travelTime')}</span>
                 <input type="number" name="travelTime" value={formData.travelTime || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"/>
             </label>
         </div>
         <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Available tabs</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.location.availableTabs')}</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {allTabs.map(tab => {
                     const label = tabLabels[tab];
@@ -137,13 +138,13 @@ const LocationEditor: React.FC<{
          <div>
             <label className="flex items-center space-x-2">
                 <input type="checkbox" name="isStartLocation" checked={formData.isStartLocation || false} onChange={handleInputChange} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500" />
-                <span>Starting location</span>
+                <span>{t('admin.location.isStartLocation')}</span>
             </label>
-            {formData.isStartLocation && <p className="text-xs text-amber-400 mt-1">Note: Setting this location as the starting one will remove this status from the previous one.</p>}
+            {formData.isStartLocation && <p className="text-xs text-amber-400 mt-1">{t('admin.location.isStartLocationNote')}</p>}
         </div>
         <div className="flex justify-end space-x-4 pt-4">
-            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save</button>
+            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button>
+            <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button>
         </div>
     </form>
   )
@@ -250,7 +251,7 @@ const ExpeditionEditor: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
-        alert("Expedition name is required.");
+        alert(t('admin.expedition.nameRequired'));
         return;
     }
     
@@ -288,14 +289,14 @@ const ExpeditionEditor: React.FC<{
   }, [allItemTemplates, itemSearch, itemRarityFilter]);
 
   const EDITOR_TABS: { id: ExpeditionEditorTab, label: string }[] = [
-    { id: 'basic', label: 'Informacje Podstawowe' },
-    { id: 'enemies', label: 'Przeciwnicy' },
-    { id: 'rewards', label: 'Nagrody' },
+    { id: 'basic', label: t('admin.expedition.tabBasic') },
+    { id: 'enemies', label: t('admin.expedition.tabEnemies') },
+    { id: 'rewards', label: t('admin.expedition.tabRewards') },
   ];
   
   return (
      <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6">
-        <h3 className="text-xl font-bold text-indigo-400 mb-4">{isEditing ? "Edytuj Ekspedycję" : "Stwórz Nową Ekspedycję"}</h3>
+        <h3 className="text-xl font-bold text-indigo-400 mb-4">{isEditing ? t('admin.expedition.edit') : t('admin.expedition.create')}</h3>
         
         <div className="flex border-b border-slate-700 mb-6">
             {EDITOR_TABS.map(tab => (
@@ -313,8 +314,8 @@ const ExpeditionEditor: React.FC<{
         <div className="space-y-6">
             {activeTab === 'basic' && (
                 <div className="space-y-4 animate-fade-in">
-                    <div><label className="block text-sm font-medium text-gray-300">Nazwa</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/></div>
-                    <div><label className="block text-sm font-medium text-gray-300">Opis</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={3} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"></textarea></div>
+                    <div><label className="block text-sm font-medium text-gray-300">{t('admin.general.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/></div>
+                    <div><label className="block text-sm font-medium text-gray-300">{t('admin.general.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={3} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"></textarea></div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <label className="block"><span className="text-sm font-medium text-gray-300">{t('admin.expeditionGoldCost')}</span><input type="number" name="goldCost" value={formData.goldCost || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/></label>
                         <label className="block"><span className="text-sm font-medium text-gray-300">{t('admin.expeditionEnergyCost')}</span><input type="number" name="energyCost" value={formData.energyCost || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/></label>
@@ -322,7 +323,7 @@ const ExpeditionEditor: React.FC<{
                         <label className="block"><span className="text-sm font-medium text-gray-300">{t('admin.maxEnemies')}</span><input type="number" name="maxEnemies" min="0" value={formData.maxEnemies || 0} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2" title={t('admin.maxEnemiesDesc')}/></label>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Dostępna w lokacjach</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.expedition.availableIn')}</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {allLocations.map(loc => (
                                 <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
@@ -334,7 +335,7 @@ const ExpeditionEditor: React.FC<{
 
             {activeTab === 'enemies' && (
                 <div className="space-y-4 animate-fade-in">
-                    <div><label className="block text-sm font-medium text-gray-300 mb-2">Przeciwnicy (szansa na pojawienie się %)</label><input type="text" placeholder="Szukaj przeciwnika..." value={enemySearch} onChange={e => setEnemySearch(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2" /></div>
+                    <div><label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.expedition.enemiesSpawnChance')}</label><input type="text" placeholder={t('admin.general.search') || "Szukaj przeciwnika..."} value={enemySearch} onChange={e => setEnemySearch(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2" /></div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
                         {filteredEnemies.map(enemy => {
                             const currentEnemy = formData.enemies?.find(e => e.enemyId === enemy.id);
@@ -347,12 +348,12 @@ const ExpeditionEditor: React.FC<{
             {activeTab === 'rewards' && (
                 <div className="space-y-6 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-slate-800/50 p-3 rounded-md"><label className="block text-sm font-medium text-gray-300 mb-2">Nagroda w złocie</label><div className="flex items-end space-x-2"><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.min')}</label><input type="number" min="0" name="minBaseGoldReward" value={formData.minBaseGoldReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div><span className="text-gray-400 pb-2">-</span><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.max')}</label><input type="number" min="0" name="maxBaseGoldReward" value={formData.maxBaseGoldReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div></div></div>
-                        <div className="bg-slate-800/50 p-3 rounded-md"><label className="block text-sm font-medium text-gray-300 mb-2">Nagroda w doświadczeniu</label><div className="flex items-end space-x-2"><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.min')}</label><input type="number" min="0" name="minBaseExperienceReward" value={formData.minBaseExperienceReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div><span className="text-gray-400 pb-2">-</span><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.max')}</label><input type="number" min="0" name="maxBaseExperienceReward" value={formData.maxBaseExperienceReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div></div></div>
+                        <div className="bg-slate-800/50 p-3 rounded-md"><label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.expedition.rewardGold')}</label><div className="flex items-end space-x-2"><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.min')}</label><input type="number" min="0" name="minBaseGoldReward" value={formData.minBaseGoldReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div><span className="text-gray-400 pb-2">-</span><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.max')}</label><input type="number" min="0" name="maxBaseGoldReward" value={formData.maxBaseGoldReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div></div></div>
+                        <div className="bg-slate-800/50 p-3 rounded-md"><label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.expedition.rewardExp')}</label><div className="flex items-end space-x-2"><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.min')}</label><input type="number" min="0" name="minBaseExperienceReward" value={formData.minBaseExperienceReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div><span className="text-gray-400 pb-2">-</span><div className="flex-1"><label className="block text-xs font-medium text-gray-400">{t('admin.max')}</label><input type="number" min="0" name="maxBaseExperienceReward" value={formData.maxBaseExperienceReward ?? ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div></div></div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.lootTable')}</label>
-                        <div className="flex gap-4 mb-2"><input type="text" placeholder="Szukaj przedmiotu..." value={itemSearch} onChange={e => setItemSearch(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/><select value={itemRarityFilter} onChange={e => setItemRarityFilter(e.target.value as ItemRarity | 'all')} className="bg-slate-700 border border-slate-600 rounded-md px-3 py-2"><option value="all">Wszystkie rzadkości</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                        <div className="flex gap-4 mb-2"><input type="text" placeholder={t('admin.general.search') || "Szukaj przedmiotu..."} value={itemSearch} onChange={e => setItemSearch(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/><select value={itemRarityFilter} onChange={e => setItemRarityFilter(e.target.value as ItemRarity | 'all')} className="bg-slate-700 border border-slate-600 rounded-md px-3 py-2"><option value="all">{t('admin.item.allRarities')}</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-64 overflow-y-auto p-2 bg-slate-800/30 rounded-md">
                             {filteredItems.map(item => {
                                 const currentLoot = formData.lootTable?.find(l => l.templateId === item.id);
@@ -375,8 +376,8 @@ const ExpeditionEditor: React.FC<{
         </div>
 
         <div className="flex justify-end space-x-4 pt-6 border-t border-slate-700 mt-6">
-            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Anuluj</button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Zapisz</button>
+            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button>
+            <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button>
         </div>
      </form>
   )
@@ -458,7 +459,7 @@ const EnemyEditor: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) {
-            alert("Enemy name is required."); return;
+            alert(t('admin.enemy.nameRequired')); return;
         }
 
         const rewards = {
@@ -504,44 +505,44 @@ const EnemyEditor: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
-             <h3 className="text-xl font-bold text-indigo-400 mb-2">{isEditing ? "Edit Enemy" : "Create New Enemy"}</h3>
+             <h3 className="text-xl font-bold text-indigo-400 mb-2">{isEditing ? t('admin.enemy.edit') : t('admin.enemy.create')}</h3>
              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.general.name')}</label>
                 <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/>
              </div>
              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.general.description')}</label>
                 <textarea name="description" value={formData.description || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/>
              </div>
 
-             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">Statistics</h4>
+             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('statistics.title')}</h4>
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Health</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('statistics.health')}</label>
                     <input type="number" name="maxHealth" value={formData.stats?.maxHealth ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Min. Damage</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('item.damageMin')}</label>
                     <input type="number" name="minDamage" value={formData.stats?.minDamage ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Max. Damage</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('item.damageMax')}</label>
                     <input type="number" name="maxDamage" value={formData.stats?.maxDamage ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Armor</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('statistics.armor')}</label>
                     <input type="number" name="armor" value={formData.stats?.armor ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Crit Chance (%)</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('statistics.critChance')} (%)</label>
                     <input type="number" name="critChance" value={formData.stats?.critChance ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Agility</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('statistics.agility')}</label>
                     <input type="number" name="agility" value={formData.stats?.agility ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Ataki na turę</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('statistics.attacksPerTurn')}</label>
                     <input type="number" name="attacksPerTurn" value={formData.stats?.attacksPerTurn ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/>
                  </div>
              </div>
@@ -554,15 +555,15 @@ const EnemyEditor: React.FC<{
                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.enemy.magicDamageMax')}</label><input type="number" name="magicDamageMax" value={formData.stats?.magicDamageMax ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.enemy.magicAttackChance')}</label><input type="number" name="magicAttackChance" value={formData.stats?.magicAttackChance ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.enemy.magicAttackManaCost')}</label><input type="number" name="magicAttackManaCost" value={formData.stats?.magicAttackManaCost ?? ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div className="col-span-2"><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.enemy.magicAttackType')}</label><select name="magicAttackType" value={formData.stats?.magicAttackType || ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">None</option>{magicAttackTypes.map(type => <option key={type} value={type}>{t(`item.magic.${type}`)}</option>)}</select></div>
+                <div className="col-span-2"><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.enemy.magicAttackType')}</label><select name="magicAttackType" value={formData.stats?.magicAttackType || ''} onChange={(e) => handleNestedChange('stats', e)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.general.none')}</option>{magicAttackTypes.map(type => <option key={type} value={type}>{t(`item.magic.${type}`)}</option>)}</select></div>
              </div>
              
-             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">Rewards</h4>
+             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('quests.rewards')}</h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                 <div><label className="block text-sm font-medium text-gray-300 mb-1">Min Gold</label><input type="number" name="minGold" value={formData.rewards?.minGold ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                 <div><label className="block text-sm font-medium text-gray-300 mb-1">Max Gold</label><input type="number" name="maxGold" value={formData.rewards?.maxGold ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                 <div><label className="block text-sm font-medium text-gray-300 mb-1">Min Experience</label><input type="number" name="minExperience" value={formData.rewards?.minExperience ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                 <div><label className="block text-sm font-medium text-gray-300 mb-1">Max Experience</label><input type="number" name="maxExperience" value={formData.rewards?.maxExperience ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.min')} {t('resources.gold')}</label><input type="number" name="minGold" value={formData.rewards?.minGold ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.max')} {t('resources.gold')}</label><input type="number" name="maxGold" value={formData.rewards?.maxGold ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.min')} {t('expedition.experience')}</label><input type="number" name="minExperience" value={formData.rewards?.minExperience ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                 <div><label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.max')} {t('expedition.experience')}</label><input type="number" name="maxExperience" value={formData.rewards?.maxExperience ?? ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
              </div>
              <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.lootTable')}</label>
@@ -585,8 +586,8 @@ const EnemyEditor: React.FC<{
             </div>
 
             <div className="flex justify-end space-x-4 pt-4 border-t border-slate-700 mt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save</button>
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button>
             </div>
         </form>
     )
@@ -620,14 +621,14 @@ const ItemTemplateManager: React.FC<{
             </div>
 
             <div className="flex gap-4 mb-4">
-                <input type="text" placeholder="Szukaj po nazwie..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2" />
+                <input type="text" placeholder={t('admin.general.searchByName') || "Szukaj po nazwie..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2" />
                 <select value={slotFilter} onChange={e => setSlotFilter(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-md px-3 py-2">
-                    <option value="all">Wszystkie sloty</option>
+                    <option value="all">{t('admin.item.allSlots')}</option>
                     {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}
                      <option value="ring">ring</option>
                 </select>
                 <select value={rarityFilter} onChange={e => setRarityFilter(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-md px-3 py-2">
-                    <option value="all">Wszystkie rzadkości</option>
+                    <option value="all">{t('admin.item.allRarities')}</option>
                     {Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
             </div>
@@ -687,7 +688,7 @@ const ItemTemplateEditor: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if(!formData.name || !formData.slot || !formData.rarity) {
-            alert("Name, slot, and rarity are required."); return;
+            alert(t('admin.item.validationError')); return;
         }
 
         const finalItem: ItemTemplate = {
@@ -733,15 +734,15 @@ const ItemTemplateEditor: React.FC<{
             
             <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium">{t('item.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium">Icon Path</label><input type="text" name="icon" value={formData.icon || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium">{t('admin.item.iconPath')}</label><input type="text" name="icon" value={formData.icon || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             </div>
             <div><label className="block text-sm font-medium">{t('item.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><label className="block text-sm font-medium">{t('item.slotLabel')}</label><select name="slot" value={formData.slot || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select slot</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}<option value="ring">ring</option></select></div>
-                <div><label className="block text-sm font-medium">{t('item.category')}</label><select name="category" value={formData.category || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select category</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                <div><label className="block text-sm font-medium">{t('item.rarity')}</label><select name="rarity" value={formData.rarity || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select rarity</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-                <div><label className="block text-sm font-medium">Płeć gramatyczna</label><select name="gender" value={formData.gender || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select gender</option>{Object.values(GrammaticalGender).map(g => <option key={g} value={g}>{g}</option>)}</select></div>
+                <div><label className="block text-sm font-medium">{t('item.slotLabel')}</label><select name="slot" value={formData.slot || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}<option value="ring">ring</option></select></div>
+                <div><label className="block text-sm font-medium">{t('item.category')}</label><select name="category" value={formData.category || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className="block text-sm font-medium">{t('item.rarity')}</label><select name="rarity" value={formData.rarity || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                <div><label className="block text-sm font-medium">{t('admin.item.grammaticalGender')}</label><select name="gender" value={formData.gender || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(GrammaticalGender).map(g => <option key={g} value={g}>{g}</option>)}</select></div>
                 <div><label className="block text-sm font-medium">{t('item.value')}</label><input type="number" name="value" value={formData.value || 0} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium">{t('item.levelRequirement')}</label><input type="number" name="requiredLevel" value={formData.requiredLevel || 1} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             </div>
@@ -758,7 +759,7 @@ const ItemTemplateEditor: React.FC<{
                 <div className="flex items-center mb-4"><input type="checkbox" name="isMagical" checked={formData.isMagical || false} onChange={handleInputChange} className="h-4 w-4 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500 mr-2"/><label className="font-semibold text-gray-300">{t('item.isMagical')}</label></div>
                 {formData.isMagical && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
-                        <div><label className="block text-sm">{t('item.magicAttackType')}</label><select name="magicAttackType" value={formData.magicAttackType || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">None</option>{Object.values(MagicAttackType).map(type => <option key={type} value={type}>{t(`item.magic.${type}`)}</option>)}</select></div>
+                        <div><label className="block text-sm">{t('item.magicAttackType')}</label><select name="magicAttackType" value={formData.magicAttackType || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.general.none')}</option>{Object.values(MagicAttackType).map(type => <option key={type} value={type}>{t(`item.magic.${type}`)}</option>)}</select></div>
                         <div><label className="block text-sm">{t('item.manaCost')}</label><input type="number" name="manaCost" value={formData.manaCost || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                         <div><label className="block text-sm">{t('item.magicDamageMin')}</label><input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                         <div><label className="block text-sm">{t('item.magicDamageMax')}</label><input type="number" name="magicDamageMax" value={formData.magicDamageMax || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
@@ -784,7 +785,7 @@ const ItemTemplateEditor: React.FC<{
                 </div>
             </div>
 
-            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save</button></div>
+            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button></div>
         </form>
     );
 };
@@ -813,9 +814,9 @@ const AffixManager: React.FC<{
                 </div>
             </div>
             <select value={filterType} onChange={e => setFilterType(e.target.value as any)} className="bg-slate-800 border border-slate-700 rounded-md px-3 py-2 mb-4">
-                <option value="all">Wszystkie typy</option>
-                <option value={AffixType.Prefix}>Prefiksy</option>
-                <option value={AffixType.Suffix}>Sufiksy</option>
+                <option value="all">{t('admin.affix.allTypes')}</option>
+                <option value={AffixType.Prefix}>{t('admin.affix.prefixes')}</option>
+                <option value={AffixType.Suffix}>{t('admin.affix.suffixes')}</option>
             </select>
             <div className="max-h-96 overflow-y-auto">
                 {filteredAffixes.map(affix => (
@@ -878,6 +879,20 @@ const AffixEditor: React.FC<{
             }
         });
     };
+    
+    const handlePrimaryStatRangeChange = (stat: keyof CharacterStats, minOrMax: 'min' | 'max', value: string) => {
+        setFormData(prev => {
+            const currentBonuses = prev.statsBonus || {};
+            const currentStat = (currentBonuses as any)[stat] || { min: 0, max: 0 };
+            return {
+                ...prev,
+                statsBonus: {
+                    ...currentBonuses,
+                    [stat]: { ...currentStat, [minOrMax]: parseFloat(value) || 0 }
+                }
+            }
+        });
+    };
 
     const handleSpawnChanceChange = (category: ItemCategory, value: string) => {
         setFormData(prev => ({
@@ -893,7 +908,7 @@ const AffixEditor: React.FC<{
         e.preventDefault();
         const nameData = formData.name;
         if (!nameData || typeof nameData !== 'object' || !nameData.masculine) {
-            alert("Masculine name is required.");
+            alert(t('admin.affix.nameRequired'));
             return;
         }
 
@@ -928,33 +943,75 @@ const AffixEditor: React.FC<{
         onSave(finalAffix);
     };
 
-    const affixStats: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'value'>)[] = [
-        'statsBonus', 'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
+    const primaryStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = [
+        'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'
+    ];
+
+    const secondaryStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'value'|'statsBonus'>)[] = [
+        'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
         'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
         'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
         'manaStealFlat', 'magicDamageMin', 'magicDamageMax'
     ];
+    
+    const secondaryStatLabels: Record<string, string> = {
+        damageMin: t('item.damageMin'),
+        damageMax: t('item.damageMax'),
+        attacksPerRoundBonus: t('item.attacksPerRoundBonus'),
+        dodgeChanceBonus: t('item.dodgeChanceBonus'),
+        armorBonus: t('item.armorBonus'),
+        critChanceBonus: t('item.critChanceBonus'),
+        maxHealthBonus: t('item.maxHealthBonus'),
+        critDamageModifierBonus: t('item.critDamageModifierBonus'),
+        armorPenetrationPercent: t('item.armorPenetrationPercent'),
+        armorPenetrationFlat: t('item.armorPenetrationFlat'),
+        lifeStealPercent: t('item.lifeStealPercent'),
+        lifeStealFlat: t('item.lifeStealFlat'),
+        manaStealPercent: t('item.manaStealPercent'),
+        manaStealFlat: t('item.manaStealFlat'),
+        magicDamageMin: t('item.magicDamageMin'),
+        magicDamageMax: t('item.magicDamageMax')
+    };
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{isEditing ? t('admin.affix.edit') : t('admin.affix.create')}</h3>
             <div className="grid grid-cols-3 gap-2">
-                <div><label className="block text-sm">Nazwa (męska)</label><input type="text" name="masculine" value={(formData.name as any)?.masculine || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm">Nazwa (żeńska)</label><input type="text" name="feminine" value={(formData.name as any)?.feminine || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm">Nazwa (nijaka)</label><input type="text" name="neuter" value={(formData.name as any)?.neuter || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm">{t('admin.affix.nameMasculine')}</label><input type="text" name="masculine" value={(formData.name as any)?.masculine || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm">{t('admin.affix.nameFeminine')}</label><input type="text" name="feminine" value={(formData.name as any)?.feminine || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm">{t('admin.affix.nameNeuter')}</label><input type="text" name="neuter" value={(formData.name as any)?.neuter || ''} onChange={handleNameChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             </div>
-            <div><label className="block text-sm font-medium">Wartość w złocie</label><input type="number" name="value" value={formData.value || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+            <div><label className="block text-sm font-medium">{t('item.value')}</label><input type="number" name="value" value={formData.value || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             
             <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.affix.spawnChances')}</h4>
                 <div className="grid grid-cols-3 gap-4">
                     {Object.values(ItemCategory).map(cat => (
-                        <div key={cat}><label className="block text-sm">{cat}</label><input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                        <div key={cat}><label className="block text-sm">{t(`admin.affix.${cat.toLowerCase()}`)}</label><input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                     ))}
                 </div>
             </div>
-            {/* Stat Editors Here */}
+            
+             <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.affix.primaryBonuses')}</h4>
+                {primaryStatKeys.map(key => (
+                    <div key={key} className="grid grid-cols-3 gap-2 items-center mb-1">
+                        <label className="text-sm col-span-1">{t(`statistics.${key}`)}</label>
+                        <input type="number" placeholder={t('admin.min') || 'Min'} value={(formData.statsBonus as any)?.[key]?.min || ''} onChange={e => handlePrimaryStatRangeChange(key, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-center"/>
+                        <input type="number" placeholder={t('admin.max') || 'Max'} value={(formData.statsBonus as any)?.[key]?.max || ''} onChange={e => handlePrimaryStatRangeChange(key, 'max', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-center"/>
+                    </div>
+                ))}
+            </div>
 
-            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Anuluj</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Zapisz</button></div>
+            <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.affix.secondaryBonuses')}</h4>
+                {secondaryStatKeys.map(key => (
+                    <div key={key} className="grid grid-cols-3 gap-2 items-center mb-1">
+                        <label className="text-sm col-span-1">{secondaryStatLabels[key]}</label>
+                        <input type="number" placeholder={t('admin.min') || 'Min'} value={(formData as any)?.[key]?.min || ''} onChange={e => handleStatRangeChange(key, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-center"/>
+                        <input type="number" placeholder={t('admin.max') || 'Max'} value={(formData as any)?.[key]?.max || ''} onChange={e => handleStatRangeChange(key, 'max', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-center"/>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button></div>
         </form>
     )
 };
@@ -1055,7 +1112,7 @@ const QuestEditor: React.FC<{
         e.preventDefault();
         // Basic validation
         if (!formData.name || !formData.objective?.type) {
-            alert('Name and objective type are required.');
+            alert(t('admin.quest.validationError'));
             return;
         }
 
@@ -1094,7 +1151,7 @@ const QuestEditor: React.FC<{
             <div><label className="block text-sm font-medium">{t('item.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md"/></div>
             <div><label className="block text-sm font-medium">{t('admin.quest.repeatable')}</label><input type="number" name="repeatable" value={formData.repeatable ?? 1} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md" title={t('admin.quest.repeatableDesc')}/></div>
             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Dostępna w lokacjach</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.expedition.availableIn')}</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {locations.map(loc => (
                         <label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{loc.name}</span></label>
@@ -1104,10 +1161,10 @@ const QuestEditor: React.FC<{
 
             <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.quest.objective')}</h4>
                 <div className="grid grid-cols-3 gap-4">
-                    <div><label className="block text-sm">{t('admin.quest.objectiveType')}</label><select name="type" value={formData.objective?.type || ''} onChange={(e) => handleNestedChange('objective', e)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select type</option>{Object.values(QuestType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                    <div><label className="block text-sm">{t('admin.quest.objectiveType')}</label><select name="type" value={formData.objective?.type || ''} onChange={(e) => handleNestedChange('objective', e)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(QuestType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                     <div><label className="block text-sm">{t('admin.quest.target')}</label>
                         <select name="targetId" value={formData.objective?.targetId || ''} onChange={(e) => handleNestedChange('objective', e)} className="w-full bg-slate-700 p-2 rounded-md" disabled={objectiveType === QuestType.PayGold}>
-                            <option value="">Select target</option>
+                            <option value="">{t('admin.select')}</option>
                             {objectiveType === QuestType.GatherResource 
                                 ? Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)
                                 : targetOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)
@@ -1120,12 +1177,12 @@ const QuestEditor: React.FC<{
             
              <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.quest.rewards')}</h4>
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-sm">Gold</label><input type="number" name="gold" value={formData.rewards?.gold || ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
-                    <div><label className="block text-sm">Experience</label><input type="number" name="experience" value={formData.rewards?.experience || ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div><label className="block text-sm">{t('resources.gold')}</label><input type="number" name="gold" value={formData.rewards?.gold || ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div><label className="block text-sm">{t('expedition.experience')}</label><input type="number" name="experience" value={formData.rewards?.experience || ''} onChange={(e) => handleNestedChange('rewards', e)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                 </div>
              </div>
 
-            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Anuluj</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Zapisz</button></div>
+            <div className="flex justify-end space-x-4 pt-4"><button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">{t('admin.general.cancel')}</button><button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.general.save')}</button></div>
          </form>
     )
 };
@@ -1143,7 +1200,7 @@ const PVPManager: React.FC<{
             ...settings,
             pvpProtectionMinutes: pvpProtection,
         });
-        alert('PvP settings saved!');
+        alert(t('admin.pvp.saveSuccess'));
     };
 
     return (
@@ -1209,16 +1266,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSendGlobalMessageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!globalMessage.subject || !globalMessage.content) {
-        alert("Subject and content are required.");
+        alert(t('admin.globalMessage.validationError'));
         return;
     }
     setIsSending(true);
     try {
         await onSendGlobalMessage(globalMessage);
-        alert("Global message sent successfully!");
+        alert(t('admin.globalMessage.sendSuccess'));
         setGlobalMessage({ subject: '', content: '' });
     } catch (err: any) {
-        alert(`Error: ${err.message}`);
+        alert(`${t('error.title')}: ${err.message}`);
     } finally {
         setIsSending(false);
     }
@@ -1298,11 +1355,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                      </div>
                      <div className="border-t border-slate-700/50 my-6"></div>
                       <div>
-                        <h3 className="text-xl font-bold text-indigo-400 mb-4">Wyślij Globalną Wiadomość</h3>
+                        <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.globalMessage.title')}</h3>
                         <form onSubmit={handleSendGlobalMessageSubmit} className="space-y-4 max-w-md">
-                            <input type="text" placeholder="Temat" value={globalMessage.subject} onChange={e => setGlobalMessage(p => ({...p, subject: e.target.value}))} className="w-full bg-slate-800 p-2 rounded-md" />
-                            <textarea placeholder="Treść wiadomości..." value={globalMessage.content} onChange={e => setGlobalMessage(p => ({...p, content: e.target.value}))} rows={4} className="w-full bg-slate-800 p-2 rounded-md" />
-                            <button type="submit" disabled={isSending} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 font-semibold disabled:bg-slate-600">{isSending ? 'Wysyłanie...' : 'Wyślij do wszystkich graczy'}</button>
+                            <input type="text" placeholder={t('messages.compose.subjectPlaceholder') || "Temat"} value={globalMessage.subject} onChange={e => setGlobalMessage(p => ({...p, subject: e.target.value}))} className="w-full bg-slate-800 p-2 rounded-md" />
+                            <textarea placeholder={t('admin.globalMessage.contentPlaceholder') || "Treść wiadomości..."} value={globalMessage.content} onChange={e => setGlobalMessage(p => ({...p, content: e.target.value}))} rows={4} className="w-full bg-slate-800 p-2 rounded-md" />
+                            <button type="submit" disabled={isSending} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 font-semibold disabled:bg-slate-600">{isSending ? t('messages.compose.sending') : t('admin.globalMessage.sendButton')}</button>
                         </form>
                       </div>
                 </div>
@@ -1344,16 +1401,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {activeTab === 'locations' && (
                 <div>
                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-indigo-400">Manage Locations</h3>
-                        <button onClick={() => setEditingLocation({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Add Location</button>
+                        <h3 className="text-xl font-bold text-indigo-400">{t('admin.location.manage')}</h3>
+                        <button onClick={() => setEditingLocation({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.location.add')}</button>
                     </div>
                      <div className="max-h-96 overflow-y-auto">
                         {gameData.locations.map(location => (
                             <div key={location.id} className="bg-slate-800/50 p-2 rounded-md mb-2 flex justify-between items-center">
-                                <span>{location.name} {location.isStartLocation && <span className="text-xs text-amber-400">(Start)</span>}</span>
+                                <span>{location.name} {location.isStartLocation && <span className="text-xs text-amber-400">({t('admin.location.start')})</span>}</span>
                                 <div>
-                                    <button onClick={() => setEditingLocation(location)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">Edit</button>
-                                    <button onClick={() => handleDelete('locations', gameData.locations, location.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">Delete</button>
+                                    <button onClick={() => setEditingLocation(location)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">{t('admin.edit')}</button>
+                                    <button onClick={() => handleDelete('locations', gameData.locations, location.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">{t('admin.delete')}</button>
                                 </div>
                             </div>
                         ))}
@@ -1373,16 +1430,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
              {activeTab === 'expeditions' && (
                  <div>
                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-indigo-400">Zarządzaj Ekspedycjami</h3>
-                        <button onClick={() => setEditingExpedition({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Dodaj Ekspedycję</button>
+                        <h3 className="text-xl font-bold text-indigo-400">{t('admin.expedition.manage')}</h3>
+                        <button onClick={() => setEditingExpedition({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.expedition.add')}</button>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                         {gameData.expeditions.map(exp => (
                             <div key={exp.id} className="bg-slate-800/50 p-2 rounded-md mb-2 flex justify-between items-center">
                                 <span>{exp.name}</span>
                                 <div>
-                                    <button onClick={() => setEditingExpedition(exp)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">Edytuj</button>
-                                    <button onClick={() => handleDelete('expeditions', gameData.expeditions, exp.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">Usuń</button>
+                                    <button onClick={() => setEditingExpedition(exp)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">{t('admin.edit')}</button>
+                                    <button onClick={() => handleDelete('expeditions', gameData.expeditions, exp.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">{t('admin.delete')}</button>
                                 </div>
                             </div>
                         ))}
@@ -1404,16 +1461,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {activeTab === 'enemies' && (
                  <div>
                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-indigo-400">Zarządzaj Przeciwnikami</h3>
-                        <button onClick={() => setEditingEnemy({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Dodaj Przeciwnika</button>
+                        <h3 className="text-xl font-bold text-indigo-400">{t('admin.enemy.manage')}</h3>
+                        <button onClick={() => setEditingEnemy({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.enemy.add')}</button>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                         {gameData.enemies.map(enemy => (
                             <div key={enemy.id} className="bg-slate-800/50 p-2 rounded-md mb-2 flex justify-between items-center">
                                 <span>{enemy.name}</span>
                                 <div>
-                                    <button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">Edytuj</button>
-                                    <button onClick={() => handleDelete('enemies', gameData.enemies, enemy.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">Usuń</button>
+                                    <button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">{t('admin.edit')}</button>
+                                    <button onClick={() => handleDelete('enemies', gameData.enemies, enemy.id)} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">{t('admin.delete')}</button>
                                 </div>
                             </div>
                         ))}

@@ -419,7 +419,7 @@ export default {
         disenchantCost: 'Koszt: ',
         potentialYield: 'Potencjalny zysk: ',
         notEnoughGold: 'Nie masz wystarczająco złota na tę akcję.',
-        notEnoughEssence: 'Nie masz wystarczającej ilości esencji na tę akcję.',
+        notEnoughEssence: "Nie masz wystarczającej ilości esencji na tę akcję.",
         disenchantSuccess: 'Pomyślnie rozbito przedmiot! Otrzymano {amount}x {essenceName}.',
         disenchantFailure: 'Rozbicie przedmiotu nie dało żadnej esencji.',
         upgrade: {
@@ -486,6 +486,58 @@ export default {
             quests: 'Zadania',
             pvp: 'PvP',
         },
+        general: {
+            name: 'Nazwa',
+            description: 'Opis',
+            cancel: 'Anuluj',
+            save: 'Zapisz',
+            search: 'Szukaj...',
+            searchByName: 'Szukaj po nazwie...',
+            none: 'Brak'
+        },
+        location: {
+            manage: 'Zarządzaj Lokacjami',
+            add: 'Dodaj Lokację',
+            edit: 'Edytuj Lokację',
+            create: 'Stwórz Nową Lokację',
+            start: 'Start',
+            nameRequired: 'Nazwa lokacji jest wymagana.',
+            travelCostGold: 'Koszt podróży (złoto)',
+            travelCostEnergy: 'Koszt podróży (energia)',
+            travelTime: 'Czas podróży (sekundy)',
+            availableTabs: 'Dostępne zakładki',
+            isStartLocation: 'Lokacja startowa',
+            isStartLocationNote: 'Ustawienie tej lokacji jako startowej usunie ten status z poprzedniej.'
+        },
+        expedition: {
+            manage: 'Zarządzaj Ekspedycjami',
+            add: 'Dodaj Ekspedycję',
+            edit: 'Edytuj Ekspedycję',
+            create: 'Stwórz Nową Ekspedycję',
+            nameRequired: 'Nazwa ekspedycji jest wymagana.',
+            tabBasic: 'Informacje Podstawowe',
+            tabEnemies: 'Przeciwnicy',
+            tabRewards: 'Nagrody',
+            availableIn: 'Dostępna w lokacjach',
+            enemiesSpawnChance: 'Przeciwnicy (szansa na pojawienie się %)',
+            rewardGold: 'Nagroda w złocie',
+            rewardExp: 'Nagroda w doświadczeniu'
+        },
+        enemy: {
+            manage: 'Zarządzaj Przeciwnikami',
+            add: 'Dodaj Przeciwnika',
+            edit: 'Edytuj Przeciwnika',
+            create: 'Stwórz Nowego Przeciwnika',
+            nameRequired: 'Nazwa przeciwnika jest wymagana.',
+            magicProperties: 'Właściwości Magiczne',
+            maxMana: 'Max Mana',
+            manaRegen: 'Regen. Many/Turę',
+            magicDamageMin: 'Min Obr. Magiczne',
+            magicDamageMax: 'Max Obr. Magiczne',
+            magicAttackChance: 'Szansa na Atak Mag. (%)',
+            magicAttackManaCost: 'Koszt Many Ataku Mag.',
+            magicAttackType: 'Typ Ataku Magicznego'
+        },
         gameSettings: 'Ustawienia Gry',
         language: 'Język Gry',
         languages: {
@@ -519,7 +571,12 @@ export default {
             add: 'Dodaj Przedmiot',
             edit: 'Edytuj Przedmiot',
             create: 'Stwórz Nowy Przedmiot',
-            deleteConfirm: 'Czy na pewno chcesz usunąć ten przedmiot? Zostanie on usunięty ze wszystkich tabel łupów.'
+            deleteConfirm: 'Czy na pewno chcesz usunąć ten przedmiot? Zostanie on usunięty ze wszystkich tabel łupów.',
+            allSlots: 'Wszystkie sloty',
+            allRarities: 'Wszystkie rzadkości',
+            validationError: 'Nazwa, slot i rzadkość są wymagane.',
+            iconPath: 'Ścieżka ikony',
+            grammaticalGender: 'Płeć gramatyczna'
         },
         affix: {
             manage: 'Zarządzaj Afiksami',
@@ -531,11 +588,20 @@ export default {
             name: 'Nazwa (np. "Potężny", "Męstwa")',
             type: 'Typ',
             prefix: 'Prefiks',
+            prefixes: 'Prefiksy',
             suffix: 'Sufiks',
+            suffixes: 'Sufiksy',
+            allTypes: 'Wszystkie typy',
             spawnChances: 'Szanse na Pojawienie się (%)',
-            spawnChanceWeapon: 'Broń',
-            spawnChanceArmor: 'Zbroja',
-            spawnChanceJewelry: 'Biżuteria',
+            weapon: 'Broń',
+            armor: 'Zbroja',
+            jewelry: 'Biżuteria',
+            nameRequired: 'Nazwa (męska) jest wymagana.',
+            nameMasculine: 'Nazwa (męska)',
+            nameFeminine: 'Nazwa (żeńska)',
+            nameNeuter: 'Nazwa (nijaka)',
+            primaryBonuses: 'Bonusy Główne (min-max)',
+            secondaryBonuses: 'Bonusy Dodatkowe (min-max)'
         },
         resetStats: 'Zresetuj Statystyki',
         resetStatsConfirm: 'Czy na pewno chcesz zresetować statystyki tej postaci? Wszystkie wydane punkty atrybutów zostaną zwrócone.',
@@ -553,16 +619,6 @@ export default {
         forceTraderRefresh: 'Wymuś Odświeżenie Towarów',
         traderRefreshConfirm: 'Czy na pewno chcesz wygenerować nowy zestaw przedmiotów dla handlarza? Obecne przedmioty znikną.',
         traderRefreshSuccess: "Towary handlarza zostały odświeżone.",
-        enemy: {
-            magicProperties: 'Właściwości Magiczne',
-            maxMana: 'Max Mana',
-            manaRegen: 'Regen. Many/Turę',
-            magicDamageMin: 'Min Obr. Magiczne',
-            magicDamageMax: 'Max Obr. Magiczne',
-            magicAttackChance: 'Szansa na Atak Mag. (%)',
-            magicAttackManaCost: 'Koszt Many Ataku Mag.',
-            magicAttackType: 'Typ Ataku Magicznego'
-        },
         select: 'Wybierz',
         min: 'Min',
         max: 'Max',
@@ -590,7 +646,8 @@ export default {
                 Gather: 'Zbierz Przedmioty',
                 GatherResource: 'Zbierz Surowce',
                 PayGold: 'Zapłać Złoto'
-            }
+            },
+            validationError: 'Nazwa i typ celu są wymagane.'
         },
         pvp: {
             title: 'Ustawienia PvP',
@@ -600,6 +657,14 @@ export default {
             resetCooldowns: 'Zresetuj Wszystkie Cooldowny',
             resetCooldownsConfirm: 'Czy na pewno chcesz zresetować cooldown ochrony PvP dla wszystkich graczy?',
             resetCooldownsSuccess: 'Wszystkie cooldowny PvP zostały zresetowane.',
+            saveSuccess: 'Ustawienia PvP zostały zapisane!'
+        },
+        globalMessage: {
+            title: 'Wyślij Globalną Wiadomość',
+            contentPlaceholder: 'Treść wiadomości...',
+            sendButton: 'Wyślij do wszystkich graczy',
+            validationError: 'Temat i treść są wymagane.',
+            sendSuccess: 'Globalna wiadomość wysłana pomyślnie!'
         }
     }
 };
