@@ -368,6 +368,7 @@ export interface Affix {
         neuter: string;
     };
     type: AffixType;
+    value?: number;
     requiredLevel?: number;
     requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     

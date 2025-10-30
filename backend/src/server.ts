@@ -82,7 +82,7 @@ const rollAffixStats = (affix: Affix): RolledAffixStats => {
         }
     }
     
-    const otherStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'>)[] = [
+    const otherStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'|'value'>)[] = [
         'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
         'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
         'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
@@ -912,865 +912,770 @@ async function completeExpedition(
     allAffixes: Affix[],
     allQuests: Quest[]
 ): Promise<{ character: PlayerCharacter; summary: ExpeditionRewardSummary }> {
-    const expeditionTemplate = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
-    if (!expeditionTemplate) {
-        character.activeExpedition = null;
-        return { character, summary: {} as ExpeditionRewardSummary };
+    const expedition = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
+    if (!expedition) {
+        throw new Error('Expedition not found');
     }
 
-    const encounteredEnemies: Enemy[] = [];
-    const maxEnemies = expeditionTemplate.maxEnemies || expeditionTemplate.enemies.length;
+    let updatedCharacter = JSON.parse(JSON.stringify(character));
+    
+    // --- Spawn enemies ---
+    const enemiesToFight: Enemy[] = [];
     let enemyCount = 0;
-    const shuffledPotentialEnemies = [...expeditionTemplate.enemies].sort(() => 0.5 - Math.random());
+    const maxEnemies = expedition.maxEnemies ?? expedition.enemies.length;
 
-    for (const expEnemy of shuffledPotentialEnemies) {
-        if (maxEnemies > 0 && enemyCount >= maxEnemies) break;
-        if (Math.random() * 100 < expEnemy.spawnChance) {
-            const enemyTemplate = allEnemies.find(e => e.id === expEnemy.enemyId);
-            if (enemyTemplate) {
-                encounteredEnemies.push({ ...enemyTemplate, uniqueId: randomUUID() });
-                enemyCount++;
+    while (enemyCount < maxEnemies) {
+        let spawned = false;
+        for (const expEnemy of expedition.enemies) {
+            if (Math.random() * 100 < expEnemy.spawnChance) {
+                const enemyTemplate = allEnemies.find(e => e.id === expEnemy.enemyId);
+                if (enemyTemplate) {
+                    enemiesToFight.push({ ...enemyTemplate, uniqueId: randomUUID() });
+                    enemyCount++;
+                    spawned = true;
+                    if (enemyCount >= maxEnemies) break;
+                }
             }
         }
+        // Safety break if no enemies are ever spawned to avoid infinite loop
+        if (!spawned && enemyCount === 0) break;
     }
 
-    let overallIsVictory = true;
-    const overallCombatLog: CombatLogEntry[] = [];
-    let tempChar = JSON.parse(JSON.stringify(character));
+    // --- Simulate Fights ---
+    let totalGoldFromFights = 0;
+    let totalExpFromFights = 0;
+    const itemsFound: ItemInstance[] = [];
+    const essencesFound: Partial<Record<EssenceType, number>> = {};
+    let fullCombatLog: CombatLogEntry[] = [];
+    let isVictory = true;
 
-    for (const enemy of encounteredEnemies) {
-        const fightResult = simulateFight(tempChar, enemy, allItemTemplates, allAffixes);
-        overallCombatLog.push(...fightResult.combatLog);
+    for (const enemy of enemiesToFight) {
+        const fightResult = simulateFight(updatedCharacter, enemy, allItemTemplates, allAffixes);
+        fullCombatLog.push(...fightResult.combatLog);
         
-        if (fightResult.isVictory) {
-            tempChar.stats.currentHealth = fightResult.finalPlayerHealth;
-            tempChar.stats.currentMana = fightResult.finalPlayerMana;
-            
-            // --- Quest Progress Update Logic ---
-            const acceptedKillQuests = tempChar.acceptedQuests
-                .map((questId: string) => allQuests.find((q: Quest) => q.id === questId))
-                .filter((q: Quest | undefined): q is Quest => !!q && q.objective.type === QuestType.Kill && q.objective.targetId === enemy.id);
-            
-            for (const quest of acceptedKillQuests) {
-                const progressIndex = tempChar.questProgress.findIndex((p: PlayerQuestProgress) => p.questId === quest.id);
+        updatedCharacter.stats.currentHealth = fightResult.finalPlayerHealth;
+        updatedCharacter.stats.currentMana = fightResult.finalPlayerMana;
+
+        if (!fightResult.isVictory) {
+            isVictory = false;
+            break; // Stop expedition on defeat
+        }
+
+        const goldGained = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
+        let expGained = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
+        
+        if (updatedCharacter.race === Race.Human) {
+            expGained = Math.floor(expGained * 1.1);
+        }
+        
+        totalGoldFromFights += goldGained;
+        totalExpFromFights += expGained;
+        
+        // --- Handle Quest Progress ---
+        updatedCharacter.acceptedQuests.forEach((questId: string) => {
+            const quest = allQuests.find(q => q.id === questId);
+            if (quest && quest.objective.type === QuestType.Kill && quest.objective.targetId === enemy.id) {
+                const progressIndex = updatedCharacter.questProgress.findIndex((p: PlayerQuestProgress) => p.questId === questId);
                 if (progressIndex > -1) {
-                    const progress = tempChar.questProgress[progressIndex];
+                    const progress = updatedCharacter.questProgress[progressIndex];
                     if (progress.progress < quest.objective.amount) {
                         progress.progress += 1;
                     }
                 }
             }
-            // --- End Quest Progress Update Logic ---
-        } else {
-            overallIsVictory = false;
-            tempChar.stats.currentHealth = Math.max(0, fightResult.finalPlayerHealth);
-            break; 
-        }
-    }
-    
-    // The character state after all fights (health, mana, quest progress) is in tempChar.
-    // We'll use this as the base for applying rewards.
-    let updatedChar = tempChar;
-
-    const summary: ExpeditionRewardSummary = {
-        rewardBreakdown: [],
-        totalGold: 0, totalExperience: 0,
-        combatLog: overallCombatLog,
-        isVictory: overallIsVictory,
-        itemsFound: [],
-        essencesFound: {},
-    };
-
-    if (overallIsVictory) {
-        let totalGold = 0;
-        let totalExperience = 0;
-
-        const baseGold = Math.floor(Math.random() * (expeditionTemplate.maxBaseGoldReward - expeditionTemplate.minBaseGoldReward + 1)) + expeditionTemplate.minBaseGoldReward;
-        const baseExp = Math.floor(Math.random() * (expeditionTemplate.maxBaseExperienceReward - expeditionTemplate.minBaseExperienceReward + 1)) + expeditionTemplate.minBaseExperienceReward;
-        
-        summary.rewardBreakdown.push({ source: expeditionTemplate.name, gold: baseGold, experience: baseExp });
-        totalGold += baseGold;
-        totalExperience += baseExp;
-
-        for (const enemy of encounteredEnemies) {
-            const gold = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
-            const exp = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
-            summary.rewardBreakdown.push({ source: enemy.name, gold: gold, experience: exp });
-            totalGold += gold;
-            totalExperience += exp;
-            
-            (enemy.lootTable || []).forEach((drop: LootDrop) => {
-                if (Math.random() * 100 < drop.chance) {
-                    summary.itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
-                }
-            });
-            (enemy.resourceLootTable || []).forEach((drop: ResourceDrop) => {
-                if (Math.random() * 100 < drop.chance) {
-                    const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                    summary.essencesFound[drop.resource] = (summary.essencesFound[drop.resource] || 0) + amount;
-                }
-            });
-        }
-        
-        (expeditionTemplate.lootTable || []).forEach((drop: LootDrop) => {
-            if (Math.random() * 100 < drop.chance) {
-                summary.itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
-            }
         });
-        (expeditionTemplate.resourceLootTable || []).forEach((drop: ResourceDrop) => {
+
+        // --- Handle Loot ---
+        for (const drop of enemy.lootTable) {
+            if (Math.random() * 100 < drop.chance) {
+                itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
+            }
+        }
+        for (const drop of enemy.resourceLootTable || []) {
             if (Math.random() * 100 < drop.chance) {
                 const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                summary.essencesFound[drop.resource] = (summary.essencesFound[drop.resource] || 0) + amount;
+                essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
             }
-        });
-
-        if (character.race === Race.Human) totalExperience = Math.floor(totalExperience * 1.1);
-        if (character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.2);
-        
-        summary.totalGold = totalGold;
-        summary.totalExperience = totalExperience;
-
-        updatedChar.resources.gold += totalGold;
-        updatedChar.experience += totalExperience;
-        updatedChar.inventory.push(...summary.itemsFound);
-        for (const key in summary.essencesFound) {
-            const essenceType = key as EssenceType;
-            updatedChar.resources[essenceType] = (updatedChar.resources[essenceType] || 0) + summary.essencesFound[essenceType]!;
         }
     }
+    
+    const rewardBreakdown: RewardSource[] = [];
+    let totalGold = 0;
+    let totalExp = 0;
 
-    while (updatedChar.experience >= updatedChar.experienceToNextLevel) {
-        updatedChar.experience -= updatedChar.experienceToNextLevel;
-        updatedChar.level += 1;
-        updatedChar.stats.statPoints += 1;
-        updatedChar.experienceToNextLevel = Math.floor(100 * Math.pow(updatedChar.level, 1.3));
+    if (isVictory) {
+        // --- Expedition Base Rewards ---
+        let baseGold = Math.floor(Math.random() * (expedition.maxBaseGoldReward - expedition.minBaseGoldReward + 1)) + expedition.minBaseGoldReward;
+        let baseExp = Math.floor(Math.random() * (expedition.maxBaseExperienceReward - expedition.minBaseExperienceReward + 1)) + expedition.minBaseExperienceReward;
+        
+        if (updatedCharacter.race === Race.Human) {
+            baseExp = Math.floor(baseExp * 1.1);
+        }
+        if (updatedCharacter.race === Race.Gnome) {
+            baseGold = Math.floor(baseGold * 1.2);
+        }
+        
+        totalGold += baseGold;
+        totalExp += baseExp;
+        rewardBreakdown.push({ source: `Nagroda podstawowa za ekspedycję`, gold: baseGold, experience: baseExp });
+
+        // --- Fight Rewards ---
+        totalGold += totalGoldFromFights;
+        totalExp += totalExpFromFights;
+        if (totalGoldFromFights > 0 || totalExpFromFights > 0) {
+            rewardBreakdown.push({ source: 'Łącznie za pokonanych wrogów', gold: totalGoldFromFights, experience: totalExpFromFights });
+        }
+        
+        // --- Expedition Loot ---
+        for (const drop of expedition.lootTable) {
+            if (Math.random() * 100 < drop.chance) {
+                itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
+            }
+        }
+         for (const drop of expedition.resourceLootTable || []) {
+            if (Math.random() * 100 < drop.chance) {
+                const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
+            }
+        }
+
+        // --- Apply Rewards ---
+        updatedCharacter.resources.gold += totalGold;
+        updatedCharacter.experience += totalExp;
+        updatedCharacter.inventory.push(...itemsFound);
+
+        for (const [essenceType, amount] of Object.entries(essencesFound)) {
+            updatedCharacter.resources[essenceType as EssenceType] = (updatedCharacter.resources[essenceType as EssenceType] || 0) + amount;
+        }
+
+        // Level up check
+        while (updatedCharacter.experience >= updatedCharacter.experienceToNextLevel) {
+            updatedCharacter.experience -= updatedCharacter.experienceToNextLevel;
+            updatedCharacter.level += 1;
+            updatedCharacter.stats.statPoints += 1;
+            updatedCharacter.experienceToNextLevel = Math.floor(100 * Math.pow(updatedCharacter.level, 1.3));
+        }
+
+    } else { // On defeat
+        updatedCharacter.stats.currentHealth = 1;
+        updatedCharacter.isResting = true; // Force rest on defeat
+        updatedCharacter.lastRestTime = Date.now();
+        updatedCharacter.restStartHealth = 1;
     }
 
-    updatedChar.activeExpedition = null;
+    updatedCharacter.activeExpedition = null;
 
-    const subject = `Raport z ekspedycji: ${expeditionTemplate.name}`;
-    await client.query(
-        'INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)',
-        [userId, 'System', 'expedition_report', subject, JSON.stringify(summary)]
-    );
-    
-    delete (updatedChar as any).lastReward;
+    const summary: ExpeditionRewardSummary = {
+        rewardBreakdown,
+        totalGold,
+        totalExperience: totalExp,
+        combatLog: fullCombatLog,
+        isVictory,
+        itemsFound,
+        essencesFound
+    };
 
-    return { character: updatedChar, summary };
+    return { character: updatedCharacter, summary };
 }
 
-// Middleware
+// ===================================================================================
+//                                  ROUTES
+// ===================================================================================
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
-// FIX: Add explicit types for req, res, and next to resolve overload errors and property access errors.
-const authenticate = async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../../dist')));
+
+// --- Authentication Routes ---
+// FIX: Add explicit types to all route handlers
+app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+    }
+    if (username.length < 3 || password.length < 6) {
+        return res.status(400).json({ message: 'Username must be at least 3 characters and password at least 6 characters.' });
+    }
+
+    const { salt, hash } = hashPassword(password);
+    
+    try {
+        await pool.query(
+            'INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3)',
+            [username, hash, salt]
+        );
+        res.status(201).json({ message: 'User registered successfully.' });
+    } catch (err: any) {
+        if (err.code === '23505') { // Unique violation
+            return res.status(409).json({ message: 'Username already exists.' });
+        }
+        console.error(err);
+        res.status(500).json({ message: 'Server error during registration.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+    }
+    try {
+        const result = await pool.query('SELECT id, password_hash, salt FROM users WHERE username = $1', [username]);
+        if (result.rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+        
+        const user = result.rows[0];
+        const isPasswordValid = verifyPassword(password, user.salt, user.password_hash);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+
+        const token = randomBytes(64).toString('hex');
+        await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
+
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: ExpressResponse) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (token) {
+        pool.query('DELETE FROM sessions WHERE token = $1', [token])
+            .then(() => res.sendStatus(204))
+            .catch(err => {
+                console.error("Logout error:", err);
+                res.sendStatus(500);
+            });
+    } else {
+        res.sendStatus(400); // No token provided
+    }
+});
+
+// --- Middleware for authentication ---
+// FIX: Add explicit types to all route handlers
+async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) {
-        return res.sendStatus(401); // Unauthorized
-    }
+    if (token == null) return res.sendStatus(401);
 
-    let client;
     try {
-        client = await pool.connect();
-        const result = await client.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
-        if (!result.rowCount) {
-            return res.sendStatus(403); // Forbidden
+        const result = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+        if (result.rows.length === 0) {
+            return res.status(403).json({ message: "Invalid token" });
         }
         req.user = { id: result.rows[0].user_id };
         next();
     } catch (err) {
-        console.error('Authentication error:', err);
-        res.sendStatus(500);
-    } finally {
-        if (client) client.release();
+        console.error("Authentication error:", err);
+        return res.sendStatus(500);
     }
-};
+}
 
-// FIX: Add explicit types for req, res, and next to resolve overload errors and property access errors.
-const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
-    // This middleware assumes 'authenticate' has already run.
-    if (!req.user) {
-        return res.status(401).json({ message: "Authentication required." });
-    }
-    
-    // Check if the authenticated user has ID 1 (admin)
-    if (req.user.id !== 1) {
-        return res.status(403).json({ message: "Forbidden: Administrator access required." });
-    }
-    
-    next();
-};
-
-// --- API Router ---
-const apiRouter = express.Router();
-
-
-// --- Authentication Endpoints ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
-    const { username, password } = req.body;
-    
-    console.log(`Received registration request for user: ${username}`);
-
-    if (!username || !password || password.length < 4) {
-        console.log(`Validation error for user ${username}: invalid data.`);
-        return res.status(400).json({ message: 'Username and password (min. 4 characters) are required.' });
-    }
-
-    let client;
+// --- Character Routes ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
     try {
-        const { salt, hash } = hashPassword(password);
-        client = await pool.connect();
+        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found.' });
+        }
         
-        let result;
+        let character: PlayerCharacter = result.rows[0].data;
 
-        if (username === 'Kazujoshi') {
-            console.log("Special registration for admin user 'Kazujoshi'.");
-            const user1Res = await client.query('SELECT username FROM users WHERE id = 1');
-            if (user1Res.rowCount != null && user1Res.rowCount > 0 && user1Res.rows[0].username !== 'Kazujoshi') {
-                 return res.status(409).json({ message: "User ID 1 is already taken by another user. Cannot create admin account." });
+        // Check if expedition is finished
+        if (character.activeExpedition && Date.now() >= character.activeExpedition.finishTime) {
+            const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('expeditions', 'enemies', 'itemTemplates', 'quests', 'affixes')");
+            const allExpeditions = gameDataRes.rows.find(r => r.key === 'expeditions')?.data || [];
+            const allEnemies = gameDataRes.rows.find(r => r.key === 'enemies')?.data || [];
+            const allItemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const allQuests = gameDataRes.rows.find(r => r.key === 'quests')?.data || [];
+            const allAffixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                const { character: updatedChar, summary } = await completeExpedition(client, userId, character, allExpeditions, allEnemies, allItemTemplates, allAffixes, allQuests);
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(updatedChar), userId]);
+                await client.query('COMMIT');
+
+                const summaryMessageBody = JSON.stringify(summary);
+                await client.query(
+                    'INSERT INTO messages (recipient_id, message_type, subject, body) VALUES ($1, $2, $3, $4)',
+                    [userId, 'expedition_report', 'Raport z Ekspedycji', summaryMessageBody]
+                );
+
+                res.json({ ...updatedChar, expeditionSummary: summary });
+            } catch (err) {
+                await client.query('ROLLBACK');
+                throw err; // Propagate error
+            } finally {
+                client.release();
             }
-
-            result = await client.query(
-                `INSERT INTO users (id, username, password_hash, salt) VALUES (1, $1, $2, $3) 
-                 ON CONFLICT (id) DO UPDATE SET 
-                    username = EXCLUDED.username, 
-                    password_hash = EXCLUDED.password_hash, 
-                    salt = EXCLUDED.salt
-                 RETURNING id`,
-                [username, hash, salt]
-            );
-            // After inserting ID 1, ensure the sequence is updated to the max ID so the next user doesn't collide.
-            await client.query("SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 1));");
         } else {
-             // Standard user registration
-             result = await client.query(
-                'INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) RETURNING id',
-                [username, hash, salt]
-            );
+             // Energy Regeneration Logic
+            const now = Date.now();
+            const timeSinceLastUpdate = now - character.lastEnergyUpdateTime;
+            const hoursPassed = Math.floor(timeSinceLastUpdate / (1000 * 60 * 60));
+
+            if (hoursPassed > 0) {
+                const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+                const allItemTemplates = gameDataRes.rows[0]?.data || [];
+                const gameDataAffixesRes = await pool.query("SELECT data FROM game_data WHERE key = 'affixes'");
+                const allAffixes = gameDataAffixesRes.rows[0]?.data || [];
+
+                const derivedChar = calculateDerivedStatsOnServer(character, allItemTemplates, allAffixes);
+                const maxEnergy = derivedChar.stats.maxEnergy;
+
+                if (character.stats.currentEnergy < maxEnergy) {
+                    const newEnergy = Math.min(maxEnergy, character.stats.currentEnergy + hoursPassed);
+                    character.stats.currentEnergy = newEnergy;
+                    character.lastEnergyUpdateTime += hoursPassed * (1000 * 60 * 60);
+                    // No need to save to DB here, it will be saved on next PUT, this is just for the GET request
+                }
+            }
+            res.json(character);
         }
 
-        console.log(`User ${username} registered successfully with ID: ${result.rows[0].id}`);
-        res.status(201).json({ message: 'User created successfully.', userId: result.rows[0].id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error retrieving character.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const characterData: PlayerCharacter = req.body;
+    try {
+        await pool.query('INSERT INTO characters (user_id, data) VALUES ($1, $2)', [userId, JSON.stringify(characterData)]);
+        res.status(201).json(characterData);
     } catch (err: any) {
-        if (err.code === '23505') { // unique_violation for username
-            console.log(`Registration error: Username ${username} is already taken.`);
-            return res.status(409).json({ message: 'This username is already taken.' });
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'A character already exists for this user.' });
         }
-        console.error('Registration error:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
+        console.error(err);
+        res.status(500).json({ message: 'Server error creating character.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
-    const { username, password } = req.body;
-    console.log(`[LOGIN_START] Attempting login for user: ${username}`);
-
-    if (!username || !password) {
-        console.log('[LOGIN_FAIL] Validation failed: Missing username or password.');
-        return res.status(400).json({ message: 'Username and password are required.' });
-    }
-    
-    let client;
+// FIX: Add explicit types to all route handlers
+app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const characterData: PlayerCharacter = req.body;
     try {
-        console.log(`[LOGIN_DB_FETCH] Acquiring client and querying for user '${username}'...`);
-        client = await pool.connect();
-        const userRes = await client.query('SELECT id, password_hash, salt FROM users WHERE username = $1', [username]);
-        
-        if (!userRes.rowCount) {
-            console.log(`[LOGIN_FAIL] User '${username}' not found in database.`);
-            return res.status(401).json({ message: 'Invalid credentials.' });
-        }
-        
-        const user = userRes.rows[0];
-        console.log(`[LOGIN_DB_FETCH_SUCCESS] Found user with ID: ${user.id}`);
-
-        console.log(`[LOGIN_PW_VERIFY] Verifying password for user ID: ${user.id}`);
-        const isPasswordValid = verifyPassword(password, user.salt, user.password_hash);
-        
-        if (!isPasswordValid) {
-            console.log(`[LOGIN_FAIL] Password verification failed for user ID: ${user.id}`);
-            return res.status(401).json({ message: 'Invalid credentials.' });
-        }
-        console.log(`[LOGIN_PW_VERIFY_SUCCESS] Password is valid.`);
-
-        console.log(`[LOGIN_TOKEN_GEN] Generating session token...`);
-        const token = randomBytes(64).toString('hex');
-        console.log(`[LOGIN_SESSION_INSERT] Inserting session token into database for user ID: ${user.id}`);
-        await client.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
-        console.log(`[LOGIN_SUCCESS] Session created. Sending token to client.`);
-
-        return res.status(200).json({ message: 'Logged in successfully.', token });
-
+        await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(characterData), userId]);
+        res.json(characterData);
     } catch (err) {
-        console.error('[LOGIN_ERROR] An unexpected error occurred during the login process:', err);
-        return res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) {
-            client.release();
-            console.log('[LOGIN_END] Client released. Login process finished.');
-        }
+        console.error(err);
+        res.status(500).json({ message: 'Server error updating character.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/auth/logout', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-     const authHeader = req.headers['authorization'];
-     const token = authHeader && authHeader.split(' ')[1];
-     let client;
+// FIX: Add explicit types to all route handlers
+app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        // First check if the user is an admin
+        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (userRes.rows[0]?.username !== 'Kazujoshi') {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        
+        const result = await pool.query(`
+            SELECT c.user_id, u.username, c.data->>'name' as name, c.data->>'race' as race, (c.data->>'level')::int as level
+            FROM characters c
+            JOIN users u ON c.user_id = u.id
+            ORDER BY level DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error fetching all characters.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        
+        const { userId } = req.params;
+        await pool.query('DELETE FROM characters WHERE user_id = $1', [userId]);
+        res.sendStatus(204);
+    } catch (err) {
+        console.error("Error deleting character:", err);
+        res.status(500).json({ message: 'Failed to delete character.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
+        res.json(result.rows.map(r => r.name));
+    } catch(err) {
+        console.error("Error fetching character names:", err);
+        res.status(500).json({ message: 'Failed to fetch character names.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
-         client = await pool.connect();
-         await client.query('DELETE FROM sessions WHERE token = $1', [token]);
-         res.status(200).json({ message: 'Logged out successfully.' });
-     } catch(err) {
-        console.error('Logout error:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-     } finally {
-        if (client) client.release();
-     }
-});
+        const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
 
-// --- Admin Endpoints ---
+        const { userId } = req.params;
+        const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found.' });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/users', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query('SELECT id, username FROM users ORDER BY username ASC');
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error fetching users:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/users/:id', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const userIdToDelete = parseInt(req.params.id, 10);
-
-    if (isNaN(userIdToDelete)) {
-        return res.status(400).json({ message: 'Invalid user ID.' });
-    }
-
-    if (req.user!.id === userIdToDelete) {
-        return res.status(403).json({ message: "You cannot delete your own account." });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        // Thanks to `ON DELETE CASCADE`, deleting from `users` will also remove
-        // the user's character and sessions.
-        const result = await client.query('DELETE FROM users WHERE id = $1', [userIdToDelete]);
+        let char: PlayerCharacter = charRes.rows[0].data;
+        const totalPoints = 10 + (char.level - 1);
         
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'User not found.' });
+        char.stats.strength = 0;
+        char.stats.agility = 0;
+        char.stats.accuracy = 0;
+        char.stats.stamina = 0;
+        char.stats.intelligence = 0;
+        char.stats.energy = 0;
+        char.stats.statPoints = totalPoints;
+
+        await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
+        res.sendStatus(200);
+
+    } catch (err) {
+        console.error("Error resetting stats:", err);
+        res.status(500).json({ message: 'Failed to reset stats.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+     try {
+        const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
+        
+        const { userId } = req.params;
+        const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found.' });
+
+        let char: PlayerCharacter = charRes.rows[0].data;
+        
+        // This won't have derived stats yet, so we just set it to a very large number
+        // The next client sync will fix it with calculateDerivedStats
+        char.stats.currentHealth = 999999; 
+
+        await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
+        res.sendStatus(200);
+
+    } catch (err) {
+        console.error("Error healing character:", err);
+        res.status(500).json({ message: 'Failed to heal character.' });
+    }
+});
+
+// --- User Routes (Admin) ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        // First check if the user is an admin
+        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (userRes.rows[0]?.username !== 'Kazujoshi') {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        const result = await pool.query('SELECT id, username FROM users');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error fetching users.' });
+    }
+});
+
+// FIX: Add explicit types to all route handlers
+app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        
+        const { userId } = req.params;
+        await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+        res.sendStatus(204);
+    } catch (err) {
+        console.error("Error deleting user:", err);
+        res.status(500).json({ message: 'Failed to delete user.' });
+    }
+});
+
+
+// --- Game Data Routes ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const result = await pool.query('SELECT key, data FROM game_data');
+        const gameData = result.rows.reduce((acc, row) => {
+            acc[row.key] = row.data;
+            return acc;
+        }, {});
+        res.json(gameData);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error retrieving game data.' });
+    }
+});
+
+// --- Admin: Update Game Data ---
+// FIX: Add explicit types to all route handlers
+app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (userRes.rows[0]?.username !== 'Kazujoshi') {
+            return res.status(403).json({ message: 'Forbidden' });
         }
 
-        res.status(200).json({ message: 'User deleted successfully.' });
+        const { key, data } = req.body;
+
+        if (!key || data === undefined) {
+            return res.status(400).json({ message: 'Key and data are required.' });
+        }
+
+        const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests', 'affixes'];
+        if (!validKeys.includes(key)) {
+            return res.status(400).json({ message: 'Invalid game data key.' });
+        }
+        
+        await pool.query('INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2', [key, JSON.stringify(data)]);
+        
+        res.status(200).json({ message: `Game data for '${key}' updated.` });
     } catch (err) {
-        console.error('Error deleting user:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
+        console.error(err);
+        res.status(500).json({ message: 'Server error updating game data.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/admin/global-message', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const { subject, content } = req.body;
-    const adminId = req.user!.id;
 
-    if (!subject || !content) {
-        return res.status(400).json({ message: 'Subject and content are required.' });
+// --- Ranking Route ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                c.user_id as id,
+                c.data->>'name' as name,
+                c.data->>'race' as race,
+                (c.data->>'level')::int as level,
+                (c.data->>'experience')::bigint as experience,
+                (c.data->>'pvpWins')::int as "pvpWins",
+                (c.data->>'pvpLosses')::int as "pvpLosses",
+                (c.data->>'pvpProtectionUntil')::bigint as "pvpProtectionUntil"
+            FROM characters c
+            ORDER BY experience DESC
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error fetching ranking.' });
+    }
+});
+
+// --- Trader Routes ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const forceRefresh = req.query.force === 'true';
+
+    try {
+        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        const isAdmin = userRes.rows[0]?.username === 'Kazujoshi';
+
+        const currentHour = new Date().getUTCHours();
+        if (forceRefresh && !isAdmin) {
+             return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        if (forceRefresh || traderInventoryCache.lastRefreshedHour !== currentHour) {
+            const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'settings', 'affixes')");
+            const allItemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const settings = gameDataRes.rows.find(r => r.key === 'settings')?.data || { language: 'pl' };
+            const allAffixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+            traderInventoryCache.inventory = generateTraderInventory(allItemTemplates, allAffixes, settings);
+            traderInventoryCache.lastRefreshedHour = currentHour;
+        }
+
+        res.json(traderInventoryCache.inventory);
+    } catch(err) {
+         console.error('Error fetching trader inventory:', err);
+        res.status(500).json({ message: 'Server error fetching trader inventory.' });
+    }
+});
+
+// --- Trader: Buy Item ---
+// FIX: Add explicit types to all route handlers
+app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const { itemId } = req.body;
+    if (!itemId) {
+        return res.status(400).json({ message: 'Item ID is required.' });
     }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // FIX: Send messages only to users who have created a character and have a valid user_id.
-        const usersRes = await client.query('SELECT user_id FROM characters WHERE user_id IS NOT NULL');
-        if (usersRes.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'No players with characters found to send message to.' });
+        // Fetch all game data needed
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const allAffixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        // Find the item in the server's trader inventory cache
+        const itemToBuy = traderInventoryCache.inventory.find(i => i.uniqueId === itemId);
+        if (!itemToBuy) {
+            return res.status(404).json({ message: 'Item not found in trader inventory.' });
         }
 
-        const userIds: number[] = usersRes.rows.map(r => r.user_id);
-        const body = { content };
-        const messageType = 'player_message';
-        const senderName = 'Administrator';
-
-        const query = 'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)';
-        
-        for (const userId of userIds) {
-            if (userId === adminId) continue; // Don't send to self
-            await client.query(query, [userId, adminId, senderName, messageType, subject, JSON.stringify(body)]);
+        const template = allItemTemplates.find(t => t.id === itemToBuy.templateId);
+        if (!template) {
+            return res.status(500).json({ message: 'Item template not found.' });
         }
+
+        // Calculate cost (template value + affix values) * 2
+        let itemValue = template.value;
+        if (itemToBuy.prefixId) {
+            const prefix = allAffixes.find(a => a.id === itemToBuy.prefixId);
+            if (prefix && prefix.value) {
+                itemValue += prefix.value;
+            }
+        }
+        if (itemToBuy.suffixId) {
+            const suffix = allAffixes.find(a => a.id === itemToBuy.suffixId);
+            if (suffix && suffix.value) {
+                itemValue += suffix.value;
+            }
+        }
+        const cost = itemValue * 2;
+
+        // Fetch character data
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        // Check inventory space and gold
+        if (character.inventory.length >= 40) { // MAX_PLAYER_INVENTORY_SIZE
+            return res.status(400).json({ message: 'Inventory is full.' });
+        }
+        if (character.resources.gold < cost) {
+            return res.status(400).json({ message: 'Not enough gold.' });
+        }
+
+        // Update character
+        character.resources.gold -= cost;
+        character.inventory.push(itemToBuy);
+
+        // Update trader inventory
+        traderInventoryCache.inventory = traderInventoryCache.inventory.filter(i => i.uniqueId !== itemId);
+
+        // Save character
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
 
         await client.query('COMMIT');
-        const sentCount = userIds.includes(adminId) ? userIds.length - 1 : userIds.length;
-        res.status(200).json({ message: `Global message sent to ${sentCount} players.` });
-
+        res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error sending global message:', err);
-        res.status(500).json({ message: 'Internal server error while sending global message.' });
+        console.error('Error buying item:', err);
+        res.status(500).json({ message: 'Server error while buying item.' });
     } finally {
         client.release();
     }
 });
 
-
-// --- Character Endpoints (protected) ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const characterResult = await client.query(
-            `SELECT c.data, u.username 
-             FROM characters c
-             JOIN users u ON c.user_id = u.id
-             WHERE c.user_id = $1`, 
-            [req.user!.id]
-        );
-        if (!characterResult.rowCount) {
-            return res.status(404).json({ message: 'Character not found.' });
-        }
-        
-        let character: PlayerCharacter = characterResult.rows[0].data;
-        let expeditionSummary: ExpeditionRewardSummary | null = null;
-        character.username = characterResult.rows[0].username;
-        character.id = req.user!.id;
-        
-        const gameDataRes = await client.query("SELECT key, data FROM game_data");
-        const gameData = gameDataRes.rows.reduce((acc, row) => {
-            acc[row.key] = row.data;
-            return acc;
-        }, {} as any);
-
-        let expeditionCompleted = false;
-        if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
-            const result = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.affixes || [], gameData.quests);
-            character = result.character;
-            expeditionSummary = result.summary;
-            expeditionCompleted = true;
-        }
-
-        let needsDbUpdate = expeditionCompleted;
-
-        const itemTemplates: ItemTemplate[] = gameData.itemTemplates || [];
-        const affixes: Affix[] = gameData.affixes || [];
-        // Calculate derived stats once to get max values needed for logic
-        const tempDerivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
-        const currentMaxEnergy = tempDerivedChar.stats.maxEnergy;
-
-        // --- Offline Energy Regeneration Logic ---
-        const now = Date.now();
-        const lastUpdate = character.lastEnergyUpdateTime || now;
-        const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
-        
-        if (hoursPassed > 0 && character.stats.currentEnergy < currentMaxEnergy) {
-            const energyToRegen = hoursPassed;
-            // Update the BASE character object
-            character.stats.currentEnergy = Math.min(
-                currentMaxEnergy,
-                character.stats.currentEnergy + energyToRegen
-            );
-            character.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
-            needsDbUpdate = true;
-        }
-        
-        const currentHour = new Date().getUTCHours();
-        const characterLastUpdateDate = new Date(lastUpdate);
-        const characterLastPurchaseHour = characterLastUpdateDate.getUTCHours();
-        if(currentHour !== characterLastPurchaseHour){
-            character.traderPurchases = [];
-            needsDbUpdate = true;
-        }
-
-        if (needsDbUpdate) {
-            await client.query(
-                'UPDATE characters SET data = $1 WHERE user_id = $2',
-                [JSON.stringify(character), req.user!.id]
-            );
-        }
-
-        const responsePayload = { ...character };
-        if (expeditionSummary) {
-            (responsePayload as any).expeditionSummary = expeditionSummary;
-        }
-        res.status(200).json(responsePayload);
-
-    } catch (err) {
-        console.error('Error fetching character:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const characterData = req.body;
-    if (!characterData || !characterData.name || !characterData.race) {
-        return res.status(400).json({ message: 'Invalid character data.' });
-    }
-    let client;
-    try {
-        client = await pool.connect();
-        
-        // When creating a character, we save the base data directly.
-        // No need to calculate derived stats as there's no equipment yet.
-        const result = await client.query(
-            `INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data;`,
-            [req.user!.id, JSON.stringify(characterData)]
-        );
-        res.status(201).json(result.rows[0].data);
-    } catch (err: any) {
-        if (err.code === '23505') { // unique_violation
-            console.error('Error creating character: A character for this user already exists.', err);
-            return res.status(409).json({ message: 'A character for this user already exists.' });
-        }
-        console.error('Error creating character:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/character', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const characterData = req.body;
-     if (!characterData || !characterData.name || !characterData.race) {
-        return res.status(400).json({ message: 'Invalid character data.' });
-    }
-    let client;
-    try {
-        client = await pool.connect();
-        
-        // The client sends the base character data with updates (e.g., spent stat points).
-        // The server should save this data directly without recalculating derived stats.
-        const result = await client.query(
-            'UPDATE characters SET data = $1 WHERE user_id = $2 RETURNING data',
-            [JSON.stringify(characterData), req.user!.id]
-        );
-         if (!result.rowCount) {
-            return res.status(404).json({ message: 'Character not found to update.' });
-        }
-        // Respond with the saved base data. The client will handle recalculating derived stats.
-        res.status(200).json(result.rows[0].data);
-    } catch (err) {
-        console.error('Error updating character:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/characters/all', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query(`
-            SELECT
-                c.user_id,
-                u.username,
-                c.data->>'name' as name,
-                c.data->>'race' as race,
-                (c.data->>'level')::int as level
-            FROM characters c
-            JOIN users u ON c.user_id = u.id
-            ORDER BY u.username ASC
-        `);
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error fetching all characters:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/characters/names', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query(`SELECT data->>'name' as name FROM characters`);
-        const names = result.rows.map(r => r.name);
-        res.status(200).json(names);
-    } catch (err) {
-        console.error('Error fetching character names:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/characters/:userId', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const userIdToDelete = parseInt(req.params.userId, 10);
-
-    if (isNaN(userIdToDelete)) {
-        return res.status(400).json({ message: 'Invalid user ID.' });
-    }
-
-    if (req.user!.id === userIdToDelete) {
-        return res.status(403).json({ message: "You cannot delete your own character this way. Delete your account instead." });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query('DELETE FROM characters WHERE user_id = $1', [userIdToDelete]);
-        
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'Character not found for the specified user.' });
-        }
-
-        res.status(200).json({ message: 'Character deleted successfully.' });
-    } catch (err) {
-        console.error('Error deleting character:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/reset-stats', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const userIdToReset = parseInt(req.params.userId, 10);
-    
-    if (isNaN(userIdToReset)) {
-        return res.status(400).json({ message: 'Invalid user ID.' });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userIdToReset]);
-        if (!charRes.rowCount) {
-            return res.status(404).json({ message: 'Character not found for the specified user.' });
-        }
-
-        const character = charRes.rows[0].data;
-
-        // Reset logic
-        const level = character.level || 1;
-        const newStatPoints = 10 + (level - 1); // 10 base points + 1 per level after 1
-
-        character.stats.strength = 0;
-        character.stats.agility = 0;
-        character.stats.accuracy = 0;
-        character.stats.stamina = 0;
-        character.stats.intelligence = 0;
-        character.stats.energy = 0;
-        character.stats.statPoints = newStatPoints;
-
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userIdToReset]);
-
-        res.status(200).json({ message: 'Character stats reset successfully.' });
-
-    } catch (err) {
-        console.error('Error resetting character stats:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/characters/:userId/heal', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const userIdToHeal = parseInt(req.params.userId, 10);
-    
-    if (isNaN(userIdToHeal)) {
-        return res.status(400).json({ message: 'Invalid user ID.' });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        
-        // Fetch character data
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userIdToHeal]);
-        if (!charRes.rowCount) {
-            return res.status(404).json({ message: 'Character not found for the specified user.' });
-        }
-        const character = charRes.rows[0].data;
-
-        // Fetch item templates to calculate max health
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const affixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes'");
-        const itemTemplates = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-        const affixes = affixesRes.rowCount ? affixesRes.rows[0].data : [];
-
-        // Calculate max health using the helper
-        const derived = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
-
-        // Update character's health and mana
-        character.stats.currentHealth = derived.stats.maxHealth;
-        character.stats.currentMana = derived.stats.maxMana;
-
-        // Save updated character data
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userIdToHeal]);
-
-        res.status(200).json({ message: 'Character healed successfully.' });
-
-    } catch (err) {
-        console.error('Error healing character:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-
-// --- Ranking Endpoint ---
-const calculateTotalExperience = (level: number, currentExperience: number): number => {
-    let totalExperience = currentExperience;
-    for (let i = 1; i < level; i++) {
-        totalExperience += Math.floor(100 * Math.pow(i, 1.3));
-    }
-    return totalExperience;
-};
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/ranking', async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        // Fetch all characters without SQL ordering
-        const result = await client.query(`
-            SELECT 
-                c.user_id as id,
-                c.data 
-            FROM characters c
-            JOIN users u ON c.user_id = u.id;
-        `);
-        
-        // Map and calculate total experience
-        const rankingData = result.rows.map(row => {
-            const char = row.data;
-            const totalExperience = calculateTotalExperience(char.level, char.experience || 0);
-            return {
-                id: row.id,
-                name: char.name,
-                race: char.race,
-                level: char.level,
-                experience: totalExperience, // This is now total experience
-                pvpWins: char.pvpWins || 0,
-                pvpLosses: char.pvpLosses || 0,
-                pvpProtectionUntil: char.pvpProtectionUntil || 0,
-            };
-        });
-
-        // Sort the data in Node.js based on total experience
-        rankingData.sort((a, b) => {
-            if (b.experience !== a.experience) {
-                return b.experience - a.experience;
-            }
-            // Use name as a tie-breaker
-            return a.name.localeCompare(b.name);
-        });
-
-        res.status(200).json(rankingData);
-    } catch (err) {
-        console.error('Error fetching ranking data:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// --- PVP ATTACK ENDPOINT ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// --- PvP Route ---
+// FIX: Add explicit types to all route handlers
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const attackerId = req.user!.id;
-    const defenderId = parseInt(req.params.defenderId, 10);
+    const { defenderId } = req.params;
 
-    if (isNaN(defenderId) || attackerId === defenderId) {
-        return res.status(400).json({ message: 'Invalid opponent.' });
+    if (attackerId === parseInt(defenderId)) {
+        return res.status(400).json({ message: 'You cannot attack yourself.' });
     }
-    
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        // Fetch attacker and defender data
+        const attackerRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [attackerId]);
+        const defenderRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [defenderId]);
 
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('settings', 'itemTemplates', 'affixes')");
-        const charRes = await client.query('SELECT user_id, data FROM characters WHERE user_id = ANY($1::int[]) FOR UPDATE', [[attackerId, defenderId]]);
-
-        if (charRes.rowCount !== 2) {
-            throw new Error('Could not find both attacker and defender.');
+        if (attackerRes.rows.length === 0 || defenderRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Player not found.' });
         }
-
-        const settingsRow = gameDataRes.rows.find(r => r.key === 'settings');
-        const itemTemplatesRow = gameDataRes.rows.find(r => r.key === 'itemTemplates');
-        const affixesRow = gameDataRes.rows.find(r => r.key === 'affixes');
-        const settings: GameSettings = settingsRow ? settingsRow.data : { pvpProtectionMinutes: 60, language: 'pl' };
-        const itemTemplates: ItemTemplate[] = itemTemplatesRow ? itemTemplatesRow.data : [];
-        const affixes: Affix[] = affixesRow ? affixesRow.data : [];
-
-        let attacker: PlayerCharacter = charRes.rows.find(r => r.user_id === attackerId)!.data;
-        let defender: PlayerCharacter = charRes.rows.find(r => r.user_id === defenderId)!.data;
-        attacker.id = attackerId;
-        defender.id = defenderId;
-
-        // Server-side validation
+        let attacker: PlayerCharacter = attackerRes.rows[0].data;
+        let defender: PlayerCharacter = defenderRes.rows[0].data;
+        
+        // Validation
         if (Math.abs(attacker.level - defender.level) > 3) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Target is outside your level range.' });
+            return res.status(400).json({ message: 'You can only attack players within +/- 3 levels.' });
         }
         if (attacker.stats.currentEnergy < 3) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Not enough energy to attack.' });
+            return res.status(400).json({ message: 'Not enough energy to attack (costs 3).' });
         }
         if (defender.pvpProtectionUntil > Date.now()) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Target is currently protected from attacks.' });
+             const timeLeft = Math.ceil((defender.pvpProtectionUntil - Date.now()) / 1000 / 60);
+             return res.status(400).json({ message: `This player is protected from attacks for another ${timeLeft} minutes.` });
         }
+
+        // Deduct energy
+        attacker.stats.currentEnergy -= 3;
         
-        const attackerWithStats = calculateDerivedStatsOnServer(attacker, itemTemplates, affixes);
-        const defenderWithStats = calculateDerivedStatsOnServer(defender, itemTemplates, affixes);
-        
-        const fightResult = simulatePvpFight(attackerWithStats, defenderWithStats, itemTemplates, affixes);
-        
+        // Fetch game data for combat simulation
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'settings', 'affixes')");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const allAffixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const settings: GameSettings = gameDataRes.rows.find(r => r.key === 'settings')?.data || { language: 'pl', pvpProtectionMinutes: 60 };
+
+        // Simulate fight
+        const { isVictory, combatLog, finalAttackerHealth, finalAttackerMana, finalDefenderHealth, finalDefenderMana } = simulatePvpFight(attacker, defender, allItemTemplates, allAffixes);
+
+        attacker.stats.currentHealth = finalAttackerHealth;
+        attacker.stats.currentMana = finalAttackerMana;
+        defender.stats.currentHealth = finalDefenderHealth;
+        defender.stats.currentMana = finalDefenderMana;
+
         let goldStolen = 0;
         let xpGained = 0;
-        let xpLost = 0;
 
-        if (fightResult.isVictory) {
-            goldStolen = Math.min(defender.resources.gold, Math.floor(defender.resources.gold * 0.1));
-            xpGained = Math.max(1, Math.floor(50 * (defender.level / attacker.level)));
+        if (isVictory) {
+            goldStolen = Math.min(defender.resources.gold, Math.floor(defender.level * 100 * Math.random()));
+            xpGained = Math.floor(defender.level * 20 * (1 + Math.random()));
+
+            attacker.resources.gold += goldStolen;
+            attacker.experience += xpGained;
             attacker.pvpWins = (attacker.pvpWins || 0) + 1;
+
+            defender.resources.gold -= goldStolen;
             defender.pvpLosses = (defender.pvpLosses || 0) + 1;
         } else {
+            // No penalties for attacker on loss, except energy cost
             attacker.pvpLosses = (attacker.pvpLosses || 0) + 1;
             defender.pvpWins = (defender.pvpWins || 0) + 1;
         }
-
-        attacker.stats.currentEnergy -= 3;
-        attacker.resources.gold += goldStolen;
-        attacker.experience = Math.max(0, attacker.experience + xpGained - xpLost);
-
-        defender.resources.gold -= goldStolen;
         
-        const protectionDuration = (settings.pvpProtectionMinutes || 60) * 60 * 1000;
-        defender.pvpProtectionUntil = Date.now() + protectionDuration;
-
+        // Level up check for attacker
         while (attacker.experience >= attacker.experienceToNextLevel) {
             attacker.experience -= attacker.experienceToNextLevel;
             attacker.level += 1;
@@ -1778,428 +1683,232 @@ apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressReque
             attacker.experienceToNextLevel = Math.floor(100 * Math.pow(attacker.level, 1.3));
         }
 
-        const pvpSummary: PvpRewardSummary = {
-            isVictory: fightResult.isVictory,
-            gold: goldStolen,
-            experience: fightResult.isVictory ? xpGained : xpLost,
-            combatLog: fightResult.combatLog,
-            attacker: attackerWithStats,
-            defender: defenderWithStats,
-        };
-
-        const attackerSubject = `Raport z ataku: Zaatakowałeś ${defender.name}!`;
-        const defenderSubject = `Zostałeś zaatakowany przez ${attacker.name}!`;
+        // Apply PvP protection
+        const protectionMinutes = settings.pvpProtectionMinutes || 60;
+        const now = Date.now();
+        attacker.pvpProtectionUntil = now + protectionMinutes * 60 * 1000;
+        defender.pvpProtectionUntil = now + protectionMinutes * 60 * 1000;
         
-        await client.query(
-            'INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5)',
-            [attackerId, 'System', 'pvp_report', attackerSubject, JSON.stringify(pvpSummary)]
-        );
-         await client.query(
-            'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)',
-            [defenderId, attackerId, attacker.name, 'pvp_report', defenderSubject, JSON.stringify(pvpSummary)]
-        );
-
+        // Update both characters in DB
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(attacker), attackerId]);
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(defender), defenderId]);
 
+        // Create reward summary and send messages
+        const fullAttackerData = calculateDerivedStatsOnServer(attacker, allItemTemplates, allAffixes);
+        const fullDefenderData = calculateDerivedStatsOnServer(defender, allItemTemplates, allAffixes);
+
+        const summary: PvpRewardSummary = {
+            gold: goldStolen,
+            experience: xpGained,
+            combatLog,
+            isVictory,
+            attacker: fullAttackerData,
+            defender: fullDefenderData,
+        };
+        
+        // Message to defender
+        await client.query(
+            'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)',
+            [defenderId, attackerId, attacker.name, 'pvp_report', `You have been attacked by ${attacker.name}!`, JSON.stringify(summary)]
+        );
+        // Message to attacker
+        await client.query(
+             'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6)',
+            [attackerId, defenderId, defender.name, 'pvp_report', `Attack report: You attacked ${defender.name}!`, JSON.stringify(summary)]
+        );
+
         await client.query('COMMIT');
-        res.status(200).json({ message: 'Attack completed.' });
+        res.json(summary);
 
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error during PvP attack:', err);
-        res.status(500).json({ message: 'Internal server error.' });
+        res.status(500).json({ message: 'Server error during attack.' });
     } finally {
         client.release();
     }
 });
 
 
-// --- Game Data Endpoints ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
+// --- Message Routes ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
     try {
-        client = await pool.connect();
-        const result = await client.query('SELECT key, data FROM game_data');
-        const gameData = result.rows.reduce((acc, row) => {
-            acc[row.key] = row.data;
-            return acc;
-        }, {} as { [key: string]: any });
-        res.status(200).json(gameData);
-    } catch (err) {
-        console.error('Error fetching game data:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
+        const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
+        res.json(result.rows);
+    } catch(err) {
+        console.error("Error fetching messages:", err);
+        res.status(500).json({ message: 'Failed to fetch messages.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/game-data', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
-    const { key, data } = req.body;
-    const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests', 'affixes'];
-    if (!key || !validKeys.includes(key) || data === undefined) {
-        return res.status(400).json({ message: 'Invalid key or data.' });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        await client.query(
-            `INSERT INTO game_data (key, data) VALUES ($1, $2)
-             ON CONFLICT (key) DO UPDATE SET data = $2;`,
-             [key, JSON.stringify(data)]
-        );
-        res.status(200).json({ message: `Data for '${key}' updated successfully.`});
-    } catch (err) {
-        console.error(`Error updating data for key ${key}:`, err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// --- Trader Endpoint ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/trader/inventory', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const forceRefresh = req.query.force === 'true';
-    const currentHour = new Date().getUTCHours();
-    
-    if (forceRefresh || traderInventoryCache.lastRefreshedHour !== currentHour) {
-        let client;
-        try {
-            client = await pool.connect();
-            const [itemTemplatesRes, settingsRes, affixesRes] = await Promise.all([
-                client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'"),
-                client.query("SELECT data FROM game_data WHERE key = 'settings'"),
-                client.query("SELECT data FROM game_data WHERE key = 'affixes'")
-            ]);
-            
-            const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-            const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'pl' };
-            const affixes: Affix[] = affixesRes.rowCount ? affixesRes.rows[0].data : [];
-            
-            traderInventoryCache.inventory = generateTraderInventory(itemTemplates, affixes, settings);
-            traderInventoryCache.lastRefreshedHour = currentHour;
-            console.log(`Trader inventory refreshed for hour: ${currentHour}`);
-            
-        } catch (err) {
-            console.error('Error refreshing trader inventory:', err);
-            if (traderInventoryCache.inventory.length > 0) {
-                 return res.status(200).json(traderInventoryCache.inventory);
-            }
-            return res.status(500).json({ message: 'Internal server error while generating trader inventory.' });
-        } finally {
-            if (client) client.release();
-        }
-    }
-    
-    let client;
-    try {
-        client = await pool.connect();
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
-        if (!charRes.rowCount) {
-            return res.status(404).json({ message: "Character not found." });
-        }
-        const character: PlayerCharacter = charRes.rows[0].data;
-        const purchasedIds = character.traderPurchases || [];
-        const personalInventory = traderInventoryCache.inventory.filter(item => !purchasedIds.includes(item.uniqueId));
-        res.status(200).json(personalInventory);
-    } catch (err) {
-        console.error('Error fetching personal trader inventory:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/trader/buy', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const { itemId } = req.body;
-    if (!itemId) {
-        return res.status(400).json({ message: 'Item ID is required.' });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        
-        const itemToBuy = traderInventoryCache.inventory.find(i => i.uniqueId === itemId);
-        if (!itemToBuy) {
-            return res.status(404).json({ message: 'Item not found in trader inventory.' });
-        }
-
-        const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
-        const template = itemTemplates.find(t => t.id === itemToBuy.templateId);
-        if (!template) {
-            return res.status(500).json({ message: 'Item template data is missing.' });
-        }
-        
-        const cost = template.value * 2;
-
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
-        if (!charRes.rowCount) {
-            return res.status(404).json({ message: 'Character not found.' });
-        }
-        
-        let character: PlayerCharacter = charRes.rows[0].data;
-
-        if (character.traderPurchases?.includes(itemId)) {
-            return res.status(400).json({ message: 'You have already purchased this item.' });
-        }
-        if (character.resources.gold < cost) {
-            return res.status(400).json({ message: 'Not enough gold.' });
-        }
-        if (character.inventory.length >= 40) { // MAX_PLAYER_INVENTORY_SIZE
-            return res.status(400).json({ message: 'Your inventory is full.' });
-        }
-
-        character.resources.gold -= cost;
-        character.inventory.push(itemToBuy);
-        if (!character.traderPurchases) {
-            character.traderPurchases = [];
-        }
-        character.traderPurchases.push(itemId);
-        
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user!.id]);
-
-        // Respond with the updated base character data
-        res.status(200).json(character);
-
-    } catch (err) {
-        console.error('Error buying item:', err);
-        res.status(500).json({ message: 'Internal server error.' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// --- Messages Endpoints ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query(
-            'SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC',
-            [req.user!.id]
-        );
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error fetching messages:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const { recipientName, subject, content } = req.body;
+// FIX: Add explicit types to all route handlers
+app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const senderId = req.user!.id;
+    const { recipientName, subject, content } = req.body;
 
     if (!recipientName || !subject || !content) {
         return res.status(400).json({ message: 'Recipient, subject, and content are required.' });
     }
 
-    let client;
     try {
-        client = await pool.connect();
-        
-        const recipientRes = await client.query(`SELECT user_id FROM characters WHERE data->>'name' = $1`, [recipientName]);
-        if (!recipientRes.rowCount) {
+        const senderRes = await pool.query(`SELECT data->>'name' as name FROM characters WHERE user_id = $1`, [senderId]);
+        if (senderRes.rows.length === 0) return res.status(404).json({ message: 'Sender character not found.' });
+        const senderName = senderRes.rows[0].name;
+
+        const recipientRes = await pool.query(`SELECT user_id FROM characters WHERE data->>'name' = $1`, [recipientName]);
+        if (recipientRes.rows.length === 0) {
             return res.status(404).json({ message: 'Recipient not found.' });
         }
         const recipientId = recipientRes.rows[0].user_id;
-
-        const senderRes = await client.query(`SELECT data->>'name' as name FROM characters WHERE user_id = $1`, [senderId]);
-        if (!senderRes.rowCount) {
-            return res.status(404).json({ message: 'Sender character not found.' });
-        }
-        const senderName = senderRes.rows[0].name;
-
-        if (recipientId === senderId) {
-            return res.status(400).json({ message: "You cannot send a message to yourself." });
-        }
-
-        const body = { content };
-        const messageType = 'player_message';
-
-        const result = await client.query(
-            'INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-// FIX: Corrected a corrupted line of code that was causing multiple errors. The query parameters were missing and replaced with junk text. I have restored the correct parameters to complete the database query.
-            [recipientId, senderId, senderName, messageType, subject, JSON.stringify(body)]
+        
+        const messageBody = { content };
+        
+        const result = await pool.query(
+            `INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body) VALUES ($1, $2, $3, 'player_message', $4, $5) RETURNING *`,
+            [recipientId, senderId, senderName, subject, JSON.stringify(messageBody)]
         );
+        
         res.status(201).json(result.rows[0]);
-    } catch (err) {
-        console.error('Error sending message:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
+    } catch(err) {
+         console.error("Error sending message:", err);
+        res.status(500).json({ message: 'Failed to send message.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.put('/messages/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const messageId = parseInt(req.params.id, 10);
+// FIX: Add explicit types to all route handlers
+app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const { id } = req.params;
     const { is_read } = req.body;
 
-    if (isNaN(messageId) || typeof is_read !== 'boolean') {
-        return res.status(400).json({ message: 'Invalid request data.' });
-    }
-
-    let client;
     try {
-        client = await pool.connect();
-        // Ensure the user can only modify their own messages
-        const result = await client.query(
-            'UPDATE messages SET is_read = $1 WHERE id = $2 AND recipient_id = $3 RETURNING *',
-            [is_read, messageId, req.user!.id]
-        );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'Message not found or you do not have permission to modify it.' });
-        }
-        res.status(200).json(result.rows[0]);
-    } catch (err) {
-        console.error('Error updating message:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
+        await pool.query('UPDATE messages SET is_read = $1 WHERE id = $2 AND recipient_id = $3', [is_read, id, userId]);
+        res.sendStatus(204);
+    } catch(err) {
+        console.error("Error updating message:", err);
+        res.status(500).json({ message: 'Failed to update message.' });
     }
 });
 
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.delete('/messages/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const messageId = parseInt(req.params.id, 10);
-
-    if (isNaN(messageId)) {
-        return res.status(400).json({ message: 'Invalid message ID.' });
-    }
-
-    let client;
-    try {
-        client = await pool.connect();
-        // Ensure user can only delete their own messages
-        const result = await client.query(
-            'DELETE FROM messages WHERE id = $1 AND recipient_id = $2',
-            [messageId, req.user!.id]
-        );
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'Message not found or you do not have permission to delete it.' });
-        }
-        res.status(204).send(); // No content
-    } catch (err) {
-        console.error('Error deleting message:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// --- Tavern Endpoints ---
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.get('/tavern/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    let client;
-    try {
-        client = await pool.connect();
-        const result = await client.query(
-            'SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 50' // Get last 50 messages
-        );
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error fetching tavern messages:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-// FIX: Add explicit types for req and res to resolve property access errors.
-apiRouter.post('/tavern/messages', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    const { content } = req.body;
+// FIX: Add explicit types to all route handlers
+app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
-
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-        return res.status(400).json({ message: 'Message content cannot be empty.' });
-    }
-
-    let client;
+    const { id } = req.params;
     try {
-        client = await pool.connect();
-        
-        // Get character name for the message
-        const charRes = await client.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [userId]);
-        if (!charRes.rowCount) {
-            return res.status(404).json({ message: 'Character not found for this user.' });
-        }
-        const characterName = charRes.rows[0].name;
-
-        const result = await client.query(
-            'INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *',
-            [userId, characterName, content.trim()]
-        );
-
-        res.status(201).json(result.rows[0]);
+        await pool.query('DELETE FROM messages WHERE id = $1 AND recipient_id = $2', [id, userId]);
+        res.sendStatus(204);
     } catch (err) {
-        console.error('Error posting tavern message:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (client) client.release();
+        console.error("Error deleting message:", err);
+        res.status(500).json({ message: 'Failed to delete message.' });
     }
 });
 
-
-// Mount the API router
-app.use('/api', apiRouter);
-
-// Serve static assets in production
-app.use(express.static(path.join(__dirname, '..', '..', '..', '..', 'dist')));
-
-// For any other request, serve the index.html file
-// FIX: Add explicit types for req and res to resolve property access errors.
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
-    res.sendFile(path.join(__dirname, '..', '..', '..', '..', 'dist', 'index.html'));
-});
-
-// --- Scheduled jobs ---
-const cleanupOldTavernMessages = async () => {
-    console.log('Running scheduled job: cleaning up old tavern messages...');
+// FIX: Add explicit types to all route handlers
+app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const { subject, content } = req.body;
+    
     const client = await pool.connect();
     try {
-        // Delete messages older than 24 hours
-        const result = await client.query(
-            "DELETE FROM tavern_messages WHERE created_at < NOW() - INTERVAL '24 hours'"
-        );
-        if (result.rowCount && result.rowCount > 0) {
-            console.log(`Successfully deleted ${result.rowCount} old tavern messages.`);
-        } else {
-            console.log('No old tavern messages to delete.');
+        const adminRes = await client.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
+        
+        if (!subject || !content) return res.status(400).json({ message: 'Subject and content are required.' });
+
+        const usersRes = await client.query('SELECT id FROM users');
+        const userIds: number[] = usersRes.rows.map(r => r.id);
+
+        await client.query('BEGIN');
+        for (const userId of userIds) {
+             await client.query(`
+                INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [userId, null, 'Administrator', 'player_message', subject, JSON.stringify({ content })]);
         }
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Global message sent to all users.' });
     } catch (err) {
-        console.error('Error cleaning up old tavern messages:', err);
+        await client.query('ROLLBACK');
+        console.error("Error sending global message:", err);
+        res.status(500).json({ message: 'Failed to send global message.' });
     } finally {
         client.release();
     }
-};
+});
 
-// Run the cleanup job every hour
-setInterval(cleanupOldTavernMessages, 60 * 60 * 1000);
-
-
-// --- Server Start ---
-const startServer = async () => {
+// --- Tavern (Chat) ---
+// FIX: Add explicit types to all route handlers
+app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
-        await initializeDatabase();
-        app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-        });
-    } catch (err) {
-        console.error('Failed to start server:', err);
-        exit(1);
+        const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
+        res.json(result.rows);
+    } catch(err) {
+        console.error("Error fetching tavern messages:", err);
+        res.status(500).json({ message: 'Failed to fetch tavern messages.' });
     }
-};
+});
 
-startServer();
+// FIX: Add explicit types to all route handlers
+app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const { content } = req.body;
+    if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: 'Content is required.' });
+    }
+    
+    try {
+        const charRes = await pool.query(`SELECT data->>'name' as name FROM characters WHERE user_id = $1`, [userId]);
+        if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found.' });
+        const characterName = charRes.rows[0].name;
+
+        const result = await pool.query(
+            `INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *`,
+            [userId, characterName, content.trim()]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error("Error sending tavern message:", err);
+        res.status(500).json({ message: 'Failed to send tavern message.' });
+    }
+});
+
+
+// --- Admin Routes ---
+// FIX: Add explicit types to all route handlers
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+     try {
+        const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
+        
+        await pool.query(`UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)`);
+        res.sendStatus(200);
+
+    } catch (err) {
+        console.error("Error resetting PvP cooldowns:", err);
+        res.status(500).json({ message: 'Failed to reset cooldowns.' });
+    }
+});
+
+// The "catchall" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+// FIX: Add explicit types to all route handlers
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
+});
+
+// Error handling middleware
+// FIX: Add explicit types to all route handlers
+app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  initializeDatabase().catch(err => {
+    console.error("Failed to initialize database, shutting down.", err);
+    exit(1);
+  });
+});

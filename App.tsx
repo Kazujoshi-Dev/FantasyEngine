@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -709,7 +710,16 @@ const App: React.FC = () => {
 
     const totalValue = itemsToSell.reduce((sum, item) => {
       const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-      return sum + (template?.value || 0);
+      let itemValue = template?.value || 0;
+      if (item.prefixId) {
+          const prefix = gameData.affixes.find(a => a.id === item.prefixId);
+          itemValue += prefix?.value || 0;
+      }
+      if (item.suffixId) {
+          const suffix = gameData.affixes.find(a => a.id === item.suffixId);
+          itemValue += suffix?.value || 0;
+      }
+      return sum + itemValue;
     }, 0);
 
     const newChar = JSON.parse(JSON.stringify(baseCharacter));

@@ -22,15 +22,25 @@ const MAX_PLAYER_INVENTORY_SIZE = 40;
 const BulkSellPanel: React.FC<{
     items: ItemInstance[];
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     onSell: () => void;
-}> = ({ items, itemTemplates, onSell }) => {
+}> = ({ items, itemTemplates, affixes, onSell }) => {
     const { t } = useTranslation();
     const totalValue = useMemo(() => {
         return items.reduce((sum, item) => {
             const template = itemTemplates.find(t => t.id === item.templateId);
-            return sum + (template?.value || 0);
+            let itemValue = template?.value || 0;
+            if (item.prefixId) {
+                const prefix = affixes.find(a => a.id === item.prefixId);
+                itemValue += prefix?.value || 0;
+            }
+            if (item.suffixId) {
+                const suffix = affixes.find(a => a.id === item.suffixId);
+                itemValue += suffix?.value || 0;
+            }
+            return sum + itemValue;
         }, 0);
-    }, [items, itemTemplates]);
+    }, [items, itemTemplates, affixes]);
 
     return (
         <div className="flex flex-col h-full">
@@ -41,11 +51,20 @@ const BulkSellPanel: React.FC<{
                 {items.map(item => {
                     const template = itemTemplates.find(t => t.id === item.templateId);
                     if (!template) return null;
+                    let itemValue = template.value;
+                     if (item.prefixId) {
+                        const prefix = affixes.find(a => a.id === item.prefixId);
+                        itemValue += prefix?.value || 0;
+                    }
+                    if (item.suffixId) {
+                        const suffix = affixes.find(a => a.id === item.suffixId);
+                        itemValue += suffix?.value || 0;
+                    }
                     return (
                         <div key={item.uniqueId} className="flex justify-between items-center text-sm">
                             <span className={rarityStyles[template.rarity].text}>{template.name}</span>
                             <span className="font-mono text-amber-400 flex items-center">
-                                {template.value} <CoinsIcon className="h-3 w-3 ml-1" />
+                                {itemValue} <CoinsIcon className="h-3 w-3 ml-1" />
                             </span>
                         </div>
                     );
@@ -137,14 +156,26 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         if (detailsItem) {
             const template = itemTemplates.find(t => t.id === detailsItem.item.templateId);
             if (!template) return null;
+
+            let itemValue = template.value || 0;
+            if (detailsItem.item.prefixId) {
+                const prefix = affixes.find(a => a.id === detailsItem.item.prefixId);
+                itemValue += prefix?.value || 0;
+            }
+            if (detailsItem.item.suffixId) {
+                const suffix = affixes.find(a => a.id === detailsItem.item.suffixId);
+                itemValue += suffix?.value || 0;
+            }
+            const cost = itemValue * 2;
+
             return (
                 <ItemDetailsPanel item={detailsItem.item} template={template} affixes={affixes} baseCharacter={baseCharacter}>
                     <div className="mt-4">
                         <button
-                            onClick={() => handleBuyClick(detailsItem.item, template.value * 2)}
+                            onClick={() => handleBuyClick(detailsItem.item, cost)}
                             className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-green-700 transition-colors"
                         >
-                            {t('trader.buy')} ({template.value * 2} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
+                            {t('trader.buy')} ({cost} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
                         </button>
                     </div>
                 </ItemDetailsPanel>
@@ -155,6 +186,17 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             const item = selectedItemsToSell[0];
             const template = itemTemplates.find(t => t.id === item.templateId);
             if (!template) return null;
+
+            let itemValue = template.value || 0;
+            if (item.prefixId) {
+                const prefix = affixes.find(a => a.id === item.prefixId);
+                itemValue += prefix?.value || 0;
+            }
+            if (item.suffixId) {
+                const suffix = affixes.find(a => a.id === item.suffixId);
+                itemValue += suffix?.value || 0;
+            }
+
             return (
                 <ItemDetailsPanel item={item} template={template} affixes={affixes}>
                     <div className="mt-4">
@@ -162,7 +204,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                             onClick={handleSellClick}
                             className="w-full bg-amber-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-amber-700 transition-colors"
                         >
-                            {t('trader.sell')} ({template.value} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
+                            {t('trader.sell')} ({itemValue} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
                         </button>
                     </div>
                 </ItemDetailsPanel>
@@ -174,6 +216,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                 <BulkSellPanel
                     items={selectedItemsToSell}
                     itemTemplates={itemTemplates}
+                    affixes={affixes}
                     onSell={handleSellClick}
                 />
             );
@@ -228,6 +271,16 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                             const template = itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
                             const isSelected = itemsToSellIds.has(item.uniqueId);
+                            
+                            let itemValue = template.value || 0;
+                            if (item.prefixId) {
+                                const prefix = affixes.find(a => a.id === item.prefixId);
+                                itemValue += prefix?.value || 0;
+                            }
+                            if (item.suffixId) {
+                                const suffix = affixes.find(a => a.id === item.suffixId);
+                                itemValue += suffix?.value || 0;
+                            }
 
                             return (
                                 <ItemListItem
@@ -237,7 +290,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                                     affixes={affixes}
                                     isSelected={isSelected}
                                     onClick={() => handlePlayerItemClick(item)}
-                                    price={template.value}
+                                    price={itemValue}
                                     showPrimaryStat={false}
                                 />
                             );
