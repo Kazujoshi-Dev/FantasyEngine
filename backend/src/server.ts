@@ -224,7 +224,7 @@ const initializeDatabase = async () => {
             );
         `);
 
-        const gameDataRes = await client.query("SELECT key FROM game_data WHERE key IN ('locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests')");
+        const gameDataRes = await client.query("SELECT key FROM game_data WHERE key IN ('locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests', 'affixes')");
         const existingKeys = gameDataRes.rows.map(r => r.key);
         
         if (!existingKeys.includes('locations') || !existingKeys.includes('expeditions') || !existingKeys.includes('enemies')) {
@@ -250,6 +250,11 @@ const initializeDatabase = async () => {
         
         if (!existingKeys.includes('quests')) {
             await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['quests', JSON.stringify([])]);
+        }
+
+        if (!existingKeys.includes('affixes')) {
+            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['affixes', JSON.stringify([])]);
+            console.log('Populated with initial game data (affixes).');
         }
 
         if (!existingKeys.includes('settings')) {
@@ -814,7 +819,7 @@ async function completeExpedition(
     let tempChar = JSON.parse(JSON.stringify(character));
 
     for (const enemy of encounteredEnemies) {
-        const fightResult = simulateFight(tempChar, enemy, allItemTemplates);
+        const fightResult = simulateFight(tempChar, enemy, itemTemplates);
         overallCombatLog.push(...fightResult.combatLog);
         
         if (fightResult.isVictory) {
@@ -1708,7 +1713,7 @@ apiRouter.get('/game-data', async (req: ExpressRequest, res: ExpressResponse) =>
 // FIX: Add explicit types for req and res to resolve property access errors.
 apiRouter.put('/game-data', authenticate, isAdmin, async (req: ExpressRequest, res: ExpressResponse) => {
     const { key, data } = req.body;
-    const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests'];
+    const validKeys = ['locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests', 'affixes'];
     if (!key || !validKeys.includes(key) || data === undefined) {
         return res.status(400).json({ message: 'Invalid key or data.' });
     }

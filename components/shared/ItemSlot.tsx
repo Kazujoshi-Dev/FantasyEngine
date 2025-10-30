@@ -66,7 +66,8 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
         return (
              <div className="space-y-1 bg-slate-800/50 p-2 rounded-lg mt-2">
                 {title && <h5 className="font-semibold text-gray-400 text-base">{title}</h5>}
-                {entries.map((e, i) => <p key={i} className={`flex justify-between ${e.color || ''}`}><span>{e.label}:</span> <span className="font-mono">{e.value}</span></p>)}
+                {/* FIX: The type of `e` in the map function was a union type, and not all parts of the union had a `color` property. Cast `e` to a type with an optional `color` property to resolve the type error and provide a fallback empty string. */}
+                {entries.map((e, i) => <p key={i} className={`flex justify-between ${(e as { color?: string }).color || ''}`}><span>{e.label}:</span> <span className="font-mono">{e.value}</span></p>)}
             </div>
         )
     }

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -71,6 +72,8 @@ const App: React.FC = () => {
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
       if (!gameDataForCalc) return character;
       
+      const affixes = gameDataForCalc.affixes || []; // Safeguard against missing data
+
       const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
           strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
           stamina: character.stats.stamina, intelligence: character.stats.intelligence, energy: character.stats.energy
@@ -121,9 +124,9 @@ const App: React.FC = () => {
                   const upgradeBonusFactor = upgradeLevel * 0.1;
                   applyBonuses(template, upgradeBonusFactor);
               }
-              const prefix = gameDataForCalc.affixes.find(a => a.id === itemInstance.prefixId);
+              const prefix = affixes.find(a => a.id === itemInstance.prefixId);
               if(prefix) applyBonuses(prefix, 0);
-              const suffix = gameDataForCalc.affixes.find(a => a.id === itemInstance.suffixId);
+              const suffix = affixes.find(a => a.id === itemInstance.suffixId);
               if(suffix) applyBonuses(suffix, 0);
           }
       }
@@ -415,7 +418,7 @@ const App: React.FC = () => {
           lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
       }
     }
-  }, [activeTab]);
+  }, [activeTab, tavernMessages]);
 
 
   // Handlers
