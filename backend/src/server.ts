@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix, RolledAffixStats } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix, RolledAffixStats, AffixType } from '../../types.js';
 
 
 dotenv.config();
@@ -56,7 +56,91 @@ let traderInventoryCache = {
     lastRefreshedHour: -1,
 };
 
-const generateTraderInventory = (itemTemplates: ItemTemplate[], settings: GameSettings): ItemInstance[] => {
+// --- Item Generation with Affixes ---
+const rollAffixStats = (affix: Affix): RolledAffixStats => {
+    const rolled: RolledAffixStats = {};
+
+    const rollValue = (minMax: { min: number; max: number } | undefined): number | undefined => {
+        if (minMax === undefined || minMax === null) return undefined;
+        const min = Math.min(minMax.min, minMax.max);
+        const max = Math.max(minMax.min, minMax.max);
+        if (min === max) return min;
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+
+    if (affix.statsBonus) {
+        rolled.statsBonus = {};
+        for (const key in affix.statsBonus) {
+            const statKey = key as keyof typeof affix.statsBonus;
+            const rolledStat = rollValue(affix.statsBonus[statKey]);
+            if (rolledStat !== undefined) {
+                (rolled.statsBonus as any)[statKey] = rolledStat;
+            }
+        }
+        if(Object.keys(rolled.statsBonus).length === 0) {
+            delete rolled.statsBonus;
+        }
+    }
+    
+    const otherStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'>)[] = [
+        'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
+        'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
+        'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
+        'manaStealFlat', 'magicDamageMin', 'magicDamageMax'
+    ];
+    
+    for (const key of otherStatKeys) {
+        const value = rollValue((affix as any)[key]);
+        if (value !== undefined) {
+            (rolled as any)[key] = value;
+        }
+    }
+
+    return rolled;
+};
+
+const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[], allAffixes: Affix[]): ItemInstance => {
+    const template = allItemTemplates.find(t => t.id === templateId);
+    if (!template) {
+        return { uniqueId: randomUUID(), templateId };
+    }
+
+    const instance: ItemInstance = {
+        uniqueId: randomUUID(),
+        templateId,
+    };
+
+    const itemCategory = template.category;
+
+    const possiblePrefixes = allAffixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+    const possibleSuffixes = allAffixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+
+    if (possiblePrefixes.length > 0) {
+        for (const prefix of possiblePrefixes) {
+            const chance = prefix.spawnChances[itemCategory] || 0;
+            if (Math.random() * 100 < chance) {
+                instance.prefixId = prefix.id;
+                instance.rolledPrefix = rollAffixStats(prefix);
+                break; 
+            }
+        }
+    }
+
+    if (possibleSuffixes.length > 0) {
+         for (const suffix of possibleSuffixes) {
+            const chance = suffix.spawnChances[itemCategory] || 0;
+            if (Math.random() * 100 < chance) {
+                instance.suffixId = suffix.id;
+                instance.rolledSuffix = rollAffixStats(suffix);
+                break;
+            }
+        }
+    }
+
+    return instance;
+};
+
+const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: Affix[], settings: GameSettings): ItemInstance[] => {
     const INVENTORY_SIZE = 12;
     const inventory: ItemInstance[] = [];
     
@@ -92,10 +176,7 @@ const generateTraderInventory = (itemTemplates: ItemTemplate[], settings: GameSe
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
-            inventory.push({
-                uniqueId: randomUUID(),
-                templateId: template.id
-            });
+            inventory.push(createItemInstance(template.id, itemTemplates, affixes));
         }
     }
     
@@ -920,7 +1001,7 @@ async function completeExpedition(
             
             (enemy.lootTable || []).forEach((drop: LootDrop) => {
                 if (Math.random() * 100 < drop.chance) {
-                    summary.itemsFound.push({ uniqueId: randomUUID(), templateId: drop.templateId });
+                    summary.itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
                 }
             });
             (enemy.resourceLootTable || []).forEach((drop: ResourceDrop) => {
@@ -933,7 +1014,7 @@ async function completeExpedition(
         
         (expeditionTemplate.lootTable || []).forEach((drop: LootDrop) => {
             if (Math.random() * 100 < drop.chance) {
-                summary.itemsFound.push({ uniqueId: randomUUID(), templateId: drop.templateId });
+                summary.itemsFound.push(createItemInstance(drop.templateId, allItemTemplates, allAffixes));
             }
         });
         (expeditionTemplate.resourceLootTable || []).forEach((drop: ResourceDrop) => {
@@ -1789,15 +1870,17 @@ apiRouter.get('/trader/inventory', authenticate, async (req: ExpressRequest, res
         let client;
         try {
             client = await pool.connect();
-            const [itemTemplatesRes, settingsRes] = await Promise.all([
+            const [itemTemplatesRes, settingsRes, affixesRes] = await Promise.all([
                 client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'"),
-                client.query("SELECT data FROM game_data WHERE key = 'settings'")
+                client.query("SELECT data FROM game_data WHERE key = 'settings'"),
+                client.query("SELECT data FROM game_data WHERE key = 'affixes'")
             ]);
             
             const itemTemplates: ItemTemplate[] = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
             const settings: GameSettings = settingsRes.rowCount ? settingsRes.rows[0].data : { language: 'pl' };
+            const affixes: Affix[] = affixesRes.rowCount ? affixesRes.rows[0].data : [];
             
-            traderInventoryCache.inventory = generateTraderInventory(itemTemplates, settings);
+            traderInventoryCache.inventory = generateTraderInventory(itemTemplates, affixes, settings);
             traderInventoryCache.lastRefreshedHour = currentHour;
             console.log(`Trader inventory refreshed for hour: ${currentHour}`);
             
