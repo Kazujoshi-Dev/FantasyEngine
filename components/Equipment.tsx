@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate } from '../types';
+import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData } from '../types';
 import { ItemList, ItemDetailsPanel, ItemListItem, EmptySlotListItem } from './shared/ItemSlot';
 
 interface EquipmentProps {
   character: PlayerCharacter;
   baseCharacter: PlayerCharacter;
-  itemTemplates: ItemTemplate[];
+  gameData: GameData;
   onEquipItem: (item: ItemInstance) => void;
   onUnequipItem: (item: ItemInstance, fromSlot: EquipmentSlot) => void;
 }
@@ -64,7 +64,7 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter }> = ({ character 
 };
 
 
-export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, itemTemplates, onEquipItem, onUnequipItem }) => {
+export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, gameData, onEquipItem, onUnequipItem }) => {
   const { t } = useTranslation();
   
   const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
@@ -73,8 +73,8 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
   const selectedTemplate = useMemo(() => {
     if (!selectedItem) return null;
-    return itemTemplates.find(t => t.id === selectedItem.templateId) || null;
-  }, [selectedItem, itemTemplates]);
+    return gameData.itemTemplates.find(t => t.id === selectedItem.templateId) || null;
+  }, [selectedItem, gameData.itemTemplates]);
 
   // --- Drag and Drop Handlers ---
 
@@ -150,7 +150,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {slotOrder.map(slot => {
                 const item = character.equipment[slot];
-                const template = item ? itemTemplates.find(t => t.id === item.templateId) : null;
+                const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
                 
                 return (
                     <div key={slot}>
@@ -158,6 +158,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                             <ItemListItem
                                 item={item}
                                 template={template}
+                                affixes={gameData.affixes}
                                 isSelected={selectedItem?.uniqueId === item.uniqueId}
                                 onClick={() => setSelectedItem(item)}
                                 draggable
@@ -180,7 +181,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
         {/* Details Panel */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} baseCharacter={baseCharacter} />
+           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={gameData.affixes} baseCharacter={baseCharacter} />
         </div>
 
         {/* Combat Stats Panel */}
@@ -205,13 +206,14 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
           </div>
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
               {character.inventory.map(item => {
-                  const template = itemTemplates.find(t => t.id === item.templateId);
+                  const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                   if (!template) return null;
                   return (
                       <ItemListItem
                           key={item.uniqueId}
                           item={item}
                           template={template}
+                          affixes={gameData.affixes}
                           isSelected={selectedItem?.uniqueId === item.uniqueId}
                           onClick={() => setSelectedItem(item)}
                           draggable

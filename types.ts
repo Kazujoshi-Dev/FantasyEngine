@@ -14,6 +14,7 @@ export enum Tab {
   Messages,
   Quests,
   Tavern,
+  Affixes, // New Tab
 }
 
 export enum Race {
@@ -277,11 +278,18 @@ export enum ItemRarity {
     Legendary = 'Legendary',
 }
 
+export enum ItemCategory {
+    Weapon = 'Weapon',
+    Armor = 'Armor',
+    Jewelry = 'Jewelry',
+}
+
 export interface ItemTemplate {
     id: string;
     name: string;
     description: string;
     slot: EquipmentSlot | 'consumable' | 'ring';
+    category: ItemCategory; // New property
     rarity: ItemRarity;
     icon: string; // Placeholder for image path or ID
     value: number; // Gold value
@@ -314,7 +322,49 @@ export interface ItemInstance {
     uniqueId: string; // Unique identifier for this specific instance of an item
     templateId: string; // ID of the ItemTemplate it's based on
     upgradeLevel?: number;
+    prefixId?: string;
+    suffixId?: string;
 }
+
+export enum AffixType {
+    Prefix = 'Prefix',
+    Suffix = 'Suffix',
+}
+
+export interface Affix {
+    id: string;
+    name: string; // e.g., "Mighty", "of the Bear"
+    type: AffixType;
+    requiredLevel?: number;
+    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    
+    // All possible bonuses, mirroring ItemTemplate
+    statsBonus: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    damageMin?: number;
+    damageMax?: number;
+    attacksPerRound?: number;
+    armorBonus?: number;
+    critChanceBonus?: number;
+    maxHealthBonus?: number;
+    critDamageModifierBonus?: number;
+    armorPenetrationPercent?: number;
+    armorPenetrationFlat?: number;
+    lifeStealPercent?: number;
+    lifeStealFlat?: number;
+    manaStealPercent?: number;
+    manaStealFlat?: number;
+    isMagical?: boolean;
+    magicAttackType?: MagicAttackType;
+    manaCost?: number;
+    magicDamageMin?: number;
+    magicDamageMax?: number;
+
+    // Spawn chances per item category
+    spawnChances: {
+      [key in ItemCategory]?: number; // e.g., { Weapon: 10, Armor: 5 }
+    };
+}
+
 
 // --- Quest System Types ---
 export enum QuestType {
@@ -416,6 +466,7 @@ export interface GameData {
     enemies: Enemy[];
     itemTemplates: ItemTemplate[];
     quests: Quest[];
+    affixes: Affix[];
     settings: GameSettings;
 }
 

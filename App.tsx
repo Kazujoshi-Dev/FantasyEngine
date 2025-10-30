@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -16,7 +17,7 @@ import { Messages, ComposeMessageModal } from './components/Messages';
 import { Quests } from './components/Quests';
 import { Tavern } from './components/Tavern';
 // FIX: Add GameData to import from types.ts to resolve "Cannot find name 'GameData'".
-import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData } from './types';
+import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix } from './types';
 import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
@@ -82,6 +83,35 @@ const App: React.FC = () => {
       let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
       let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
 
+      const applyBonuses = (source: ItemTemplate | Affix, upgradeFactor: number) => {
+        for (const stat in source.statsBonus) {
+            const key = stat as keyof typeof source.statsBonus;
+            const baseBonus = source.statsBonus[key] || 0;
+            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * (source.hasOwnProperty('rarity') ? upgradeFactor : 0)); // Only upgrade item base stats
+        }
+
+        const baseDamageMin = source.damageMin || 0, baseDamageMax = source.damageMax || 0;
+        const baseMagicDamageMin = source.magicDamageMin || 0, baseMagicDamageMax = source.magicDamageMax || 0;
+        const baseArmor = source.armorBonus || 0, baseCritChance = source.critChanceBonus || 0, baseMaxHealth = source.maxHealthBonus || 0;
+        const isItem = source.hasOwnProperty('rarity');
+
+        bonusDamageMin += baseDamageMin + (isItem ? Math.round(baseDamageMin * upgradeFactor) : 0);
+        bonusDamageMax += baseDamageMax + (isItem ? Math.round(baseDamageMax * upgradeFactor) : 0);
+        bonusMagicDamageMin += baseMagicDamageMin + (isItem ? Math.round(baseMagicDamageMin * upgradeFactor) : 0);
+        bonusMagicDamageMax += baseMagicDamageMax + (isItem ? Math.round(baseMagicDamageMax * upgradeFactor) : 0);
+        bonusArmor += baseArmor + (isItem ? Math.round(baseArmor * upgradeFactor) : 0);
+        bonusCritChance += baseCritChance + (isItem ? baseCritChance * upgradeFactor : 0);
+        bonusMaxHealth += baseMaxHealth + (isItem ? Math.round(baseMaxHealth * upgradeFactor) : 0);
+
+        bonusCritDamageModifier += source.critDamageModifierBonus || 0;
+        bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
+        bonusArmorPenetrationFlat += source.armorPenetrationFlat || 0;
+        bonusLifeStealPercent += source.lifeStealPercent || 0;
+        bonusLifeStealFlat += source.lifeStealFlat || 0;
+        bonusManaStealPercent += source.manaStealPercent || 0;
+        bonusManaStealFlat += source.manaStealFlat || 0;
+      };
+
       for (const slot in character.equipment) {
           const itemInstance = character.equipment[slot as EquipmentSlot];
           if (itemInstance) {
@@ -89,33 +119,12 @@ const App: React.FC = () => {
               if (template) {
                   const upgradeLevel = itemInstance.upgradeLevel || 0;
                   const upgradeBonusFactor = upgradeLevel * 0.1;
-
-                  for (const stat in template.statsBonus) {
-                      const key = stat as keyof typeof template.statsBonus;
-                      const baseBonus = template.statsBonus[key] || 0;
-                      totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
-                  }
-                  
-                  const baseDamageMin = template.damageMin || 0, baseDamageMax = template.damageMax || 0;
-                  const baseMagicDamageMin = template.magicDamageMin || 0, baseMagicDamageMax = template.magicDamageMax || 0;
-                  const baseArmor = template.armorBonus || 0, baseCritChance = template.critChanceBonus || 0, baseMaxHealth = template.maxHealthBonus || 0;
-                  
-                  bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
-                  bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
-                  bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
-                  bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
-                  bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
-                  bonusCritChance += baseCritChance + baseCritChance * upgradeBonusFactor;
-                  bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
-
-                  bonusCritDamageModifier += template.critDamageModifierBonus || 0;
-                  bonusArmorPenetrationPercent += template.armorPenetrationPercent || 0;
-                  bonusArmorPenetrationFlat += template.armorPenetrationFlat || 0;
-                  bonusLifeStealPercent += template.lifeStealPercent || 0;
-                  bonusLifeStealFlat += template.lifeStealFlat || 0;
-                  bonusManaStealPercent += template.manaStealPercent || 0;
-                  bonusManaStealFlat += template.manaStealFlat || 0;
+                  applyBonuses(template, upgradeBonusFactor);
               }
+              const prefix = gameDataForCalc.affixes.find(a => a.id === itemInstance.prefixId);
+              if(prefix) applyBonuses(prefix, 0);
+              const suffix = gameDataForCalc.affixes.find(a => a.id === itemInstance.suffixId);
+              if(suffix) applyBonuses(suffix, 0);
           }
       }
       
@@ -1035,8 +1044,8 @@ const App: React.FC = () => {
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-10">
           {activeTab === Tab.Statistics && gameData && <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />}
-          {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
-          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} />}
+          {activeTab === Tab.Equipment && gameData && <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
+          {activeTab === Tab.Expedition && gameData && currentLocation && <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />}
           {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />}
           {activeTab === Tab.Location && gameData && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />}
           {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
@@ -1056,12 +1065,13 @@ const App: React.FC = () => {
               }} 
               onComposeMessage={handleComposeMessage} 
           />}
-          {activeTab === Tab.Trader && gameData && <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems}/>}
-          {activeTab === Tab.Blacksmith && gameData && <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />}
-          {activeTab === Tab.Messages && gameData && <Messages messages={messages} onDeleteMessage={async (id) => { await api.deleteMessage(id); await fullCharacterSync(); }} onMarkAsRead={async (id) => { await api.markMessageAsRead(id); setMessages(m => m.map(msg => msg.id === id ? {...msg, is_read: true} : msg)) }} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} currentPlayer={playerCharacter} />}
-          {activeTab === Tab.Quests && gameData && <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />}
+          {activeTab === Tab.Trader && gameData && <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems}/>}
+          {activeTab === Tab.Blacksmith && gameData && <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />}
+          {activeTab === Tab.Messages && gameData && <Messages messages={messages} onDeleteMessage={async (id) => { await api.deleteMessage(id); await fullCharacterSync(); }} onMarkAsRead={async (id) => { await api.markMessageAsRead(id); setMessages(m => m.map(msg => msg.id === id ? {...msg, is_read: true} : msg)) }} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} />}
+          {activeTab === Tab.Quests && gameData && <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />}
           {activeTab === Tab.Tavern && <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>}
-          {activeTab === Tab.Admin && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel locations={gameData.locations} onLocationsUpdate={(d) => handleGameDataUpdate('locations', d)} expeditions={gameData.expeditions} onExpeditionsUpdate={(d) => handleGameDataUpdate('expeditions', d)} enemies={gameData.enemies} onEnemiesUpdate={(d) => handleGameDataUpdate('enemies', d)} itemTemplates={gameData.itemTemplates} onItemTemplatesUpdate={(d) => handleGameDataUpdate('itemTemplates', d)} quests={gameData.quests} onQuestsUpdate={(d) => handleGameDataUpdate('quests', d)} settings={gameData.settings} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />}
+          {activeTab === Tab.Admin && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />}
+          {activeTab === Tab.Affixes && gameData && playerCharacter.username === 'Kazujoshi' && <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} initialTab="affixes" />}
         </main>
         {isComposingMessage && <ComposeMessageModal allCharacterNames={allCharacterNames} onClose={() => setIsComposingMessage(false)} onSendMessage={async (data) => { await api.sendMessage(data); await fullCharacterSync(); }} initialRecipient={composeInitialData?.recipient} initialSubject={composeInitialData?.subject} />}
         {expeditionReport && gameData && playerCharacter && (
@@ -1075,6 +1085,7 @@ const App: React.FC = () => {
             }}
             characterName={playerCharacter.name}
             itemTemplates={gameData.itemTemplates}
+            affixes={gameData.affixes}
           />
         )}
       </div>

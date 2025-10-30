@@ -1,7 +1,7 @@
 import React from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity, ItemInstance } from '../types';
+import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity, ItemInstance, Affix } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { QuestIcon } from './icons/QuestIcon';
@@ -12,6 +12,7 @@ interface QuestsProps {
     quests: Quest[];
     enemies: Enemy[];
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     onAcceptQuest: (questId: string) => void;
     onCompleteQuest: (questId: string) => void;
 }
@@ -39,10 +40,11 @@ const QuestCard: React.FC<{
     character: PlayerCharacter;
     enemies: Enemy[];
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     isAccepted: boolean;
     onAccept: (id: string) => void;
     onComplete: (id: string) => void;
-}> = ({ quest, character, enemies, itemTemplates, isAccepted, onAccept, onComplete }) => {
+}> = ({ quest, character, enemies, itemTemplates, affixes, isAccepted, onAccept, onComplete }) => {
     const { t } = useTranslation();
     const progress = character.questProgress.find(p => p.questId === quest.id) || { progress: 0, completions: 0 };
     const canStillComplete = quest.repeatable === 0 || progress.completions < quest.repeatable;
@@ -117,7 +119,7 @@ const QuestCard: React.FC<{
                                     <p className={`font-semibold text-sm cursor-help ${rarityStyles[template.rarity].text}`}>
                                         {reward.quantity}x {template.name}
                                     </p>
-                                    <ItemTooltip instance={dummyInstance} template={template} />
+                                    <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} />
                                 </div>
                             );
                         })}
@@ -177,7 +179,7 @@ const QuestCard: React.FC<{
 };
 
 
-export const Quests: React.FC<QuestsProps> = ({ character, quests, enemies, itemTemplates, onAcceptQuest, onCompleteQuest }) => {
+export const Quests: React.FC<QuestsProps> = ({ character, quests, enemies, itemTemplates, affixes, onAcceptQuest, onCompleteQuest }) => {
     const { t } = useTranslation();
     
     const locationQuests = quests.filter(q => q.locationIds.includes(character.currentLocationId));
@@ -222,6 +224,7 @@ export const Quests: React.FC<QuestsProps> = ({ character, quests, enemies, item
                                     character={character}
                                     enemies={enemies}
                                     itemTemplates={itemTemplates}
+                                    affixes={affixes}
                                     isAccepted={true}
                                     onAccept={onAcceptQuest}
                                     onComplete={onCompleteQuest}
@@ -244,6 +247,7 @@ export const Quests: React.FC<QuestsProps> = ({ character, quests, enemies, item
                                     character={character}
                                     enemies={enemies}
                                     itemTemplates={itemTemplates}
+                                    affixes={affixes}
                                     isAccepted={false}
                                     onAccept={onAcceptQuest}
                                     onComplete={onCompleteQuest}

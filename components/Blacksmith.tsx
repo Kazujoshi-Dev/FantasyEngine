@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot, Affix } from '../types';
 import { ItemList, ItemDetailsPanel, ItemListItem } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { AnvilIcon } from './icons/AnvilIcon';
@@ -15,6 +15,7 @@ type NotificationType = { message: string; type: 'success' | 'error' };
 interface BlacksmithProps {
     character: PlayerCharacter;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     onDisenchantItem: (item: ItemInstance) => { success: boolean; amount?: number; essenceType?: EssenceType };
     onUpgradeItem: (item: ItemInstance) => { success: boolean; messageKey: string; level?: number };
 }
@@ -33,9 +34,10 @@ const getPotentialYield = (rarity: ItemRarity): [string, EssenceType | null] => 
 const DisenchantPanel: React.FC<{
     character: PlayerCharacter;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     onDisenchantItem: BlacksmithProps['onDisenchantItem'];
     setNotification: (notification: NotificationType | null) => void;
-}> = ({ character, itemTemplates, onDisenchantItem, setNotification }) => {
+}> = ({ character, itemTemplates, affixes, onDisenchantItem, setNotification }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
 
@@ -111,6 +113,7 @@ const DisenchantPanel: React.FC<{
                 <ItemList
                     items={character.inventory}
                     itemTemplates={itemTemplates}
+                    affixes={affixes}
                     selectedItem={selectedItem}
                     onSelectItem={setSelectedItem}
                 />
@@ -171,9 +174,10 @@ const DisenchantPanel: React.FC<{
 const UpgradePanel: React.FC<{
     character: PlayerCharacter;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     onUpgradeItem: BlacksmithProps['onUpgradeItem'];
     setNotification: (notification: NotificationType | null) => void;
-}> = ({ character, itemTemplates, onUpgradeItem, setNotification }) => {
+}> = ({ character, itemTemplates, affixes, onUpgradeItem, setNotification }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
     const [filterSlot, setFilterSlot] = useState<EquipmentSlot | 'consumable' | 'all'>('all');
@@ -304,6 +308,7 @@ const UpgradePanel: React.FC<{
                                 key={item.uniqueId}
                                 item={item}
                                 template={template}
+                                affixes={affixes}
                                 isSelected={selectedItem?.uniqueId === item.uniqueId}
                                 onClick={() => setSelectedItem(item)}
                                 isEquipped={equippedItemIds.has(item.uniqueId)}
@@ -323,12 +328,12 @@ const UpgradePanel: React.FC<{
                                 <div className="flex justify-center items-start gap-4 my-2">
                                      <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.currentStats')}</p>
-                                        <ItemDetailsPanel item={selectedItem} template={selectedTemplate} showIcon={false}/>
+                                        <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={affixes} showIcon={false}/>
                                     </div>
                                     <ArrowRightIcon className="h-6 w-6 text-slate-500 mt-8" />
                                     <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.statsAfterUpgrade')}</p>
-                                        <ItemDetailsPanel item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} showIcon={false}/>
+                                        <ItemDetailsPanel item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} affixes={affixes} showIcon={false}/>
                                     </div>
                                 </div>
 
@@ -381,7 +386,7 @@ const UpgradePanel: React.FC<{
     );
 };
 
-export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates, onDisenchantItem, onUpgradeItem }) => {
+export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates, affixes, onDisenchantItem, onUpgradeItem }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<BlacksmithTab>('upgrade');
     const [notification, setNotification] = useState<NotificationType | null>(null);
@@ -419,8 +424,8 @@ export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates
                 </div>
             )}
             
-            {activeTab === 'disenchant' && <DisenchantPanel character={character} itemTemplates={itemTemplates} onDisenchantItem={onDisenchantItem} setNotification={setNotification} />}
-            {activeTab === 'upgrade' && <UpgradePanel character={character} itemTemplates={itemTemplates} onUpgradeItem={onUpgradeItem} setNotification={setNotification} />}
+            {activeTab === 'disenchant' && <DisenchantPanel character={character} itemTemplates={itemTemplates} affixes={affixes} onDisenchantItem={onDisenchantItem} setNotification={setNotification} />}
+            {activeTab === 'upgrade' && <UpgradePanel character={character} itemTemplates={itemTemplates} affixes={affixes} onUpgradeItem={onUpgradeItem} setNotification={setNotification} />}
 
         </ContentPanel>
     );

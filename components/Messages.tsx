@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary } from '../types';
+import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './Expedition';
 import { MailIcon } from './icons/MailIcon';
@@ -133,10 +133,11 @@ interface MessagesProps {
     onMarkAsRead: (messageId: number) => void;
     onCompose: (recipientName?: string, subject?: string) => void;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     currentPlayer: PlayerCharacter;
 }
 
-export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, onMarkAsRead, onCompose, itemTemplates, currentPlayer }) => {
+export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, onMarkAsRead, onCompose, itemTemplates, affixes, currentPlayer }) => {
     const { t } = useTranslation();
     const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
     const [viewingPvpReport, setViewingPvpReport] = useState<{ report: PvpRewardSummary, isDefenderView: boolean } | null>(null);
@@ -248,6 +249,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
                     onClose={() => setViewingPvpReport(null)}
                     characterName={viewingPvpReport.report.attacker.name}
                     itemTemplates={itemTemplates}
+                    affixes={affixes}
                     isPvp={true}
                     pvpData={{
                         attacker: viewingPvpReport.report.attacker,
@@ -263,6 +265,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
                     onClose={() => setViewingExpeditionReport(null)}
                     characterName={currentPlayer.name}
                     itemTemplates={itemTemplates}
+                    affixes={affixes}
                 />
             )}
         </>

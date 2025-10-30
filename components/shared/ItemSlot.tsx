@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats } from '../../types';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
@@ -13,11 +13,18 @@ export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shad
     [ItemRarity.Legendary]: { border: 'border-amber-600', bg: 'bg-amber-950', shadow: 'shadow-md shadow-amber-500/10', text: 'text-amber-400' },
 };
 
+const getFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
+    const prefix = affixes.find(a => a.id === item.prefixId);
+    const suffix = affixes.find(a => a.id === item.suffixId);
+    return [prefix?.name, template.name, suffix?.name].filter(Boolean).join(' ');
+}
+
+
 // ===================================================================================
 //                                Item Details Panel
 // ===================================================================================
 
-export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; children?: React.ReactNode; showIcon?: boolean, baseCharacter?: PlayerCharacter; }> = ({ item, template, children, showIcon = true, baseCharacter }) => {
+export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; affixes: Affix[]; children?: React.ReactNode; showIcon?: boolean, baseCharacter?: PlayerCharacter; }> = ({ item, template, affixes, children, showIcon = true, baseCharacter }) => {
     const { t } = useTranslation();
     
     if (!item || !template) {
@@ -31,107 +38,67 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
         if (base === undefined) return undefined;
         return base + Math.round(base * upgradeBonusFactor);
     };
+    
+    const prefix = affixes.find(a => a.id === item.prefixId);
+    const suffix = affixes.find(a => a.id === item.suffixId);
+    const fullName = getFullName(item, template, affixes);
 
-    const weaponSlots: (EquipmentSlot | 'consumable' | 'ring')[] = [
-        EquipmentSlot.MainHand,
-        EquipmentSlot.TwoHand,
-    ];
-    const isWeapon = weaponSlots.includes(template.slot);
-    const attacksPerRound = template.attacksPerRound ?? (isWeapon ? 1 : undefined);
-
-    const finalDamageMin = calculateUpgradedStat(template.damageMin);
-    const finalDamageMax = calculateUpgradedStat(template.damageMax);
-    const finalMagicDamageMin = calculateUpgradedStat(template.magicDamageMin);
-    const finalMagicDamageMax = calculateUpgradedStat(template.magicDamageMax);
-    const finalArmorBonus = calculateUpgradedStat(template.armorBonus);
-    const finalCritChanceBonus = template.critChanceBonus !== undefined ? (template.critChanceBonus + template.critChanceBonus * upgradeBonusFactor) : undefined;
-    const finalMaxHealthBonus = calculateUpgradedStat(template.maxHealthBonus);
-
-    const statBonusEntries = Object.entries(template.statsBonus)
-        .filter(([, value]) => value)
-        .map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) }));
+    const StatSection: React.FC<{title: string, source: ItemTemplate | Affix, isUpgrade?: boolean}> = ({title, source, isUpgrade}) => {
+        const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
+        const calculateStat = (base?: number) => base !== undefined ? base + Math.round(base * bonusFactor) : undefined;
+        const calculateFloatStat = (base?: number) => base !== undefined ? base + base * bonusFactor : undefined;
         
-    const hasRequirements = template.requiredLevel > 1 || (template.requiredStats && Object.keys(template.requiredStats).length > 0);
-    const baseStats = baseCharacter?.stats;
+        const entries = [
+            ...Object.entries(source.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${calculateStat(v as number)}`, color: 'text-green-300'})),
+            (source.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(source.damageMin)}-${calculateStat(source.damageMax)}`},
+            (source.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(source.armorBonus)}`},
+            (source.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${calculateFloatStat(source.critChanceBonus)?.toFixed(1)}%`},
+            (source.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(source.maxHealthBonus)}`},
+            (source.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${source.critDamageModifierBonus}%`},
+            (source.armorPenetrationPercent || source.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${source.armorPenetrationPercent || 0}% / ${source.armorPenetrationFlat || 0}`},
+            (source.lifeStealPercent || source.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${source.lifeStealPercent || 0}% / ${source.lifeStealFlat || 0}`},
+            (source.manaStealPercent || source.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${source.manaStealPercent || 0}% / ${source.manaStealFlat || 0}`},
+            (source.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(source.magicDamageMin)}-${calculateStat(source.magicDamageMax)}`, color: 'text-purple-300'},
+        ].filter(Boolean);
+
+        if (entries.length === 0) return null;
+        
+        return (
+             <div className="space-y-1 bg-slate-800/50 p-2 rounded-lg mt-2">
+                {title && <h5 className="font-semibold text-gray-400 text-base">{title}</h5>}
+                {entries.map((e, i) => <p key={i} className={`flex justify-between ${e.color || ''}`}><span>{e.label}:</span> <span className="font-mono">{e.value}</span></p>)}
+            </div>
+        )
+    }
+
+    const totalRequiredLevel = Math.max(template.requiredLevel || 0, prefix?.requiredLevel || 0, suffix?.requiredLevel || 0);
+    const allRequiredStats: Partial<CharacterStats> = {...template.requiredStats, ...prefix?.requiredStats, ...suffix?.requiredStats};
 
     return (
         <div className="flex flex-col h-full">
             <div className="flex-grow overflow-y-auto pr-2">
                 <h4 className={`font-bold text-2xl mb-2 text-center ${rarityStyles[template.rarity].text}`}>
-                    {template.name} {upgradeLevel > 0 && `+${upgradeLevel}`}
+                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
                 {showIcon && template.icon && <img src={template.icon} alt={template.name} className="w-48 h-48 object-contain border border-slate-600 rounded-md bg-slate-800 mx-auto mb-4" />}
                 <p className="text-sm text-gray-400 italic mb-4 text-center">{template.description}</p>
                 
                 <div className="space-y-1 text-sm">
-                    {/* Primary Stats */}
-                    {(finalDamageMin !== undefined || (attacksPerRound && attacksPerRound > 0) || finalArmorBonus || finalCritChanceBonus || finalMaxHealthBonus) && (
-                        <div className="space-y-1 bg-slate-800/50 p-2 rounded-lg">
-                            {finalDamageMin !== undefined && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
-                            {attacksPerRound && attacksPerRound > 0 && <p className="flex justify-between"><span>{t('item.attacksPerRound')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
-                            {finalArmorBonus && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
-                            {finalCritChanceBonus && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}
-                            {finalMaxHealthBonus && <p className="flex justify-between"><span>{t('statistics.health')}:</span> <span className="font-mono">+{finalMaxHealthBonus}</span></p>}
-                        </div>
-                    )}
-                    {/* Magic Stats */}
-                    {template.isMagical && (
-                        <div className="space-y-1 bg-purple-950/30 p-2 rounded-lg text-purple-300 mt-2">
-                             {finalMagicDamageMin !== undefined && <p className="flex justify-between"><span>{t('statistics.magicDamage')}:</span> <span className="font-mono">{finalMagicDamageMin}-{finalMagicDamageMax}</span></p>}
-                             {template.magicAttackType && <p className="flex justify-between"><span>{t('item.magicAttackType')}:</span> <span className="font-mono">{t(`item.magic.${template.magicAttackType}`)}</span></p>}
-                             {template.manaCost && <p className="flex justify-between"><span>{t('item.manaCost')}:</span> <span className="font-mono">{template.manaCost}</span></p>}
-                        </div>
-                    )}
-                    {/* Stat Bonuses */}
-                    {statBonusEntries.length > 0 && (
-                        <div className="space-y-1 bg-green-950/30 p-2 rounded-lg text-green-300 mt-2">
-                            {statBonusEntries.map(({ key, value }) => (
-                                <p key={key} className="flex justify-between"><span>{t(`statistics.${key}`)}</span> <span className="font-mono">+{value}</span></p>
-                            ))}
-                        </div>
-                    )}
-                    {/* Secondary Combat Bonuses */}
-                    {(template.critDamageModifierBonus || template.armorPenetrationPercent || template.armorPenetrationFlat || template.lifeStealPercent || template.lifeStealFlat || template.manaStealPercent || template.manaStealFlat) && (
-                        <div className="space-y-1 bg-sky-950/30 p-2 rounded-lg text-sky-300 mt-2">
-                            {template.critDamageModifierBonus ? (
-                                <p className="flex justify-between">
-                                    <span>{t('statistics.critDamageModifier')}</span>
-                                    <span className="font-mono">+{template.critDamageModifierBonus}%</span>
-                                </p>
-                            ) : null}
-                            {(template.armorPenetrationPercent || template.armorPenetrationFlat) ? (
-                                <p className="flex justify-between">
-                                    <span>{t('statistics.armorPenetration')}</span>
-                                    <span className="font-mono">{template.armorPenetrationPercent || 0}% / {template.armorPenetrationFlat || 0}</span>
-                                </p>
-                            ) : null}
-                            {(template.lifeStealPercent || template.lifeStealFlat) ? (
-                                <p className="flex justify-between">
-                                    <span>{t('statistics.lifeSteal')}</span>
-                                    <span className="font-mono">{template.lifeStealPercent || 0}% / {template.lifeStealFlat || 0}</span>
-                                </p>
-                            ) : null}
-                            {(template.manaStealPercent || template.manaStealFlat) ? (
-                                <p className="flex justify-between">
-                                    <span>{t('statistics.manaSteal')}</span>
-                                    <span className="font-mono">{template.manaStealPercent || 0}% / {template.manaStealFlat || 0}</span>
-                                </p>
-                            ) : null}
-                        </div>
-                    )}
+                    <StatSection title="Statystyki bazowe" source={template} isUpgrade={true} />
+                    {prefix && <StatSection title={`Prefiks: ${prefix.name}`} source={prefix} />}
+                    {suffix && <StatSection title={`Sufiks: ${suffix.name}`} source={suffix} />}
                 </div>
 
-                {/* Requirements */}
-                 {hasRequirements && baseCharacter && (
+                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && baseCharacter && (
                      <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-300 space-y-1">
                         <h5 className="font-semibold text-gray-400 text-base mb-1">{t('item.requirements')}</h5>
-                        <p className={`flex justify-between ${baseCharacter.level >= template.requiredLevel ? 'text-green-400' : 'text-red-400'}`}>
+                        {totalRequiredLevel > 1 && <p className={`flex justify-between ${baseCharacter.level >= totalRequiredLevel ? 'text-green-400' : 'text-red-400'}`}>
                             <span>{t('item.levelRequirement')}:</span>
-                            <span>{template.requiredLevel}</span>
-                        </p>
-                        {template.requiredStats && Object.entries(template.requiredStats).map(([stat, value]) => {
-                            if (!value || !baseStats) return null;
-                            const meetsReq = baseStats[stat as keyof CharacterStats] >= value;
+                            <span>{totalRequiredLevel}</span>
+                        </p>}
+                        {Object.entries(allRequiredStats).map(([stat, value]) => {
+                            if (!value || !baseCharacter.stats) return null;
+                            const meetsReq = baseCharacter.stats[stat as keyof CharacterStats] >= value;
                             return (
                                 <p key={stat} className={`flex justify-between ${meetsReq ? 'text-green-400' : 'text-red-400'}`}>
                                     <span>{t(`statistics.${stat}`)}:</span>
@@ -160,6 +127,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
 interface ItemListItemProps {
     item: ItemInstance;
     template: ItemTemplate;
+    affixes: Affix[];
     isSelected: boolean;
     onClick: () => void;
     price?: number;
@@ -171,9 +139,10 @@ interface ItemListItemProps {
     isEquipped?: boolean;
 }
 
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className, isEquipped }) => {
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className, isEquipped }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
+    const fullName = getFullName(item, template, affixes);
     
     let primaryStat = '';
     if (showPrimaryStat) {
@@ -206,7 +175,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, isSe
                 )}
             </div>
             <div className="flex-grow overflow-hidden">
-                <p className={`font-semibold truncate text-sm ${rarityStyles[template.rarity].text}`}>{template.name}</p>
+                <p className={`font-semibold truncate text-sm ${rarityStyles[template.rarity].text}`}>{fullName}</p>
                 {(primaryStat || price !== undefined) && (
                     <div className="flex justify-between items-center">
                         <p className="text-xs text-slate-400">{primaryStat}</p>
@@ -251,12 +220,13 @@ export const EmptySlotListItem: React.FC<{
 interface ItemListProps {
     items: ItemInstance[];
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     selectedItem: ItemInstance | null;
     onSelectItem: (item: ItemInstance) => void;
     showPrice?: 'buy' | 'sell';
 }
 
-export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, selectedItem, onSelectItem, showPrice }) => {
+export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, showPrice }) => {
     return (
         <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {items.map(item => {
@@ -272,6 +242,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, select
                         key={item.uniqueId}
                         item={item}
                         template={template}
+                        affixes={affixes}
                         isSelected={selectedItem?.uniqueId === item.uniqueId}
                         onClick={() => onSelectItem(item)}
                         price={price}
@@ -282,7 +253,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, select
     );
 };
 
-export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, baseCharacter?: PlayerCharacter }> = ({ instance, template, baseCharacter }) => {
+export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[], baseCharacter?: PlayerCharacter }> = ({ instance, template, affixes, baseCharacter }) => {
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
 
@@ -334,7 +305,7 @@ export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTempl
             style={style}
             className="absolute w-72 p-3 bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20"
         >
-            <ItemDetailsPanel item={instance} template={template} baseCharacter={baseCharacter} />
+            <ItemDetailsPanel item={instance} template={template} affixes={affixes} baseCharacter={baseCharacter} />
         </div>
     );
 };

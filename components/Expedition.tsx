@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary } from '../types';
+import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { StarIcon } from './icons/StarIcon';
@@ -16,6 +16,7 @@ interface ExpeditionProps {
     currentLocation: Location;
     onStartExpedition: (expeditionId: string) => void;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
 }
 
 const formatDuration = (seconds: number): string => {
@@ -194,6 +195,7 @@ export interface ExpeditionSummaryModalProps {
     onClose: () => void;
     characterName: string;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     isPvp?: boolean;
     pvpData?: {
         attacker: PlayerCharacter;
@@ -207,6 +209,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     onClose, 
     characterName, 
     itemTemplates,
+    affixes,
     isPvp = false,
     pvpData,
     isDefenderView = false
@@ -379,7 +382,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                                         <span className={`bg-slate-800/60 px-2 py-1 rounded text-sm font-semibold cursor-help ${colorClass}`}>
                                                             {template.name}
                                                         </span>
-                                                        <ItemTooltip instance={itemInstance} template={template} />
+                                                        <ItemTooltip instance={itemInstance} template={template} affixes={affixes} />
                                                     </div>
                                                 );
                                             })}

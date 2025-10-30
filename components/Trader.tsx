@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix } from '../types';
 import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -10,6 +10,7 @@ interface TraderProps {
     character: PlayerCharacter;
     baseCharacter: PlayerCharacter;
     itemTemplates: ItemTemplate[];
+    affixes: Affix[];
     settings: GameSettings;
     traderInventory: ItemInstance[];
     onBuyItem: (item: ItemInstance, cost: number) => void;
@@ -69,7 +70,7 @@ const BulkSellPanel: React.FC<{
 };
 
 
-export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, settings, traderInventory, onBuyItem, onSellItems }) => {
+export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, affixes, settings, traderInventory, onBuyItem, onSellItems }) => {
     const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState('');
     
@@ -137,7 +138,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             const template = itemTemplates.find(t => t.id === detailsItem.item.templateId);
             if (!template) return null;
             return (
-                <ItemDetailsPanel item={detailsItem.item} template={template} baseCharacter={baseCharacter}>
+                <ItemDetailsPanel item={detailsItem.item} template={template} affixes={affixes} baseCharacter={baseCharacter}>
                     <div className="mt-4">
                         <button
                             onClick={() => handleBuyClick(detailsItem.item, template.value * 2)}
@@ -155,7 +156,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             const template = itemTemplates.find(t => t.id === item.templateId);
             if (!template) return null;
             return (
-                <ItemDetailsPanel item={item} template={template}>
+                <ItemDetailsPanel item={item} template={template} affixes={affixes}>
                     <div className="mt-4">
                         <button
                             onClick={handleSellClick}
@@ -196,6 +197,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                     <ItemList
                         items={traderInventory}
                         itemTemplates={itemTemplates}
+                        affixes={affixes}
                         selectedItem={detailsItem ? detailsItem.item : null}
                         onSelectItem={handleTraderItemClick}
                         showPrice="buy"
@@ -232,6 +234,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                                     key={item.uniqueId}
                                     item={item}
                                     template={template}
+                                    affixes={affixes}
                                     isSelected={isSelected}
                                     onClick={() => handlePlayerItemClick(item)}
                                     price={template.value}
