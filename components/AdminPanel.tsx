@@ -1,23 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward } from '../types';
+import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward, GameData, Affix, AffixType, ItemCategory } from '../types';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
 import { SettingsIcon } from './icons/SettingsIcon';
 
 interface AdminPanelProps {
-  locations: Location[];
-  onLocationsUpdate: (locations: Location[]) => void;
-  expeditions: Expedition[];
-  onExpeditionsUpdate: (expeditions: Expedition[]) => void;
-  enemies: Enemy[];
-  onEnemiesUpdate: (enemies: Enemy[]) => void;
-  itemTemplates: ItemTemplate[];
-  onItemTemplatesUpdate: (itemTemplates: ItemTemplate[]) => void;
-  quests: Quest[];
-  onQuestsUpdate: (quests: Quest[]) => void;
-  settings: GameSettings;
+  gameData: GameData;
+  onGameDataUpdate: (key: keyof Omit<GameData, 'settings'>, data: any) => void;
   onSettingsUpdate: (settings: GameSettings) => void;
   users: User[];
   onDeleteUser: (userId: number) => void;
@@ -28,9 +19,10 @@ interface AdminPanelProps {
   onForceTraderRefresh: () => void;
   onResetAllPvpCooldowns: () => void;
   onSendGlobalMessage: (data: { subject: string; content: string }) => Promise<void>;
+  initialTab?: AdminTab;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'quests' | 'pvp';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp';
 
 
 const LocationEditor: React.FC<{
@@ -56,6 +48,7 @@ const LocationEditor: React.FC<{
       [Tab.Quests]: 'Quests',
       [Tab.Messages]: 'Messages',
       [Tab.Tavern]: 'Tavern',
+      [Tab.Affixes]: 'Affixes',
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -365,7 +358,7 @@ const ExpeditionEditor: React.FC<{
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-64 overflow-y-auto p-2 bg-slate-800/30 rounded-md">
                             {filteredItems.map(item => {
                                 const currentLoot = formData.lootTable?.find(l => l.templateId === item.id);
-                                return <div key={item.id} className="relative group hover:z-20"><label htmlFor={`loot-${item.id}`} className={`text-xs ${rarityStyles[item.rarity].text}`}>{item.name}</label><input type="number" id={`loot-${item.id}`} min="0" max="100" value={currentLoot?.chance || ''} onChange={(e) => handleLootChanceChange(item.id, parseInt(e.target.value, 10) || 0)} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/><ItemTooltip instance={{ uniqueId: `tooltip-exp-${item.id}`, templateId: item.id }} template={item}/></div>;
+                                return <div key={item.id} className="relative group hover:z-20"><label htmlFor={`loot-${item.id}`} className={`text-xs ${rarityStyles[item.rarity].text}`}>{item.name}</label><input type="number" id={`loot-${item.id}`} min="0" max="100" value={currentLoot?.chance || ''} onChange={(e) => handleLootChanceChange(item.id, parseInt(e.target.value, 10) || 0)} className="mt-1 w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2"/><ItemTooltip instance={{ uniqueId: `tooltip-exp-${item.id}`, templateId: item.id }} template={item} affixes={[]}/></div>;
                             })}
                         </div>
                     </div>
@@ -595,7 +588,7 @@ const EnemyEditor: React.FC<{
                             <div key={item.id} className="relative group hover:z-20">
                                 <label htmlFor={`loot-enemy-${item.id}`} className={`text-xs ${rarityStyles[item.rarity].text}`}>{item.name}</label>
                                 <input type="number" id={`loot-enemy-${item.id}`} min="0" max="100" value={currentLoot?.chance || ''} onChange={(e) => handleLootChanceChange(item.id, parseInt(e.target.value, 10) || 0)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
-                                <ItemTooltip instance={{ uniqueId: `tooltip-enemy-${item.id}`, templateId: item.id }} template={item} />
+                                <ItemTooltip instance={{ uniqueId: `tooltip-enemy-${item.id}`, templateId: item.id }} template={item} affixes={[]}/>
                             </div>
                         )
                     })}
@@ -687,8 +680,8 @@ const ItemEditor: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.slot || !formData.rarity) {
-            alert("Name, slot, and rarity are required.");
+        if (!formData.name || !formData.slot || !formData.rarity || !formData.category) {
+            alert("Name, slot, category, and rarity are required.");
             return;
         }
         
@@ -697,6 +690,7 @@ const ItemEditor: React.FC<{
             name: formData.name,
             description: formData.description || '',
             slot: formData.slot,
+            category: formData.category,
             rarity: formData.rarity,
             icon: formData.icon || '',
             value: formData.value || 0,
@@ -730,9 +724,10 @@ const ItemEditor: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{item.id ? t('admin.item.edit') : t('admin.item.create')}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.slotLabel')}</label><select name="slot" value={formData.slot || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`item.slot.${s}`)}</option>)}<option value="ring">Ring</option><option value="consumable">Consumable</option></select></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.category')}</label><select name="category" value={formData.category || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.category${c}`)}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.rarity')}</label><select name="rarity" value={formData.rarity || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
             </div>
             <div><label className="block text-sm font-medium text-gray-300">{t('item.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full bg-slate-700 p-2 rounded-md"></textarea></div>
@@ -807,6 +802,121 @@ const ItemEditor: React.FC<{
         </form>
     );
 };
+
+const AffixEditor: React.FC<{
+  affix: Partial<Affix>;
+  onSave: (affix: Affix) => void;
+  onCancel: () => void;
+}> = ({ affix, onSave, onCancel }) => {
+    const { t } = useTranslation();
+    const [formData, setFormData] = useState<Partial<Affix>>(affix);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        
+        const isNumeric = ['requiredLevel', 'damageMin', 'damageMax', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'attacksPerRound', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'manaCost', 'magicDamageMin', 'magicDamageMax'].includes(name);
+        setFormData(prev => ({...prev, [name]: isNumeric ? parseFloat(value) || 0 : value }));
+    };
+    
+    const handleStatsBonusChange = (stat: keyof CharacterStats, value: string) => {
+        setFormData(prev => ({ ...prev, statsBonus: { ...prev.statsBonus, [stat]: parseInt(value, 10) || 0 }}));
+    };
+    
+    const handleRequiredStatsChange = (stat: keyof CharacterStats, value: string) => {
+        setFormData(prev => ({ ...prev, requiredStats: { ...prev.requiredStats, [stat]: parseInt(value, 10) || 0 }}));
+    };
+
+    const handleSpawnChanceChange = (category: ItemCategory, value: string) => {
+        setFormData(prev => ({ ...prev, spawnChances: { ...prev.spawnChances, [category]: parseInt(value, 10) || 0 }}));
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.name || !formData.type) {
+            alert("Name and type are required."); return;
+        }
+        
+        const finalAffix: Affix = {
+            id: formData.id || crypto.randomUUID(),
+            name: formData.name,
+            type: formData.type,
+            requiredLevel: formData.requiredLevel,
+            requiredStats: formData.requiredStats || {},
+            statsBonus: formData.statsBonus || {},
+            damageMin: formData.damageMin,
+            damageMax: formData.damageMax,
+            attacksPerRound: formData.attacksPerRound,
+            armorBonus: formData.armorBonus,
+            critChanceBonus: formData.critChanceBonus,
+            maxHealthBonus: formData.maxHealthBonus,
+            critDamageModifierBonus: formData.critDamageModifierBonus,
+            armorPenetrationPercent: formData.armorPenetrationPercent,
+            armorPenetrationFlat: formData.armorPenetrationFlat,
+            lifeStealPercent: formData.lifeStealPercent,
+            lifeStealFlat: formData.lifeStealFlat,
+            manaStealPercent: formData.manaStealPercent,
+            manaStealFlat: formData.manaStealFlat,
+            isMagical: false, // Not supported for now
+            magicAttackType: undefined,
+            manaCost: undefined,
+            magicDamageMin: formData.magicDamageMin,
+            magicDamageMax: formData.magicDamageMax,
+            spawnChances: formData.spawnChances || {},
+        };
+        onSave(finalAffix);
+    };
+
+    const primaryStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const itemCategories = Object.values(ItemCategory);
+
+    return (
+        <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
+            <h3 className="text-xl font-bold text-indigo-400 mb-2">{affix.id ? t('admin.affix.edit') : t('admin.affix.create')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.type')}</label><input type="text" name="type" value={formData.type || ''} readOnly className="mt-1 w-full bg-slate-800 p-2 rounded-md text-gray-400"/></div>
+            </div>
+            
+            <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('admin.affix.spawnChances')}</h4>
+             <div className="grid grid-cols-3 gap-4">
+                {itemCategories.map(cat => (
+                    <div key={cat}><label className="block text-sm font-medium text-gray-300">{t(`admin.affix.spawnChance${cat}`)}</label><input type="number" name={`spawnChance-${cat}`} value={formData.spawnChances?.[cat] || ''} onChange={(e) => handleSpawnChanceChange(cat, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                ))}
+            </div>
+
+            <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.statBonuses')}</h4>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                {primaryStatKeys.map(key => (
+                    <div key={key}><label className="block text-xs font-medium text-gray-300">{t(`statistics.${key}`)}</label><input type="number" name={key} value={formData.statsBonus?.[key] || ''} onChange={(e) => handleStatsBonusChange(key, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                ))}
+            </div>
+
+            <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.secondaryBonuses')}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.damageMin')}</label><input type="number" name="damageMin" value={formData.damageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.damageMax')}</label><input type="number" name="damageMax" value={formData.damageMax || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorBonus')}</label><input type="number" name="armorBonus" value={formData.armorBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.critChanceBonus')}</label><input type="number" step="0.1" name="critChanceBonus" value={formData.critChanceBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.maxHealthBonus')}</label><input type="number" name="maxHealthBonus" value={formData.maxHealthBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.critDamageModifierBonus')}</label><input type="number" name="critDamageModifierBonus" value={formData.critDamageModifierBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorPenetrationPercent')}</label><input type="number" name="armorPenetrationPercent" value={formData.armorPenetrationPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorPenetrationFlat')}</label><input type="number" name="armorPenetrationFlat" value={formData.armorPenetrationFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.lifeStealPercent')}</label><input type="number" name="lifeStealPercent" value={formData.lifeStealPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.lifeStealFlat')}</label><input type="number" name="lifeStealFlat" value={formData.lifeStealFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.manaStealPercent')}</label><input type="number" name="manaStealPercent" value={formData.manaStealPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.manaStealFlat')}</label><input type="number" name="manaStealFlat" value={formData.manaStealFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMin')}</label><input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMax')}</label><input type="number" name="magicDamageMax" value={formData.magicDamageMax || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-4">
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save</button>
+            </div>
+        </form>
+    );
+};
+
 
 const QuestEditor: React.FC<{
   quest: Partial<Quest>;
@@ -932,7 +1042,7 @@ const QuestEditor: React.FC<{
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.repeatable')}</label><input type="number" name="repeatable" min="0" value={formData.repeatable ?? 1} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" title={t('admin.quest.repeatableDesc')}/></div>
-                <div><label className="block text-sm font-medium text-gray-300 mb-2">Dostępny w lokacjach</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{allLocations.map(loc => (<label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600"/><span>{loc.name}</span></label>))}</div></div>
+                <div><label className="block text-sm font-medium text-gray-300 mb-2">Dostępny w lokacjach</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{allLocations.map(loc => (<label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600"/><span>{loc.name}</span></label>))}</div></div>
             </fieldset>
 
             {/* --- Objective --- */}
@@ -1012,35 +1122,41 @@ const QuestEditor: React.FC<{
 };
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  locations, onLocationsUpdate,
-  expeditions, onExpeditionsUpdate,
-  enemies, onEnemiesUpdate,
-  itemTemplates, onItemTemplatesUpdate,
-  quests, onQuestsUpdate,
-  settings, onSettingsUpdate,
+  gameData, onGameDataUpdate, onSettingsUpdate,
   users, onDeleteUser,
   allCharacters, onDeleteCharacter, onResetCharacterStats, onHealCharacter,
-  onForceTraderRefresh, onResetAllPvpCooldowns, onSendGlobalMessage
+  onForceTraderRefresh, onResetAllPvpCooldowns, onSendGlobalMessage,
+  initialTab = 'general'
 }) => {
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<AdminTab>('general');
+    const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
     
     // State for editors
     const [editingLocation, setEditingLocation] = useState<Partial<Location> | null>(null);
     const [editingExpedition, setEditingExpedition] = useState<Partial<Expedition> | null>(null);
     const [editingEnemy, setEditingEnemy] = useState<Partial<Enemy> | null>(null);
     const [editingItem, setEditingItem] = useState<Partial<ItemTemplate> | null>(null);
+    const [editingAffix, setEditingAffix] = useState<Partial<Affix> | null>(null);
     const [editingQuest, setEditingQuest] = useState<Partial<Quest> | null>(null);
 
     // State for General tab
-    const [currentSettings, setCurrentSettings] = useState<GameSettings>(settings);
+    const [currentSettings, setCurrentSettings] = useState<GameSettings>(gameData.settings);
     const [globalMessageSubject, setGlobalMessageSubject] = useState('');
     const [globalMessageContent, setGlobalMessageContent] = useState('');
     const [isSendingGlobal, setIsSendingGlobal] = useState(false);
 
     useEffect(() => {
-        setCurrentSettings(settings);
-    }, [settings]);
+        setCurrentSettings(gameData.settings);
+    }, [gameData.settings]);
+
+    const { locations, expeditions, enemies, itemTemplates, quests, affixes } = gameData;
+    const onLocationsUpdate = (data: Location[]) => onGameDataUpdate('locations', data);
+    const onExpeditionsUpdate = (data: Expedition[]) => onGameDataUpdate('expeditions', data);
+    const onEnemiesUpdate = (data: Enemy[]) => onGameDataUpdate('enemies', data);
+    const onItemTemplatesUpdate = (data: ItemTemplate[]) => onGameDataUpdate('itemTemplates', data);
+    const onQuestsUpdate = (data: Quest[]) => onGameDataUpdate('quests', data);
+    const onAffixesUpdate = (data: Affix[]) => onGameDataUpdate('affixes', data);
+
 
     const handleSaveSettings = () => {
         onSettingsUpdate(currentSettings);
@@ -1109,6 +1225,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setEditingItem(null);
     };
     
+    const handleSaveAffix = (affix: Affix) => {
+        const newAffixes = [...affixes];
+        const index = newAffixes.findIndex(a => a.id === affix.id);
+        if (index > -1) newAffixes[index] = affix;
+        else newAffixes.push(affix);
+        onAffixesUpdate(newAffixes);
+        setEditingAffix(null);
+    };
+
     const handleSaveQuest = (quest: Quest) => {
         const newQuests = [...quests];
         const index = newQuests.findIndex(q => q.id === quest.id);
@@ -1118,7 +1243,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setEditingQuest(null);
     };
 
-    const handleDelete = (key: 'locations' | 'expeditions' | 'enemies' | 'itemTemplates' | 'quests', id: string) => {
+    const handleDelete = (key: 'locations' | 'expeditions' | 'enemies' | 'itemTemplates' | 'quests' | 'affixes', id: string) => {
         if (!window.confirm('Are you sure you want to delete this item?')) return;
         switch (key) {
             case 'locations': onLocationsUpdate(locations.filter(l => l.id !== id)); break;
@@ -1126,6 +1251,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             case 'enemies': onEnemiesUpdate(enemies.filter(e => e.id !== id)); break;
             case 'itemTemplates': onItemTemplatesUpdate(itemTemplates.filter(i => i.id !== id)); break;
             case 'quests': onQuestsUpdate(quests.filter(q => q.id !== id)); break;
+            case 'affixes': onAffixesUpdate(affixes.filter(a => a.id !== id)); break;
         }
     };
     
@@ -1136,6 +1262,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         { id: 'expeditions', label: t('admin.tabs.expeditions') },
         { id: 'enemies', label: t('admin.tabs.enemies') },
         { id: 'items', label: t('admin.tabs.items') },
+        { id: 'affixes', label: t('admin.tabs.affixes') },
         { id: 'quests', label: t('admin.tabs.quests') },
         { id: 'pvp', label: t('admin.tabs.pvp') },
     ];
@@ -1228,7 +1355,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>}
 
              {activeTab === 'enemies' && <div className="animate-fade-in">
-                {editingEnemy ? <EnemyEditor enemy={editingEnemy} onSave={handleSaveEnemy} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates}/> : <>
+                {/* FIX: The EnemyEditor component was missing required props. Added onSave, onCancel, isEditing, and allItemTemplates to resolve the type error. */}
+                {editingEnemy ? <EnemyEditor enemy={editingEnemy} onSave={handleSaveEnemy} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates} /> : <>
                     <button onClick={() => setEditingEnemy({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Enemy</button>
                     {enemies.map(enemy => <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{enemy.name}</span><div className="space-x-2"><button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('enemies', enemy.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
                 </>}
@@ -1237,34 +1365,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {activeTab === 'items' && <div className="animate-fade-in">
                 {editingItem ? <ItemEditor item={editingItem} onSave={handleSaveItem} onCancel={() => setEditingItem(null)} /> : <>
                     <button onClick={() => setEditingItem({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.item.add')}</button>
-                    {itemTemplates.map(item => <div key={item.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span className={rarityStyles[item.rarity].text}>{item.name}</span><div className="space-x-2"><button onClick={() => setEditingItem(item)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('itemTemplates', item.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
+                    {itemTemplates.map(item => <div key={item.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2">
+                        <span className={rarityStyles[item.rarity].text}>{item.name}</span>
+                        <div className="space-x-2">
+                            <button onClick={() => setEditingItem(item)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button>
+                            <button onClick={() => handleDelete('itemTemplates', item.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button>
+                        </div>
+                    </div>)}
                 </>}
             </div>}
-            
+
+            {activeTab === 'affixes' && <div className="animate-fade-in">
+                {editingAffix ? <AffixEditor affix={editingAffix} onSave={handleSaveAffix} onCancel={() => setEditingAffix(null)} /> : <>
+                    <div className="flex gap-4 mb-4">
+                        <button onClick={() => setEditingAffix({ type: AffixType.Prefix })} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.affix.addPrefix')}</button>
+                        <button onClick={() => setEditingAffix({ type: AffixType.Suffix })} className="px-4 py-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold">{t('admin.affix.addSuffix')}</button>
+                    </div>
+                    {affixes.map(affix => <div key={affix.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2">
+                        <span>{affix.name} ({affix.type})</span>
+                        <div className="space-x-2">
+                            <button onClick={() => setEditingAffix(affix)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button>
+                            <button onClick={() => handleDelete('affixes', affix.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button>
+                        </div>
+                    </div>)}
+                </>}
+            </div>}
+
             {activeTab === 'quests' && <div className="animate-fade-in">
                 {editingQuest ? <QuestEditor quest={editingQuest} onSave={handleSaveQuest} onCancel={() => setEditingQuest(null)} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates} /> : <>
                     <button onClick={() => setEditingQuest({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.quest.add')}</button>
                     {quests.map(quest => <div key={quest.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{quest.name}</span><div className="space-x-2"><button onClick={() => setEditingQuest(quest)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('quests', quest.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
                 </>}
             </div>}
-
+            
             {activeTab === 'pvp' && <div className="animate-fade-in space-y-8">
-                 <div>
+                <div>
                     <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.title')}</h3>
                     <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
                         <label className="block">
                             <span className="text-gray-300">{t('admin.pvp.protectionDuration')}</span>
                             <input type="number" min="0" value={currentSettings.pvpProtectionMinutes || 60} onChange={e => setCurrentSettings(s => ({...s, pvpProtectionMinutes: parseInt(e.target.value) || 60}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
-                             <p className="text-xs text-gray-500 mt-1">{t('admin.pvp.protectionDurationDesc')}</p>
+                            <p className="text-xs text-gray-500 mt-1">{t('admin.pvp.protectionDurationDesc')}</p>
                         </label>
                         <button onClick={handleSaveSettings} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save Settings</button>
                     </div>
                 </div>
-                 <div>
+                <div>
                     <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.actions')}</h3>
-                     <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
+                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
                         <button onClick={onResetAllPvpCooldowns} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.pvp.resetCooldowns')}</button>
-                     </div>
+                    </div>
                 </div>
             </div>}
 

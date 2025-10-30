@@ -12,7 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix } from '../../types.js';
 
 
 dotenv.config();
@@ -306,7 +306,7 @@ const verifyPassword = (password: string, salt: string, storedHash: string): boo
 };
 
 // --- Server-side Stat Calculation ---
-const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[]): PlayerCharacter => {
+const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[]): PlayerCharacter => {
     const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
         strength: character.stats.strength,
         agility: character.stats.agility,
@@ -322,6 +322,35 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
     let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
+
+    const applyBonuses = (source: ItemTemplate | Affix, upgradeFactor: number) => {
+        for (const stat in source.statsBonus) {
+            const key = stat as keyof typeof source.statsBonus;
+            const baseBonus = source.statsBonus[key] || 0;
+            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * (source.hasOwnProperty('rarity') ? upgradeFactor : 0)); // Only upgrade item base stats
+        }
+
+        const baseDamageMin = source.damageMin || 0, baseDamageMax = source.damageMax || 0;
+        const baseMagicDamageMin = source.magicDamageMin || 0, baseMagicDamageMax = source.magicDamageMax || 0;
+        const baseArmor = source.armorBonus || 0, baseCritChance = source.critChanceBonus || 0, baseMaxHealth = source.maxHealthBonus || 0;
+        const isItem = source.hasOwnProperty('rarity');
+
+        bonusDamageMin += baseDamageMin + (isItem ? Math.round(baseDamageMin * upgradeFactor) : 0);
+        bonusDamageMax += baseDamageMax + (isItem ? Math.round(baseDamageMax * upgradeFactor) : 0);
+        bonusMagicDamageMin += baseMagicDamageMin + (isItem ? Math.round(baseMagicDamageMin * upgradeFactor) : 0);
+        bonusMagicDamageMax += baseMagicDamageMax + (isItem ? Math.round(baseMagicDamageMax * upgradeFactor) : 0);
+        bonusArmor += baseArmor + (isItem ? Math.round(baseArmor * upgradeFactor) : 0);
+        bonusCritChance += baseCritChance + (isItem ? baseCritChance * upgradeFactor : 0);
+        bonusMaxHealth += baseMaxHealth + (isItem ? Math.round(baseMaxHealth * upgradeFactor) : 0);
+
+        bonusCritDamageModifier += source.critDamageModifierBonus || 0;
+        bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
+        bonusArmorPenetrationFlat += source.armorPenetrationFlat || 0;
+        bonusLifeStealPercent += source.lifeStealPercent || 0;
+        bonusLifeStealFlat += source.lifeStealFlat || 0;
+        bonusManaStealPercent += source.manaStealPercent || 0;
+        bonusManaStealFlat += source.manaStealFlat || 0;
+    };
     
     for (const slot in character.equipment) {
         const itemInstance = character.equipment[slot as EquipmentSlot];
@@ -330,33 +359,12 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
             if (template) {
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;
-
-                for (const stat in template.statsBonus) {
-                    const key = stat as keyof typeof template.statsBonus;
-                    const baseBonus = template.statsBonus[key] || 0;
-                    totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
-                }
-
-                const baseDamageMin = template.damageMin || 0, baseDamageMax = template.damageMax || 0;
-                const baseMagicDamageMin = template.magicDamageMin || 0, baseMagicDamageMax = template.magicDamageMax || 0;
-                const baseArmor = template.armorBonus || 0, baseCritChance = template.critChanceBonus || 0, baseMaxHealth = template.maxHealthBonus || 0;
-                
-                bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
-                bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
-                bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
-                bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
-                bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
-                bonusCritChance += baseCritChance + baseCritChance * upgradeBonusFactor;
-                bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
-
-                bonusCritDamageModifier += template.critDamageModifierBonus || 0;
-                bonusArmorPenetrationPercent += template.armorPenetrationPercent || 0;
-                bonusArmorPenetrationFlat += template.armorPenetrationFlat || 0;
-                bonusLifeStealPercent += template.lifeStealPercent || 0;
-                bonusLifeStealFlat += template.lifeStealFlat || 0;
-                bonusManaStealPercent += template.manaStealPercent || 0;
-                bonusManaStealFlat += template.manaStealFlat || 0;
+                applyBonuses(template, upgradeBonusFactor);
             }
+            const prefix = affixes.find(a => a.id === itemInstance.prefixId);
+            if(prefix) applyBonuses(prefix, 0);
+            const suffix = affixes.find(a => a.id === itemInstance.suffixId);
+            if(suffix) applyBonuses(suffix, 0);
         }
     }
 
@@ -412,11 +420,11 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
 
 // --- EXPEDITION & COMBAT LOGIC ---
 
-function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplates: ItemTemplate[]): { combatLog: CombatLogEntry[], isVictory: boolean, finalPlayerHealth: number, finalPlayerMana: number } {
+function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplates: ItemTemplate[], affixes: Affix[]): { combatLog: CombatLogEntry[], isVictory: boolean, finalPlayerHealth: number, finalPlayerMana: number } {
     const combatLog: CombatLogEntry[] = [];
     let turn = 1;
 
-    let playerDerived = calculateDerivedStatsOnServer(player, itemTemplates);
+    let playerDerived = calculateDerivedStatsOnServer(player, itemTemplates, affixes);
     let playerStats = playerDerived.stats;
 
     let enemyStats: EnemyStats = JSON.parse(JSON.stringify(initialEnemy.stats));
@@ -608,13 +616,14 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
 function simulatePvpFight(
     initialAttacker: PlayerCharacter, 
     initialDefender: PlayerCharacter, 
-    itemTemplates: ItemTemplate[]
+    itemTemplates: ItemTemplate[],
+    affixes: Affix[]
 ): { combatLog: CombatLogEntry[], isVictory: boolean, finalAttackerHealth: number, finalAttackerMana: number, finalDefenderHealth: number, finalDefenderMana: number } {
     const combatLog: CombatLogEntry[] = [];
     let turn = 1;
 
-    const attacker = calculateDerivedStatsOnServer(initialAttacker, itemTemplates);
-    const defender = calculateDerivedStatsOnServer(initialDefender, itemTemplates);
+    const attacker = calculateDerivedStatsOnServer(initialAttacker, itemTemplates, affixes);
+    const defender = calculateDerivedStatsOnServer(initialDefender, itemTemplates, affixes);
 
     let attackerHealth = attacker.stats.currentHealth;
     let attackerMana = attacker.stats.currentMana;
@@ -790,6 +799,7 @@ async function completeExpedition(
     allExpeditions: Expedition[],
     allEnemies: Enemy[],
     allItemTemplates: ItemTemplate[],
+    allAffixes: Affix[],
     allQuests: Quest[]
 ): Promise<{ character: PlayerCharacter; summary: ExpeditionRewardSummary }> {
     const expeditionTemplate = allExpeditions.find(e => e.id === character.activeExpedition!.expeditionId);
@@ -819,7 +829,7 @@ async function completeExpedition(
     let tempChar = JSON.parse(JSON.stringify(character));
 
     for (const enemy of encounteredEnemies) {
-        const fightResult = simulateFight(tempChar, enemy, itemTemplates);
+        const fightResult = simulateFight(tempChar, enemy, allItemTemplates, allAffixes);
         overallCombatLog.push(...fightResult.combatLog);
         
         if (fightResult.isVictory) {
@@ -1233,7 +1243,7 @@ apiRouter.get('/character', authenticate, async (req: ExpressRequest, res: Expre
         character.username = characterResult.rows[0].username;
         character.id = req.user!.id;
         
-        const gameDataRes = await client.query('SELECT key, data FROM game_data');
+        const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData = gameDataRes.rows.reduce((acc, row) => {
             acc[row.key] = row.data;
             return acc;
@@ -1241,7 +1251,7 @@ apiRouter.get('/character', authenticate, async (req: ExpressRequest, res: Expre
 
         let expeditionCompleted = false;
         if (character.activeExpedition && character.activeExpedition.finishTime <= Date.now()) {
-            const result = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.quests);
+            const result = await completeExpedition(client, req.user!.id, character, gameData.expeditions, gameData.enemies, gameData.itemTemplates, gameData.affixes || [], gameData.quests);
             character = result.character;
             expeditionSummary = result.summary;
             expeditionCompleted = true;
@@ -1250,8 +1260,9 @@ apiRouter.get('/character', authenticate, async (req: ExpressRequest, res: Expre
         let needsDbUpdate = expeditionCompleted;
 
         const itemTemplates: ItemTemplate[] = gameData.itemTemplates || [];
+        const affixes: Affix[] = gameData.affixes || [];
         // Calculate derived stats once to get max values needed for logic
-        const tempDerivedChar = calculateDerivedStatsOnServer(character, itemTemplates);
+        const tempDerivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
         const currentMaxEnergy = tempDerivedChar.stats.maxEnergy;
 
         // --- Offline Energy Regeneration Logic ---
@@ -1493,10 +1504,12 @@ apiRouter.post('/characters/:userId/heal', authenticate, isAdmin, async (req: Ex
 
         // Fetch item templates to calculate max health
         const itemTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const affixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes'");
         const itemTemplates = itemTemplatesRes.rowCount ? itemTemplatesRes.rows[0].data : [];
+        const affixes = affixesRes.rowCount ? affixesRes.rows[0].data : [];
 
         // Calculate max health using the helper
-        const derived = calculateDerivedStatsOnServer(character, itemTemplates);
+        const derived = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
 
         // Update character's health and mana
         character.stats.currentHealth = derived.stats.maxHealth;
@@ -1587,7 +1600,7 @@ apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressReque
     try {
         await client.query('BEGIN');
 
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('settings', 'itemTemplates')");
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('settings', 'itemTemplates', 'affixes')");
         const charRes = await client.query('SELECT user_id, data FROM characters WHERE user_id = ANY($1::int[]) FOR UPDATE', [[attackerId, defenderId]]);
 
         if (charRes.rowCount !== 2) {
@@ -1596,8 +1609,10 @@ apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressReque
 
         const settingsRow = gameDataRes.rows.find(r => r.key === 'settings');
         const itemTemplatesRow = gameDataRes.rows.find(r => r.key === 'itemTemplates');
+        const affixesRow = gameDataRes.rows.find(r => r.key === 'affixes');
         const settings: GameSettings = settingsRow ? settingsRow.data : { pvpProtectionMinutes: 60, language: 'pl' };
         const itemTemplates: ItemTemplate[] = itemTemplatesRow ? itemTemplatesRow.data : [];
+        const affixes: Affix[] = affixesRow ? affixesRow.data : [];
 
         let attacker: PlayerCharacter = charRes.rows.find(r => r.user_id === attackerId)!.data;
         let defender: PlayerCharacter = charRes.rows.find(r => r.user_id === defenderId)!.data;
@@ -1618,10 +1633,10 @@ apiRouter.post('/pvp/attack/:defenderId', authenticate, async (req: ExpressReque
             return res.status(400).json({ message: 'Target is currently protected from attacks.' });
         }
         
-        const attackerWithStats = calculateDerivedStatsOnServer(attacker, itemTemplates);
-        const defenderWithStats = calculateDerivedStatsOnServer(defender, itemTemplates);
+        const attackerWithStats = calculateDerivedStatsOnServer(attacker, itemTemplates, affixes);
+        const defenderWithStats = calculateDerivedStatsOnServer(defender, itemTemplates, affixes);
         
-        const fightResult = simulatePvpFight(attackerWithStats, defenderWithStats, itemTemplates);
+        const fightResult = simulatePvpFight(attackerWithStats, defenderWithStats, itemTemplates, affixes);
         
         let goldStolen = 0;
         let xpGained = 0;
