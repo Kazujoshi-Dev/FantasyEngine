@@ -7,7 +7,7 @@ import { StarIcon } from './icons/StarIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { useTranslation } from '../contexts/LanguageContext';
-import { ItemTooltip, rarityStyles } from './shared/ItemSlot';
+import { ItemTooltip, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 
 interface ExpeditionProps {
     character: PlayerCharacter;
@@ -377,10 +377,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                                 const template = itemTemplates.find(t => t.id === itemInstance.templateId);
                                                 if (!template) return null;
                                                 const colorClass = rarityStyles[template.rarity]?.text || 'text-gray-300';
+                                                const fullName = getGrammaticallyCorrectFullName(itemInstance, template, affixes);
                                                 return (
                                                     <div key={itemInstance.uniqueId} className="relative group">
                                                         <span className={`bg-slate-800/60 px-2 py-1 rounded text-sm font-semibold cursor-help ${colorClass}`}>
-                                                            {template.name}
+                                                            {fullName}
                                                         </span>
                                                         <ItemTooltip instance={itemInstance} template={template} affixes={affixes} />
                                                     </div>

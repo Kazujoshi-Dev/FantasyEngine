@@ -13,7 +13,7 @@ export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shad
     [ItemRarity.Legendary]: { border: 'border-amber-600', bg: 'bg-amber-950', shadow: 'shadow-md shadow-amber-500/10', text: 'text-amber-400' },
 };
 
-const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
+export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
     const prefixAffix = affixes.find(a => a.id === item.prefixId);
     const suffixAffix = affixes.find(a => a.id === item.suffixId);
     
