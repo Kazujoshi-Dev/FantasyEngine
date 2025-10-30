@@ -1,5 +1,6 @@
 // FIX: Import types directly and use them in handlers to resolve type errors.
 // By aliasing the types, we avoid potential conflicts with other global types (e.g. from DOM's Request/Response).
+// FIX: Import types from express with aliases to prevent conflicts with global types (e.g., from DOM).
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';

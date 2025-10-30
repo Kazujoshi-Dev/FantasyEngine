@@ -28,6 +28,12 @@ export enum Language {
     PL = 'pl',
 }
 
+export enum GrammaticalGender {
+    Masculine = 'Masculine',
+    Feminine = 'Feminine',
+    Neuter = 'Neuter',
+}
+
 export interface User {
     id: number;
     username: string;
@@ -287,6 +293,7 @@ export enum ItemCategory {
 export interface ItemTemplate {
     id: string;
     name: string;
+    gender: GrammaticalGender;
     description: string;
     slot: EquipmentSlot | 'consumable' | 'ring';
     category: ItemCategory; // New property
@@ -355,7 +362,11 @@ export enum AffixType {
 
 export interface Affix {
     id: string;
-    name: string;
+    name: {
+        masculine: string;
+        feminine: string;
+        neuter: string;
+    };
     type: AffixType;
     requiredLevel?: number;
     requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;

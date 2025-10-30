@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats } from '../../types';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
@@ -13,10 +13,22 @@ export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shad
     [ItemRarity.Legendary]: { border: 'border-amber-600', bg: 'bg-amber-950', shadow: 'shadow-md shadow-amber-500/10', text: 'text-amber-400' },
 };
 
-const getFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
-    const prefix = affixes.find(a => a.id === item.prefixId);
-    const suffix = affixes.find(a => a.id === item.suffixId);
-    return [prefix?.name, template.name, suffix?.name].filter(Boolean).join(' ');
+const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
+    const prefixAffix = affixes.find(a => a.id === item.prefixId);
+    const suffixAffix = affixes.find(a => a.id === item.suffixId);
+    
+    let genderKey: keyof Affix['name'] = 'masculine';
+    if (template.gender === GrammaticalGender.Feminine) {
+        genderKey = 'feminine';
+    } else if (template.gender === GrammaticalGender.Neuter) {
+        genderKey = 'neuter';
+    }
+    
+    // Handle old affix data that might still be a string for backward compatibility
+    const prefixName = (prefixAffix && typeof prefixAffix.name === 'object') ? prefixAffix.name[genderKey] : (prefixAffix?.name as unknown as string);
+    const suffixName = (suffixAffix && typeof suffixAffix.name === 'object') ? suffixAffix.name[genderKey] : (suffixAffix?.name as unknown as string);
+
+    return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
 
@@ -36,7 +48,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
     
     const prefix = affixes.find(a => a.id === item.prefixId);
     const suffix = affixes.find(a => a.id === item.suffixId);
-    const fullName = getFullName(item, template, affixes);
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
 
     const StatSection: React.FC<{title?: string, source: ItemTemplate | RolledAffixStats, isItem?: boolean, isUpgrade?: boolean}> = ({title, source, isItem, isUpgrade}) => {
         const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
@@ -84,8 +96,8 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                 
                 <div className="space-y-1 text-sm">
                     <StatSection title="Statystyki bazowe" source={template} isItem={true} isUpgrade={true} />
-                    {prefix && item.rolledPrefix && <StatSection title={`Prefiks: ${prefix.name}`} source={item.rolledPrefix} />}
-                    {suffix && item.rolledSuffix && <StatSection title={`Sufiks: ${suffix.name}`} source={item.rolledSuffix} />}
+                    {prefix && item.rolledPrefix && <StatSection title={`Prefiks: ${typeof prefix.name === 'string' ? prefix.name : prefix.name.masculine}`} source={item.rolledPrefix} />}
+                    {suffix && item.rolledSuffix && <StatSection title={`Sufiks: ${typeof suffix.name === 'string' ? suffix.name : suffix.name.masculine}`} source={item.rolledSuffix} />}
                 </div>
 
                 {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && baseCharacter && (
@@ -141,7 +153,7 @@ interface ItemListItemProps {
 export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className, isEquipped }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
-    const fullName = getFullName(item, template, affixes);
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
     
     let primaryStat = '';
     if (showPrimaryStat) {

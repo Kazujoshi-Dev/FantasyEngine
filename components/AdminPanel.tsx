@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward, GameData, Affix, AffixType, ItemCategory } from '../types';
+import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward, GameData, Affix, AffixType, ItemCategory, GrammaticalGender } from '../types';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
@@ -641,26 +641,36 @@ const ItemEditor: React.FC<{
             setFormData(prev => ({ ...prev, [name]: checked }));
         } else {
             const isNumeric = ['value', 'requiredLevel', 'damageMin', 'damageMax', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'attacksPerRound', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'manaCost', 'magicDamageMin', 'magicDamageMax'].includes(name);
-            setFormData(prev => ({...prev, [name]: isNumeric ? parseFloat(value) || 0 : value }));
+            if (isNumeric) {
+                const parsed = parseFloat(value);
+                const result = isNaN(parsed) ? undefined : parsed;
+                setFormData(prev => ({...prev, [name]: result }));
+            } else {
+                setFormData(prev => ({...prev, [name]: value }));
+            }
         }
     };
     
     const handleStatsBonusChange = (stat: keyof CharacterStats, value: string) => {
+        const parsed = parseFloat(value);
+        const result = isNaN(parsed) ? undefined : parsed;
         setFormData(prev => ({
             ...prev,
             statsBonus: {
                 ...prev.statsBonus,
-                [stat]: parseInt(value, 10) || 0
+                [stat]: result
             }
         }));
     };
     
     const handleRequiredStatsChange = (stat: keyof CharacterStats, value: string) => {
+        const parsed = parseFloat(value);
+        const result = isNaN(parsed) ? undefined : parsed;
         setFormData(prev => ({
             ...prev,
             requiredStats: {
                 ...prev.requiredStats,
-                [stat]: parseInt(value, 10) || 0
+                [stat]: result
             }
         }));
     };
@@ -678,14 +688,15 @@ const ItemEditor: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.slot || !formData.rarity || !formData.category) {
-            alert("Name, slot, category, and rarity are required.");
+        if (!formData.name || !formData.slot || !formData.rarity || !formData.category || !formData.gender) {
+            alert("Name, slot, category, rarity, and gender are required.");
             return;
         }
         
         const finalItem: ItemTemplate = {
             id: formData.id || crypto.randomUUID(),
             name: formData.name,
+            gender: formData.gender,
             description: formData.description || '',
             slot: formData.slot,
             category: formData.category,
@@ -722,11 +733,20 @@ const ItemEditor: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{item.id ? t('admin.item.edit') : t('admin.item.create')}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.slotLabel')}</label><select name="slot" value={formData.slot || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`item.slot.${s}`)}</option>)}<option value="ring">Ring</option><option value="consumable">Consumable</option></select></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.category')}</label><select name="category" value={formData.category || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.category${c}`)}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.rarity')}</label><select name="rarity" value={formData.rarity || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"><option value="">{t('admin.select')}</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">Rodzaj Gramatyczny</label>
+                    <select name="gender" value={formData.gender || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md">
+                        <option value="">Wybierz rodzaj</option>
+                        <option value={GrammaticalGender.Masculine}>Męski</option>
+                        <option value={GrammaticalGender.Feminine}>Żeński</option>
+                        <option value={GrammaticalGender.Neuter}>Nijaki</option>
+                    </select>
+                </div>
             </div>
             <div><label className="block text-sm font-medium text-gray-300">{t('item.description')}</label><textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full bg-slate-700 p-2 rounded-md"></textarea></div>
             
@@ -807,7 +827,27 @@ const AffixEditor: React.FC<{
   onCancel: () => void;
 }> = ({ affix, onSave, onCancel }) => {
     const { t } = useTranslation();
-    const [formData, setFormData] = useState<Partial<Affix>>(affix);
+    const [formData, setFormData] = useState<Partial<Affix>>(() => {
+        const initialData = { ...affix };
+        if (typeof initialData.name === 'string') {
+            const oldName = initialData.name;
+            initialData.name = { masculine: oldName, feminine: oldName, neuter: oldName };
+        } else if (!initialData.name) {
+            initialData.name = { masculine: '', feminine: '', neuter: '' };
+        }
+        return initialData;
+    });
+
+
+    const handleNameChange = (gender: keyof Affix['name'], value: string) => {
+        setFormData(p => ({
+            ...p,
+            name: {
+                ...(p.name as Affix['name']),
+                [gender]: value
+            }
+        }));
+    };
 
     const handleNestedChange = (
         category: keyof Affix,
@@ -833,8 +873,8 @@ const AffixEditor: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.type) {
-            alert("Name and type are required."); return;
+        if (!formData.name?.masculine || !formData.name?.feminine || !formData.name?.neuter || !formData.type) {
+            alert("All name forms and type are required."); return;
         }
         
         const finalAffix: Affix = {
@@ -872,8 +912,8 @@ const AffixEditor: React.FC<{
         <div>
             <label className="block text-sm font-medium text-gray-300">{label}</label>
             <div className="flex gap-2 mt-1">
-                <input type="number" placeholder={t('admin.min')} value={(formData[name] as any)?.min || ''} onChange={(e) => handleNestedChange(name, '', 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
-                <input type="number" placeholder={t('admin.max')} value={(formData[name] as any)?.max || ''} onChange={(e) => handleNestedChange(name, '', 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                <input type="number" placeholder={t('admin.min')} value={(formData[name] as any)?.min ?? ''} onChange={(e) => handleNestedChange(name, '', 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                <input type="number" placeholder={t('admin.max')} value={(formData[name] as any)?.max ?? ''} onChange={(e) => handleNestedChange(name, '', 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
             </div>
         </div>
     );
@@ -882,7 +922,14 @@ const AffixEditor: React.FC<{
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{affix.id ? t('admin.affix.edit') : t('admin.affix.create')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.name')}</label><input type="text" value={formData.name || ''} onChange={(e) => setFormData(p => ({...p, name: e.target.value}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300">{t('admin.affix.name')}</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
+                        <input type="text" placeholder="Forma męska (np. Potężny)" value={formData.name?.masculine || ''} onChange={e => handleNameChange('masculine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
+                        <input type="text" placeholder="Forma żeńska (np. Potężna)" value={formData.name?.feminine || ''} onChange={e => handleNameChange('feminine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
+                        <input type="text" placeholder="Forma nijaka (np. Potężne)" value={formData.name?.neuter || ''} onChange={e => handleNameChange('neuter', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
+                    </div>
+                </div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.type')}</label><input type="text" value={formData.type || ''} readOnly className="mt-1 w-full bg-slate-800 p-2 rounded-md text-gray-400"/></div>
             </div>
             
@@ -899,8 +946,8 @@ const AffixEditor: React.FC<{
                     <div key={key}>
                         <label className="block text-xs font-medium text-gray-300">{t(`statistics.${key}`)}</label>
                         <div className="flex gap-1 mt-1">
-                            <input type="number" placeholder="Min" value={formData.statsBonus?.[key]?.min || ''} onChange={(e) => handleNestedChange('statsBonus', key, 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
-                            <input type="number" placeholder="Max" value={formData.statsBonus?.[key]?.max || ''} onChange={(e) => handleNestedChange('statsBonus', key, 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                            <input type="number" placeholder="Min" value={formData.statsBonus?.[key]?.min ?? ''} onChange={(e) => handleNestedChange('statsBonus', key, 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                            <input type="number" placeholder="Max" value={formData.statsBonus?.[key]?.max ?? ''} onChange={(e) => handleNestedChange('statsBonus', key, 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
                         </div>
                     </div>
                 ))}
@@ -1443,12 +1490,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
             <div className="bg-slate-900/40 p-6 rounded-xl">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-indigo-400">{type === AffixType.Prefix ? t('admin.affix.prefix') : t('admin.affix.suffix')}</h3>
-                    <button onClick={() => { setSelectedItem({ type }); setView('edit'); }} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 font-semibold">{type === AffixType.Prefix ? t('admin.affix.addPrefix') : t('admin.affix.addSuffix')}</button>
+                    <button onClick={() => { setSelectedItem({ type }); setView('edit'); }} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold">{type === AffixType.Prefix ? t('admin.affix.addPrefix') : t('admin.affix.addSuffix')}</button>
                 </div>
                 <ul>
                     {affixes.map(affix => (
                         <li key={affix.id} className="flex justify-between items-center p-2 border-t border-slate-700">
-                            <span>{affix.name}</span>
+                            <span>{typeof affix.name === 'string' ? affix.name : affix.name.masculine}</span>
                             <div className="space-x-2">
                                 <button onClick={() => { setSelectedItem(affix); setView('edit'); }} className="text-xs px-2 py-1 rounded bg-sky-700 hover:bg-sky-600">Edit</button>
                                 <button onClick={() => handleDelete('affixes', affix.id)} className="text-xs px-2 py-1 rounded bg-red-800 hover:bg-red-700">Delete</button>
