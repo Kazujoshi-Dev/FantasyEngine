@@ -19,7 +19,6 @@ interface AdminPanelProps {
   onForceTraderRefresh: () => void;
   onResetAllPvpCooldowns: () => void;
   onSendGlobalMessage: (data: { subject: string; content: string }) => Promise<void>;
-  initialTab?: AdminTab;
 }
 
 type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp';
@@ -48,7 +47,6 @@ const LocationEditor: React.FC<{
       [Tab.Quests]: 'Quests',
       [Tab.Messages]: 'Messages',
       [Tab.Tavern]: 'Tavern',
-      // FIX: Property 'Affixes' does not exist on type 'typeof Tab'.
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -787,7 +785,7 @@ const ItemEditor: React.FC<{
 
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.magicProperties')}</h4>
              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <label className="flex items-center space-x-2 pt-6"><input type="checkbox" name="isMagical" checked={formData.isMagical || false} onChange={handleInputChange} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{t('item.isMagical')}</span></label>
+                <label className="flex items-center space-x-2 pt-6"><input type="checkbox" name="isMagical" checked={formData.isMagical || false} onChange={handleInputChange} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500"/><span>{t('item.isMagical')}</span></label>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicAttackType')}</label><select name="magicAttackType" value={formData.magicAttackType || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}><option value="">None</option>{Object.values(MagicAttackType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.manaCost')}</label><input type="number" name="manaCost" value={formData.manaCost || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}/></div>
                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMin')}</label><input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md" disabled={!formData.isMagical}/></div>
@@ -870,7 +868,7 @@ const AffixEditor: React.FC<{
     const primaryStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
     const itemCategories = Object.values(ItemCategory);
 
-    const RangeInput: React.FC<{ label: string; name: keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'>}> = ({ label, name }) => (
+    const RangeInput: React.FC<{ label: string; name: keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'>}> = ({ label, name }) => (
         <div>
             <label className="block text-sm font-medium text-gray-300">{label}</label>
             <div className="flex gap-2 mt-1">
@@ -968,7 +966,6 @@ const QuestEditor: React.FC<{
     const handleObjectiveChange = (field: keyof Quest['objective'], value: any) => {
         setFormData(prev => {
             const newObjective = { ...(prev.objective as Quest['objective']), [field]: value };
-            // Reset targetId if type changes to PayGold
             if (field === 'type' && value === QuestType.PayGold) {
                 newObjective.targetId = undefined;
             }
@@ -1056,7 +1053,6 @@ const QuestEditor: React.FC<{
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{quest.id ? t('admin.quest.edit') : t('admin.quest.create')}</h3>
             
-            {/* --- Basic Info --- */}
             <fieldset className="border border-slate-700 p-4 rounded-md space-y-4">
                 <legend className="px-2 font-semibold">Informacje Podstawowe</legend>
                 <div><label className="block text-sm font-medium text-gray-300">{t('admin.quest.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
@@ -1065,7 +1061,6 @@ const QuestEditor: React.FC<{
                 <div><label className="block text-sm font-medium text-gray-300 mb-2">Dostępny w lokacjach</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{allLocations.map(loc => (<label key={loc.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.locationIds?.includes(loc.id) || false} onChange={() => handleLocationToggle(loc.id)} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600"/><span>{loc.name}</span></label>))}</div></div>
             </fieldset>
 
-            {/* --- Objective --- */}
             <fieldset className="border border-slate-700 p-4 rounded-md space-y-4">
                 <legend className="px-2 font-semibold">{t('admin.quest.objective')}</legend>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1082,14 +1077,12 @@ const QuestEditor: React.FC<{
                 </div>
             </fieldset>
 
-            {/* --- Rewards --- */}
             <fieldset className="border border-slate-700 p-4 rounded-md space-y-4">
                 <legend className="px-2 font-semibold">{t('admin.quest.rewards')}</legend>
                 <div className="grid grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium text-gray-300">{t('resources.gold')}</label><input type="number" min="0" value={formData.rewards?.gold || 0} onChange={(e) => handleRewardChange('gold', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                     <div><label className="block text-sm font-medium text-gray-300">{t('statistics.level')} XP</label><input type="number" min="0" value={formData.rewards?.experience || 0} onChange={(e) => handleRewardChange('experience', e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 </div>
-                {/* Item Rewards */}
                 <div>
                     <h5 className="font-semibold text-gray-300 mb-2">{t('admin.quest.itemRewards')}</h5>
                     <div className="space-y-2">
@@ -1103,7 +1096,6 @@ const QuestEditor: React.FC<{
                     </div>
                     <button type="button" onClick={() => addDynamicReward('itemRewards')} className="mt-2 text-sm text-indigo-400">+ Add Item Reward</button>
                 </div>
-                {/* Resource Rewards */}
                 <div>
                     <h5 className="font-semibold text-gray-300 mb-2">{t('admin.quest.resourceRewards')}</h5>
                     <div className="space-y-2">
@@ -1117,14 +1109,394 @@ const QuestEditor: React.FC<{
                     </div>
                     <button type="button" onClick={() => addDynamicReward('resourceRewards')} className="mt-2 text-sm text-indigo-400">+ Add Resource Reward</button>
                 </div>
-                {/* Loot Table */}
                 <div>
                     <h5 className="font-semibold text-gray-300 mb-2">{t('admin.lootTable')}</h5>
                      <div className="space-y-2">
                         {(formData.rewards?.lootTable || []).map((drop, index) => (
                             <div key={index} className="flex gap-2 items-end">
                                 <div className="flex-grow"><label className="text-xs text-gray-400">Item</label><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select Item</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>
-                                <div><label className="text-xs text----></content>
-  </change>
-</changes>
-```
+                                <div><label className="text-xs text-gray-400">{t('admin.chance')}</label><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
+                                <button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-2 bg-red-800 rounded-md">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400">+ Add Loot Drop</button>
+                </div>
+            </fieldset>
+
+            <div className="flex justify-end space-x-4 pt-4">
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Anuluj</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Zapisz</button>
+            </div>
+        </form>
+    );
+};
+
+const GeneralSettings: React.FC<{
+    settings: GameSettings;
+    onSave: (settings: GameSettings) => void;
+    onForceTraderRefresh: () => void;
+}> = ({ settings, onSave, onForceTraderRefresh }) => {
+    const { t } = useTranslation();
+    const [formData, setFormData] = useState<GameSettings>(settings);
+
+    const handleRarityChange = (rarity: ItemRarity, value: string) => {
+        const numValue = parseInt(value, 10) || 0;
+        setFormData(prev => ({
+            ...prev,
+            traderSettings: {
+                ...prev.traderSettings,
+                rarityChances: {
+                    ...(prev.traderSettings?.rarityChances as TraderSettings['rarityChances']),
+                    [rarity]: numValue
+                }
+            }
+        }))
+    };
+    
+    const handleSave = () => {
+        onSave(formData);
+        alert('Settings saved!');
+    };
+
+    return (
+        <div className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
+            <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('admin.gameSettings')}</h3>
+            <div className="space-y-4">
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">{t('admin.traderSettings')}</label>
+                    <p className="text-xs text-gray-500 mb-2">{t('admin.rarityChancesDesc')}</p>
+                    <div className="grid grid-cols-3 gap-4 bg-slate-800/50 p-4 rounded-md">
+                        {Object.values(ItemRarity).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
+                            <div key={rarity}>
+                                <label className="block text-xs font-medium text-gray-300">{t(`rarity.${rarity}`)}</label>
+                                <input type="number" min="0" max="100"
+                                    value={formData.traderSettings?.rarityChances?.[rarity] ?? ''}
+                                    onChange={e => handleRarityChange(rarity, e.target.value)}
+                                    className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+             <div className="space-y-4 border-t border-slate-700 mt-6 pt-4">
+                <h3 className="text-lg font-bold text-indigo-400">{t('admin.traderActions')}</h3>
+                <button onClick={onForceTraderRefresh} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
+            </div>
+            <div className="flex justify-end space-x-4 pt-4 border-t border-slate-700 mt-6">
+                <button onClick={handleSave} className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.saveSettings')}</button>
+            </div>
+        </div>
+    )
+};
+
+const UsersPanel: React.FC<{
+    users: User[];
+    allCharacters: AdminCharacterInfo[];
+    onDeleteUser: (userId: number) => void;
+    onDeleteCharacter: (userId: number) => void;
+    onResetCharacterStats: (userId: number) => void;
+    onHealCharacter: (userId: number) => void;
+    onSendGlobalMessage: (data: { subject: string; content: string }) => Promise<void>;
+}> = ({ users, allCharacters, onDeleteUser, onDeleteCharacter, onResetCharacterStats, onHealCharacter, onSendGlobalMessage }) => {
+    const { t } = useTranslation();
+    const [subject, setSubject] = useState('');
+    const [content, setContent] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
+    const handleSendGlobal = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!subject || !content) {
+            alert("Subject and content are required.");
+            return;
+        }
+        setIsSending(true);
+        try {
+            await onSendGlobalMessage({ subject, content });
+            alert("Global message sent successfully.");
+            setSubject('');
+            setContent('');
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8 mt-6">
+            <div className="bg-slate-900/40 p-6 rounded-xl">
+                 <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.manageCharacters')}</h3>
+                 {allCharacters.length > 0 ? (
+                    <table className="w-full text-left">
+                        <thead className="text-xs text-gray-400 uppercase"><tr><th className="p-2">Username</th><th className="p-2">Character</th><th className="p-2">Level</th><th className="p-2 text-right">Actions</th></tr></thead>
+                        <tbody>
+                            {allCharacters.map(char => (
+                                <tr key={char.user_id} className="border-t border-slate-700">
+                                    <td className="p-2">{char.username}</td>
+                                    <td className="p-2">{char.name} ({t(`race.${char.race}`)})</td>
+                                    <td className="p-2">{char.level}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                        <button onClick={() => onHealCharacter(char.user_id)} className="text-xs px-2 py-1 rounded bg-green-700 hover:bg-green-600">{t('admin.heal')}</button>
+                                        <button onClick={() => onResetCharacterStats(char.user_id)} className="text-xs px-2 py-1 rounded bg-amber-700 hover:bg-amber-600">{t('admin.resetStats')}</button>
+                                        <button onClick={() => onDeleteCharacter(char.user_id)} className="text-xs px-2 py-1 rounded bg-red-800 hover:bg-red-700">{t('admin.deleteCharacter')}</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 ) : <p>{t('admin.noCharacters')}</p>}
+            </div>
+             <div className="bg-slate-900/40 p-6 rounded-xl">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.managePlayers')}</h3>
+                <table className="w-full text-left">
+                     <thead className="text-xs text-gray-400 uppercase"><tr><th className="p-2">ID</th><th className="p-2">Username</th><th className="p-2 text-right">Actions</th></tr></thead>
+                     <tbody>
+                        {users.map(user => (
+                            <tr key={user.id} className="border-t border-slate-700">
+                                <td className="p-2">{user.id}</td>
+                                <td className="p-2">{user.username}</td>
+                                <td className="p-2 text-right">
+                                    <button onClick={() => onDeleteUser(user.id)} className="text-xs px-2 py-1 rounded bg-red-800 hover:bg-red-700">{t('admin.deletePlayer')}</button>
+                                </td>
+                            </tr>
+                        ))}
+                     </tbody>
+                </table>
+            </div>
+             <div className="bg-slate-900/40 p-6 rounded-xl">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4">Send Global Message</h3>
+                <form onSubmit={handleSendGlobal} className="space-y-4">
+                    <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject" className="w-full bg-slate-700 p-2 rounded-md"/>
+                    <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Message content..." rows={4} className="w-full bg-slate-700 p-2 rounded-md"></textarea>
+                    <button type="submit" disabled={isSending} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 font-semibold disabled:bg-slate-500">{isSending ? "Sending..." : "Send to All Players"}</button>
+                </form>
+            </div>
+        </div>
+    )
+};
+
+const PvpPanel: React.FC<{
+    settings: GameSettings;
+    onSettingsUpdate: (settings: GameSettings) => void;
+    onResetAllPvpCooldowns: () => void;
+}> = ({ settings, onSettingsUpdate, onResetAllPvpCooldowns }) => {
+    const { t } = useTranslation();
+    const [pvpProtection, setPvpProtection] = useState(settings.pvpProtectionMinutes || 60);
+
+    const handleSave = () => {
+        onSettingsUpdate({ ...settings, pvpProtectionMinutes: pvpProtection });
+        alert('PvP settings saved!');
+    };
+
+    return (
+        <div className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
+            <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('admin.pvp.title')}</h3>
+            <div className="space-y-2">
+                 <label className="block text-sm font-medium text-gray-300">{t('admin.pvp.protectionDuration')}</label>
+                 <p className="text-xs text-gray-500 mb-2">{t('admin.pvp.protectionDurationDesc')}</p>
+                 <input type="number" value={pvpProtection} onChange={e => setPvpProtection(parseInt(e.target.value) || 0)} className="w-full max-w-xs bg-slate-700 p-2 rounded-md" />
+            </div>
+            <div className="flex justify-end pt-4 border-t border-slate-700">
+                <button onClick={handleSave} className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.saveSettings')}</button>
+            </div>
+            <div className="space-y-4 border-t border-slate-700 mt-6 pt-4">
+                <h3 className="text-lg font-bold text-indigo-400">{t('admin.pvp.actions')}</h3>
+                <button onClick={onResetAllPvpCooldowns} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.pvp.resetCooldowns')}</button>
+            </div>
+        </div>
+    );
+};
+
+
+export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpdate, onSettingsUpdate, ...userProps }) => {
+    const { t } = useTranslation();
+    const [activeTab, setActiveTab] = useState<AdminTab>('general');
+    const [view, setView] = useState<'list' | 'edit'>('list');
+    const [selectedItem, setSelectedItem] = useState<any | null>(null);
+
+    const handleSave = (key: keyof Omit<GameData, 'settings'>, item: any) => {
+        const currentData = (gameData[key] as any[]) || [];
+        const existingIndex = currentData.findIndex(i => i.id === item.id);
+        let newData;
+        if (existingIndex > -1) {
+            newData = [...currentData];
+            newData[existingIndex] = item;
+        } else {
+            newData = [...currentData, item];
+        }
+        onGameDataUpdate(key, newData);
+        setView('list');
+        setSelectedItem(null);
+    };
+
+    const handleDelete = (key: keyof Omit<GameData, 'settings'>, id: string) => {
+        if (window.confirm('Are you sure you want to delete this item?')) {
+            const currentData = (gameData[key] as any[]) || [];
+            const newData = currentData.filter(i => i.id !== id);
+            onGameDataUpdate(key, newData);
+        }
+    };
+    
+    const TABS: { id: AdminTab; label: string }[] = [
+        { id: 'general', label: t('admin.tabs.general') },
+        { id: 'users', label: t('admin.tabs.users') },
+        { id: 'locations', label: t('admin.tabs.locations') },
+        { id: 'expeditions', label: t('admin.tabs.expeditions') },
+        { id: 'enemies', label: t('admin.tabs.enemies') },
+        { id: 'items', label: t('admin.tabs.items') },
+        { id: 'affixes', label: t('admin.tabs.affixes') },
+        { id: 'quests', label: t('admin.tabs.quests') },
+        { id: 'pvp', label: t('admin.tabs.pvp') },
+    ];
+
+    const renderListView = () => {
+        let items: any[] = [];
+        let title = '';
+        let onAdd = () => {};
+        let columns: { header: string; cell: (item: any) => React.ReactNode }[] = [];
+
+        switch (activeTab) {
+            case 'locations':
+                items = gameData.locations;
+                title = t('admin.tabs.locations');
+                onAdd = () => { setSelectedItem({}); setView('edit'); };
+                columns = [
+                    { header: 'Name', cell: item => item.name },
+                    { header: 'Travel Time', cell: item => `${item.travelTime}s` },
+                    { header: 'Start Location', cell: item => item.isStartLocation ? 'Yes' : 'No' }
+                ];
+                break;
+            case 'expeditions':
+                items = gameData.expeditions;
+                title = t('admin.tabs.expeditions');
+                onAdd = () => { setSelectedItem({}); setView('edit'); };
+                columns = [
+                    { header: 'Name', cell: item => item.name },
+                    { header: 'Duration', cell: item => `${item.duration}s` },
+                    { header: 'Energy Cost', cell: item => item.energyCost }
+                ];
+                break;
+            case 'enemies':
+                 items = gameData.enemies;
+                title = t('admin.tabs.enemies');
+                onAdd = () => { setSelectedItem({}); setView('edit'); };
+                columns = [
+                    { header: 'Name', cell: item => item.name },
+                    { header: 'Health', cell: item => item.stats.maxHealth },
+                    { header: 'Damage', cell: item => `${item.stats.minDamage}-${item.stats.maxDamage}` }
+                ];
+                break;
+            case 'items':
+                items = gameData.itemTemplates;
+                title = t('admin.tabs.items');
+                onAdd = () => { setSelectedItem({}); setView('edit'); };
+                columns = [
+                    { header: 'Name', cell: item => <span className={rarityStyles[item.rarity].text}>{item.name}</span> },
+                    { header: 'Level', cell: item => item.requiredLevel },
+                    { header: 'Value', cell: item => item.value },
+                    { header: 'Slot', cell: item => t(`item.slot.${item.slot}`) }
+                ];
+                break;
+            case 'quests':
+                items = gameData.quests;
+                title = t('admin.tabs.quests');
+                onAdd = () => { setSelectedItem({}); setView('edit'); };
+                columns = [
+                    { header: 'Name', cell: item => item.name },
+                    { header: 'Objective', cell: item => t(`admin.quest.types.${item.objective.type}`) },
+                    { header: 'Repeatable', cell: item => item.repeatable === 0 ? 'Infinite' : item.repeatable }
+                ];
+                break;
+            default: return null;
+        }
+
+        return (
+            <div className="bg-slate-900/40 p-6 rounded-xl mt-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-indigo-400">{title}</h3>
+                    <button onClick={onAdd} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold">Add New</button>
+                </div>
+                <table className="w-full text-left">
+                    <thead><tr>{columns.map(c => <th key={c.header} className="p-2 text-xs text-gray-400 uppercase">{c.header}</th>)}<th className="p-2"></th></tr></thead>
+                    <tbody>
+                        {items.map(item => (
+                            <tr key={item.id} className="border-t border-slate-700">
+                                {columns.map(c => <td key={c.header} className="p-2">{c.cell(item)}</td>)}
+                                <td className="p-2 text-right space-x-2">
+                                    <button onClick={() => { setSelectedItem(item); setView('edit'); }} className="text-xs px-2 py-1 rounded bg-sky-700 hover:bg-sky-600">Edit</button>
+                                    <button onClick={() => handleDelete(activeTab as any, item.id)} className="text-xs px-2 py-1 rounded bg-red-800 hover:bg-red-700">Delete</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+    
+     const renderAffixesView = () => {
+        const prefixes = gameData.affixes.filter(a => a.type === AffixType.Prefix);
+        const suffixes = gameData.affixes.filter(a => a.type === AffixType.Suffix);
+
+        const AffixList: React.FC<{ affixes: Affix[], type: AffixType }> = ({ affixes, type }) => (
+            <div className="bg-slate-900/40 p-6 rounded-xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-indigo-400">{type === AffixType.Prefix ? t('admin.affix.prefix') : t('admin.affix.suffix')}</h3>
+                    <button onClick={() => { setSelectedItem({ type }); setView('edit'); }} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 font-semibold">{type === AffixType.Prefix ? t('admin.affix.addPrefix') : t('admin.affix.addSuffix')}</button>
+                </div>
+                <ul>
+                    {affixes.map(affix => (
+                        <li key={affix.id} className="flex justify-between items-center p-2 border-t border-slate-700">
+                            <span>{affix.name}</span>
+                            <div className="space-x-2">
+                                <button onClick={() => { setSelectedItem(affix); setView('edit'); }} className="text-xs px-2 py-1 rounded bg-sky-700 hover:bg-sky-600">Edit</button>
+                                <button onClick={() => handleDelete('affixes', affix.id)} className="text-xs px-2 py-1 rounded bg-red-800 hover:bg-red-700">Delete</button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        );
+
+        return (
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AffixList affixes={prefixes} type={AffixType.Prefix} />
+                <AffixList affixes={suffixes} type={AffixType.Suffix} />
+            </div>
+        )
+    };
+
+    const renderEditorView = () => {
+        switch (activeTab) {
+            case 'locations': return <LocationEditor location={selectedItem} onSave={(loc) => handleSave('locations', loc)} onCancel={() => setView('list')} isEditing={!!selectedItem?.id} allLocations={gameData.locations} />;
+            case 'expeditions': return <ExpeditionEditor expedition={selectedItem} onSave={(exp) => handleSave('expeditions', exp)} onCancel={() => setView('list')} isEditing={!!selectedItem?.id} allLocations={gameData.locations} allEnemies={gameData.enemies} allItemTemplates={gameData.itemTemplates} />;
+            case 'enemies': return <EnemyEditor enemy={selectedItem} onSave={(enemy) => handleSave('enemies', enemy)} onCancel={() => setView('list')} isEditing={!!selectedItem?.id} allItemTemplates={gameData.itemTemplates} />;
+            case 'items': return <ItemEditor item={selectedItem} onSave={(item) => handleSave('itemTemplates', item)} onCancel={() => setView('list')} />;
+            case 'affixes': return <AffixEditor affix={selectedItem} onSave={(affix) => handleSave('affixes', affix)} onCancel={() => setView('list')} />;
+            case 'quests': return <QuestEditor quest={selectedItem} onSave={(quest) => handleSave('quests', quest)} onCancel={() => setView('list')} allLocations={gameData.locations} allEnemies={gameData.enemies} allItemTemplates={gameData.itemTemplates} />;
+            default: return null;
+        }
+    };
+
+    return (
+        <ContentPanel title={t('admin.title')}>
+            <div className="flex border-b border-slate-700 overflow-x-auto">
+                {TABS.map(tab => (
+                    <button key={tab.id} onClick={() => { setActiveTab(tab.id); setView('list'); }}
+                        className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
+                    >{tab.label}</button>
+                ))}
+            </div>
+            
+            {view === 'list' ? (
+                <>
+                    {activeTab === 'general' && <GeneralSettings settings={gameData.settings} onSave={onSettingsUpdate} onForceTraderRefresh={userProps.onForceTraderRefresh} />}
+                    {activeTab === 'users' && <UsersPanel {...userProps} />}
+                    {activeTab === 'pvp' && <PvpPanel settings={gameData.settings} onSettingsUpdate={onSettingsUpdate} onResetAllPvpCooldowns={userProps.onResetAllPvpCooldowns} />}
+                    {activeTab === 'affixes' ? renderAffixesView() : renderListView()}
+                </>
+            ) : renderEditorView()}
+        </ContentPanel>
+    );
+};
