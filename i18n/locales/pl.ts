@@ -121,7 +121,9 @@ export default {
         lifeSteal: 'Wysysanie Życia',
         lifeStealDesc: 'Leczy cię o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
         manaSteal: 'Wysysanie Many',
-        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.'
+        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
+        dodgeChance: 'Szansa na Unik',
+        dodgeChanceDesc: 'Procentowa szansa na całkowite uniknięcie ataku fizycznego przeciwnika. Zwiększa się wraz ze Zręcznością.'
     },
     equipment: {
         title: 'Ekwipunek',
@@ -192,6 +194,8 @@ export default {
         lifeStealFlat: 'Wysysanie Życia (Stałe)',
         manaStealPercent: 'Wysysanie Many (%)',
         manaStealFlat: 'Wysysanie Many (Stałe)',
+        attacksPerRoundBonus: 'Dodatkowe ataki na turę',
+        dodgeChanceBonus: 'Szansa na unik (%)',
         slot: {
             head: 'Hełm',
             chest: 'Zbroja',
@@ -548,7 +552,7 @@ export default {
         traderActions: 'Akcje Handlarza',
         forceTraderRefresh: 'Wymuś Odświeżenie Towarów',
         traderRefreshConfirm: 'Czy na pewno chcesz wygenerować nowy zestaw przedmiotów dla handlarza? Obecne przedmioty znikną.',
-        traderRefreshSuccess: 'Towary handlarza zostały odświeżone.',
+        traderRefreshSuccess: "Towary handlarza zostały odświeżone.",
         enemy: {
             magicProperties: 'Właściwości Magiczne',
             maxMana: 'Max Mana',

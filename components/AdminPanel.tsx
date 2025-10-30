@@ -811,21 +811,24 @@ const AffixEditor: React.FC<{
     const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<Affix>>(affix);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        
-        const isNumeric = ['requiredLevel', 'damageMin', 'damageMax', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'attacksPerRound', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'manaCost', 'magicDamageMin', 'magicDamageMax'].includes(name);
-        setFormData(prev => ({...prev, [name]: isNumeric ? parseFloat(value) || 0 : value }));
+    const handleNestedChange = (
+        category: keyof Affix,
+        key: string,
+        subKey: 'min' | 'max',
+        value: string
+    ) => {
+        setFormData(prev => ({
+            ...prev,
+            [category]: {
+                ...(prev[category] as any),
+                [key]: {
+                    ...((prev[category] as any)?.[key] || {}),
+                    [subKey]: parseFloat(value) || 0
+                }
+            }
+        }));
     };
     
-    const handleStatsBonusChange = (stat: keyof CharacterStats, value: string) => {
-        setFormData(prev => ({ ...prev, statsBonus: { ...prev.statsBonus, [stat]: parseInt(value, 10) || 0 }}));
-    };
-    
-    const handleRequiredStatsChange = (stat: keyof CharacterStats, value: string) => {
-        setFormData(prev => ({ ...prev, requiredStats: { ...prev.requiredStats, [stat]: parseInt(value, 10) || 0 }}));
-    };
-
     const handleSpawnChanceChange = (category: ItemCategory, value: string) => {
         setFormData(prev => ({ ...prev, spawnChances: { ...prev.spawnChances, [category]: parseInt(value, 10) || 0 }}));
     };
@@ -845,7 +848,8 @@ const AffixEditor: React.FC<{
             statsBonus: formData.statsBonus || {},
             damageMin: formData.damageMin,
             damageMax: formData.damageMax,
-            attacksPerRound: formData.attacksPerRound,
+            attacksPerRoundBonus: formData.attacksPerRoundBonus,
+            dodgeChanceBonus: formData.dodgeChanceBonus,
             armorBonus: formData.armorBonus,
             critChanceBonus: formData.critChanceBonus,
             maxHealthBonus: formData.maxHealthBonus,
@@ -856,9 +860,6 @@ const AffixEditor: React.FC<{
             lifeStealFlat: formData.lifeStealFlat,
             manaStealPercent: formData.manaStealPercent,
             manaStealFlat: formData.manaStealFlat,
-            isMagical: false, // Not supported for now
-            magicAttackType: undefined,
-            manaCost: undefined,
             magicDamageMin: formData.magicDamageMin,
             magicDamageMax: formData.magicDamageMax,
             spawnChances: formData.spawnChances || {},
@@ -869,44 +870,62 @@ const AffixEditor: React.FC<{
     const primaryStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
     const itemCategories = Object.values(ItemCategory);
 
+    const RangeInput: React.FC<{ label: string; name: keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'>}> = ({ label, name }) => (
+        <div>
+            <label className="block text-sm font-medium text-gray-300">{label}</label>
+            <div className="flex gap-2 mt-1">
+                <input type="number" placeholder={t('admin.min')} value={(formData[name] as any)?.min || ''} onChange={(e) => handleNestedChange(name, '', 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                <input type="number" placeholder={t('admin.max')} value={(formData[name] as any)?.max || ''} onChange={(e) => handleNestedChange(name, '', 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+            </div>
+        </div>
+    );
+
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-4">
             <h3 className="text-xl font-bold text-indigo-400 mb-2">{affix.id ? t('admin.affix.edit') : t('admin.affix.create')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.name')}</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.type')}</label><input type="text" name="type" value={formData.type || ''} readOnly className="mt-1 w-full bg-slate-800 p-2 rounded-md text-gray-400"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.name')}</label><input type="text" value={formData.name || ''} onChange={(e) => setFormData(p => ({...p, name: e.target.value}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                <div><label className="block text-sm font-medium text-gray-300">{t('admin.affix.type')}</label><input type="text" value={formData.type || ''} readOnly className="mt-1 w-full bg-slate-800 p-2 rounded-md text-gray-400"/></div>
             </div>
             
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('admin.affix.spawnChances')}</h4>
              <div className="grid grid-cols-3 gap-4">
                 {itemCategories.map(cat => (
-                    <div key={cat}><label className="block text-sm font-medium text-gray-300">{t(`admin.affix.spawnChance${cat}`)}</label><input type="number" name={`spawnChance-${cat}`} value={formData.spawnChances?.[cat] || ''} onChange={(e) => handleSpawnChanceChange(cat, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div key={cat}><label className="block text-sm font-medium text-gray-300">{t(`admin.affix.spawnChance${cat}`)}</label><input type="number" value={formData.spawnChances?.[cat] || ''} onChange={(e) => handleSpawnChanceChange(cat, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
                 ))}
             </div>
 
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.statBonuses')}</h4>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {primaryStatKeys.map(key => (
-                    <div key={key}><label className="block text-xs font-medium text-gray-300">{t(`statistics.${key}`)}</label><input type="number" name={key} value={formData.statsBonus?.[key] || ''} onChange={(e) => handleStatsBonusChange(key, e.target.value)} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+                    <div key={key}>
+                        <label className="block text-xs font-medium text-gray-300">{t(`statistics.${key}`)}</label>
+                        <div className="flex gap-1 mt-1">
+                            <input type="number" placeholder="Min" value={formData.statsBonus?.[key]?.min || ''} onChange={(e) => handleNestedChange('statsBonus', key, 'min', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                            <input type="number" placeholder="Max" value={formData.statsBonus?.[key]?.max || ''} onChange={(e) => handleNestedChange('statsBonus', key, 'max', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/>
+                        </div>
+                    </div>
                 ))}
             </div>
 
             <h4 className="font-semibold text-gray-300 border-t border-slate-700 pt-4 mt-4">{t('item.secondaryBonuses')}</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.damageMin')}</label><input type="number" name="damageMin" value={formData.damageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.damageMax')}</label><input type="number" name="damageMax" value={formData.damageMax || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorBonus')}</label><input type="number" name="armorBonus" value={formData.armorBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.critChanceBonus')}</label><input type="number" step="0.1" name="critChanceBonus" value={formData.critChanceBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.maxHealthBonus')}</label><input type="number" name="maxHealthBonus" value={formData.maxHealthBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.critDamageModifierBonus')}</label><input type="number" name="critDamageModifierBonus" value={formData.critDamageModifierBonus || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorPenetrationPercent')}</label><input type="number" name="armorPenetrationPercent" value={formData.armorPenetrationPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.armorPenetrationFlat')}</label><input type="number" name="armorPenetrationFlat" value={formData.armorPenetrationFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.lifeStealPercent')}</label><input type="number" name="lifeStealPercent" value={formData.lifeStealPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.lifeStealFlat')}</label><input type="number" name="lifeStealFlat" value={formData.lifeStealFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.manaStealPercent')}</label><input type="number" name="manaStealPercent" value={formData.manaStealPercent || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.manaStealFlat')}</label><input type="number" name="manaStealFlat" value={formData.manaStealFlat || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                 <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMin')}</label><input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
-                <div><label className="block text-sm font-medium text-gray-300">{t('item.magicDamageMax')}</label><input type="number" name="magicDamageMax" value={formData.magicDamageMax || ''} onChange={handleInputChange} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/></div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <RangeInput label={t('item.damageMin')} name="damageMin" />
+                <RangeInput label={t('item.damageMax')} name="damageMax" />
+                <RangeInput label={t('item.armorBonus')} name="armorBonus" />
+                <RangeInput label={t('item.critChanceBonus')} name="critChanceBonus" />
+                <RangeInput label={t('item.maxHealthBonus')} name="maxHealthBonus" />
+                <RangeInput label={t('item.critDamageModifierBonus')} name="critDamageModifierBonus" />
+                <RangeInput label={t('item.armorPenetrationPercent')} name="armorPenetrationPercent" />
+                <RangeInput label={t('item.armorPenetrationFlat')} name="armorPenetrationFlat" />
+                <RangeInput label={t('item.lifeStealPercent')} name="lifeStealPercent" />
+                <RangeInput label={t('item.lifeStealFlat')} name="lifeStealFlat" />
+                <RangeInput label={t('item.manaStealPercent')} name="manaStealPercent" />
+                <RangeInput label={t('item.manaStealFlat')} name="manaStealFlat" />
+                <RangeInput label={t('item.magicDamageMin')} name="magicDamageMin" />
+                <RangeInput label={t('item.magicDamageMax')} name="magicDamageMax" />
+                <RangeInput label={t('item.attacksPerRoundBonus')} name="attacksPerRoundBonus" />
+                <RangeInput label={t('item.dodgeChanceBonus')} name="dodgeChanceBonus" />
             </div>
 
             <div className="flex justify-end space-x-4 pt-4">
@@ -989,7 +1008,8 @@ const QuestEditor: React.FC<{
             else newItem = { templateId: '', chance: 10 };
             const list = (rewards[rewardType] as any[] | undefined) || [];
             const updatedList = [...list, newItem];
-            return { ...prev, rewards: { ...rewards, [rewardType]: updatedList }};
+            const newState = { ...prev, rewards: { ...rewards, [rewardType]: updatedList }};
+            return newState;
         });
     };
 
@@ -1104,320 +1124,7 @@ const QuestEditor: React.FC<{
                         {(formData.rewards?.lootTable || []).map((drop, index) => (
                             <div key={index} className="flex gap-2 items-end">
                                 <div className="flex-grow"><label className="text-xs text-gray-400">Item</label><select value={drop.templateId} onChange={e => handleDynamicRewardChange('lootTable', index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">Select Item</option>{allItemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>
-                                <div><label className="text-xs text-gray-400">{t('admin.chance')}</label><input type="number" min="1" max="100" value={drop.chance} onChange={e => handleDynamicRewardChange('lootTable', index, 'chance', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md"/></div>
-                                <button type="button" onClick={() => removeDynamicReward('lootTable', index)} className="px-2 py-2 bg-red-800 rounded-md">X</button>
-                            </div>
-                        ))}
-                    </div>
-                    <button type="button" onClick={() => addDynamicReward('lootTable')} className="mt-2 text-sm text-indigo-400">+ Add Loot Drop</button>
-                </div>
-            </fieldset>
-
-            <div className="flex justify-end space-x-4 pt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save</button>
-            </div>
-        </form>
-    );
-};
-
-export const AdminPanel: React.FC<AdminPanelProps> = ({
-  gameData, onGameDataUpdate, onSettingsUpdate,
-  users, onDeleteUser,
-  allCharacters, onDeleteCharacter, onResetCharacterStats, onHealCharacter,
-  onForceTraderRefresh, onResetAllPvpCooldowns, onSendGlobalMessage,
-  initialTab = 'general'
-}) => {
-    const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
-    
-    // State for editors
-    const [editingLocation, setEditingLocation] = useState<Partial<Location> | null>(null);
-    const [editingExpedition, setEditingExpedition] = useState<Partial<Expedition> | null>(null);
-    const [editingEnemy, setEditingEnemy] = useState<Partial<Enemy> | null>(null);
-    const [editingItem, setEditingItem] = useState<Partial<ItemTemplate> | null>(null);
-    const [editingAffix, setEditingAffix] = useState<Partial<Affix> | null>(null);
-    const [editingQuest, setEditingQuest] = useState<Partial<Quest> | null>(null);
-
-    // State for General tab
-    const [currentSettings, setCurrentSettings] = useState<GameSettings>(gameData.settings);
-    const [globalMessageSubject, setGlobalMessageSubject] = useState('');
-    const [globalMessageContent, setGlobalMessageContent] = useState('');
-    const [isSendingGlobal, setIsSendingGlobal] = useState(false);
-
-    useEffect(() => {
-        setCurrentSettings(gameData.settings);
-    }, [gameData.settings]);
-
-    const { locations, expeditions, enemies, itemTemplates, quests, affixes } = gameData;
-    const onLocationsUpdate = (data: Location[]) => onGameDataUpdate('locations', data);
-    const onExpeditionsUpdate = (data: Expedition[]) => onGameDataUpdate('expeditions', data);
-    const onEnemiesUpdate = (data: Enemy[]) => onGameDataUpdate('enemies', data);
-    const onItemTemplatesUpdate = (data: ItemTemplate[]) => onGameDataUpdate('itemTemplates', data);
-    const onQuestsUpdate = (data: Quest[]) => onGameDataUpdate('quests', data);
-    const onAffixesUpdate = (data: Affix[]) => onGameDataUpdate('affixes', data);
-
-
-    const handleSaveSettings = () => {
-        onSettingsUpdate(currentSettings);
-    };
-
-    const handleSendGlobal = async () => {
-        if (!globalMessageSubject || !globalMessageContent) {
-            alert('Subject and content are required for a global message.');
-            return;
-        }
-        setIsSendingGlobal(true);
-        try {
-            await onSendGlobalMessage({ subject: globalMessageSubject, content: globalMessageContent });
-            alert('Global message sent successfully!');
-            setGlobalMessageSubject('');
-            setGlobalMessageContent('');
-        } catch (err: any) {
-            alert(`Error: ${err.message}`);
-        } finally {
-            setIsSendingGlobal(false);
-        }
-    };
-
-    const handleSaveLocation = (loc: Location) => {
-        const newLocations = [...locations];
-        const index = newLocations.findIndex(l => l.id === loc.id);
-        if (index > -1) {
-            newLocations[index] = loc;
-        } else {
-            newLocations.push(loc);
-        }
-
-        if (loc.isStartLocation) {
-            onLocationsUpdate(newLocations.map(l => l.id === loc.id ? loc : { ...l, isStartLocation: false }));
-        } else {
-            onLocationsUpdate(newLocations);
-        }
-        setEditingLocation(null);
-    };
-    
-    // Similar save handlers for other editors...
-    const handleSaveExpedition = (exp: Expedition) => {
-        const newExps = [...expeditions];
-        const index = newExps.findIndex(e => e.id === exp.id);
-        if (index > -1) newExps[index] = exp;
-        else newExps.push(exp);
-        onExpeditionsUpdate(newExps);
-        setEditingExpedition(null);
-    };
-
-    const handleSaveEnemy = (enemy: Enemy) => {
-        const newEnemies = [...enemies];
-        const index = newEnemies.findIndex(e => e.id === enemy.id);
-        if (index > -1) newEnemies[index] = enemy;
-        else newEnemies.push(enemy);
-        onEnemiesUpdate(newEnemies);
-        setEditingEnemy(null);
-    };
-
-    const handleSaveItem = (item: ItemTemplate) => {
-        const newItems = [...itemTemplates];
-        const index = newItems.findIndex(i => i.id === item.id);
-        if (index > -1) newItems[index] = item;
-        else newItems.push(item);
-        onItemTemplatesUpdate(newItems);
-        setEditingItem(null);
-    };
-    
-    const handleSaveAffix = (affix: Affix) => {
-        const newAffixes = [...affixes];
-        const index = newAffixes.findIndex(a => a.id === affix.id);
-        if (index > -1) newAffixes[index] = affix;
-        else newAffixes.push(affix);
-        onAffixesUpdate(newAffixes);
-        setEditingAffix(null);
-    };
-
-    const handleSaveQuest = (quest: Quest) => {
-        const newQuests = [...quests];
-        const index = newQuests.findIndex(q => q.id === quest.id);
-        if (index > -1) newQuests[index] = quest;
-        else newQuests.push(quest);
-        onQuestsUpdate(newQuests);
-        setEditingQuest(null);
-    };
-
-    const handleDelete = (key: 'locations' | 'expeditions' | 'enemies' | 'itemTemplates' | 'quests' | 'affixes', id: string) => {
-        if (!window.confirm('Are you sure you want to delete this item?')) return;
-        switch (key) {
-            case 'locations': onLocationsUpdate(locations.filter(l => l.id !== id)); break;
-            case 'expeditions': onExpeditionsUpdate(expeditions.filter(e => e.id !== id)); break;
-            case 'enemies': onEnemiesUpdate(enemies.filter(e => e.id !== id)); break;
-            case 'itemTemplates': onItemTemplatesUpdate(itemTemplates.filter(i => i.id !== id)); break;
-            case 'quests': onQuestsUpdate(quests.filter(q => q.id !== id)); break;
-            case 'affixes': onAffixesUpdate(affixes.filter(a => a.id !== id)); break;
-        }
-    };
-    
-    const TABS: { id: AdminTab, label: string }[] = [
-        { id: 'general', label: t('admin.tabs.general') },
-        { id: 'users', label: t('admin.tabs.users') },
-        { id: 'locations', label: t('admin.tabs.locations') },
-        { id: 'expeditions', label: t('admin.tabs.expeditions') },
-        { id: 'enemies', label: t('admin.tabs.enemies') },
-        { id: 'items', label: t('admin.tabs.items') },
-        { id: 'affixes', label: t('admin.tabs.affixes') },
-        { id: 'quests', label: t('admin.tabs.quests') },
-        { id: 'pvp', label: t('admin.tabs.pvp') },
-    ];
-    
-    return (
-        <ContentPanel title={t('admin.title')}>
-            <div className="flex border-b border-slate-700 mb-6 flex-wrap">
-                {TABS.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${activeTab === tab.id ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                    >{tab.label}</button>
-                ))}
-            </div>
-            
-            {/* General Tab */}
-            {activeTab === 'general' && <div className="animate-fade-in space-y-8">
-                <div>
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.gameSettings')}</h3>
-                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
-                        <label className="block">
-                            <span className="text-gray-300">{t('admin.language')}</span>
-                            <select value={currentSettings.language} onChange={e => setCurrentSettings(s => ({...s, language: e.target.value as Language}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md">
-                                <option value="pl">{t('admin.languages.pl')}</option>
-                            </select>
-                        </label>
-                        <div>
-                            <h4 className="font-semibold text-gray-300 mb-2">{t('admin.traderSettings')}</h4>
-                             <label className="block text-sm text-gray-400 mb-2">{t('admin.rarityChancesDesc')}</label>
-                            <div className="space-y-2">
-                               {Object.values(ItemRarity).filter(r => [ItemRarity.Common, ItemRarity.Uncommon, ItemRarity.Rare].includes(r)).map(rarity => (
-                                    <label key={rarity} className="flex justify-between items-center">
-                                        <span className={rarityStyles[rarity].text}>{rarity}</span>
-                                        <input type="number" min="0" max="100" value={currentSettings.traderSettings?.rarityChances[rarity] || 0}
-                                            onChange={e => setCurrentSettings(s => ({...s, traderSettings: { ...s.traderSettings, rarityChances: {...s.traderSettings?.rarityChances, [rarity]: parseInt(e.target.value) || 0} } as TraderSettings }))}
-                                            className="w-24 bg-slate-700 p-1 rounded-md text-center" />
-                                    </label>
-                               ))}
-                            </div>
-                        </div>
-                        <button onClick={handleSaveSettings} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save Settings</button>
-                    </div>
-                </div>
-                 <div>
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">Send Global Message</h3>
-                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
-                        <input type="text" placeholder="Subject" value={globalMessageSubject} onChange={e => setGlobalMessageSubject(e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
-                        <textarea placeholder="Message content..." value={globalMessageContent} onChange={e => setGlobalMessageContent(e.target.value)} rows={4} className="w-full bg-slate-700 p-2 rounded-md" />
-                        <button onClick={handleSendGlobal} disabled={isSendingGlobal} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:bg-slate-500">{isSendingGlobal ? 'Sending...' : 'Send to All Players'}</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.traderActions')}</h3>
-                     <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
-                        <button onClick={onForceTraderRefresh} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
-                     </div>
-                </div>
-            </div>}
-            
-            {/* Users & Characters Tab */}
-            {activeTab === 'users' && <div className="animate-fade-in">
-                 <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.managePlayers')}</h3>
-                {users.map(user => <div key={user.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{user.username} (ID: {user.id})</span><button onClick={() => onDeleteUser(user.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700 text-white">{t('admin.deletePlayer')}</button></div>)}
-                 <h3 className="text-xl font-bold text-indigo-400 mt-8 mb-4">{t('admin.manageCharacters')}</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {allCharacters.map(char => <div key={char.user_id} className="bg-slate-800/50 p-4 rounded-lg">
-                    <p className="font-bold">{char.name} <span className="text-sm font-normal text-gray-400">({char.race}, Lvl {char.level})</span></p>
-                    <p className="text-xs text-gray-500">{t('admin.owner')}: {char.username} (ID: {char.user_id})</p>
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                        <button onClick={() => onHealCharacter(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-green-700 hover:bg-green-600">{t('admin.heal')}</button>
-                        <button onClick={() => onResetCharacterStats(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-amber-700 hover:bg-amber-600">{t('admin.resetStats')}</button>
-                        <button onClick={() => onDeleteCharacter(char.user_id)} className="px-3 py-1 text-xs rounded-md bg-red-800 hover:bg-red-700">{t('admin.deleteCharacter')}</button>
-                    </div>
-                 </div>)}
-                 </div>
-            </div>}
-
-            {/* Other resource tabs */}
-            {activeTab === 'locations' && <div className="animate-fade-in">
-                {editingLocation ? <LocationEditor location={editingLocation} onSave={handleSaveLocation} onCancel={() => setEditingLocation(null)} isEditing={!!editingLocation.id} allLocations={locations} /> : <>
-                    <button onClick={() => setEditingLocation({isStartLocation: false, availableTabs: []})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Location</button>
-                    {locations.map(loc => <div key={loc.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{loc.name} {loc.isStartLocation && '(Start)'}</span><div className="space-x-2"><button onClick={() => setEditingLocation(loc)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('locations', loc.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
-                </>}
-            </div>}
-            
-             {activeTab === 'expeditions' && <div className="animate-fade-in">
-                {editingExpedition ? <ExpeditionEditor expedition={editingExpedition} onSave={handleSaveExpedition} onCancel={() => setEditingExpedition(null)} isEditing={!!editingExpedition.id} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates}/> : <>
-                    <button onClick={() => setEditingExpedition({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Expedition</button>
-                    {expeditions.map(exp => <div key={exp.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{exp.name}</span><div className="space-x-2"><button onClick={() => setEditingExpedition(exp)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('expeditions', exp.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
-                </>}
-            </div>}
-
-             {activeTab === 'enemies' && <div className="animate-fade-in">
-                {/* FIX: The EnemyEditor component was missing required props. Added onSave, onCancel, isEditing, and allItemTemplates to resolve the type error. */}
-                {editingEnemy ? <EnemyEditor enemy={editingEnemy} onSave={handleSaveEnemy} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates} /> : <>
-                    <button onClick={() => setEditingEnemy({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">Add Enemy</button>
-                    {enemies.map(enemy => <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{enemy.name}</span><div className="space-x-2"><button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('enemies', enemy.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
-                </>}
-            </div>}
-            
-            {activeTab === 'items' && <div className="animate-fade-in">
-                {editingItem ? <ItemEditor item={editingItem} onSave={handleSaveItem} onCancel={() => setEditingItem(null)} /> : <>
-                    <button onClick={() => setEditingItem({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.item.add')}</button>
-                    {itemTemplates.map(item => <div key={item.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2">
-                        <span className={rarityStyles[item.rarity].text}>{item.name}</span>
-                        <div className="space-x-2">
-                            <button onClick={() => setEditingItem(item)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button>
-                            <button onClick={() => handleDelete('itemTemplates', item.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button>
-                        </div>
-                    </div>)}
-                </>}
-            </div>}
-
-            {activeTab === 'affixes' && <div className="animate-fade-in">
-                {editingAffix ? <AffixEditor affix={editingAffix} onSave={handleSaveAffix} onCancel={() => setEditingAffix(null)} /> : <>
-                    <div className="flex gap-4 mb-4">
-                        <button onClick={() => setEditingAffix({ type: AffixType.Prefix })} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('admin.affix.addPrefix')}</button>
-                        <button onClick={() => setEditingAffix({ type: AffixType.Suffix })} className="px-4 py-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold">{t('admin.affix.addSuffix')}</button>
-                    </div>
-                    {affixes.map(affix => <div key={affix.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2">
-                        <span>{affix.name} ({affix.type})</span>
-                        <div className="space-x-2">
-                            <button onClick={() => setEditingAffix(affix)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button>
-                            <button onClick={() => handleDelete('affixes', affix.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button>
-                        </div>
-                    </div>)}
-                </>}
-            </div>}
-
-            {activeTab === 'quests' && <div className="animate-fade-in">
-                {editingQuest ? <QuestEditor quest={editingQuest} onSave={handleSaveQuest} onCancel={() => setEditingQuest(null)} allLocations={locations} allEnemies={enemies} allItemTemplates={itemTemplates} /> : <>
-                    <button onClick={() => setEditingQuest({})} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold mb-4">{t('admin.quest.add')}</button>
-                    {quests.map(quest => <div key={quest.id} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg mb-2"><span>{quest.name}</span><div className="space-x-2"><button onClick={() => setEditingQuest(quest)} className="px-3 py-1 text-sm rounded-md bg-slate-600 hover:bg-slate-700">Edit</button><button onClick={() => handleDelete('quests', quest.id)} className="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700">Delete</button></div></div>)}
-                </>}
-            </div>}
-            
-            {activeTab === 'pvp' && <div className="animate-fade-in space-y-8">
-                <div>
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.title')}</h3>
-                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
-                        <label className="block">
-                            <span className="text-gray-300">{t('admin.pvp.protectionDuration')}</span>
-                            <input type="number" min="0" value={currentSettings.pvpProtectionMinutes || 60} onChange={e => setCurrentSettings(s => ({...s, pvpProtectionMinutes: parseInt(e.target.value) || 60}))} className="mt-1 w-full bg-slate-700 p-2 rounded-md"/>
-                            <p className="text-xs text-gray-500 mt-1">{t('admin.pvp.protectionDurationDesc')}</p>
-                        </label>
-                        <button onClick={handleSaveSettings} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Save Settings</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.pvp.actions')}</h3>
-                    <div className="bg-slate-900/40 p-6 rounded-xl space-y-4 max-w-lg">
-                        <button onClick={onResetAllPvpCooldowns} className="px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold">{t('admin.pvp.resetCooldowns')}</button>
-                    </div>
-                </div>
-            </div>}
-
-        </ContentPanel>
-    );
-};
+                                <div><label className="text-xs text----></content>
+  </change>
+</changes>
+```

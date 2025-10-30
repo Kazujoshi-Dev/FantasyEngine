@@ -229,6 +229,7 @@ export interface CharacterStats {
   lifeStealFlat: number;
   manaStealPercent: number;
   manaStealFlat: number;
+  dodgeChance: number;
 }
 
 export interface CharacterResources {
@@ -317,31 +318,12 @@ export interface ItemTemplate {
     magicDamageMax?: number;
 }
 
-export interface ItemInstance {
-    uniqueId: string; // Unique identifier for this specific instance of an item
-    templateId: string; // ID of the ItemTemplate it's based on
-    upgradeLevel?: number;
-    prefixId?: string;
-    suffixId?: string;
-}
-
-export enum AffixType {
-    Prefix = 'Prefix',
-    Suffix = 'Suffix',
-}
-
-export interface Affix {
-    id: string;
-    name: string; // e.g., "Mighty", "of the Bear"
-    type: AffixType;
-    requiredLevel?: number;
-    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
-    
-    // All possible bonuses, mirroring ItemTemplate
-    statsBonus: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+export interface RolledAffixStats {
+    statsBonus?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     damageMin?: number;
     damageMax?: number;
-    attacksPerRound?: number;
+    attacksPerRoundBonus?: number;
+    dodgeChanceBonus?: number;
     armorBonus?: number;
     critChanceBonus?: number;
     maxHealthBonus?: number;
@@ -352,15 +334,52 @@ export interface Affix {
     lifeStealFlat?: number;
     manaStealPercent?: number;
     manaStealFlat?: number;
-    isMagical?: boolean;
-    magicAttackType?: MagicAttackType;
-    manaCost?: number;
     magicDamageMin?: number;
     magicDamageMax?: number;
+}
 
-    // Spawn chances per item category
+export interface ItemInstance {
+    uniqueId: string;
+    templateId: string;
+    upgradeLevel?: number;
+    prefixId?: string;
+    suffixId?: string;
+    rolledPrefix?: RolledAffixStats;
+    rolledSuffix?: RolledAffixStats;
+}
+
+export enum AffixType {
+    Prefix = 'Prefix',
+    Suffix = 'Suffix',
+}
+
+export interface Affix {
+    id: string;
+    name: string;
+    type: AffixType;
+    requiredLevel?: number;
+    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    damageMin?: { min: number; max: number; };
+    damageMax?: { min: number; max: number; };
+    attacksPerRoundBonus?: { min: number; max: number; };
+    dodgeChanceBonus?: { min: number; max: number; };
+    armorBonus?: { min: number; max: number; };
+    critChanceBonus?: { min: number; max: number; };
+    maxHealthBonus?: { min: number; max: number; };
+    critDamageModifierBonus?: { min: number; max: number; };
+    armorPenetrationPercent?: { min: number; max: number; };
+    armorPenetrationFlat?: { min: number; max: number; };
+    lifeStealPercent?: { min: number; max: number; };
+    lifeStealFlat?: { min: number; max: number; };
+    manaStealPercent?: { min: number; max: number; };
+    manaStealFlat?: { min: number; max: number; };
+    magicDamageMin?: { min: number; max: number; };
+    magicDamageMax?: { min: number; max: number; };
+
     spawnChances: {
-      [key in ItemCategory]?: number; // e.g., { Weapon: 10, Armor: 5 }
+      [key in ItemCategory]?: number;
     };
 }
 

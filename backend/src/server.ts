@@ -12,7 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix, RolledAffixStats } from '../../types.js';
 
 
 dotenv.config();
@@ -306,42 +306,39 @@ const verifyPassword = (password: string, salt: string, storedHash: string): boo
 };
 
 // --- Server-side Stat Calculation ---
+// FIX: Rewrote this function to mirror the client-side implementation, fixing multiple type errors.
 const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[]): PlayerCharacter => {
     const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
-        strength: character.stats.strength,
-        agility: character.stats.agility,
-        accuracy: character.stats.accuracy,
-        stamina: character.stats.stamina,
-        intelligence: character.stats.intelligence,
-        energy: character.stats.energy,
+        strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
+        stamina: character.stats.stamina, intelligence: character.stats.intelligence, energy: character.stats.energy
     };
-    
+
     let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
-    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0;
+    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
+    let bonusAttacksPerRound = 0;
     let bonusCritDamageModifier = 0;
     let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
     let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
-
-    const applyBonuses = (source: ItemTemplate | Affix, upgradeFactor: number) => {
+    
+    const applyItemBonuses = (source: ItemTemplate, upgradeFactor: number) => {
         for (const stat in source.statsBonus) {
             const key = stat as keyof typeof source.statsBonus;
             const baseBonus = source.statsBonus[key] || 0;
-            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * (source.hasOwnProperty('rarity') ? upgradeFactor : 0)); // Only upgrade item base stats
+            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
         }
 
         const baseDamageMin = source.damageMin || 0, baseDamageMax = source.damageMax || 0;
         const baseMagicDamageMin = source.magicDamageMin || 0, baseMagicDamageMax = source.magicDamageMax || 0;
         const baseArmor = source.armorBonus || 0, baseCritChance = source.critChanceBonus || 0, baseMaxHealth = source.maxHealthBonus || 0;
-        const isItem = source.hasOwnProperty('rarity');
-
-        bonusDamageMin += baseDamageMin + (isItem ? Math.round(baseDamageMin * upgradeFactor) : 0);
-        bonusDamageMax += baseDamageMax + (isItem ? Math.round(baseDamageMax * upgradeFactor) : 0);
-        bonusMagicDamageMin += baseMagicDamageMin + (isItem ? Math.round(baseMagicDamageMin * upgradeFactor) : 0);
-        bonusMagicDamageMax += baseMagicDamageMax + (isItem ? Math.round(baseMagicDamageMax * upgradeFactor) : 0);
-        bonusArmor += baseArmor + (isItem ? Math.round(baseArmor * upgradeFactor) : 0);
-        bonusCritChance += baseCritChance + (isItem ? baseCritChance * upgradeFactor : 0);
-        bonusMaxHealth += baseMaxHealth + (isItem ? Math.round(baseMaxHealth * upgradeFactor) : 0);
+        
+        bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
+        bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
+        bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeFactor);
+        bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeFactor);
+        bonusArmor += baseArmor + Math.round(baseArmor * upgradeFactor);
+        bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
+        bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
 
         bonusCritDamageModifier += source.critDamageModifierBonus || 0;
         bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
@@ -352,6 +349,31 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
         bonusManaStealFlat += source.manaStealFlat || 0;
     };
     
+    const applyAffixBonuses = (source: RolledAffixStats) => {
+        if (source.statsBonus) {
+            for (const stat in source.statsBonus) {
+                const key = stat as keyof typeof source.statsBonus;
+                totalPrimaryStats[key] += source.statsBonus[key] || 0;
+            }
+        }
+        bonusDamageMin += source.damageMin || 0;
+        bonusDamageMax += source.damageMax || 0;
+        bonusMagicDamageMin += source.magicDamageMin || 0;
+        bonusMagicDamageMax += source.magicDamageMax || 0;
+        bonusArmor += source.armorBonus || 0;
+        bonusCritChance += source.critChanceBonus || 0;
+        bonusMaxHealth += source.maxHealthBonus || 0;
+        bonusCritDamageModifier += source.critDamageModifierBonus || 0;
+        bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
+        bonusArmorPenetrationFlat += source.armorPenetrationFlat || 0;
+        bonusLifeStealPercent += source.lifeStealPercent || 0;
+        bonusLifeStealFlat += source.lifeStealFlat || 0;
+        bonusManaStealPercent += source.manaStealPercent || 0;
+        bonusManaStealFlat += source.manaStealFlat || 0;
+        bonusAttacksPerRound += source.attacksPerRoundBonus || 0;
+        bonusDodgeChance += source.dodgeChanceBonus || 0;
+    };
+
     for (const slot in character.equipment) {
         const itemInstance = character.equipment[slot as EquipmentSlot];
         if (itemInstance) {
@@ -359,25 +381,24 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
             if (template) {
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;
-                applyBonuses(template, upgradeBonusFactor);
+                applyItemBonuses(template, upgradeBonusFactor);
             }
-            const prefix = affixes.find(a => a.id === itemInstance.prefixId);
-            if(prefix) applyBonuses(prefix, 0);
-            const suffix = affixes.find(a => a.id === itemInstance.suffixId);
-            if(suffix) applyBonuses(suffix, 0);
+            if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
+            if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);
         }
     }
-
+    
     const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-    const attacksPerRound = mainHandTemplate?.attacksPerRound || 1;
+    const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
+    const attacksPerRound = baseAttacksPerRound + bonusAttacksPerRound;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
 
     const maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
     const maxMana = baseMana + totalPrimaryStats.intelligence * 10;
-
+    
     let minDamage, maxDamage;
     if (mainHandTemplate?.isMagical) {
         minDamage = baseMinDamage + bonusDamageMin;
@@ -395,6 +416,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     const lifeStealFlat = bonusLifeStealFlat;
     const manaStealPercent = bonusManaStealPercent;
     const manaStealFlat = bonusManaStealFlat;
+    const dodgeChance = bonusDodgeChance;
 
     let armor = bonusArmor;
     let manaRegen = totalPrimaryStats.intelligence * 2;
@@ -406,15 +428,21 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
     const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
 
+    const currentHealth = Math.min(character.stats.currentHealth, maxHealth);
+    const currentMana = Math.min(character.stats.currentMana, maxMana);
+    const currentEnergy = Math.min(character.stats.currentEnergy, maxEnergy);
+
     return {
-      ...character,
-      stats: {
-        ...character.stats, ...totalPrimaryStats,
-        maxHealth, maxEnergy, maxMana, minDamage, maxDamage, critChance, armor,
-        magicDamageMin, magicDamageMax, attacksPerRound, manaRegen,
-        critDamageModifier, armorPenetrationPercent, armorPenetrationFlat,
-        lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,
-      }
+        ...character,
+        stats: {
+            ...character.stats, ...totalPrimaryStats,
+            maxHealth, maxEnergy, maxMana, minDamage, maxDamage, critChance, armor,
+            magicDamageMin, magicDamageMax, attacksPerRound, manaRegen,
+            currentHealth, currentMana, currentEnergy,
+            critDamageModifier, armorPenetrationPercent, armorPenetrationFlat,
+            lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,
+            dodgeChance,
+        }
     };
 };
 

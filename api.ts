@@ -76,7 +76,6 @@ export const api = {
     },
     
     async createCharacter(name: string, race: Race, startLocationId: string): Promise<PlayerCharacter> {
-        // FIX: The `initialStats` object was missing properties required by the `CharacterStats` type. Added `armorPenetrationFlat`, `lifeStealFlat`, and `manaStealFlat` to resolve the type error.
         const initialStats: CharacterStats = {
           strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
           statPoints: 10,
@@ -95,6 +94,7 @@ export const api = {
           lifeStealFlat: 0,
           manaStealPercent: 0,
           manaStealFlat: 0,
+          dodgeChance: 0,
         };
         
         const now = Date.now();
@@ -136,7 +136,6 @@ export const api = {
                 [EquipmentSlot.Ring2]: null,
                 [EquipmentSlot.MainHand]: null,
                 [EquipmentSlot.OffHand]: null,
-                // FIX: Added missing TwoHand slot to conform to the EquipmentSlot enum.
                 [EquipmentSlot.TwoHand]: null,
             },
             inventory: [],

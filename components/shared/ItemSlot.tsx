@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix } from '../../types';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
@@ -34,31 +34,30 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
     const upgradeLevel = item.upgradeLevel || 0;
     const upgradeBonusFactor = upgradeLevel * 0.1;
     
-    const calculateUpgradedStat = (base?: number): number | undefined => {
-        if (base === undefined) return undefined;
-        return base + Math.round(base * upgradeBonusFactor);
-    };
-    
     const prefix = affixes.find(a => a.id === item.prefixId);
     const suffix = affixes.find(a => a.id === item.suffixId);
     const fullName = getFullName(item, template, affixes);
 
-    const StatSection: React.FC<{title: string, source: ItemTemplate | Affix, isUpgrade?: boolean}> = ({title, source, isUpgrade}) => {
+    const StatSection: React.FC<{title?: string, source: ItemTemplate | RolledAffixStats, isItem?: boolean, isUpgrade?: boolean}> = ({title, source, isItem, isUpgrade}) => {
         const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
         const calculateStat = (base?: number) => base !== undefined ? base + Math.round(base * bonusFactor) : undefined;
         const calculateFloatStat = (base?: number) => base !== undefined ? base + base * bonusFactor : undefined;
         
+        const s = source as any; // To access properties dynamically
+        
         const entries = [
-            ...Object.entries(source.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${calculateStat(v as number)}`, color: 'text-green-300'})),
-            (source.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(source.damageMin)}-${calculateStat(source.damageMax)}`},
-            (source.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(source.armorBonus)}`},
-            (source.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${calculateFloatStat(source.critChanceBonus)?.toFixed(1)}%`},
-            (source.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(source.maxHealthBonus)}`},
-            (source.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${source.critDamageModifierBonus}%`},
-            (source.armorPenetrationPercent || source.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${source.armorPenetrationPercent || 0}% / ${source.armorPenetrationFlat || 0}`},
-            (source.lifeStealPercent || source.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${source.lifeStealPercent || 0}% / ${source.lifeStealFlat || 0}`},
-            (source.manaStealPercent || source.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${source.manaStealPercent || 0}% / ${source.manaStealFlat || 0}`},
-            (source.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(source.magicDamageMin)}-${calculateStat(source.magicDamageMax)}`, color: 'text-purple-300'},
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(v as number) : v}`, color: 'text-green-300'})) : []),
+            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(s.damageMin) : s.damageMin}-${isItem ? calculateStat(s.damageMax) : s.damageMax}`},
+            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(s.armorBonus) : s.armorBonus}`},
+            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(isItem ? calculateFloatStat(s.critChanceBonus) : s.critChanceBonus)?.toFixed(1)}%`},
+            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${isItem ? calculateStat(s.maxHealthBonus) : s.maxHealthBonus}`},
+            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${s.critDamageModifierBonus}%`},
+            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent || 0}% / ${s.armorPenetrationFlat || 0}`},
+            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${s.lifeStealFlat || 0}`},
+            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
+            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${isItem ? calculateStat(s.magicDamageMin) : s.magicDamageMin}-${isItem ? calculateStat(s.magicDamageMax) : s.magicDamageMax}`, color: 'text-purple-300'},
+            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${s.attacksPerRoundBonus}`},
+            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
         ].filter(Boolean);
 
         if (entries.length === 0) return null;
@@ -66,7 +65,6 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
         return (
              <div className="space-y-1 bg-slate-800/50 p-2 rounded-lg mt-2">
                 {title && <h5 className="font-semibold text-gray-400 text-base">{title}</h5>}
-                {/* FIX: The type of `e` in the map function was a union type, and not all parts of the union had a `color` property. Cast `e` to a type with an optional `color` property to resolve the type error and provide a fallback empty string. */}
                 {entries.map((e, i) => <p key={i} className={`flex justify-between ${(e as { color?: string }).color || ''}`}><span>{e.label}:</span> <span className="font-mono">{e.value}</span></p>)}
             </div>
         )
@@ -85,9 +83,9 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                 <p className="text-sm text-gray-400 italic mb-4 text-center">{template.description}</p>
                 
                 <div className="space-y-1 text-sm">
-                    <StatSection title="Statystyki bazowe" source={template} isUpgrade={true} />
-                    {prefix && <StatSection title={`Prefiks: ${prefix.name}`} source={prefix} />}
-                    {suffix && <StatSection title={`Sufiks: ${suffix.name}`} source={suffix} />}
+                    <StatSection title="Statystyki bazowe" source={template} isItem={true} isUpgrade={true} />
+                    {prefix && item.rolledPrefix && <StatSection title={`Prefiks: ${prefix.name}`} source={item.rolledPrefix} />}
+                    {suffix && item.rolledSuffix && <StatSection title={`Sufiks: ${suffix.name}`} source={item.rolledSuffix} />}
                 </div>
 
                 {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && baseCharacter && (
