@@ -676,7 +676,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
             if (isPlayerAttacking) {
                 const pStats = attacker.stats as CharacterStats;
                 healthGained = Math.floor(damage * (pStats.lifeStealPercent / 100)) + pStats.lifeStealFlat;
-                manaGained = Math.floor(damage * (pStats.manaStealPercent / 100)) + pStats.manaStealFlat;
+                manaGained = Math.floor(damage * (pStats.manaStealPercent / 100)) + pStats.lifeStealFlat;
 
                 if(healthGained > 0) playerHealth = Math.min(pStats.maxHealth, playerHealth + healthGained);
                 if(manaGained > 0) playerMana = Math.min(pStats.maxMana, playerMana + manaGained);
@@ -726,14 +726,14 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
 function simulatePvpFight(
     initialAttacker: PlayerCharacter, 
     initialDefender: PlayerCharacter, 
-    itemTemplates: ItemTemplate[],
+    allItemTemplates: ItemTemplate[],
     affixes: Affix[]
 ): { combatLog: CombatLogEntry[], isVictory: boolean, finalAttackerHealth: number, finalAttackerMana: number, finalDefenderHealth: number, finalDefenderMana: number } {
     const combatLog: CombatLogEntry[] = [];
     let turn = 1;
 
-    const attacker = calculateDerivedStatsOnServer(initialAttacker, itemTemplates, affixes);
-    const defender = calculateDerivedStatsOnServer(initialDefender, itemTemplates, affixes);
+    const attacker = calculateDerivedStatsOnServer(initialAttacker, allItemTemplates, affixes);
+    const defender = calculateDerivedStatsOnServer(initialDefender, allItemTemplates, affixes);
 
     let attackerHealth = attacker.stats.currentHealth;
     let attackerMana = attacker.stats.currentMana;
@@ -742,7 +742,7 @@ function simulatePvpFight(
     
     const getWeaponTemplate = (p: PlayerCharacter) => {
         const mainHandItem = p.equipment[EquipmentSlot.MainHand] || p.equipment[EquipmentSlot.TwoHand];
-        return mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+        return mainHandItem ? allItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     }
 
     combatLog.push({
@@ -1085,7 +1085,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../../dist')));
+app.use(express.static(path.join(__dirname, '../../../../dist')));
 
 // --- Authentication Routes ---
 // FIX: Add explicit types to all route handlers
@@ -1428,7 +1428,7 @@ app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
         const gameData = result.rows.reduce((acc, row) => {
             acc[row.key] = row.data;
             return acc;
-        }, {});
+        }, {} as any);
         res.json(gameData);
     } catch (err) {
         console.error(err);
@@ -1894,7 +1894,7 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Expres
 // match one above, send back React's index.html file.
 // FIX: Add explicit types to all route handlers
 app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
-  res.sendFile(path.join(__dirname, '../../dist/index.html'));
+  res.sendFile(path.join(__dirname, '../../../../dist/index.html'));
 });
 
 // Error handling middleware
