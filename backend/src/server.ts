@@ -1,7 +1,8 @@
 // FIX: Import types directly and use them in handlers to resolve type errors.
 // By aliasing the types, we avoid potential conflicts with other global types (e.g. from DOM's Request/Response).
 // FIX: Import types from express with aliases to prevent conflicts with global types (e.g., from DOM).
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+// FIX: Added Express type for app instance.
+import express, { Express, Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -33,7 +34,8 @@ declare global {
 }
 
 // FIX: Correctly instantiated the express app. `express()` is the correct way, and `express.default()` does not exist.
-const app = express();
+// FIX: Explicitly type app as Express instance.
+const app: Express = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;
@@ -498,7 +500,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     const lifeStealFlat = bonusLifeStealFlat;
     const manaStealPercent = bonusManaStealPercent;
     const manaStealFlat = bonusManaStealFlat;
-    const dodgeChance = bonusDodgeChance;
+    const dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
 
     let armor = bonusArmor;
     let manaRegen = totalPrimaryStats.intelligence * 2;
@@ -596,14 +598,13 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
             let magicAttackType: MagicAttackType | undefined = undefined;
 
             // --- Dodge Check ---
-            if (!isPlayerAttacking && defender.race === Race.Gnome && Math.random() < 0.1) {
+            const baseDodge = isPlayerAttacking ? 0 : (defender.stats as CharacterStats).dodgeChance;
+            const racialDodge = !isPlayerAttacking && defender.race === Race.Gnome ? 10 : 0;
+            const agilityDiff = defender.stats.agility - (isPlayerAttacking ? (attacker.stats as CharacterStats).accuracy : 0);
+            const agilityDodge = Math.max(0, agilityDiff * 0.1);
+
+            if (Math.random() * 100 < (baseDodge + racialDodge + agilityDodge)) {
                 isDodge = true;
-            } else {
-                const attackerAccuracy = isPlayerAttacking ? (attacker.stats as CharacterStats).accuracy : 0;
-                const dodgeChance = Math.max(0, (defender.stats.agility - attackerAccuracy) * 0.1);
-                if (Math.random() * 100 < dodgeChance) {
-                    isDodge = true;
-                }
             }
 
             if(isDodge) {
@@ -676,7 +677,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
             if (isPlayerAttacking) {
                 const pStats = attacker.stats as CharacterStats;
                 healthGained = Math.floor(damage * (pStats.lifeStealPercent / 100)) + pStats.lifeStealFlat;
-                manaGained = Math.floor(damage * (pStats.manaStealPercent / 100)) + pStats.lifeStealFlat;
+                manaGained = Math.floor(damage * (pStats.manaStealPercent / 100)) + pStats.manaStealFlat;
 
                 if(healthGained > 0) playerHealth = Math.min(pStats.maxHealth, playerHealth + healthGained);
                 if(manaGained > 0) playerMana = Math.min(pStats.maxMana, playerMana + manaGained);
@@ -793,10 +794,13 @@ function simulatePvpFight(
             let manaGained = 0;
             let magicAttackType: MagicAttackType | undefined = undefined;
 
-            if (def.race === Race.Gnome && Math.random() < 0.1) isDodge = true;
-            else {
-                const dodgeChance = Math.max(0, (def.stats.agility - atk.stats.accuracy) * 0.1);
-                if (Math.random() * 100 < dodgeChance) isDodge = true;
+            const baseDodge = def.stats.dodgeChance;
+            const racialDodge = def.race === Race.Gnome ? 10 : 0;
+            const agilityDiff = def.stats.agility - atk.stats.accuracy;
+            const agilityDodge = Math.max(0, agilityDiff * 0.1);
+
+            if (Math.random() * 100 < (baseDodge + racialDodge + agilityDodge)) {
+                isDodge = true;
             }
 
             if(isDodge) {

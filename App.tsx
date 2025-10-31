@@ -310,6 +310,145 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleDeleteMessage = useCallback(async (messageId: number) => {
+    try {
+        await api.deleteMessage(messageId);
+        setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+    } catch (err: any) {
+        setError(err.message);
+    }
+  }, []);
+
+  const handleMarkAsRead = useCallback(async (messageId: number) => {
+    try {
+        await api.markMessageAsRead(messageId);
+        setMessages(prevMessages => prevMessages.map(msg => 
+            msg.id === messageId ? { ...msg, is_read: true } : msg
+        ));
+    } catch (err: any) {
+        setError(err.message);
+    }
+  }, []);
+
+  const handleComposeMessage = useCallback((recipient?: string, subject?: string) => {
+    setComposeInitialData(recipient || subject ? { recipient: recipient || '', subject: subject || '' } : undefined);
+    setIsComposingMessage(true);
+  }, []);
+
+  const handleSendMessage = useCallback(async (data: { recipientName: string; subject: string; content: string }) => {
+    try {
+        await api.sendMessage(data);
+    } catch (err: any) {
+        // Re-throw the error to be handled by the modal
+        throw err;
+    }
+  }, []);
+
+  const handleEquipItem = useCallback(async (item: ItemInstance) => {
+    if (!baseCharacter || !gameData) return;
+
+    const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+    if (!template) return;
+
+    // Create a temporary character with current base stats to check requirements
+    const derivedForCheck = calculateDerivedStats(baseCharacter, gameData);
+
+    if (derivedForCheck.level < template.requiredLevel) {
+        alert(t('equipment.levelTooLow'));
+        return;
+    }
+    if (template.requiredStats) {
+        for (const stat in template.requiredStats) {
+            const key = stat as keyof CharacterStats;
+            if (derivedForCheck.stats[key] < (template.requiredStats[key] || 0)) {
+                alert(t('equipment.attributeRequirementNotMet', { stat: t(`statistics.${key}`), value: template.requiredStats[key]! }));
+                return;
+            }
+        }
+    }
+
+    let newEquipment = { ...baseCharacter.equipment };
+    let newInventory = [...baseCharacter.inventory];
+
+    const itemIndex = newInventory.findIndex(i => i.uniqueId === item.uniqueId);
+    if (itemIndex === -1) {
+        console.error("Item to equip not found in inventory.");
+        return;
+    }
+    newInventory.splice(itemIndex, 1);
+
+    let slotToEquipIn = template.slot as EquipmentSlot;
+    if (template.slot === 'ring') {
+        if (!newEquipment.ring1) slotToEquipIn = EquipmentSlot.Ring1;
+        else if (!newEquipment.ring2) slotToEquipIn = EquipmentSlot.Ring2;
+        else {
+            alert(t('equipment.ringSlotsFull'));
+            return; 
+        }
+    }
+
+    if (template.slot === EquipmentSlot.TwoHand && newEquipment.offHand) {
+        alert(t('equipment.twoHandedWeaponEquipped'));
+        return;
+    }
+
+    const currentlyEquipped = newEquipment[slotToEquipIn];
+    if (currentlyEquipped) {
+        newInventory.push(currentlyEquipped);
+    }
+    newEquipment[slotToEquipIn] = item;
+
+    if (slotToEquipIn === EquipmentSlot.TwoHand) {
+        if (newEquipment.mainHand) {
+            newInventory.push(newEquipment.mainHand);
+            newEquipment.mainHand = null;
+        }
+        if (newEquipment.offHand) {
+            newInventory.push(newEquipment.offHand);
+            newEquipment.offHand = null;
+        }
+    } else if (slotToEquipIn === EquipmentSlot.MainHand || slotToEquipIn === EquipmentSlot.OffHand) {
+        if (newEquipment.twoHand) {
+            newInventory.push(newEquipment.twoHand);
+            newEquipment.twoHand = null;
+        }
+    }
+
+    if (newInventory.length > MAX_PLAYER_INVENTORY_SIZE) {
+        alert(t('equipment.backpackFull'));
+        return;
+    }
+
+    const updatedChar = { ...baseCharacter, equipment: newEquipment, inventory: newInventory };
+    handleCharacterUpdate(updatedChar, true);
+  }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+
+  const handleUnequipItem = useCallback(async (item: ItemInstance, fromSlot: EquipmentSlot) => {
+    if (!baseCharacter) return;
+    if (baseCharacter.inventory.length >= MAX_PLAYER_INVENTORY_SIZE) {
+        alert(t('equipment.backpackFull'));
+        return;
+    }
+
+    let newEquipment = { ...baseCharacter.equipment };
+    let newInventory = [...baseCharacter.inventory];
+
+    newEquipment[fromSlot] = null;
+    newInventory.push(item);
+
+    const updatedChar = { ...baseCharacter, equipment: newEquipment, inventory: newInventory };
+    handleCharacterUpdate(updatedChar, true);
+  }, [baseCharacter, handleCharacterUpdate, t]);
+
+  const handleSendTavernMessage = useCallback(async (content: string) => {
+    try {
+        const newMessage = await api.sendTavernMessage(content);
+        setTavernMessages(prev => [...prev, newMessage]);
+    } catch (err: any) {
+        console.error("Failed to send tavern message:", err.message);
+    }
+  }, []);
+
   // Fetch data for active tab
   useEffect(() => {
     if (activeTab === Tab.Ranking) {
@@ -371,14 +510,16 @@ const App: React.FC = () => {
     const fetchData = async () => {
         try {
             if (token) {
-                const [charData, gData, messagesData] = await Promise.all([
+                const [charData, gData, messagesData, charNamesData] = await Promise.all([
                     api.getCharacter(),
                     api.getGameData(),
                     api.getMessages(),
+                    api.getCharacterNames(),
                 ]);
                 
                 setGameData(gData);
                 setMessages(messagesData);
+                setAllCharacterNames(charNamesData);
                 
                 if (charData.expeditionSummary) {
                     setExpeditionReport(charData.expeditionSummary);
@@ -424,6 +565,42 @@ const App: React.FC = () => {
       }
     }
   }, [baseCharacter?.activeExpedition]);
+
+  // Tavern Polling
+  useEffect(() => {
+    const fetchTavernMessages = async () => {
+        try {
+            const allMessages = await api.getTavernMessages();
+            if (activeTabRef.current === Tab.Tavern) {
+                setTavernMessages(allMessages);
+                if (allMessages.length > 0) {
+                    lastReadTavernMessageIdRef.current = allMessages[allMessages.length - 1].id;
+                }
+                setHasNewTavernMessages(false);
+            } else {
+                const lastMessageId = allMessages.length > 0 ? allMessages[allMessages.length - 1].id : null;
+                if (lastReadTavernMessageIdRef.current !== null && lastMessageId !== null && lastMessageId > lastReadTavernMessageIdRef.current) {
+                    setHasNewTavernMessages(true);
+                }
+            }
+        } catch(e) { console.error("Failed to fetch tavern messages", e)}
+    };
+
+    api.getTavernMessages().then(initialMessages => {
+        setTavernMessages(initialMessages);
+        if (initialMessages.length > 0) {
+            lastReadTavernMessageIdRef.current = initialMessages[initialMessages.length - 1].id;
+        }
+    });
+
+    tavernIntervalRef.current = window.setInterval(fetchTavernMessages, 5000); // Poll every 5 seconds
+
+    return () => {
+        if (tavernIntervalRef.current) {
+            clearInterval(tavernIntervalRef.current);
+        }
+    };
+  }, []);
 
 
   const handleLogout = () => {
@@ -496,7 +673,7 @@ const App: React.FC = () => {
   const mainContent = () => {
     switch (activeTab) {
         case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
-        case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={()=>{}} onUnequipItem={()=>{}} />;
+        case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
         case Tab.Expedition: return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} />;
         case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={()=>{}} getUpgradeCost={() => 0} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />;
         case Tab.Location: return <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
@@ -504,9 +681,9 @@ const App: React.FC = () => {
         case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={()=>{}} onComposeMessage={()=>{}} />;
         case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
         case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onDisenchantItem={() => ({success: false})} onUpgradeItem={() => ({success: false, messageKey: ''})} />;
-        case Tab.Messages: return <Messages messages={messages} onDeleteMessage={()=>{}} onMarkAsRead={()=>{}} onCompose={()=>{}} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} />;
+        case Tab.Messages: return <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} />;
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={()=>{}} onCompleteQuest={()=>{}} />;
-        case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={()=>{}}/>;
+        case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
         case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={()=>{}} onSettingsUpdate={()=>{}} users={users} onDeleteUser={()=>{}} allCharacters={allCharacters} onDeleteCharacter={()=>{}} onResetCharacterStats={()=>{}} onHealCharacter={()=>{}} onForceTraderRefresh={()=>{}} onResetAllPvpCooldowns={()=>{}} onSendGlobalMessage={async () => {}} />;
         default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
     }
@@ -541,7 +718,7 @@ const App: React.FC = () => {
             <ComposeMessageModal 
                 allCharacterNames={allCharacterNames}
                 onClose={() => setIsComposingMessage(false)}
-                onSendMessage={async () => {}}
+                onSendMessage={handleSendMessage}
                 initialRecipient={composeInitialData?.recipient}
                 initialSubject={composeInitialData?.subject}
             />
