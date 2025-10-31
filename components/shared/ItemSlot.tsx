@@ -36,7 +36,7 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
 //                                Item Details Panel
 // ===================================================================================
 
-export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; affixes: Affix[]; children?: React.ReactNode; showIcon?: boolean, baseCharacter?: PlayerCharacter; }> = ({ item, template, affixes, children, showIcon = true, baseCharacter }) => {
+export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: ItemTemplate | null; affixes: Affix[]; children?: React.ReactNode; showIcon?: boolean, character?: PlayerCharacter; }> = ({ item, template, affixes, children, showIcon = true, character }) => {
     const { t } = useTranslation();
     
     if (!item || !template) {
@@ -100,16 +100,16 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                     {suffix && item.rolledSuffix && <StatSection title={`Sufiks: ${typeof suffix.name === 'string' ? suffix.name : suffix.name.masculine}`} source={item.rolledSuffix} />}
                 </div>
 
-                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && baseCharacter && (
+                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && character && (
                      <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-300 space-y-1">
                         <h5 className="font-semibold text-gray-400 text-base mb-1">{t('item.requirements')}</h5>
-                        {totalRequiredLevel > 1 && <p className={`flex justify-between ${baseCharacter.level >= totalRequiredLevel ? 'text-green-400' : 'text-red-400'}`}>
+                        {totalRequiredLevel > 1 && <p className={`flex justify-between ${character.level >= totalRequiredLevel ? 'text-green-400' : 'text-red-400'}`}>
                             <span>{t('item.levelRequirement')}:</span>
                             <span>{totalRequiredLevel}</span>
                         </p>}
                         {Object.entries(allRequiredStats).map(([stat, value]) => {
-                            if (!value || !baseCharacter.stats) return null;
-                            const meetsReq = baseCharacter.stats[stat as keyof CharacterStats] >= value;
+                            if (!value || !character.stats) return null;
+                            const meetsReq = character.stats[stat as keyof CharacterStats] >= value;
                             return (
                                 <p key={stat} className={`flex justify-between ${meetsReq ? 'text-green-400' : 'text-red-400'}`}>
                                     <span>{t(`statistics.${stat}`)}:</span>
@@ -264,7 +264,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
     );
 };
 
-export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[], baseCharacter?: PlayerCharacter }> = ({ instance, template, affixes, baseCharacter }) => {
+export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[], character?: PlayerCharacter }> = ({ instance, template, affixes, character }) => {
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
 
@@ -316,7 +316,7 @@ export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTempl
             style={style}
             className="absolute w-72 p-3 bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20"
         >
-            <ItemDetailsPanel item={instance} template={template} affixes={affixes} baseCharacter={baseCharacter} />
+            <ItemDetailsPanel item={instance} template={template} affixes={affixes} character={character} />
         </div>
     );
 };

@@ -137,7 +137,7 @@ const LocationEditor: React.FC<{
         </div>
          <div>
             <label className="flex items-center space-x-2">
-                <input type="checkbox" name="isStartLocation" checked={formData.isStartLocation || false} onChange={handleInputChange} className="form-checkbox h-5 w-5 rounded bg-slate-700 border border-slate-600 text-indigo-600 focus:ring-indigo-500" />
+                <input type="checkbox" name="isStartLocation" checked={formData.isStartLocation || false} onChange={handleInputChange} className="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500" />
                 <span>{t('admin.location.isStartLocation')}</span>
             </label>
             {formData.isStartLocation && <p className="text-xs text-amber-400 mt-1">{t('admin.location.isStartLocationNote')}</p>}
@@ -799,6 +799,72 @@ const AffixManager: React.FC<{
     const [editingAffix, setEditingAffix] = useState<Partial<Affix> | null>(null);
     const [filterType, setFilterType] = useState<AffixType | 'all'>('all');
 
+    const secondaryStatLabels: Record<string, string> = {
+        damageMin: t('item.damageMin'),
+        damageMax: t('item.damageMax'),
+        attacksPerRoundBonus: t('item.attacksPerRoundBonus'),
+        dodgeChanceBonus: t('item.dodgeChanceBonus'),
+        armorBonus: t('item.armorBonus'),
+        critChanceBonus: t('item.critChanceBonus'),
+        maxHealthBonus: t('item.maxHealthBonus'),
+        critDamageModifierBonus: t('item.critDamageModifierBonus'),
+        armorPenetrationPercent: t('item.armorPenetrationPercent'),
+        armorPenetrationFlat: t('item.armorPenetrationFlat'),
+        lifeStealPercent: t('item.lifeStealPercent'),
+        lifeStealFlat: t('item.lifeStealFlat'),
+        manaStealPercent: t('item.manaStealPercent'),
+        manaStealFlat: t('item.manaStealFlat'),
+        magicDamageMin: t('item.magicDamageMin'),
+        magicDamageMax: t('item.magicDamageMax')
+    };
+
+    const renderAffixBonuses = (affix: Affix) => {
+        const bonuses: React.ReactNode[] = [];
+        const formatRange = (range: { min: number; max: number } | undefined) => {
+            if (!range || (range.min === 0 && range.max === 0)) return null;
+            if (range.min === range.max) return `${range.min}`;
+            return `${range.min}-${range.max}`;
+        };
+
+        if (affix.statsBonus) {
+            Object.entries(affix.statsBonus).forEach(([key, range]) => {
+                const formattedRange = formatRange(range);
+                if (formattedRange) {
+                    bonuses.push(<li key={key}>+{formattedRange} {t(`statistics.${key}`)}</li>);
+                }
+            });
+        }
+
+        const secondaryStatKeys = Object.keys(secondaryStatLabels) as (keyof typeof secondaryStatLabels)[];
+        for (const key of secondaryStatKeys) {
+            const formattedRange = formatRange((affix as any)[key]);
+            if (formattedRange) {
+                let label = secondaryStatLabels[key];
+                if (key.includes('Percent')) label = label.replace('(%)','').trim() + ' %';
+                bonuses.push(<li key={key}>+{formattedRange} {label}</li>);
+            }
+        }
+
+        if (bonuses.length === 0) {
+            return <p className="italic">Brak bonusów</p>;
+        }
+        return <ul className="space-y-0.5">{bonuses}</ul>;
+    };
+
+    const renderSpawnChances = (affix: Affix) => {
+        const chances = Object.entries(affix.spawnChances || {}).filter(([, chance]) => chance > 0);
+        if (chances.length === 0) {
+            return <p className="italic">Brak zasad pojawiania się</p>;
+        }
+        return (
+            <ul className="space-y-0.5">
+                {chances.map(([category, chance]) => (
+                    <li key={category}>{t(`admin.affix.${category.toLowerCase()}` as any)}: <span className="font-semibold">{chance}%</span></li>
+                ))}
+            </ul>
+        );
+    };
+
     const filteredAffixes = useMemo(() => {
         if (filterType === 'all') return affixes;
         return affixes.filter(a => a.type === filterType);
@@ -818,13 +884,25 @@ const AffixManager: React.FC<{
                 <option value={AffixType.Prefix}>{t('admin.affix.prefixes')}</option>
                 <option value={AffixType.Suffix}>{t('admin.affix.suffixes')}</option>
             </select>
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
                 {filteredAffixes.map(affix => (
-                    <div key={affix.id} className={`bg-slate-800/50 p-2 rounded-md mb-2 flex justify-between items-center border-l-4 ${affix.type === AffixType.Prefix ? 'border-sky-500' : 'border-amber-500'}`}>
-                        <span>{(affix.name as any).masculine || affix.name} ({affix.type})</span>
-                        <div>
-                            <button onClick={() => setEditingAffix(affix)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">{t('admin.edit')}</button>
-                            <button onClick={() => { if (window.confirm(t('admin.affix.deleteConfirm'))) { onDelete(affix.id); } }} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">{t('admin.delete')}</button>
+                    <div key={affix.id} className={`bg-slate-800/50 p-4 rounded-md mb-2 flex flex-col border-l-4 ${affix.type === AffixType.Prefix ? 'border-sky-500' : 'border-amber-500'}`}>
+                        <div className="flex justify-between items-center w-full mb-2">
+                            <span className="font-bold text-lg text-white">{(affix.name as any).masculine || affix.name}</span>
+                            <div>
+                                <button onClick={() => setEditingAffix(affix)} className="px-3 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-sm mr-2">{t('admin.edit')}</button>
+                                <button onClick={() => { if (window.confirm(t('admin.affix.deleteConfirm'))) { onDelete(affix.id); } }} className="px-3 py-1 rounded-md bg-red-800 hover:bg-red-700 text-white text-sm">{t('admin.delete')}</button>
+                            </div>
+                        </div>
+                         <div className="grid grid-cols-2 gap-4 mt-2 pt-2 border-t border-slate-700/50 text-xs text-gray-400">
+                            <div>
+                                <h5 className="font-semibold text-gray-300 mb-1">Bonusy</h5>
+                                {renderAffixBonuses(affix)}
+                            </div>
+                            <div>
+                                <h5 className="font-semibold text-gray-300 mb-1">Szansa na pojawienie się</h5>
+                                {renderSpawnChances(affix)}
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -986,7 +1064,7 @@ const AffixEditor: React.FC<{
             <div className="border-t border-slate-700 pt-4"><h4 className="font-semibold text-gray-300 mb-2">{t('admin.affix.spawnChances')}</h4>
                 <div className="grid grid-cols-3 gap-4">
                     {Object.values(ItemCategory).map(cat => (
-                        <div key={cat}><label className="block text-sm">{t(`admin.affix.${cat.toLowerCase()}`)}</label><input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
+                        <div key={cat}><label className="block text-sm">{t(`admin.affix.${cat.toLowerCase()}` as any)}</label><input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"/></div>
                     ))}
                 </div>
             </div>

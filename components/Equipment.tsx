@@ -181,7 +181,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
         {/* Details Panel */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={gameData.affixes} baseCharacter={baseCharacter} />
+           <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={gameData.affixes} character={character} />
         </div>
 
         {/* Combat Stats Panel */}

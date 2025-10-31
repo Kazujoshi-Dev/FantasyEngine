@@ -169,7 +169,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             const cost = itemValue * 2;
 
             return (
-                <ItemDetailsPanel item={detailsItem.item} template={template} affixes={affixes} baseCharacter={baseCharacter}>
+                <ItemDetailsPanel item={detailsItem.item} template={template} affixes={affixes} character={character}>
                     <div className="mt-4">
                         <button
                             onClick={() => handleBuyClick(detailsItem.item, cost)}
@@ -198,7 +198,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             }
 
             return (
-                <ItemDetailsPanel item={item} template={template} affixes={affixes}>
+                <ItemDetailsPanel item={item} template={template} affixes={affixes} character={character}>
                     <div className="mt-4">
                         <button
                             onClick={handleSellClick}
