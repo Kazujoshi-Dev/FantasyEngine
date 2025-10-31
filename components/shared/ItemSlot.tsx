@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -49,6 +49,14 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
     const prefix = affixes.find(a => a.id === item.prefixId);
     const suffix = affixes.find(a => a.id === item.suffixId);
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+
+    const totalValue = useMemo(() => {
+        if (!template) return 0;
+        let value = template.value;
+        if (prefix) value += prefix.value || 0;
+        if (suffix) value += suffix.value || 0;
+        return value;
+    }, [template, prefix, suffix]);
 
     const StatSection: React.FC<{title?: string, source: ItemTemplate | RolledAffixStats, isItem?: boolean, isUpgrade?: boolean}> = ({title, source, isItem, isUpgrade}) => {
         const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
@@ -123,7 +131,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
 
                 {/* General Info */}
                 <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-400 space-y-1">
-                    <p className="flex justify-between items-center"><span>{t('item.value')}:</span> <span className="text-amber-400 flex items-center">{template.value} <CoinsIcon className="h-4 w-4 ml-1"/></span></p>
+                    <p className="flex justify-between items-center"><span>{t('item.value')}:</span> <span className="text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span></p>
                 </div>
             </div>
             {children}
