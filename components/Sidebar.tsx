@@ -62,9 +62,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
           {t('sidebar.title')}
         </h1>
         {playerCharacter && (
-          <div className="text-center bg-slate-900/50 rounded-lg p-2">
+          <div className="text-center bg-slate-900/50 rounded-lg p-3">
             <p className="font-semibold text-lg text-indigo-400">{playerCharacter.name}</p>
-            <p className="text-sm text-gray-400">{t(`race.${playerCharacter.race}`)} - {t('statistics.level')} {playerCharacter.level}</p>
+            <p className="text-sm text-gray-400 mb-2">{t(`race.${playerCharacter.race}`)} - {t('statistics.level')} {playerCharacter.level}</p>
+             <div title={`HP: ${Math.floor(playerCharacter.stats.currentHealth)} / ${playerCharacter.stats.maxHealth}`} className="w-full bg-slate-700 rounded-full h-2 border border-slate-600">
+                <div 
+                    className="bg-red-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${(playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100}%` }}
+                ></div>
+            </div>
           </div>
         )}
       </div>

@@ -129,10 +129,11 @@ const DisenchantPanel: React.FC<{
                                 {selectedTemplate.name} {upgradeLevel > 0 && `+${upgradeLevel}`}
                             </h4>
                             <p className="text-xs text-gray-400 italic mb-3">{selectedTemplate.description}</p>
-                            
+                            <p className="text-sm text-gray-400 mb-2">{t('item.slotLabel')}: <span className="font-semibold text-white">{t(`item.slot.${selectedTemplate.slot}`)}</span></p>
+
                             <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
                                 {finalDamageMin !== undefined && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
-                                {attacksPerRound && <p className="flex justify-between"><span>{t('item.attacksPerRound')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
+                                {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
                                 {finalArmorBonus && finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
                                 {finalCritChanceBonus && finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}
                                 {statBonusEntries?.map(({ key, value }) => (
