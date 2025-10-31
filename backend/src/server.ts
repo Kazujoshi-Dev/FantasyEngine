@@ -1477,18 +1477,11 @@ app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: Expr
                 c.data->>'race' as race,
                 (c.data->>'level')::int as level,
                 (c.data->>'experience')::bigint as experience,
-                (
-                    (c.data->>'experience')::bigint + 
-                    COALESCE((
-                        SELECT sum(floor(100 * pow(i, 1.3)))::bigint
-                        FROM generate_series(1, (c.data->>'level')::int - 1) as i
-                    ), 0)
-                ) as "totalExperience",
                 (c.data->>'pvpWins')::int as "pvpWins",
                 (c.data->>'pvpLosses')::int as "pvpLosses",
                 (c.data->>'pvpProtectionUntil')::bigint as "pvpProtectionUntil"
             FROM characters c
-            ORDER BY "totalExperience" DESC
+            ORDER BY experience DESC
             LIMIT 100
         `);
         res.json(result.rows);
