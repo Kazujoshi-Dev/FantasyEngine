@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer } from '../types';
@@ -134,7 +135,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                         {player.pvpLosses || 0}
                     </td>
                     <td className="p-4 text-lg font-mono text-right text-sky-400">
-                      {player.experience.toLocaleString()}
+                      {player.totalExperience.toLocaleString()}
                     </td>
                     <td className="p-4 text-center">
                         <button

@@ -506,6 +506,7 @@ export interface RankingPlayer {
     race: Race;
     level: number;
     experience: number;
+    totalExperience: number;
     pvpWins: number;
     pvpLosses: number;
     pvpProtectionUntil: number;
