@@ -28,9 +28,9 @@ const slotOrder: EquipmentSlot[] = [
 ];
 
 const StatDisplayRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-    <div className="flex justify-between items-center py-1 px-2 rounded-lg text-sm hover:bg-slate-800/50">
+    <div className="flex justify-between items-center py-0.5 px-2 rounded-lg text-xs hover:bg-slate-800/50">
         <span className="font-medium text-gray-400">{label}</span>
-        <span className="font-mono font-bold text-white">{value}</span>
+        <span className="font-mono font-bold text-white flex items-baseline">{value}</span>
     </div>
 );
 
@@ -42,39 +42,46 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
 
     return (
         <div className="flex flex-col h-full">
-            <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.combatStats')}</h3>
-            <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+            <h3 className="text-xl font-bold text-indigo-400 mb-2 px-2">{t('statistics.combatStats')}</h3>
+            <div className="flex-grow overflow-y-auto pr-2">
 
-                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-2 mb-1">{t('statistics.baseAttributes')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.baseAttributes')}</h4>
                 {baseStatKeys.map(key => {
                     const total = character.stats[key];
-                    const bonus = total - baseCharacter.stats[key];
+                    const base = baseCharacter.stats[key];
+                    const bonus = total - base;
                     return (
                         <StatDisplayRow 
                             key={key}
                             label={t(`statistics.${key}`)} 
                             value={
                                 <>
-                                    {total}
-                                    {bonus > 0 && <span className="text-green-400 ml-2">(+{bonus})</span>}
+                                    {base}
+                                    {bonus > 0 && 
+                                        <>
+                                            <span className="text-green-400 ml-1">(+{bonus})</span>
+                                            <span className="text-sky-400 ml-1">({total})</span>
+                                        </>
+                                    }
                                 </>
                             } 
                         />
                     )
                 })}
                 
-                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-4 mb-1">{t('statistics.vitals')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.vitals')}</h4>
                 <StatDisplayRow label={t('statistics.health')} value={`${stats.currentHealth.toFixed(0)} / ${stats.maxHealth}`} />
                 <StatDisplayRow label={t('statistics.mana')} value={`${stats.currentMana.toFixed(0)} / ${stats.maxMana}`} />
                 <StatDisplayRow label={t('statistics.energyLabel')} value={`${stats.currentEnergy} / ${stats.maxEnergy}`} />
 
-                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-4 mb-1">{t('statistics.combatStats')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.combatStats')}</h4>
                 <StatDisplayRow label={t('statistics.physicalDamage')} value={`${stats.minDamage} - ${stats.maxDamage}`} />
                 <StatDisplayRow label={t('statistics.magicDamage')} value={`${stats.magicDamageMin} - ${stats.magicDamageMax}`} />
                 <StatDisplayRow label={t('statistics.armor')} value={stats.armor} />
                 <StatDisplayRow label={t('statistics.critChance')} value={`${stats.critChance.toFixed(1)}%`} />
                 <StatDisplayRow label={t('statistics.critDamageModifier')} value={`${stats.critDamageModifier}%`} />
                 <StatDisplayRow label={t('statistics.attacksPerTurn')} value={stats.attacksPerRound} />
+                <StatDisplayRow label={t('statistics.dodgeChance')} value={`${stats.dodgeChance.toFixed(1)}%`} />
                 <StatDisplayRow label={t('statistics.manaRegen')} value={stats.manaRegen} />
                 <StatDisplayRow label={t('statistics.armorPenetration')} value={`${stats.armorPenetrationPercent}% / ${stats.armorPenetrationFlat}`} />
                 <StatDisplayRow label={t('statistics.lifeSteal')} value={`${stats.lifeStealPercent}% / ${stats.lifeStealFlat}`} />

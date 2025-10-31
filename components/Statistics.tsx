@@ -180,10 +180,13 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                     label={t(`statistics.${key}`)}
                     value={
                         <div className="flex items-baseline justify-end">
-                        <span className="font-mono text-lg font-bold text-white">{pendingStats[key]}</span>
-                        {itemBonus > 0 && (
-                            <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>
-                        )}
+                            <span className="font-mono text-lg font-bold text-white">{pendingStats[key]}</span>
+                            {itemBonus > 0 && (
+                                <>
+                                    <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>
+                                    <span className="font-mono text-base text-sky-400 ml-2">({pendingStats[key] + itemBonus})</span>
+                                </>
+                            )}
                         </div>
                     }
                     onIncrease={() => handleStatChange(key, 1)}
