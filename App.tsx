@@ -538,7 +538,7 @@ const App: React.FC = () => {
   };
   
   const handleEquipItem = (itemToEquip: ItemInstance) => {
-    if (!baseCharacter || !gameData) return;
+    if (!baseCharacter || !gameData || !playerCharacter) return;
     const template = gameData.itemTemplates.find(t => t.id === itemToEquip.templateId);
     if (!template) return;
     
@@ -548,10 +548,10 @@ const App: React.FC = () => {
         return;
     }
     
-    // Stats check
+    // Stats check - Use playerCharacter which has derived stats
     if (template.requiredStats) {
         for (const [stat, requiredValue] of Object.entries(template.requiredStats)) {
-            if (baseCharacter.stats[stat as keyof CharacterStats] < requiredValue) {
+            if (playerCharacter.stats[stat as keyof CharacterStats] < requiredValue) {
                 alert(t('equipment.attributeRequirementNotMet', { stat: t(`statistics.${stat}`), value: requiredValue }));
                 return;
             }
@@ -621,17 +621,17 @@ const App: React.FC = () => {
             if (equippedItem) {
                 const template = gameData.itemTemplates.find(t => t.id === equippedItem.templateId);
                 if (template?.requiredStats) {
-                    // Check requirements against base stats MINUS bonuses from items that are already marked for removal
-                    const tempCharWithoutBonuses: PlayerCharacter = {
+                    // Check requirements against derived stats from the SIMULATED equipment set
+                    const tempCharWithSimulatedGear: PlayerCharacter = {
                         ...baseCharacter,
                         equipment: simulatedEquipment
                     };
-                    const charWithSimulatedBonuses = calculateDerivedStats(tempCharWithoutBonuses, gameData);
+                    const charWithSimulatedBonuses = calculateDerivedStats(tempCharWithSimulatedGear, gameData);
 
                     let meetsReqs = true;
                     for (const [stat, requiredValue] of Object.entries(template.requiredStats)) {
-                        // IMPORTANT: We check against BASE stats, not derived stats
-                        if (baseCharacter.stats[stat as keyof CharacterStats] < requiredValue) {
+                        // Check against the newly calculated derived stats
+                        if (charWithSimulatedBonuses.stats[stat as keyof CharacterStats] < requiredValue) {
                             meetsReqs = false;
                             break;
                         }
