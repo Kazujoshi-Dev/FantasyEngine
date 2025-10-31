@@ -9,7 +9,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 interface StatisticsProps {
   character: PlayerCharacter;
   baseCharacter: PlayerCharacter;
-  onCharacterUpdate: (character: PlayerCharacter) => void;
+  onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
   calculateDerivedStats: (character: PlayerCharacter, gameData: GameData | null) => PlayerCharacter;
   gameData: GameData | null;
   onResetAttributes: () => void;
@@ -136,7 +136,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
         ...pendingStats,
         statPoints: availablePoints,
       }
-    });
+    }, true); // Force immediate save to the server
   };
 
   const handleResetChanges = () => {
