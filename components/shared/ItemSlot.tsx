@@ -68,6 +68,7 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
         const entries = [
             ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(v as number) : v}`, color: 'text-green-300'})) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(s.damageMin) : s.damageMin}-${isItem ? calculateStat(s.damageMax) : s.damageMax}`},
+            (s.attacksPerRound !== undefined) && {label: t('statistics.attacksPerTurn'), value: s.attacksPerRound},
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(s.armorBonus) : s.armorBonus}`},
             (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(isItem ? calculateFloatStat(s.critChanceBonus) : s.critChanceBonus)?.toFixed(1)}%`},
             (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${isItem ? calculateStat(s.maxHealthBonus) : s.maxHealthBonus}`},
@@ -133,9 +134,6 @@ export const ItemDetailsPanel: React.FC<{ item: ItemInstance | null; template: I
                 <div className="border-t border-slate-700/50 mt-4 pt-2 text-sm text-gray-400 space-y-1">
                     <p className="flex justify-between"><span>{t('item.rarity')}:</span> <span className={rarityStyles[template.rarity].text}>{t(`rarity.${template.rarity}`)}</span></p>
                     <p className="flex justify-between"><span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`item.slot.${template.slot}`)}</span></p>
-                    {template.attacksPerRound && (
-                        <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono font-semibold text-white">{template.attacksPerRound}</span></p>
-                    )}
                     <p className="flex justify-between items-center"><span>{t('item.value')}:</span> <span className="text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span></p>
                 </div>
             </div>
