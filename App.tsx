@@ -266,6 +266,55 @@ const App: React.FC = () => {
       };
       handleCharacterUpdate(updatedChar, true);
   }, [baseCharacter, gameData, calculateDerivedStats, handleCharacterUpdate]);
+  
+  const handleResetAttributes = useCallback(async () => {
+    if (!baseCharacter || !gameData) return;
+
+    const isFreeReset = !baseCharacter.freeStatResetUsed;
+    const resetCost = 100 * baseCharacter.level;
+    const costText = isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost });
+
+    if (!window.confirm(t('statistics.reset.confirm', { costText }))) {
+        return;
+    }
+
+    if (!isFreeReset && baseCharacter.resources.gold < resetCost) {
+        alert(t('statistics.reset.notEnoughGold', { cost: resetCost }));
+        return;
+    }
+
+    // Sum up all base attributes and stat points
+    const totalPointsToRefund =
+        baseCharacter.stats.strength +
+        baseCharacter.stats.agility +
+        baseCharacter.stats.accuracy +
+        baseCharacter.stats.stamina +
+        baseCharacter.stats.intelligence +
+        baseCharacter.stats.energy +
+        baseCharacter.stats.statPoints;
+
+    const updatedChar: PlayerCharacter = {
+        ...baseCharacter,
+        stats: {
+            ...baseCharacter.stats,
+            strength: 0,
+            agility: 0,
+            accuracy: 0,
+            stamina: 0,
+            intelligence: 0,
+            energy: 0,
+            statPoints: totalPointsToRefund,
+        },
+        resources: {
+            ...baseCharacter.resources,
+            gold: isFreeReset ? baseCharacter.resources.gold : baseCharacter.resources.gold - resetCost,
+        },
+        freeStatResetUsed: true,
+    };
+    
+    await handleCharacterUpdate(updatedChar, true);
+
+}, [baseCharacter, gameData, handleCharacterUpdate, t]);
 
   const handleBuyItem = useCallback(async (item: ItemInstance, cost: number) => {
     if (!baseCharacter || !gameData) return;
@@ -773,7 +822,7 @@ const App: React.FC = () => {
   
   const mainContent = () => {
     switch (activeTab) {
-        case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
+        case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />;
         case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
         case Tab.Expedition: return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} />;
         case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={()=>{}} getUpgradeCost={() => 0} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />;
@@ -786,7 +835,7 @@ const App: React.FC = () => {
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={()=>{}} onCompleteQuest={()=>{}} />;
         case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
         case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />;
-        default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
+        default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} />;
     }
   }
 

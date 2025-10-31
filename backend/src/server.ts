@@ -889,7 +889,8 @@ function simulatePvpFight(
             if (defenderHealth > 0) performTurn(defender, attacker);
         } else {
             performTurn(defender, attacker);
-            if (attackerHealth > 0) performTurn(attacker, attacker);
+            // FIX: Corrected a logic bug where the attacker would attack themselves instead of the defender.
+            if (attackerHealth > 0) performTurn(attacker, defender);
         }
         turn++;
         if (turn > 50) break;
