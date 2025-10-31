@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData } from '../types';
+import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats } from '../types';
 import { ItemList, ItemDetailsPanel, ItemListItem, EmptySlotListItem } from './shared/ItemSlot';
 
 interface EquipmentProps {
@@ -34,15 +34,36 @@ const StatDisplayRow: React.FC<{ label: string; value: React.ReactNode }> = ({ l
     </div>
 );
 
-const CombatStatsPanel: React.FC<{ character: PlayerCharacter }> = ({ character }) => {
+const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCharacter; }> = ({ character, baseCharacter }) => {
     const { t } = useTranslation();
     const stats = character.stats;
+
+    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
 
     return (
         <div className="flex flex-col h-full">
             <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.combatStats')}</h3>
             <div className="flex-grow overflow-y-auto pr-2 space-y-1">
-                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-2 mb-1">{t('statistics.vitals')}</h4>
+
+                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-2 mb-1">{t('statistics.baseAttributes')}</h4>
+                {baseStatKeys.map(key => {
+                    const total = character.stats[key];
+                    const bonus = total - baseCharacter.stats[key];
+                    return (
+                        <StatDisplayRow 
+                            key={key}
+                            label={t(`statistics.${key}`)} 
+                            value={
+                                <>
+                                    {total}
+                                    {bonus > 0 && <span className="text-green-400 ml-2">(+{bonus})</span>}
+                                </>
+                            } 
+                        />
+                    )
+                })}
+                
+                <h4 className="font-semibold text-gray-300 text-sm px-2 mt-4 mb-1">{t('statistics.vitals')}</h4>
                 <StatDisplayRow label={t('statistics.health')} value={`${stats.currentHealth.toFixed(0)} / ${stats.maxHealth}`} />
                 <StatDisplayRow label={t('statistics.mana')} value={`${stats.currentMana.toFixed(0)} / ${stats.maxMana}`} />
                 <StatDisplayRow label={t('statistics.energyLabel')} value={`${stats.currentEnergy} / ${stats.maxEnergy}`} />
@@ -186,7 +207,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
         {/* Combat Stats Panel */}
         <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
-            <CombatStatsPanel character={character} />
+            <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
         </div>
 
 

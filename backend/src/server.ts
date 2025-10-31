@@ -1096,7 +1096,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../../../dist')));
 
 // --- Authentication Routes ---
-// FIX: Add explicit types for Express request and response objects.
+// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/auth/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
