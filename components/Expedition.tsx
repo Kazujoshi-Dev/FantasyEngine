@@ -543,7 +543,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
                     </div>
                     <button
                         onClick={() => onStartExpedition(exp.id)}
-                        disabled={!canAfford}
+                        disabled={!canAfford || character.isResting || !!character.activeTravel}
                         className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200"
                     >
                         {t('expedition.embark')}
