@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Location as LocationType } from '../types';
@@ -11,7 +12,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 
 interface LocationProps {
   playerCharacter: PlayerCharacter;
-  onCharacterUpdate: (character: PlayerCharacter) => void;
+  onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
   locations: LocationType[];
 }
 
@@ -86,7 +87,7 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
           finishTime: Date.now() + destination.travelTime * 1000,
         }
       };
-      onCharacterUpdate(updatedCharacter);
+      onCharacterUpdate(updatedCharacter, true);
     } else {
       let message = `${t('location.cannotTravel')}. `;
       if (!hasEnoughGold) message += `${t('location.lackGold')}. `;

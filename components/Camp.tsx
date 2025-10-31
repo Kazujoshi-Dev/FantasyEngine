@@ -17,7 +17,7 @@ interface CampProps {
     onToggleResting: () => void;
     onUpgradeCamp: () => void;
     getUpgradeCost: (level: number) => number;
-    onCharacterUpdate: (character: PlayerCharacter) => void;
+    onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
     onHealToFull: () => void;
 }
 
@@ -50,7 +50,7 @@ const getChestUpgradeCost = (level: number): { gold: number; essences: { type: E
 };
 
 
-const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCharacter; onCharacterUpdate: (character: PlayerCharacter) => void; }> = ({ character, baseCharacter, onCharacterUpdate }) => {
+const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCharacter; onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void; }> = ({ character, baseCharacter, onCharacterUpdate }) => {
     const { t } = useTranslation();
     const { chest, resources: displayResources } = character; // Use derived character for UI display
     const [amount, setAmount] = useState<string>('');
@@ -72,7 +72,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCh
             const newChar = JSON.parse(JSON.stringify(baseCharacter));
             newChar.resources.gold -= actualDeposit;
             newChar.chest.gold = newChestGold;
-            onCharacterUpdate(newChar);
+            onCharacterUpdate(newChar, true);
         }
         setAmount('');
     };
@@ -84,7 +84,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCh
         const newChar = JSON.parse(JSON.stringify(baseCharacter));
         newChar.chest.gold -= withdrawAmount;
         newChar.resources.gold += withdrawAmount;
-        onCharacterUpdate(newChar);
+        onCharacterUpdate(newChar, true);
         setAmount('');
     };
     
@@ -96,7 +96,7 @@ const ChestPanel: React.FC<{ character: PlayerCharacter; baseCharacter: PlayerCh
             newChar.resources[e.type] -= e.amount;
         });
         newChar.chest.level += 1;
-        onCharacterUpdate(newChar);
+        onCharacterUpdate(newChar, true);
     };
 
     const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
