@@ -449,6 +449,104 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // --- Admin Panel Handlers ---
+  const fetchAdminData = useCallback(async () => {
+      try {
+          const [usersData, charactersData] = await Promise.all([
+              api.getUsers(),
+              api.getAllCharacters(),
+          ]);
+          setUsers(usersData);
+          setAllCharacters(charactersData);
+      } catch (err: any) {
+          setError(err.message);
+      }
+  }, []);
+
+  const handleGameDataUpdate = useCallback(async (key: keyof Omit<GameData, 'settings'>, data: any) => {
+    try {
+      await api.updateGameData(key, data);
+      setGameData(prev => prev ? { ...prev, [key]: data } : null);
+      alert(`${key} data updated successfully!`);
+    } catch(err: any) {
+      alert(`Error updating ${key}: ${err.message}`);
+    }
+  }, []);
+  
+  const handleSettingsUpdate = useCallback(async (settings: GameSettings) => {
+    try {
+        await api.updateGameSettings(settings);
+        setGameData(prev => prev ? { ...prev, settings: settings } : null);
+        alert(`Game settings updated!`);
+    } catch(err: any) {
+        alert(`Error updating settings: ${err.message}`);
+    }
+  }, []);
+
+  const handleDeleteUser = useCallback(async (userId: number) => {
+    if (window.confirm(t('admin.deleteConfirm'))) {
+        try {
+            await api.deleteUser(userId);
+            await fetchAdminData();
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [fetchAdminData, t]);
+
+  const handleDeleteCharacter = useCallback(async (userId: number) => {
+    if (window.confirm(t('admin.deleteCharacterConfirm'))) {
+        try {
+            await api.deleteCharacter(userId);
+            await fetchAdminData();
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [fetchAdminData, t]);
+
+  const handleResetCharacterStats = useCallback(async (userId: number) => {
+    if (window.confirm(t('admin.resetStatsConfirm'))) {
+        try {
+            await api.resetCharacterStats(userId);
+            alert(t('admin.resetStatsSuccess'));
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [t]);
+
+  const handleHealCharacter = useCallback(async (userId: number) => {
+    if (window.confirm(t('admin.healCharacterConfirm'))) {
+        try {
+            await api.healCharacter(userId);
+            alert(t('admin.healSuccess'));
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [t]);
+
+  const handleForceTraderRefresh = useCallback(async () => {
+    if (window.confirm(t('admin.traderRefreshConfirm'))) {
+        try {
+            const newInventory = await api.getTraderInventory(true);
+            setTraderInventory(newInventory);
+            alert(t('admin.traderRefreshSuccess'));
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [t]);
+
+  const handleResetAllPvpCooldowns = useCallback(async () => {
+    if (window.confirm(t('admin.pvp.resetCooldownsConfirm'))) {
+        try {
+            await api.resetAllPvpCooldowns();
+            alert(t('admin.pvp.resetCooldownsSuccess'));
+        } catch(err: any) { alert(err.message); }
+    }
+  }, [t]);
+
+  const handleSendGlobalMessage = useCallback(async (data: { subject: string, content: string }) => {
+    try {
+      await api.sendGlobalMessage(data);
+    } catch(err: any) {
+      alert(`Error: ${err.message}`);
+      throw err;
+    }
+  }, []);
+
   // Fetch data for active tab
   useEffect(() => {
     if (activeTab === Tab.Ranking) {
@@ -457,7 +555,10 @@ const App: React.FC = () => {
     if (activeTab === Tab.Trader) {
         fetchTraderInventory();
     }
-  }, [activeTab, fetchRanking, fetchTraderInventory]);
+    if (activeTab === Tab.Admin) {
+        fetchAdminData();
+    }
+  }, [activeTab, fetchRanking, fetchTraderInventory, fetchAdminData]);
   
   // Calculate derived stats
   useEffect(() => {
@@ -684,7 +785,7 @@ const App: React.FC = () => {
         case Tab.Messages: return <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} />;
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={()=>{}} onCompleteQuest={()=>{}} />;
         case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
-        case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={()=>{}} onSettingsUpdate={()=>{}} users={users} onDeleteUser={()=>{}} allCharacters={allCharacters} onDeleteCharacter={()=>{}} onResetCharacterStats={()=>{}} onHealCharacter={()=>{}} onForceTraderRefresh={()=>{}} onResetAllPvpCooldowns={()=>{}} onSendGlobalMessage={async () => {}} />;
+        case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />;
         default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
     }
   }

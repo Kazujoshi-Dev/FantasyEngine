@@ -889,7 +889,7 @@ function simulatePvpFight(
             if (defenderHealth > 0) performTurn(defender, attacker);
         } else {
             performTurn(defender, attacker);
-            if (attackerHealth > 0) performTurn(attacker, defender);
+            if (attackerHealth > 0) performTurn(attacker, attacker);
         }
         turn++;
         if (turn > 50) break;
@@ -1092,7 +1092,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../../../dist')));
 
 // --- Authentication Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1119,7 +1119,7 @@ app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse)
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1147,7 +1147,7 @@ app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) =>
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: ExpressResponse) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
@@ -1163,7 +1163,7 @@ app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: Expre
 });
 
 // --- Middleware for authentication ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request, response and next function objects.
 async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -1184,7 +1184,7 @@ async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next
 }
 
 // --- Character Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     try {
@@ -1255,7 +1255,7 @@ app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: Ex
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
@@ -1271,7 +1271,7 @@ app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: E
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
@@ -1284,7 +1284,7 @@ app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: Ex
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         // First check if the user is an admin
@@ -1306,7 +1306,7 @@ app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, re
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1323,7 +1323,7 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequ
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
@@ -1334,7 +1334,7 @@ app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, 
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1364,7 +1364,7 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: E
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1390,7 +1390,7 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressR
 });
 
 // --- User Routes (Admin) ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         // First check if the user is an admin
@@ -1406,7 +1406,7 @@ app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: Expres
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1425,7 +1425,7 @@ app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, 
 
 
 // --- Game Data Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
@@ -1441,7 +1441,7 @@ app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // --- Admin: Update Game Data ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1471,7 +1471,7 @@ app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: Ex
 
 
 // --- Ranking Route ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(`
@@ -1503,7 +1503,7 @@ app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: Expr
 });
 
 // --- Trader Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const forceRefresh = req.query.force === 'true';
 
@@ -1534,7 +1534,7 @@ app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, 
 });
 
 // --- Trader: Buy Item ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -1618,6 +1618,7 @@ app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: 
 });
 
 // --- Trader: Sell Items ---
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
@@ -1685,7 +1686,7 @@ app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res:
 
 
 // --- PvP Route ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
@@ -1813,7 +1814,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRe
 
 
 // --- Message Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     try {
@@ -1825,7 +1826,7 @@ app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: Exp
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
@@ -1859,7 +1860,7 @@ app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: Ex
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { id } = req.params;
@@ -1874,7 +1875,7 @@ app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res:
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { id } = req.params;
@@ -1887,7 +1888,7 @@ app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, r
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { subject, content } = req.body;
     
@@ -1920,7 +1921,7 @@ app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequ
 });
 
 // --- Tavern (Chat) ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
@@ -1931,7 +1932,7 @@ app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, r
     }
 });
 
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { content } = req.body;
@@ -1957,7 +1958,7 @@ app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, 
 
 
 // --- Admin Routes ---
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1974,13 +1975,13 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Expres
 
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express request and response objects.
 app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
   res.sendFile(path.join(__dirname, '../../../../dist/index.html'));
 });
 
 // Error handling middleware
-// FIX: Add explicit types to all route handlers
+// FIX: Add explicit types for Express error handler parameters.
 app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
