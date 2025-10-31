@@ -2,7 +2,8 @@
 // By aliasing the types, we avoid potential conflicts with other global types (e.g. from DOM's Request/Response).
 // FIX: Import types from express with aliases to prevent conflicts with global types (e.g., from DOM).
 // FIX: Added Express type for app instance.
-import express, { Express, Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+// FIX: Replaced type aliases with direct imports to resolve type conflicts.
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -101,7 +102,7 @@ const rollAffixStats = (affix: Affix): RolledAffixStats => {
     return rolled;
 };
 
-const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[], allAffixes: Affix[]): ItemInstance => {
+const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[], allAffixes: Affix[], allowAffixes = true): ItemInstance => {
     const template = allItemTemplates.find(t => t.id === templateId);
     if (!template) {
         return { uniqueId: randomUUID(), templateId };
@@ -112,29 +113,31 @@ const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[]
         templateId,
     };
 
-    const itemCategory = template.category;
-
-    const possiblePrefixes = allAffixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
-    const possibleSuffixes = allAffixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
-
-    if (possiblePrefixes.length > 0) {
-        for (const prefix of possiblePrefixes) {
-            const chance = prefix.spawnChances[itemCategory] || 0;
-            if (Math.random() * 100 < chance) {
-                instance.prefixId = prefix.id;
-                instance.rolledPrefix = rollAffixStats(prefix);
-                break; 
+    if (allowAffixes) {
+        const itemCategory = template.category;
+    
+        const possiblePrefixes = allAffixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+        const possibleSuffixes = allAffixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+    
+        if (possiblePrefixes.length > 0) {
+            for (const prefix of possiblePrefixes) {
+                const chance = prefix.spawnChances[itemCategory] || 0;
+                if (Math.random() * 100 < chance) {
+                    instance.prefixId = prefix.id;
+                    instance.rolledPrefix = rollAffixStats(prefix);
+                    break; 
+                }
             }
         }
-    }
-
-    if (possibleSuffixes.length > 0) {
-         for (const suffix of possibleSuffixes) {
-            const chance = suffix.spawnChances[itemCategory] || 0;
-            if (Math.random() * 100 < chance) {
-                instance.suffixId = suffix.id;
-                instance.rolledSuffix = rollAffixStats(suffix);
-                break;
+    
+        if (possibleSuffixes.length > 0) {
+             for (const suffix of possibleSuffixes) {
+                const chance = suffix.spawnChances[itemCategory] || 0;
+                if (Math.random() * 100 < chance) {
+                    instance.suffixId = suffix.id;
+                    instance.rolledSuffix = rollAffixStats(suffix);
+                    break;
+                }
             }
         }
     }
@@ -178,7 +181,7 @@ const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: Affix[]
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
-            inventory.push(createItemInstance(template.id, itemTemplates, affixes));
+            inventory.push(createItemInstance(template.id, itemTemplates, affixes, false));
         }
     }
     
@@ -1094,7 +1097,7 @@ app.use(express.static(path.join(__dirname, '../../../../dist')));
 
 // --- Authentication Routes ---
 // FIX: Add explicit types for Express request and response objects.
-app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/auth/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1121,7 +1124,7 @@ app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse)
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1149,7 +1152,7 @@ app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) =>
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
         pool.query('DELETE FROM sessions WHERE token = $1', [token])
@@ -1165,7 +1168,7 @@ app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: Expre
 
 // --- Middleware for authentication ---
 // FIX: Add explicit types for Express request, response and next function objects to resolve type errors.
-async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) {
+async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1186,7 +1189,7 @@ async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next
 
 // --- Character Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
@@ -1257,7 +1260,7 @@ app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: Ex
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1273,7 +1276,7 @@ app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: E
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.put('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1286,7 +1289,7 @@ app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: Ex
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/characters/all', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1308,7 +1311,7 @@ app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, re
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/characters/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1325,7 +1328,7 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequ
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
         res.json(result.rows.map(r => r.name));
@@ -1336,7 +1339,7 @@ app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1366,7 +1369,7 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: E
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1392,7 +1395,7 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressR
 
 // --- User Routes (Admin) ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/users', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1408,7 +1411,7 @@ app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: Expres
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1427,7 +1430,7 @@ app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, 
 
 // --- Game Data Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/game-data', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData = result.rows.reduce((acc, row) => {
@@ -1443,7 +1446,7 @@ app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
 
 // --- Admin: Update Game Data ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.put('/api/game-data', authenticateToken, async (req: Request, res: Response) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1473,7 +1476,7 @@ app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: Ex
 
 // --- Ranking Route ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -1505,7 +1508,7 @@ app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: Expr
 
 // --- Trader Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
 
     try {
@@ -1536,7 +1539,7 @@ app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, 
 
 // --- Trader: Buy Item ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
     if (!itemId) {
@@ -1613,14 +1616,12 @@ app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: 
         await client.query('ROLLBACK');
         console.error('Error buying item:', err);
         res.status(500).json({ message: 'Server error while buying item.' });
-    } finally {
-        client.release();
     }
 });
 
 // --- Trader: Sell Items ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
 
@@ -1680,15 +1681,13 @@ app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res:
         await client.query('ROLLBACK');
         console.error('Error selling items:', err);
         res.status(500).json({ message: 'Server error while selling items.' });
-    } finally {
-        client.release();
     }
 });
 
 
 // --- PvP Route ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
 
@@ -1816,7 +1815,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRe
 
 // --- Message Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
@@ -1828,7 +1827,7 @@ app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: Exp
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
 
@@ -1862,7 +1861,7 @@ app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: Ex
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     const { is_read } = req.body;
@@ -1877,7 +1876,7 @@ app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res:
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     try {
@@ -1890,7 +1889,7 @@ app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, r
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/admin/global-message', authenticateToken, async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     
     const client = await pool.connect();
@@ -1923,7 +1922,7 @@ app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequ
 
 // --- Tavern (Chat) ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
         res.json(result.rows);
@@ -1934,7 +1933,7 @@ app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, r
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { content } = req.body;
     if (!content || content.trim().length === 0) {
@@ -1960,7 +1959,7 @@ app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, 
 
 // --- Admin Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1977,13 +1976,13 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Expres
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 // FIX: Add explicit types for Express request and response objects.
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../../../dist/index.html'));
 });
 
 // Error handling middleware
 // FIX: Add explicit types for Express error handler parameters.
-app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
