@@ -498,6 +498,156 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleDisenchantItem = useCallback((item: ItemInstance): { success: boolean; amount?: number; essenceType?: EssenceType } => {
+    if (!baseCharacter || !gameData) return { success: false };
+
+    const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+    if (!template) return { success: false };
+
+    const cost = Math.round(template.value * 0.1);
+    if (baseCharacter.resources.gold < cost) {
+        alert(t('blacksmith.notEnoughGold'));
+        return { success: false };
+    }
+
+    let amount = 0;
+    let essenceType: EssenceType | null = null;
+
+    switch (template.rarity) {
+        case ItemRarity.Common:
+            amount = Math.floor(Math.random() * 4) + 1;
+            essenceType = EssenceType.Common;
+            break;
+        case ItemRarity.Uncommon:
+            amount = Math.floor(Math.random() * 2) + 1;
+            essenceType = EssenceType.Uncommon;
+            break;
+        case ItemRarity.Rare:
+            amount = Math.floor(Math.random() * 2) + 1;
+            essenceType = EssenceType.Rare;
+            break;
+        case ItemRarity.Epic:
+            amount = 1;
+            essenceType = EssenceType.Epic;
+            break;
+        case ItemRarity.Legendary:
+            if (Math.random() < 0.5) {
+                amount = 1;
+                essenceType = EssenceType.Legendary;
+            }
+            break;
+    }
+    
+    const updatedChar: PlayerCharacter = JSON.parse(JSON.stringify(baseCharacter));
+
+    updatedChar.resources.gold -= cost;
+    updatedChar.inventory = updatedChar.inventory.filter(i => i.uniqueId !== item.uniqueId);
+
+    if (amount > 0 && essenceType) {
+        updatedChar.resources[essenceType] = (updatedChar.resources[essenceType] || 0) + amount;
+        handleCharacterUpdate(updatedChar, true);
+        return { success: true, amount, essenceType };
+    } else {
+        handleCharacterUpdate(updatedChar, true);
+        return { success: false };
+    }
+  }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+
+  const handleUpgradeItem = useCallback((item: ItemInstance): { success: boolean; messageKey: string; level?: number } => {
+    if (!baseCharacter || !gameData) return { success: false, messageKey: 'error.title' };
+
+    const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+    if (!template) return { success: false, messageKey: 'error.title' };
+
+    const currentLevel = item.upgradeLevel || 0;
+    const nextLevel = currentLevel + 1;
+
+    if (nextLevel > 10) {
+        return { success: false, messageKey: 'blacksmith.upgrade.maxLevel' };
+    }
+
+    const rarityMultiplier = {
+        [ItemRarity.Common]: 1,
+        [ItemRarity.Uncommon]: 1.5,
+        [ItemRarity.Rare]: 2.5,
+        [ItemRarity.Epic]: 4,
+        [ItemRarity.Legendary]: 8,
+    };
+    const goldCost = Math.floor(template.value * 0.5 * nextLevel * rarityMultiplier[template.rarity]);
+    
+    let essenceType: EssenceType | null = null;
+    switch (template.rarity) {
+        case ItemRarity.Common: essenceType = EssenceType.Common; break;
+        case ItemRarity.Uncommon: essenceType = EssenceType.Uncommon; break;
+        case ItemRarity.Rare: essenceType = EssenceType.Rare; break;
+        case ItemRarity.Epic: essenceType = EssenceType.Epic; break;
+        case ItemRarity.Legendary: essenceType = EssenceType.Legendary; break;
+    }
+
+    if (!essenceType) {
+        return { success: false, messageKey: 'blacksmith.upgrade.cannotUpgrade' };
+    }
+    
+    const essenceCost = 1;
+
+    if (baseCharacter.resources.gold < goldCost) {
+        alert(t('blacksmith.notEnoughGold'));
+        return { success: false, messageKey: 'blacksmith.notEnoughGold' };
+    }
+    if ((baseCharacter.resources[essenceType] || 0) < essenceCost) {
+        alert(t('blacksmith.notEnoughEssence'));
+        return { success: false, messageKey: 'blacksmith.notEnoughEssence' };
+    }
+
+    const successChance = Math.max(10, 100 - (currentLevel * 10));
+    const roll = Math.random() * 100;
+    const isSuccess = roll < successChance;
+    
+    const updatedChar: PlayerCharacter = JSON.parse(JSON.stringify(baseCharacter));
+    
+    updatedChar.resources.gold -= goldCost;
+    updatedChar.resources[essenceType] -= essenceCost;
+
+    const findAndModifyItem = (items: ItemInstance[]) => {
+        const index = items.findIndex(i => i?.uniqueId === item.uniqueId);
+        if (index === -1) return false;
+        
+        if (isSuccess) {
+            items[index].upgradeLevel = nextLevel;
+        } else {
+            items.splice(index, 1);
+        }
+        return true;
+    };
+    
+    const findAndModifyEquippedItem = (equipment: Record<EquipmentSlot, ItemInstance | null>) => {
+        for (const slot in equipment) {
+            if (equipment[slot as EquipmentSlot]?.uniqueId === item.uniqueId) {
+                if (isSuccess) {
+                    (equipment[slot as EquipmentSlot] as ItemInstance).upgradeLevel = nextLevel;
+                } else {
+                    equipment[slot as EquipmentSlot] = null;
+                }
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (!findAndModifyItem(updatedChar.inventory)) {
+        findAndModifyEquippedItem(updatedChar.equipment);
+    }
+    
+    handleCharacterUpdate(updatedChar, true);
+
+    if (isSuccess) {
+        return { success: true, messageKey: 'blacksmith.upgrade.upgradeSuccess', level: nextLevel };
+    } else {
+        return { success: false, messageKey: 'blacksmith.upgrade.upgradeFailure' };
+    }
+
+  }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+
   // --- Admin Panel Handlers ---
   const fetchAdminData = useCallback(async () => {
       try {
@@ -830,7 +980,7 @@ const App: React.FC = () => {
         case Tab.Resources: return <Resources character={playerCharacter} />;
         case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={()=>{}} onComposeMessage={()=>{}} />;
         case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
-        case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onDisenchantItem={() => ({success: false})} onUpgradeItem={() => ({success: false, messageKey: ''})} />;
+        case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
         case Tab.Messages: return <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} />;
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={()=>{}} onCompleteQuest={()=>{}} />;
         case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
