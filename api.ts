@@ -239,6 +239,13 @@ export const api = {
             body: JSON.stringify({ itemId }),
         });
     },
+    
+    async sellItems(itemIds: string[]): Promise<PlayerCharacter> {
+        return fetchApi('/trader/sell', {
+            method: 'POST',
+            body: JSON.stringify({ itemIds }),
+        });
+    },
 
     // --- PvP ---
     async attackPlayer(defenderId: number): Promise<PvpRewardSummary> {

@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -215,13 +210,14 @@ const App: React.FC = () => {
     setBaseCharacter(character);
     if (immediate) {
       try {
-        await api.updateCharacter(character);
+        const updatedChar = await api.updateCharacter(character);
+        setBaseCharacter(updatedChar); // sync with server response
       } catch (err: any) {
         setError(err.message);
       }
     }
   }, []);
-  
+
   const handleStartExpedition = useCallback((expeditionId: string) => {
     if (!baseCharacter || !gameData || baseCharacter.isResting || baseCharacter.activeTravel) return;
 
@@ -248,7 +244,83 @@ const App: React.FC = () => {
     };
     handleCharacterUpdate(updatedCharacter, true);
   }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+
+  const handleToggleResting = useCallback(() => {
+    if (!baseCharacter) return;
+    const isNowResting = !baseCharacter.isResting;
+    const updatedChar: PlayerCharacter = {
+        ...baseCharacter,
+        isResting: isNowResting,
+        lastRestTime: isNowResting ? Date.now() : baseCharacter.lastRestTime,
+        restStartHealth: isNowResting ? baseCharacter.stats.currentHealth : baseCharacter.restStartHealth
+    };
+    handleCharacterUpdate(updatedChar, true);
+  }, [baseCharacter, handleCharacterUpdate]);
+
+  const handleHealToFull = useCallback(() => {
+      if (!baseCharacter) return;
+      const derived = calculateDerivedStats(baseCharacter, gameData);
+      const updatedChar: PlayerCharacter = {
+          ...baseCharacter,
+          stats: { ...baseCharacter.stats, currentHealth: derived.stats.maxHealth }
+      };
+      handleCharacterUpdate(updatedChar, true);
+  }, [baseCharacter, gameData, calculateDerivedStats, handleCharacterUpdate]);
+
+  const handleBuyItem = useCallback(async (item: ItemInstance, cost: number) => {
+    if (!baseCharacter || !gameData) return;
+    try {
+        const updatedCharacter = await api.buyItem(item.uniqueId);
+        setBaseCharacter(updatedCharacter);
+        setTraderInventory(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
+    } catch (err: any) {
+        alert(err.message);
+    }
+  }, [baseCharacter, gameData]);
+
+  const handleSellItems = useCallback(async (items: ItemInstance[]) => {
+    if (!baseCharacter || items.length === 0) return;
+    try {
+        const itemIds = items.map(i => i.uniqueId);
+        const updatedCharacter = await api.sellItems(itemIds);
+        setBaseCharacter(updatedCharacter);
+    } catch (err: any) {
+        alert(err.message);
+    }
+  }, [baseCharacter]);
+
+  const fetchRanking = useCallback(async () => {
+    setIsRankingLoading(true);
+    try {
+      const rankingData = await api.getRanking();
+      setRanking(rankingData);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsRankingLoading(false);
+    }
+  }, []);
+
+  const fetchTraderInventory = useCallback(async () => {
+    try {
+      const inventoryData = await api.getTraderInventory();
+      setTraderInventory(inventoryData);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
+  // Fetch data for active tab
+  useEffect(() => {
+    if (activeTab === Tab.Ranking) {
+        fetchRanking();
+    }
+    if (activeTab === Tab.Trader) {
+        fetchTraderInventory();
+    }
+  }, [activeTab, fetchRanking, fetchTraderInventory]);
   
+  // Calculate derived stats
   useEffect(() => {
     if (baseCharacter) {
       const derived = calculateDerivedStats(baseCharacter, gameData);
@@ -256,6 +328,7 @@ const App: React.FC = () => {
     }
   }, [baseCharacter, gameData, calculateDerivedStats]);
   
+  // Game loop for passive actions
   useEffect(() => {
     const interval = setInterval(async () => {
       if (baseCharacter) {
@@ -263,14 +336,15 @@ const App: React.FC = () => {
         let updated = false;
 
         // Resting
-        if (char.isResting && char.stats.currentHealth < char.stats.maxHealth) {
+        if (char.isResting && char.stats.currentHealth < (playerCharacter?.stats.maxHealth || 0)) {
           const now = Date.now();
           const lastRest = char.lastRestTime || now;
           const secondsPassed = (now - lastRest) / 1000;
           if (secondsPassed >= 5) {
-            const regenPerMinute = char.stats.maxHealth * (char.camp.level / 100);
+            const maxHealth = playerCharacter?.stats.maxHealth || char.stats.maxHealth;
+            const regenPerMinute = maxHealth * (char.camp.level / 100);
             const regenPerInterval = regenPerMinute / 12; // 12 intervals of 5s in a minute
-            char.stats.currentHealth = Math.min(char.stats.maxHealth, char.stats.currentHealth + regenPerInterval);
+            char.stats.currentHealth = Math.min(maxHealth, char.stats.currentHealth + regenPerInterval);
             char.lastRestTime = now;
             updated = true;
           }
@@ -290,18 +364,21 @@ const App: React.FC = () => {
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(interval);
-  }, [baseCharacter, handleCharacterUpdate]);
+  }, [baseCharacter, playerCharacter, handleCharacterUpdate]);
 
+  // Initial data fetch
   useEffect(() => {
     const fetchData = async () => {
         try {
             if (token) {
-                const [charData, gData] = await Promise.all([
+                const [charData, gData, messagesData] = await Promise.all([
                     api.getCharacter(),
                     api.getGameData(),
+                    api.getMessages(),
                 ]);
                 
                 setGameData(gData);
+                setMessages(messagesData);
                 
                 if (charData.expeditionSummary) {
                     setExpeditionReport(charData.expeditionSummary);
@@ -322,6 +399,31 @@ const App: React.FC = () => {
     };
     fetchData();
 }, [token]);
+
+  // Expedition finish timeout
+  useEffect(() => {
+    if (baseCharacter?.activeExpedition) {
+      const finishTime = baseCharacter.activeExpedition.finishTime;
+      const timeToFinish = finishTime - Date.now();
+      if (timeToFinish > 0) {
+        const timer = setTimeout(async () => {
+          try {
+            const charData = await api.getCharacter();
+            if (charData.expeditionSummary) {
+              setExpeditionReport(charData.expeditionSummary);
+              delete charData.expeditionSummary;
+            }
+            setBaseCharacter(charData);
+            const freshMessages = await api.getMessages();
+            setMessages(freshMessages);
+          } catch (err: any) {
+            setError(err.message);
+          }
+        }, timeToFinish);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [baseCharacter?.activeExpedition]);
 
 
   const handleLogout = () => {
@@ -375,7 +477,11 @@ const App: React.FC = () => {
     return <Auth onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (!playerCharacter || !baseCharacter || !gameData) {
+  if (!gameData) {
+    return <div className="min-h-screen flex items-center justify-center">Error: Game data could not be loaded.</div>;
+  }
+
+  if (!baseCharacter) {
      const startLocationExists = gameData && gameData.locations.some(l => l.isStartLocation);
       if (!startLocationExists) {
         return <div className="min-h-screen flex items-center justify-center">Admin: Please set a starting location.</div>;
@@ -383,16 +489,20 @@ const App: React.FC = () => {
     return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
   }
   
+  if (!playerCharacter) {
+    return <div className="min-h-screen flex items-center justify-center">{t('loading')}</div>;
+  }
+  
   const mainContent = () => {
     switch (activeTab) {
         case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={()=>{}} />;
         case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={()=>{}} onUnequipItem={()=>{}} />;
         case Tab.Expedition: return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} />;
-        case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={()=>{}} onUpgradeCamp={()=>{}} getUpgradeCost={() => 0} onCharacterUpdate={handleCharacterUpdate} onHealToFull={() => {}} />;
+        case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={()=>{}} getUpgradeCost={() => 0} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} />;
         case Tab.Location: return <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
         case Tab.Resources: return <Resources character={playerCharacter} />;
-        case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={()=>{}} isLoading={isRankingLoading} onAttack={()=>{}} onComposeMessage={()=>{}} />;
-        case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={()=>{}} onSellItems={()=>{}} />;
+        case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={()=>{}} onComposeMessage={()=>{}} />;
+        case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
         case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onDisenchantItem={() => ({success: false})} onUpgradeItem={() => ({success: false, messageKey: ''})} />;
         case Tab.Messages: return <Messages messages={messages} onDeleteMessage={()=>{}} onMarkAsRead={()=>{}} onCompose={()=>{}} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} />;
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={()=>{}} onCompleteQuest={()=>{}} />;

@@ -1592,6 +1592,9 @@ app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: 
         // Update character
         character.resources.gold -= cost;
         character.inventory.push(itemToBuy);
+        // Add a record of the purchase to prevent immediate re-listing if the trader refreshes.
+        character.traderPurchases = [...(character.traderPurchases || []), itemToBuy.uniqueId];
+
 
         // Update trader inventory
         traderInventoryCache.inventory = traderInventoryCache.inventory.filter(i => i.uniqueId !== itemId);
@@ -1609,6 +1612,73 @@ app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: 
         client.release();
     }
 });
+
+// --- Trader: Sell Items ---
+app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+    const userId = req.user!.id;
+    const { itemIds } = req.body as { itemIds: string[] };
+
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ message: 'Item IDs must be a non-empty array.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const allAffixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        let totalValue = 0;
+        const itemsToKeep: ItemInstance[] = [];
+        const soldItemIds = new Set(itemIds);
+
+        for (const item of character.inventory) {
+            if (soldItemIds.has(item.uniqueId)) {
+                const template = allItemTemplates.find(t => t.id === item.templateId);
+                let itemValue = template?.value || 0;
+                if (item.prefixId) {
+                    const prefix = allAffixes.find(a => a.id === item.prefixId);
+                    itemValue += prefix?.value || 0;
+                }
+                if (item.suffixId) {
+                    const suffix = allAffixes.find(a => a.id === item.suffixId);
+                    itemValue += suffix?.value || 0;
+                }
+                totalValue += itemValue;
+            } else {
+                itemsToKeep.push(item);
+            }
+        }
+
+        if (soldItemIds.size !== itemIds.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'One or more items to sell were not found in your inventory.' });
+        }
+
+        character.inventory = itemsToKeep;
+        character.resources.gold += totalValue;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error selling items:', err);
+        res.status(500).json({ message: 'Server error while selling items.' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // --- PvP Route ---
 // FIX: Add explicit types to all route handlers
@@ -1656,6 +1726,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRe
         const settings: GameSettings = gameDataRes.rows.find(r => r.key === 'settings')?.data || { language: 'pl', pvpProtectionMinutes: 60 };
 
         // Simulate fight
+        // FIX: Pass allAffixes to simulatePvpFight instead of undefined 'affixes'
         const { isVictory, combatLog, finalAttackerHealth, finalAttackerMana, finalDefenderHealth, finalDefenderMana } = simulatePvpFight(attacker, defender, allItemTemplates, allAffixes);
 
         attacker.stats.currentHealth = finalAttackerHealth;
