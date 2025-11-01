@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -56,6 +57,8 @@ const App: React.FC = () => {
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
+  const isCompletingExpeditionRef = useRef(false);
+
   // i18n
   const t = useMemo(() => getT(Language.PL), []);
   const currentLanguage = Language.PL;
@@ -64,6 +67,26 @@ const App: React.FC = () => {
   const currentLocation = useMemo(() => gameData?.locations.find(loc => loc.id === playerCharacter?.currentLocationId), [gameData, playerCharacter]);
   const hasUnreadMessages = useMemo(() => messages.some(m => !m.is_read), [messages]);
   const lastReadTavernMessageIdRef = useRef<number | null>(null);
+
+  const handleCheckExpeditionCompletion = useCallback(async () => {
+    if (isCompletingExpeditionRef.current) return;
+
+    isCompletingExpeditionRef.current = true;
+    try {
+        const charData = await api.getCharacter();
+        if (charData.expeditionSummary) {
+            setExpeditionReport(charData.expeditionSummary);
+            delete charData.expeditionSummary;
+        }
+        setBaseCharacter(charData);
+        const freshMessages = await api.getMessages();
+        setMessages(freshMessages);
+    } catch (err: any) {
+        setError(err.message);
+    } finally {
+        isCompletingExpeditionRef.current = false;
+    }
+  }, [setExpeditionReport, setBaseCharacter, setMessages, setError]);
 
   // Derived Stat Calculation for UI Previews
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
@@ -770,6 +793,11 @@ const App: React.FC = () => {
   // Game loop for passive actions
   useEffect(() => {
     const interval = setInterval(async () => {
+      if (baseCharacter?.activeExpedition && Date.now() >= baseCharacter.activeExpedition.finishTime) {
+          handleCheckExpeditionCompletion();
+          return;
+      }
+
       if (baseCharacter) {
         let char = { ...baseCharacter };
         let updated = false;
@@ -803,7 +831,7 @@ const App: React.FC = () => {
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(interval);
-  }, [baseCharacter, playerCharacter, handleCharacterUpdate]);
+  }, [baseCharacter, playerCharacter, handleCharacterUpdate, handleCheckExpeditionCompletion]);
 
   // Initial data fetch
   useEffect(() => {
@@ -847,24 +875,11 @@ const App: React.FC = () => {
       const finishTime = baseCharacter.activeExpedition.finishTime;
       const timeToFinish = finishTime - Date.now();
       if (timeToFinish > 0) {
-        const timer = setTimeout(async () => {
-          try {
-            const charData = await api.getCharacter();
-            if (charData.expeditionSummary) {
-              setExpeditionReport(charData.expeditionSummary);
-              delete charData.expeditionSummary;
-            }
-            setBaseCharacter(charData);
-            const freshMessages = await api.getMessages();
-            setMessages(freshMessages);
-          } catch (err: any) {
-            setError(err.message);
-          }
-        }, timeToFinish);
+        const timer = setTimeout(handleCheckExpeditionCompletion, timeToFinish);
         return () => clearTimeout(timer);
       }
     }
-  }, [baseCharacter?.activeExpedition]);
+  }, [baseCharacter?.activeExpedition, handleCheckExpeditionCompletion]);
 
   // Tavern Polling
   useEffect(() => {
