@@ -549,6 +549,7 @@ export interface RankingPlayer {
     id: number; // User ID
     name: string;
     race: Race;
+    characterClass?: CharacterClass | null;
     level: number;
     experience: number;
     totalExperience: number;

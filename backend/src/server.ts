@@ -1,3 +1,4 @@
+
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -31,8 +32,8 @@ declare global {
 }
 
 // FIX: Correctly instantiated the express app. `express()` is the correct way, and `express.default()` does not exist.
-// FIX: Explicitly type app as Express instance.
-const app: express.Express = express();
+// Letting TypeScript infer the app type to avoid potential type conflicts.
+const app = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;
@@ -1479,7 +1480,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/auth/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1506,7 +1506,6 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/auth/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1534,7 +1533,6 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
@@ -1550,7 +1548,6 @@ app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) =>
 });
 
 // Heartbeat endpoint
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
@@ -1566,7 +1563,6 @@ app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: 
 });
 
 // --- Middleware for authentication ---
-// FIX: Add explicit types for Express request, response and next function objects to resolve type errors.
 async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -1587,7 +1583,6 @@ async function authenticateToken(req: Request, res: Response, next: NextFunction
 }
 
 // --- Character Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const client = await pool.connect();
@@ -1682,7 +1677,6 @@ app.get('/api/character', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
@@ -1698,7 +1692,6 @@ app.post('/api/character', authenticateToken, async (req: Request, res: Response
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.put('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
@@ -1711,7 +1704,6 @@ app.put('/api/character', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
@@ -1763,7 +1755,6 @@ app.post('/api/character/select-class', authenticateToken, async (req: Request, 
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/characters/all', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
@@ -1791,7 +1782,6 @@ app.get('/api/characters/all', authenticateToken, async (req: Request, res: Resp
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.delete('/api/characters/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1808,7 +1798,6 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: Request, re
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
@@ -1819,7 +1808,6 @@ app.get('/api/characters/names', authenticateToken, async (req: Request, res: Re
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1849,7 +1837,6 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: R
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1874,7 +1861,6 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request,
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1919,7 +1905,6 @@ app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (r
 });
 
 // --- User Routes (Admin) ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/users', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
@@ -1935,7 +1920,6 @@ app.get('/api/users', authenticateToken, async (req: Request, res: Response) => 
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1954,7 +1938,6 @@ app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Re
 
 
 // --- Game Data Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/game-data', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
@@ -1972,7 +1955,6 @@ app.get('/api/game-data', async (req: Request, res: Response) => {
 });
 
 // --- Admin: Update Game Data ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.put('/api/game-data', authenticateToken, async (req: Request, res: Response) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -2002,7 +1984,6 @@ app.put('/api/game-data', authenticateToken, async (req: Request, res: Response)
 
 
 // --- Ranking Route ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
@@ -2010,6 +1991,7 @@ app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) =
                 c.user_id as id,
                 c.data->>'name' as name,
                 c.data->>'race' as race,
+                c.data->>'characterClass' as "characterClass",
                 (c.data->>'level')::int as level,
                 (c.data->>'experience')::bigint as experience,
                 (
@@ -2035,7 +2017,6 @@ app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) =
 });
 
 // --- Trader Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
 
@@ -2066,7 +2047,6 @@ app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Re
 });
 
 // --- Trader: Buy Item ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -2148,7 +2128,6 @@ app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Respons
 });
 
 // --- Trader: Sell Items ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
@@ -2213,7 +2192,6 @@ app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Respon
 });
 
 // --- Blacksmith: Disenchant ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -2294,7 +2272,6 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, r
 
 
 // --- Blacksmith: Upgrade ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -2400,7 +2377,6 @@ app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res:
 
 
 // --- PvP Route ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
@@ -2542,7 +2518,6 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, 
 
 
 // --- Message Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     try {
@@ -2554,7 +2529,6 @@ app.get('/api/messages', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
@@ -2588,7 +2562,6 @@ app.post('/api/messages', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
@@ -2603,7 +2576,6 @@ app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Respon
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
@@ -2616,7 +2588,6 @@ app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Res
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/admin/global-message', authenticateToken, async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     
@@ -2648,7 +2619,6 @@ app.post('/api/admin/global-message', authenticateToken, async (req: Request, re
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const messageId = parseInt(req.params.id, 10);
@@ -2709,7 +2679,6 @@ app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Reques
 
 
 // --- Tavern (Chat) ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
@@ -2720,7 +2689,6 @@ app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Res
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { content } = req.body;
@@ -2745,7 +2713,6 @@ app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Re
 });
 
 // --- Market Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -2804,7 +2771,6 @@ app.get('/api/market/listings', authenticateToken, async (req: Request, res: Res
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/market/buy', authenticateToken, async (req: Request, res: Response) => {
     const buyerId = req.user!.id;
     const { listingId } = req.body;
@@ -2904,7 +2870,6 @@ app.post('/api/market/buy', authenticateToken, async (req: Request, res: Respons
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/market/bid', authenticateToken, async (req: Request, res: Response) => {
     const bidderId = req.user!.id;
     const { listingId, amount } = req.body;
@@ -2980,7 +2945,6 @@ app.post('/api/market/bid', authenticateToken, async (req: Request, res: Respons
 });
 
 // --- Admin Routes ---
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -2995,7 +2959,6 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Reques
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { itemId, listingType, currency, price, durationHours } = req.body as {
@@ -3059,7 +3022,6 @@ app.post('/api/market/listings', authenticateToken, async (req: Request, res: Re
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const client = await pool.connect();
@@ -3116,7 +3078,6 @@ app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: 
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { id } = req.params;
@@ -3167,7 +3128,6 @@ app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Reque
 });
 
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
@@ -3230,7 +3190,6 @@ app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Reques
 });
 
 // Admin duplication audit route
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -3318,7 +3277,6 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, r
     }
 });
 
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -3454,7 +3412,6 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request
 
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
-// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });

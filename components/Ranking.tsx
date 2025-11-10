@@ -83,6 +83,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                 <th scope="col" className="p-4 w-16 text-center">{t('ranking.rank')}</th>
                 <th scope="col" className="p-4">{t('ranking.player')}</th>
                 <th scope="col" className="p-4">{t('ranking.race')}</th>
+                <th scope="col" className="p-4">{t('ranking.class')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.level')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.wins')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.losses')}</th>
@@ -130,6 +131,9 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                     </td>
                     <td className="p-4 text-gray-300">
                       {t(`race.${player.race}`)}
+                    </td>
+                    <td className="p-4 text-gray-300">
+                      {player.characterClass ? t(`class.${player.characterClass}`) : '-'}
                     </td>
                     <td className="p-4 text-lg font-mono text-center text-gray-300">
                       {player.level}

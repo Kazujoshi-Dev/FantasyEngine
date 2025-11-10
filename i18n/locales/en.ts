@@ -367,6 +367,7 @@ export default {
         experience: 'Experience',
         action: 'Action',
         race: 'Race',
+        class: 'Class',
         noPlayers: 'No players found in the ranking yet.',
         administrator: 'Administrator',
     },
