@@ -429,7 +429,7 @@ export default {
     },
     trader: {
         title: 'Handlarz',
-        traderWares: 'Towary Handlarza',
+        traderWares: "Towary Handlarza",
         yourBag: 'Twój Plecak',
         buyPrice: 'Cena Kupna',
         sellPrice: 'Cena Sprzedaży',
@@ -624,7 +624,6 @@ export default {
         Engineer: 'Inżynier',
         EngineerDescription: 'Podczas odczarowywania przedmiotu ma 50% szansy na uzyskanie podwójnej ilości esencji.',
     },
-    // FIX: Added translation keys for the new news modal feature.
     news: {
         title: 'Nowości i Ogłoszenia',
         close: 'Zamknij',
@@ -819,6 +818,8 @@ export default {
             itemRewards: 'Nagrody w Przedmiotach',
             resourceRewards: 'Nagrody w Zasobach',
             quantity: 'Ilość',
+            addItemReward: 'Dodaj nagrodę (przedmiot)',
+            addResourceReward: 'Dodaj nagrodę (zasób)',
             types: {
                 Kill: 'Zabij Wrogów',
                 Gather: 'Zbierz Przedmioty',

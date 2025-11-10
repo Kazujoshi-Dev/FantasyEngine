@@ -972,7 +972,8 @@ const QuestEditor: React.FC<{
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const numValue = parseInt(value, 10);
+        setFormData(prev => ({ ...prev, [name]: isNaN(numValue) ? value : numValue }));
     };
 
     const handleObjectiveChange = (field: keyof Quest['objective'], value: any) => {
@@ -981,6 +982,41 @@ const QuestEditor: React.FC<{
 
     const handleRewardChange = (field: keyof Quest['rewards'], value: any) => {
         setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards as any), [field]: value } }));
+    };
+
+    const handleItemRewardChange = (index: number, field: keyof ItemReward, value: string | number) => {
+        const newRewards = [...(formData.rewards?.itemRewards || [])];
+        (newRewards[index] as any)[field] = value;
+        handleRewardChange('itemRewards', newRewards);
+    };
+
+    const handleAddItemReward = () => {
+        if (gameData.itemTemplates.length === 0) return;
+        const newRewards = [...(formData.rewards?.itemRewards || []), { templateId: gameData.itemTemplates[0].id, quantity: 1 }];
+        handleRewardChange('itemRewards', newRewards);
+    };
+
+    const handleRemoveItemReward = (index: number) => {
+        const newRewards = [...(formData.rewards?.itemRewards || [])];
+        newRewards.splice(index, 1);
+        handleRewardChange('itemRewards', newRewards);
+    };
+
+    const handleResourceRewardChange = (index: number, field: keyof ResourceReward, value: string | number) => {
+        const newRewards = [...(formData.rewards?.resourceRewards || [])];
+        (newRewards[index] as any)[field] = value;
+        handleRewardChange('resourceRewards', newRewards);
+    };
+
+    const handleAddResourceReward = () => {
+        const newRewards = [...(formData.rewards?.resourceRewards || []), { resource: EssenceType.Common, quantity: 1 }];
+        handleRewardChange('resourceRewards', newRewards);
+    };
+
+    const handleRemoveResourceReward = (index: number) => {
+        const newRewards = [...(formData.rewards?.resourceRewards || [])];
+        newRewards.splice(index, 1);
+        handleRewardChange('resourceRewards', newRewards);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -992,7 +1028,10 @@ const QuestEditor: React.FC<{
          <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400">{isEditing ? t('admin.quest.edit') : t('admin.quest.create')}</h3>
             
-            <label>{t('admin.quest.name')}:<input name="name" value={formData.name || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label>{t('admin.quest.name')}:<input name="name" value={formData.name || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
+                <label>{t('admin.quest.repeatable')}:<input type="number" name="repeatable" value={formData.repeatable ?? 1} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" title={t('admin.quest.repeatableDesc')} /></label>
+            </div>
             <label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
 
             <fieldset className="border p-4 rounded-md border-slate-700">
@@ -1006,6 +1045,46 @@ const QuestEditor: React.FC<{
                          {formData.objective?.type === QuestType.PayGold && <span className="p-2 block text-gray-400">Gold</span>}
                     </label>
                     <label>{t('admin.quest.amount')}:<input type="number" value={formData.objective?.amount} onChange={e => handleObjectiveChange('amount', parseInt(e.target.value))} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
+                </div>
+            </fieldset>
+
+            <fieldset className="border p-4 rounded-md border-slate-700">
+                <legend className="px-2 font-semibold">{t('admin.quest.rewards')}</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label>{t('resources.gold')}:<input type="number" value={formData.rewards?.gold || 0} onChange={e => handleRewardChange('gold', parseInt(e.target.value))} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
+                    <label>XP:<input type="number" value={formData.rewards?.experience || 0} onChange={e => handleRewardChange('experience', parseInt(e.target.value))} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label>
+                </div>
+                
+                <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-2">{t('admin.quest.itemRewards')}</h4>
+                    <div className="space-y-2">
+                        {formData.rewards?.itemRewards?.map((reward, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <select value={reward.templateId} onChange={e => handleItemRewardChange(index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-xs">
+                                    {gameData.itemTemplates.map(it => <option key={it.id} value={it.id}>{it.name}</option>)}
+                                </select>
+                                <input type="number" value={reward.quantity} onChange={e => handleItemRewardChange(index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md text-xs" placeholder={t('admin.quest.quantity') as string}/>
+                                <button type="button" onClick={() => handleRemoveItemReward(index)} className="px-2 py-1 bg-red-800 rounded-md text-xs">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={handleAddItemReward} className="mt-2 px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.quest.addItemReward')}</button>
+                </div>
+                
+                <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-2">{t('admin.quest.resourceRewards')}</h4>
+                    <div className="space-y-2">
+                        {formData.rewards?.resourceRewards?.map((reward, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <select value={reward.resource} onChange={e => handleResourceRewardChange(index, 'resource', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-xs">
+                                    {Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}
+                                </select>
+                                <input type="number" value={reward.quantity} onChange={e => handleResourceRewardChange(index, 'quantity', parseInt(e.target.value))} className="w-24 bg-slate-700 p-2 rounded-md text-xs" placeholder={t('admin.quest.quantity') as string}/>
+                                <button type="button" onClick={() => handleRemoveResourceReward(index)} className="px-2 py-1 bg-red-800 rounded-md text-xs">X</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="button" onClick={handleAddResourceReward} className="mt-2 px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.quest.addResourceReward')}</button>
                 </div>
             </fieldset>
 
