@@ -1,7 +1,5 @@
-
-
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -479,16 +477,22 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
     
+    // FIX: Corrected multiple arithmetic type errors by using the `.max` property from range objects ({min, max}) for calculations.
     const applyItemBonuses = (source: ItemTemplate, upgradeFactor: number) => {
         for (const stat in source.statsBonus) {
             const key = stat as keyof typeof source.statsBonus;
-            const baseBonus = source.statsBonus[key] || 0;
+            const bonusRange = source.statsBonus[key];
+            const baseBonus = bonusRange ? bonusRange.max : 0;
             totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
         }
 
-        const baseDamageMin = source.damageMin || 0, baseDamageMax = source.damageMax || 0;
-        const baseMagicDamageMin = source.magicDamageMin || 0, baseMagicDamageMax = source.magicDamageMax || 0;
-        const baseArmor = source.armorBonus || 0, baseCritChance = source.critChanceBonus || 0, baseMaxHealth = source.maxHealthBonus || 0;
+        const baseDamageMin = source.damageMin ? source.damageMin.max : 0;
+        const baseDamageMax = source.damageMax ? source.damageMax.max : 0;
+        const baseMagicDamageMin = source.magicDamageMin ? source.magicDamageMin.max : 0;
+        const baseMagicDamageMax = source.magicDamageMax ? source.magicDamageMax.max : 0;
+        const baseArmor = source.armorBonus ? source.armorBonus.max : 0;
+        const baseCritChance = source.critChanceBonus ? source.critChanceBonus.max : 0;
+        const baseMaxHealth = source.maxHealthBonus ? source.maxHealthBonus.max : 0;
         
         bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
         bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
@@ -498,13 +502,13 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
         bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
         bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
 
-        bonusCritDamageModifier += source.critDamageModifierBonus || 0;
-        bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
-        bonusArmorPenetrationFlat += source.armorPenetrationFlat || 0;
-        bonusLifeStealPercent += source.lifeStealPercent || 0;
-        bonusLifeStealFlat += source.lifeStealFlat || 0;
-        bonusManaStealPercent += source.manaStealPercent || 0;
-        bonusManaStealFlat += source.manaStealFlat || 0;
+        bonusCritDamageModifier += source.critDamageModifierBonus ? source.critDamageModifierBonus.max : 0;
+        bonusArmorPenetrationPercent += source.armorPenetrationPercent ? source.armorPenetrationPercent.max : 0;
+        bonusArmorPenetrationFlat += source.armorPenetrationFlat ? source.armorPenetrationFlat.max : 0;
+        bonusLifeStealPercent += source.lifeStealPercent ? source.lifeStealPercent.max : 0;
+        bonusLifeStealFlat += source.lifeStealFlat ? source.lifeStealFlat.max : 0;
+        bonusManaStealPercent += source.manaStealPercent ? source.manaStealPercent.max : 0;
+        bonusManaStealFlat += source.manaStealFlat ? source.manaStealFlat.max : 0;
     };
     
     const applyAffixBonuses = (source: RolledAffixStats) => {
@@ -982,10 +986,11 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                     let isMagicAttack = false;
                     let notEnoughMana = false;
                     if (isPlayerTurn) {
+                        // FIX: Corrected type error by using .max from manaCost range object.
                         if (mainHandTemplate?.isMagical && mainHandTemplate.magicAttackType && mainHandTemplate.manaCost) {
-                            if (playerMana >= mainHandTemplate.manaCost) {
+                            if (playerMana >= mainHandTemplate.manaCost.max) {
                                 isMagicAttack = true;
-                                playerMana -= mainHandTemplate.manaCost;
+                                playerMana -= mainHandTemplate.manaCost.max;
                                 magicAttackType = mainHandTemplate.magicAttackType;
                             } else {
                                 notEnoughMana = true;
@@ -993,7 +998,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                                     playerMana = playerStats.maxMana;
                                     mageManaRestored = true;
                                     isMagicAttack = true;
-                                    playerMana -= mainHandTemplate.manaCost;
+                                    playerMana -= mainHandTemplate.manaCost.max;
                                     magicAttackType = mainHandTemplate.magicAttackType;
                                     notEnoughMana = false; // Resolved
                                 }
@@ -1304,17 +1309,18 @@ function simulatePvpFight(
                     const mainHand = isAttackerTurn ? attackerMainHandTemplate : defenderMainHandTemplate;
                     let isMagicAttack = false;
                     
+                    // FIX: Corrected type error by using .max from manaCost range object.
                     if (mainHand?.isMagical && mainHand.magicAttackType && mainHand.manaCost) {
                         let currentMana = isAttackerTurn ? attackerMana : defenderMana;
-                        if (currentMana >= mainHand.manaCost) {
+                        if (currentMana >= mainHand.manaCost.max) {
                             isMagicAttack = true;
-                            currentMana -= mainHand.manaCost;
+                            currentMana -= mainHand.manaCost.max;
                             magicAttackType = mainHand.magicAttackType;
                         } else {
                              const isMage = playerA.characterClass === CharacterClass.Mage || playerA.characterClass === CharacterClass.Wizard;
                              const hasRestored = isAttackerTurn ? attackerMageManaRestored : defenderMageManaRestored;
                              if (isMage && !hasRestored) {
-                                currentMana = statsA.maxMana - mainHand.manaCost;
+                                currentMana = statsA.maxMana - mainHand.manaCost.max;
                                 isMagicAttack = true;
                                 if (isAttackerTurn) attackerMageManaRestored = true; else defenderMageManaRestored = true;
                              }
@@ -1481,7 +1487,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
-app.post('/api/auth/register', async (req: Request, res: Response) => {
+app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1507,7 +1513,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
+app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1534,7 +1540,8 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/auth/logout', authenticateToken, (req: ExpressRequest, res: ExpressResponse) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
         pool.query('DELETE FROM sessions WHERE token = $1', [token])
@@ -1549,7 +1556,8 @@ app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) =>
 });
 
 // Heartbeat endpoint
-app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/session/heartbeat', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
         return res.sendStatus(401);
@@ -1564,7 +1572,8 @@ app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: 
 });
 
 // --- Middleware for authentication ---
-async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+// FIX: Added missing types to middleware
+async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1584,7 +1593,8 @@ async function authenticateToken(req: Request, res: Response, next: NextFunction
 }
 
 // --- Character Routes ---
-app.get('/api/character', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -1678,7 +1688,8 @@ app.get('/api/character', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-app.post('/api/character', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1693,7 +1704,8 @@ app.post('/api/character', authenticateToken, async (req: Request, res: Response
     }
 });
 
-app.put('/api/character', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.put('/api/character', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1705,7 +1717,8 @@ app.put('/api/character', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-app.post('/api/character/select-class', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/character/select-class', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
 
@@ -1756,7 +1769,8 @@ app.post('/api/character/select-class', authenticateToken, async (req: Request, 
     }
 });
 
-app.get('/api/characters/all', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/characters/all', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1783,7 +1797,8 @@ app.get('/api/characters/all', authenticateToken, async (req: Request, res: Resp
     }
 });
 
-app.delete('/api/characters/:userId', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.delete('/api/characters/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1799,7 +1814,8 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: Request, re
     }
 });
 
-app.get('/api/characters/names', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/characters/names', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
         res.json(result.rows.map(r => r.name));
@@ -1809,7 +1825,8 @@ app.get('/api/characters/names', authenticateToken, async (req: Request, res: Re
     }
 });
 
-app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1838,7 +1855,8 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: R
     }
 });
 
-app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1862,7 +1880,8 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request,
     }
 });
 
-app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1906,7 +1925,8 @@ app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (r
 });
 
 // --- User Routes (Admin) ---
-app.get('/api/users', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/users', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1921,7 +1941,8 @@ app.get('/api/users', authenticateToken, async (req: Request, res: Response) => 
     }
 });
 
-app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.delete('/api/users/:userId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1939,7 +1960,8 @@ app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Re
 
 
 // --- Game Data Routes ---
-app.get('/api/game-data', async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/game-data', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: { [key: string]: any } = {};
@@ -1956,7 +1978,8 @@ app.get('/api/game-data', async (req: Request, res: Response) => {
 });
 
 // --- Admin: Update Game Data ---
-app.put('/api/game-data', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.put('/api/game-data', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1985,7 +2008,8 @@ app.put('/api/game-data', authenticateToken, async (req: Request, res: Response)
 
 
 // --- Ranking Route ---
-app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/ranking', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -2018,7 +2042,8 @@ app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) =
 });
 
 // --- Trader Routes ---
-app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/trader/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const forceRefresh = req.query.force === 'true';
 
     try {
@@ -2048,7 +2073,8 @@ app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Re
 });
 
 // --- Trader: Buy Item ---
-app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/trader/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
     if (!itemId) {
@@ -2129,7 +2155,8 @@ app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Respons
 });
 
 // --- Trader: Sell Items ---
-app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/trader/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
 
@@ -2193,7 +2220,8 @@ app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Respon
 });
 
 // --- Blacksmith: Disenchant ---
-app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/blacksmith/disenchant', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2273,7 +2301,8 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, r
 
 
 // --- Blacksmith: Upgrade ---
-app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/blacksmith/upgrade', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2378,7 +2407,8 @@ app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res:
 
 
 // --- PvP Route ---
-app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
 
@@ -2519,7 +2549,8 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, 
 
 
 // --- Message Routes ---
-app.get('/api/messages', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
@@ -2530,7 +2561,8 @@ app.get('/api/messages', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-app.post('/api/messages', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
 
@@ -2563,7 +2595,8 @@ app.post('/api/messages', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.put('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { id } = req.params;
     const { is_read } = req.body;
@@ -2577,7 +2610,8 @@ app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Respon
     }
 });
 
-app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.delete('/api/messages/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { id } = req.params;
     try {
@@ -2589,7 +2623,8 @@ app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Res
     }
 });
 
-app.post('/api/admin/global-message', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/admin/global-message', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { subject, content } = req.body;
     
     const client = await pool.connect();
@@ -2620,7 +2655,8 @@ app.post('/api/admin/global-message', authenticateToken, async (req: Request, re
     }
 });
 
-app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/messages/claim-return/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const messageId = parseInt(req.params.id, 10);
 
@@ -2680,7 +2716,8 @@ app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Reques
 
 
 // --- Tavern (Chat) ---
-app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
         res.json(result.rows);
@@ -2690,7 +2727,8 @@ app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Res
     }
 });
 
-app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/tavern/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { content } = req.body;
     if (!content || content.trim().length === 0) {
@@ -2714,7 +2752,8 @@ app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Re
 });
 
 // --- Market Routes ---
-app.get('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/market/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -2772,7 +2811,8 @@ app.get('/api/market/listings', authenticateToken, async (req: Request, res: Res
     }
 });
 
-app.post('/api/market/buy', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/market/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const buyerId = req.user!.id;
     const { listingId } = req.body;
 
@@ -2871,7 +2911,8 @@ app.post('/api/market/buy', authenticateToken, async (req: Request, res: Respons
     }
 });
 
-app.post('/api/market/bid', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/market/bid', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const bidderId = req.user!.id;
     const { listingId, amount } = req.body;
 
@@ -2946,7 +2987,8 @@ app.post('/api/market/bid', authenticateToken, async (req: Request, res: Respons
 });
 
 // --- Admin Routes ---
-app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -2960,7 +3002,8 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Reques
     }
 });
 
-app.post('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/market/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const sellerId = req.user!.id;
     const { itemId, listingType, currency, price, durationHours } = req.body as {
         itemId: string;
@@ -3023,7 +3066,8 @@ app.post('/api/market/listings', authenticateToken, async (req: Request, res: Re
     }
 });
 
-app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/market/my-listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const sellerId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -3079,7 +3123,8 @@ app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: 
     }
 });
 
-app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const sellerId = req.user!.id;
     const { id } = req.params;
 
@@ -3129,7 +3174,8 @@ app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Reque
 });
 
 
-app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/market/listings/:id/claim', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
@@ -3191,7 +3237,8 @@ app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Reques
 });
 
 // Admin duplication audit route
-app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('/api/admin/audit/duplicates', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3278,7 +3325,8 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, r
     }
 });
 
-app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3413,7 +3461,8 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request
 
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
-app.get('*', (req: Request, res: Response) => {
+// FIX: Added missing types to route handler
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
     res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 

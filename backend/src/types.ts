@@ -332,28 +332,28 @@ export interface ItemTemplate {
     value: number; // Gold value
     requiredLevel: number;
     requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
-    // Bonuses
-    statsBonus: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
-    damageMin?: number;
-    damageMax?: number;
+    // Bonuses with min-max ranges
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    damageMin?: { min: number; max: number; };
+    damageMax?: { min: number; max: number; };
     attacksPerRound?: number;
-    armorBonus?: number;
-    critChanceBonus?: number;
-    maxHealthBonus?: number;
-    critDamageModifierBonus?: number;
-    armorPenetrationPercent?: number;
-    armorPenetrationFlat?: number;
-    lifeStealPercent?: number;
-    lifeStealFlat?: number;
-    manaStealPercent?: number;
-    manaStealFlat?: number;
+    armorBonus?: { min: number; max: number; };
+    critChanceBonus?: { min: number; max: number; };
+    maxHealthBonus?: { min: number; max: number; };
+    critDamageModifierBonus?: { min: number; max: number; };
+    armorPenetrationPercent?: { min: number; max: number; };
+    armorPenetrationFlat?: { min: number; max: number; };
+    lifeStealPercent?: { min: number; max: number; };
+    lifeStealFlat?: { min: number; max: number; };
+    manaStealPercent?: { min: number; max: number; };
+    manaStealFlat?: { min: number; max: number; };
     // Magic properties
     isMagical?: boolean;
     isRanged?: boolean;
     magicAttackType?: MagicAttackType;
-    manaCost?: number;
-    magicDamageMin?: number;
-    magicDamageMax?: number;
+    manaCost?: { min: number; max: number; };
+    magicDamageMin?: { min: number; max: number; };
+    magicDamageMax?: { min: number; max: number; };
 }
 
 export interface RolledAffixStats {
@@ -384,6 +384,7 @@ export interface ItemInstance {
     suffixId?: string;
     rolledPrefix?: RolledAffixStats;
     rolledSuffix?: RolledAffixStats;
+    rolledBaseStats?: RolledAffixStats;
 }
 
 export enum AffixType {

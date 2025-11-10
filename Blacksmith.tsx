@@ -97,16 +97,17 @@ const DisenchantPanel: React.FC<{
             return base + Math.round(base * upgradeBonusFactor);
         };
 
+        // FIX: Corrected arithmetic type errors by using the `.max` property from range objects ({min, max}).
         return {
             upgradeLevel,
-            finalDamageMin: calculateUpgradedStat(selectedTemplate.damageMin),
-            finalDamageMax: calculateUpgradedStat(selectedTemplate.damageMax),
-            finalCritChanceBonus: selectedTemplate.critChanceBonus !== undefined ? (selectedTemplate.critChanceBonus + selectedTemplate.critChanceBonus * upgradeBonusFactor) : undefined,
+            finalDamageMin: calculateUpgradedStat(selectedTemplate.damageMin?.max),
+            finalDamageMax: calculateUpgradedStat(selectedTemplate.damageMax?.max),
+            finalCritChanceBonus: selectedTemplate.critChanceBonus !== undefined ? ((selectedTemplate.critChanceBonus.max) + (selectedTemplate.critChanceBonus.max) * upgradeBonusFactor) : undefined,
             attacksPerRound: selectedTemplate.attacksPerRound,
-            finalArmorBonus: calculateUpgradedStat(selectedTemplate.armorBonus),
-            statBonusEntries: Object.entries(selectedTemplate.statsBonus)
+            finalArmorBonus: calculateUpgradedStat(selectedTemplate.armorBonus?.max),
+            statBonusEntries: Object.entries(selectedTemplate.statsBonus || {})
                 .filter(([, value]) => value)
-                .map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) })),
+                .map(([key, value]) => ({ key, value: calculateUpgradedStat(value.max) })),
         };
     }, [selectedItem, selectedTemplate]);
 
@@ -142,7 +143,7 @@ const DisenchantPanel: React.FC<{
                             <p className="text-sm text-gray-400 mb-2">{t('item.slotLabel')}: <span className="font-semibold text-white">{t(`item.slot.${selectedTemplate.slot}`)}</span></p>
 
                             <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
-                                {finalDamageMin !== undefined && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
+                                {finalDamageMin !== undefined && finalDamageMax !== undefined && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
                                 {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
                                 {finalArmorBonus && finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
                                 {finalCritChanceBonus && finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}

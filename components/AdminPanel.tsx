@@ -602,6 +602,10 @@ const ItemEditor: React.FC<{
 }> = ({ item, onSave, onCancel, isEditing }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<ItemTemplate>>({
+        rarity: ItemRarity.Common,
+        slot: EquipmentSlot.Head,
+        category: ItemCategory.Armor,
+        gender: GrammaticalGender.Masculine,
         statsBonus: {},
         requiredStats: {},
         ...item
@@ -627,24 +631,44 @@ const ItemEditor: React.FC<{
         }
     };
 
-    const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
-    };
-
-    const handleNestedChange = (category: 'statsBonus' | 'requiredStats', key: keyof CharacterStats, value: string) => {
+    const handleMinMaxChange = (key: keyof ItemTemplate, field: 'min' | 'max', value: string) => {
+        const numValue = parseFloat(value);
         setFormData(prev => {
-            const currentCategory = prev[category] || {};
-            const newCategory = { ...currentCategory, [key]: parseInt(value) || undefined };
-            if (newCategory[key] === undefined) {
-                delete newCategory[key];
-            }
+            const currentVal = (prev as any)[key] || {};
             return {
                 ...prev,
-                [category]: newCategory
-            };
+                [key]: {
+                    ...currentVal,
+                    [field]: isNaN(numValue) ? undefined : numValue
+                }
+            }
         });
     };
+
+    const handleNestedMinMaxChange = (category: 'statsBonus' | 'requiredStats', key: string, field: 'min' | 'max', value: string) => {
+      const numValue = parseInt(value, 10);
+      setFormData(prev => {
+        const newCategory = { ...(prev as any)[category] };
+        const newStat = { ...newCategory[key], [field]: isNaN(numValue) ? undefined : numValue };
+        
+        if (newStat.min === undefined && newStat.max === undefined) {
+          delete newCategory[key];
+        } else {
+          newCategory[key] = newStat;
+        }
+
+        if (Object.keys(newCategory).length === 0) {
+            const { [category]: _, ...rest } = prev;
+            return rest;
+        }
+        
+        return { ...prev, [category]: newCategory };
+      });
+    };
+    
+    const handleNumericChange = (key: keyof ItemTemplate, value: string) => {
+        setFormData(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -652,6 +676,15 @@ const ItemEditor: React.FC<{
             alert(t('admin.item.validationError'));
             return;
         }
+        
+        const cleanMinMax = (obj: any) => {
+            if (!obj) return undefined;
+            const { min, max } = obj;
+            if (min === undefined && max === undefined) return undefined;
+            const finalMin = min ?? max ?? 0;
+            const finalMax = max ?? min ?? 0;
+            return { min: Math.min(finalMin, finalMax), max: Math.max(finalMin, finalMax) };
+        };
 
         const finalItem: ItemTemplate = {
             id: formData.id || crypto.randomUUID(),
@@ -665,31 +698,44 @@ const ItemEditor: React.FC<{
             value: formData.value || 0,
             requiredLevel: formData.requiredLevel || 1,
             requiredStats: formData.requiredStats,
-            statsBonus: formData.statsBonus || {},
-            damageMin: formData.damageMin,
-            damageMax: formData.damageMax,
+            statsBonus: formData.statsBonus,
+            damageMin: cleanMinMax(formData.damageMin),
+            damageMax: cleanMinMax(formData.damageMax),
             attacksPerRound: formData.attacksPerRound,
-            armorBonus: formData.armorBonus,
-            critChanceBonus: formData.critChanceBonus,
-            maxHealthBonus: formData.maxHealthBonus,
-            critDamageModifierBonus: formData.critDamageModifierBonus,
-            armorPenetrationPercent: formData.armorPenetrationPercent,
-            armorPenetrationFlat: formData.armorPenetrationFlat,
-            lifeStealPercent: formData.lifeStealPercent,
-            lifeStealFlat: formData.lifeStealFlat,
-            manaStealPercent: formData.manaStealPercent,
-            manaStealFlat: formData.manaStealFlat,
+            armorBonus: cleanMinMax(formData.armorBonus),
+            critChanceBonus: cleanMinMax(formData.critChanceBonus),
+            maxHealthBonus: cleanMinMax(formData.maxHealthBonus),
+            critDamageModifierBonus: cleanMinMax(formData.critDamageModifierBonus),
+            armorPenetrationPercent: cleanMinMax(formData.armorPenetrationPercent),
+            armorPenetrationFlat: cleanMinMax(formData.armorPenetrationFlat),
+            lifeStealPercent: cleanMinMax(formData.lifeStealPercent),
+            lifeStealFlat: cleanMinMax(formData.lifeStealFlat),
+            manaStealPercent: cleanMinMax(formData.manaStealPercent),
+            manaStealFlat: cleanMinMax(formData.manaStealFlat),
             isMagical: formData.isMagical,
             isRanged: formData.isRanged,
             magicAttackType: formData.magicAttackType,
-            manaCost: formData.manaCost,
-            magicDamageMin: formData.magicDamageMin,
-            magicDamageMax: formData.magicDamageMax,
+            manaCost: cleanMinMax(formData.manaCost),
+            magicDamageMin: cleanMinMax(formData.magicDamageMin),
+            magicDamageMax: cleanMinMax(formData.magicDamageMax),
         };
         onSave(finalItem);
     };
 
     const primaryStats: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+
+    const MinMaxInput: React.FC<{ label: string; field: keyof ItemTemplate, isFloat?: boolean }> = ({ label, field, isFloat }) => {
+        const value = (formData as any)[field] || {};
+        return (
+             <div>
+                <label className="block text-sm font-medium text-gray-300">{label}</label>
+                <div className="flex items-center gap-2 mt-1">
+                    <input type="number" step={isFloat ? "0.1" : "1"} value={value.min ?? ''} onChange={e => handleMinMaxChange(field, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-xs" placeholder={t('admin.min') as string} aria-label={`${label} min value`} />
+                    <input type="number" step={isFloat ? "0.1" : "1"} value={value.max ?? ''} onChange={e => handleMinMaxChange(field, 'max', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-xs" placeholder={t('admin.max') as string} aria-label={`${label} max value`} />
+                </div>
+            </div>
+        );
+    };
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
@@ -715,53 +761,67 @@ const ItemEditor: React.FC<{
                 <div><label>{t('item.slotLabel')}:<select name="slot" value={formData.slot} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}<option value="ring">ring</option></select></label></div>
                 <div><label>{t('item.category')}:<select name="category" value={formData.category} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(ItemCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></label></div>
                 <div><label>{t('item.rarity')}:<select name="rarity" value={formData.rarity} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(ItemRarity).map(r => <option key={r} value={r}>{r}</option>)}</select></label></div>
-                <div><label>{t('item.value')}:<input type="number" name="value" value={formData.value || 0} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.levelRequirement')}:<input type="number" name="requiredLevel" value={formData.requiredLevel || 1} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('item.value')}:<input type="number" name="value" value={formData.value || 0} onChange={e => handleNumericChange('value', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('item.levelRequirement')}:<input type="number" name="requiredLevel" value={formData.requiredLevel || 1} onChange={e => handleNumericChange('requiredLevel', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div className="col-span-full"><label>{t('item.requiredStats')}:</label>
                     <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-1">
-                        {primaryStats.map(stat => <label key={stat} className="text-xs">{t(`statistics.${stat}`)}:<input type="number" value={formData.requiredStats?.[stat] || ''} onChange={e => handleNestedChange('requiredStats', stat, e.target.value)} className="w-full bg-slate-700 p-1 rounded-md mt-1 text-sm" /></label>)}
+                        {primaryStats.map(stat => <label key={stat} className="text-xs">{t(`statistics.${stat}`)}:<input type="number" value={(formData.requiredStats as any)?.[stat] || ''} onChange={e => handleNestedMinMaxChange('requiredStats', stat, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md mt-1 text-sm" /></label>)}
                     </div>
                 </div>
             </fieldset>
 
-            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-700 p-4 rounded-md">
+            <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border border-slate-700 p-4 rounded-md">
                 <legend className="px-2 font-semibold">{t('item.weaponStats')}</legend>
-                <div><label>{t('item.damageMin')}:<input type="number" name="damageMin" value={formData.damageMin || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.damageMax')}:<input type="number" name="damageMax" value={formData.damageMax || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.attacksPerRound')}:<input type="number" name="attacksPerRound" step="0.1" value={formData.attacksPerRound || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <MinMaxInput label={t('item.damageMin')} field="damageMin" />
+                <MinMaxInput label={t('item.damageMax')} field="damageMax" />
+                <div><label>{t('item.attacksPerRound')}:<input type="number" name="attacksPerRound" step="0.1" value={formData.attacksPerRound || ''} onChange={e => handleNumericChange('attacksPerRound', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div className="flex items-center gap-4 col-span-full">
                     <label className="flex items-center gap-2"><input type="checkbox" name="isRanged" checked={!!formData.isRanged} onChange={handleInputChange} /> {t('item.isRanged')}</label>
                 </div>
             </fieldset>
 
-            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-700 p-4 rounded-md">
+            <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border border-slate-700 p-4 rounded-md">
                 <legend className="px-2 font-semibold">{t('item.magicProperties')}</legend>
-                <div><label>{t('item.magicDamageMin')}:<input type="number" name="magicDamageMin" value={formData.magicDamageMin || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.magicDamageMax')}:<input type="number" name="magicDamageMax" value={formData.magicDamageMax || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.manaCost')}:<input type="number" name="manaCost" value={formData.manaCost || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.magicAttackType')}:<select name="magicAttackType" value={formData.magicAttackType} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">{t('admin.general.none')}</option>{Object.values(MagicAttackType).map(m => <option key={m} value={m}>{m}</option>)}</select></label></div>
+                <MinMaxInput label={t('item.magicDamageMin')} field="magicDamageMin" />
+                <MinMaxInput label={t('item.magicDamageMax')} field="magicDamageMax" />
+                <MinMaxInput label={t('item.manaCost')} field="manaCost" />
+                <div className="col-span-full md:col-span-1"><label>{t('item.magicAttackType')}:<select name="magicAttackType" value={formData.magicAttackType} onChange={handleInputChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">{t('admin.general.none')}</option>{Object.values(MagicAttackType).map(m => <option key={m} value={m}>{m}</option>)}</select></label></div>
                  <div className="flex items-center gap-4 col-span-full">
                     <label className="flex items-center gap-2"><input type="checkbox" name="isMagical" checked={!!formData.isMagical} onChange={handleInputChange} /> {t('item.isMagical')}</label>
                 </div>
             </fieldset>
 
-            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 border border-slate-700 p-4 rounded-md">
+            <fieldset className="border border-slate-700 p-4 rounded-md">
+                <legend className="px-2 font-semibold">{t('admin.affix.primaryBonuses')}</legend>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {primaryStats.map(stat => {
+                        const value = (formData.statsBonus as any)?.[stat] || {};
+                        return (
+                             <div key={stat}>
+                                <label className="block text-sm font-medium text-gray-300">{t(`statistics.${stat}`)}</label>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <input type="number" value={value.min ?? ''} onChange={e => handleNestedMinMaxChange('statsBonus', stat, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-xs" placeholder={t('admin.min') as string} />
+                                    <input type="number" value={value.max ?? ''} onChange={e => handleNestedMinMaxChange('statsBonus', stat, 'max', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md text-xs" placeholder={t('admin.max') as string} />
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </fieldset>
+            
+            <fieldset className="border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('item.secondaryBonuses')}</legend>
-                <div><label>{t('item.armorBonus')}:<input type="number" name="armorBonus" value={formData.armorBonus || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.critChanceBonus')}:<input type="number" name="critChanceBonus" step="0.1" value={formData.critChanceBonus || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.maxHealthBonus')}:<input type="number" name="maxHealthBonus" value={formData.maxHealthBonus || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.critDamageModifierBonus')}:<input type="number" name="critDamageModifierBonus" value={formData.critDamageModifierBonus || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.armorPenetrationPercent')}:<input type="number" name="armorPenetrationPercent" value={formData.armorPenetrationPercent || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.armorPenetrationFlat')}:<input type="number" name="armorPenetrationFlat" value={formData.armorPenetrationFlat || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.lifeStealPercent')}:<input type="number" name="lifeStealPercent" value={formData.lifeStealPercent || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.lifeStealFlat')}:<input type="number" name="lifeStealFlat" value={formData.lifeStealFlat || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                 <div><label>{t('item.manaStealPercent')}:<input type="number" name="manaStealPercent" value={formData.manaStealPercent || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.manaStealFlat')}:<input type="number" name="manaStealFlat" value={formData.manaStealFlat || ''} onChange={handleNumericChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-
-                <div className="col-span-full"><label>{t('item.statBonuses')}:</label>
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-1">
-                        {primaryStats.map(stat => <label key={stat} className="text-xs">{t(`statistics.${stat}`)}:<input type="number" value={formData.statsBonus?.[stat] || ''} onChange={e => handleNestedChange('statsBonus', stat, e.target.value)} className="w-full bg-slate-700 p-1 rounded-md mt-1 text-sm" /></label>)}
-                    </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <MinMaxInput label={t('item.armorBonus')} field="armorBonus" />
+                    <MinMaxInput label={t('item.critChanceBonus')} field="critChanceBonus" isFloat />
+                    <MinMaxInput label={t('item.maxHealthBonus')} field="maxHealthBonus" />
+                    <MinMaxInput label={t('item.critDamageModifierBonus')} field="critDamageModifierBonus" />
+                    <MinMaxInput label={t('item.armorPenetrationPercent')} field="armorPenetrationPercent" />
+                    <MinMaxInput label={t('item.armorPenetrationFlat')} field="armorPenetrationFlat" />
+                    <MinMaxInput label={t('item.lifeStealPercent')} field="lifeStealPercent" />
+                    <MinMaxInput label={t('item.lifeStealFlat')} field="lifeStealFlat" />
+                    <MinMaxInput label={t('item.manaStealPercent')} field="manaStealPercent" />
+                    <MinMaxInput label={t('item.manaStealFlat')} field="manaStealFlat" />
                 </div>
             </fieldset>
 
@@ -1560,8 +1620,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     <div className="flex-1">
                                         <p className={`font-semibold ${rarityStyles[item.rarity].text}`}>{item.name}</p>
                                         <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                                            {(item.damageMin || item.damageMax) && <span>DMG: {item.damageMin}-{item.damageMax}</span>}
-                                            {item.armorBonus && <span>ARM: {item.armorBonus}</span>}
+                                            {(item.damageMin || item.damageMax) && <span>DMG: {item.damageMin?.min}-{item.damageMax?.max}</span>}
+                                            {item.armorBonus && <span>ARM: {item.armorBonus.min}-{item.armorBonus.max}</span>}
                                             <span>Lvl: {item.requiredLevel}</span>
                                             <span className="italic">{item.slot}</span>
                                         </div>
