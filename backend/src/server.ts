@@ -1,6 +1,8 @@
 
+
+
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -1234,7 +1236,7 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/auth/register', async (req: express.Request, res: express.Response) => {
+app.post('/api/auth/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1261,7 +1263,7 @@ app.post('/api/auth/register', async (req: express.Request, res: express.Respons
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/auth/login', async (req: express.Request, res: express.Response) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1289,7 +1291,7 @@ app.post('/api/auth/login', async (req: express.Request, res: express.Response) 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/auth/logout', authenticateToken, (req: express.Request, res: express.Response) => {
+app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
         pool.query('DELETE FROM sessions WHERE token = $1', [token])
@@ -1305,7 +1307,7 @@ app.post('/api/auth/logout', authenticateToken, (req: express.Request, res: expr
 
 // Heartbeat endpoint
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/session/heartbeat', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
         return res.sendStatus(401);
@@ -1321,7 +1323,7 @@ app.post('/api/session/heartbeat', authenticateToken, async (req: express.Reques
 
 // --- Middleware for authentication ---
 // FIX: Add explicit types for Express request, response and next function objects to resolve type errors.
-async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1342,7 +1344,7 @@ async function authenticateToken(req: express.Request, res: express.Response, ne
 
 // --- Character Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -1437,7 +1439,7 @@ app.get('/api/character', authenticateToken, async (req: express.Request, res: e
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1453,7 +1455,7 @@ app.post('/api/character', authenticateToken, async (req: express.Request, res: 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1466,7 +1468,7 @@ app.put('/api/character', authenticateToken, async (req: express.Request, res: e
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/character/select-class', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
 
@@ -1518,7 +1520,7 @@ app.post('/api/character/select-class', authenticateToken, async (req: express.R
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/characters/all', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/characters/all', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1546,7 +1548,7 @@ app.get('/api/characters/all', authenticateToken, async (req: express.Request, r
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/characters/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/characters/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1563,7 +1565,7 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: express.Req
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/characters/names', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
         res.json(result.rows.map(r => r.name));
@@ -1574,7 +1576,7 @@ app.get('/api/characters/names', authenticateToken, async (req: express.Request,
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1604,7 +1606,7 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: e
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/characters/:userId/heal', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1629,7 +1631,7 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: express.
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1674,7 +1676,7 @@ app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (r
 
 // --- User Routes (Admin) ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/users', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/users', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1690,7 +1692,7 @@ app.get('/api/users', authenticateToken, async (req: express.Request, res: expre
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/users/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1709,7 +1711,7 @@ app.delete('/api/users/:userId', authenticateToken, async (req: express.Request,
 
 // --- Game Data Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/game-data', async (req: express.Request, res: express.Response) => {
+app.get('/api/game-data', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: { [key: string]: any } = {};
@@ -1727,7 +1729,7 @@ app.get('/api/game-data', async (req: express.Request, res: express.Response) =>
 
 // --- Admin: Update Game Data ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/game-data', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/game-data', authenticateToken, async (req: Request, res: Response) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1757,7 +1759,7 @@ app.put('/api/game-data', authenticateToken, async (req: express.Request, res: e
 
 // --- Ranking Route ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/ranking', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -1790,7 +1792,7 @@ app.get('/api/ranking', authenticateToken, async (req: express.Request, res: exp
 
 // --- Trader Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/trader/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
 
     try {
@@ -1821,7 +1823,7 @@ app.get('/api/trader/inventory', authenticateToken, async (req: express.Request,
 
 // --- Trader: Buy Item ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/trader/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
     if (!itemId) {
@@ -1903,7 +1905,7 @@ app.post('/api/trader/buy', authenticateToken, async (req: express.Request, res:
 
 // --- Trader: Sell Items ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/trader/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
 
@@ -1966,10 +1968,182 @@ app.post('/api/trader/sell', authenticateToken, async (req: express.Request, res
     }
 });
 
+// --- Blacksmith: Disenchant ---
+app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { itemId } = req.body;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key = 'itemTemplates'");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error('Character not found.');
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (itemIndex === -1) throw new Error('Item not found in your inventory.');
+        const itemToDisenchant = character.inventory[itemIndex];
+
+        const template = allItemTemplates.find(t => t.id === itemToDisenchant.templateId);
+        if (!template) throw new Error('Item template not found.');
+        
+        const disenchantCost = Math.round(template.value * 0.1);
+        if (character.resources.gold < disenchantCost) throw new Error('Not enough gold to disenchant.');
+
+        character.resources.gold -= disenchantCost;
+        character.inventory.splice(itemIndex, 1);
+
+        let essenceType: EssenceType | null = null;
+        let amount = 0;
+        let success = false;
+        
+        switch (template.rarity) {
+            case ItemRarity.Common: 
+                essenceType = EssenceType.Common;
+                amount = Math.floor(Math.random() * 4) + 1;
+                break;
+            case ItemRarity.Uncommon:
+                essenceType = EssenceType.Uncommon;
+                amount = Math.floor(Math.random() * 2) + 1;
+                break;
+            case ItemRarity.Rare:
+                essenceType = EssenceType.Rare;
+                amount = Math.floor(Math.random() * 2) + 1;
+                break;
+            case ItemRarity.Epic:
+                essenceType = EssenceType.Epic;
+                amount = 1;
+                break;
+            case ItemRarity.Legendary:
+                essenceType = EssenceType.Legendary;
+                if (Math.random() < 0.5) amount = 1;
+                break;
+        }
+
+        if (essenceType && amount > 0) {
+            character.resources[essenceType] = (character.resources[essenceType] || 0) + amount;
+            success = true;
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        
+        res.json({ updatedCharacter: character, result: { success, amount, essenceType } });
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('Error disenchanting item:', err);
+        res.status(400).json({ message: err.message || 'Server error while disenchanting item.' });
+    } finally {
+        client.release();
+    }
+});
+
+
+// --- Blacksmith: Upgrade ---
+app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { itemId } = req.body;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key = 'itemTemplates'");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error('Character not found.');
+        let character: PlayerCharacter = charRes.rows[0].data;
+        
+        // Find item in inventory or equipment
+        let item: ItemInstance | null = null;
+        let itemLocation: { type: 'inventory' | 'equipment', key: number | EquipmentSlot } | null = null;
+        
+        const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (inventoryIndex !== -1) {
+            item = character.inventory[inventoryIndex];
+            itemLocation = { type: 'inventory', key: inventoryIndex };
+        } else {
+            for (const slot in character.equipment) {
+                if (character.equipment[slot as EquipmentSlot]?.uniqueId === itemId) {
+                    item = character.equipment[slot as EquipmentSlot];
+                    itemLocation = { type: 'equipment', key: slot as EquipmentSlot };
+                    break;
+                }
+            }
+        }
+        
+        if (!item || !itemLocation) throw new Error('Item not found.');
+        
+        const template = allItemTemplates.find(t => t.id === item!.templateId);
+        if (!template) throw new Error('Item template not found.');
+        
+        const currentLevel = item.upgradeLevel || 0;
+        if (currentLevel >= 10) throw new Error('Item is already at max level.');
+
+        const nextLevel = currentLevel + 1;
+        const rarityMultiplier: Record<ItemRarity, number> = {
+            [ItemRarity.Common]: 1, [ItemRarity.Uncommon]: 1.5, [ItemRarity.Rare]: 2.5,
+            [ItemRarity.Epic]: 4, [ItemRarity.Legendary]: 8
+        };
+        const goldCost = Math.floor(template.value * 0.5 * nextLevel * rarityMultiplier[template.rarity]);
+        const essenceCostAmount = 1;
+        
+        let essenceType: EssenceType | null = null;
+        switch (template.rarity) {
+            case ItemRarity.Common: essenceType = EssenceType.Common; break;
+            case ItemRarity.Uncommon: essenceType = EssenceType.Uncommon; break;
+            case ItemRarity.Rare: essenceType = EssenceType.Rare; break;
+            case ItemRarity.Epic: essenceType = EssenceType.Epic; break;
+            case ItemRarity.Legendary: essenceType = EssenceType.Legendary; break;
+        }
+
+        if (character.resources.gold < goldCost) throw new Error('Not enough gold.');
+        if (essenceType && (character.resources[essenceType] || 0) < essenceCostAmount) throw new Error('Not enough essence.');
+        
+        character.resources.gold -= goldCost;
+        if (essenceType) character.resources[essenceType] -= essenceCostAmount;
+
+        const successChance = Math.max(10, 100 - (currentLevel * 10));
+        const roll = Math.random() * 100;
+        let result: { success: boolean, messageKey: string, level?: number };
+
+        if (roll < successChance) {
+            // SUCCESS
+            item.upgradeLevel = nextLevel;
+            result = { success: true, messageKey: 'blacksmith.upgrade.upgradeSuccess', level: nextLevel };
+        } else {
+            // FAILURE
+            if (itemLocation.type === 'inventory') {
+                character.inventory.splice(itemLocation.key as number, 1);
+            } else {
+                character.equipment[itemLocation.key as EquipmentSlot] = null;
+            }
+            result = { success: false, messageKey: 'blacksmith.upgrade.upgradeFailure' };
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        
+        res.json({ updatedCharacter: character, result });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('Error upgrading item:', err);
+        res.status(400).json({ message: err.message || 'Server error while upgrading item.' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // --- PvP Route ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
 
@@ -2097,7 +2271,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: express.R
 
 // --- Message Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
@@ -2109,7 +2283,7 @@ app.get('/api/messages', authenticateToken, async (req: express.Request, res: ex
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
 
@@ -2143,7 +2317,7 @@ app.post('/api/messages', authenticateToken, async (req: express.Request, res: e
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.put('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     const { is_read } = req.body;
@@ -2158,7 +2332,7 @@ app.put('/api/messages/:id', authenticateToken, async (req: express.Request, res
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.delete('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     try {
@@ -2171,7 +2345,7 @@ app.delete('/api/messages/:id', authenticateToken, async (req: express.Request, 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/global-message', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/global-message', authenticateToken, async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     
     const client = await pool.connect();
@@ -2203,7 +2377,7 @@ app.post('/api/admin/global-message', authenticateToken, async (req: express.Req
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/messages/claim-return/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const messageId = parseInt(req.params.id, 10);
 
@@ -2264,7 +2438,7 @@ app.post('/api/messages/claim-return/:id', authenticateToken, async (req: expres
 
 // --- Tavern (Chat) ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
         res.json(result.rows);
@@ -2275,7 +2449,7 @@ app.get('/api/tavern/messages', authenticateToken, async (req: express.Request, 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { content } = req.body;
     if (!content || content.trim().length === 0) {
@@ -2300,7 +2474,7 @@ app.post('/api/tavern/messages', authenticateToken, async (req: express.Request,
 
 // --- Market Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -2359,7 +2533,7 @@ app.get('/api/market/listings', authenticateToken, async (req: express.Request, 
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/market/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/buy', authenticateToken, async (req: Request, res: Response) => {
     const buyerId = req.user!.id;
     const { listingId } = req.body;
 
@@ -2459,7 +2633,7 @@ app.post('/api/market/buy', authenticateToken, async (req: express.Request, res:
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/market/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/bid', authenticateToken, async (req: Request, res: Response) => {
     const bidderId = req.user!.id;
     const { listingId, amount } = req.body;
 
@@ -2535,7 +2709,7 @@ app.post('/api/market/bid', authenticateToken, async (req: express.Request, res:
 
 // --- Admin Routes ---
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -2550,7 +2724,7 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: expres
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { itemId, listingType, currency, price, durationHours } = req.body as {
         itemId: string;
@@ -2614,7 +2788,7 @@ app.post('/api/market/listings', authenticateToken, async (req: express.Request,
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/market/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -2671,7 +2845,7 @@ app.get('/api/market/my-listings', authenticateToken, async (req: express.Reques
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { id } = req.params;
 
@@ -2722,7 +2896,7 @@ app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: expre
 
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/market/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
@@ -2785,7 +2959,7 @@ app.post('/api/market/listings/:id/claim', authenticateToken, async (req: expres
 
 // Admin duplication audit route
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('/api/admin/audit/duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -2873,7 +3047,7 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: express.Re
 });
 
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3009,7 +3183,7 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: express
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 // FIX: Add explicit types for Express request and response objects to resolve type errors.
-app.get('*', (req: express.Request, res: express.Response) => {
+app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
