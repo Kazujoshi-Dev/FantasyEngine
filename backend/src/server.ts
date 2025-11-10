@@ -1464,7 +1464,8 @@ app.put('/api/character', authenticateToken, async (req: Request, res: Response)
     }
 });
 
-app.post('/api/character/select-class', authenticateToken, async (req, res) => {
+// FIX: Add explicit types for Express request and response objects to resolve type errors.
+app.post('/api/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
 

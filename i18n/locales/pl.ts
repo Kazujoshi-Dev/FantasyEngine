@@ -57,6 +57,7 @@ export default {
         blacksmith: 'Kowal',
         tavern: 'Tawerna',
         market: 'Rynek',
+        options: 'Opcje',
         logout: 'Wyloguj',
         actionBlockedWarning: 'Ta akcja jest niemożliwa podczas odpoczynku lub podróży.',
         actionBlockedExpeditionWarning: 'Ta akcja jest niedostępna podczas ekspedycji.',
@@ -628,6 +629,17 @@ export default {
         title: 'Nowości i Ogłoszenia',
         close: 'Zamknij',
     },
+    options: {
+        title: 'Opcje',
+        languageSettings: 'Ustawienia Językowe',
+        language: 'Język gry',
+        save: 'Zapisz',
+        saveSuccess: 'Zapisano!',
+    },
+    languages: {
+        pl: 'Polski',
+        en: 'English',
+    },
     admin: {
         title: 'Panel Admina',
         tabs: {
@@ -646,6 +658,7 @@ export default {
             description: 'Opis',
             cancel: 'Anuluj',
             save: 'Zapisz',
+            saving: 'Zapisywanie',
             search: 'Szukaj...',
             searchByName: 'Szukaj po nazwie...',
             none: 'Brak'

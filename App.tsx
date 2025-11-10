@@ -19,6 +19,7 @@ import { Messages, ComposeMessageModal } from './components/Messages';
 import { Quests } from './components/Quests';
 import { Tavern } from './components/Tavern';
 import { Market } from './components/Market';
+import { Options } from './components/Options';
 import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass } from './types';
 import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
@@ -67,8 +68,8 @@ const App: React.FC = () => {
   const inactivityTimerRef = useRef<number | null>(null);
 
   // i18n
-  const t = useMemo(() => getT(Language.PL), []);
-  const currentLanguage = Language.PL;
+  const currentLanguage = playerCharacter?.settings?.language || gameData?.settings.language || Language.PL;
+  const t = useMemo(() => getT(currentLanguage), [currentLanguage]);
 
   // Derived State
   const currentLocation = useMemo(() => gameData?.locations.find(loc => loc.id === playerCharacter?.currentLocationId), [gameData, playerCharacter]);
@@ -712,7 +713,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         await handleCharacterUpdate(newChar, true);
     }, [baseCharacter, handleCharacterUpdate, t]);
 
-    const handleAcceptQuest = useCallback(async (questId: string) => {
+  const handleAcceptQuest = useCallback(async (questId: string) => {
         if (!baseCharacter) return;
 
         const updatedChar = JSON.parse(JSON.stringify(baseCharacter));
@@ -1269,6 +1270,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />;
         case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
         case Tab.Market: return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={setBaseCharacter} />;
+        case Tab.Options: return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
         case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onUpdateCharacterGold={handleUpdateCharacterGold} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />;
         default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
     }

@@ -16,8 +16,10 @@ interface BlacksmithProps {
     character: PlayerCharacter;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
-    onDisenchantItem: (item: ItemInstance) => { success: boolean; amount?: number; essenceType?: EssenceType };
-    onUpgradeItem: (item: ItemInstance) => { success: boolean; messageKey: string; level?: number };
+    // FIX: Changed onDisenchantItem prop to return a Promise to match the async implementation.
+    onDisenchantItem: (item: ItemInstance) => Promise<{ success: boolean; amount?: number; essenceType?: EssenceType }>;
+    // FIX: Changed onUpgradeItem prop to return a Promise to match the async implementation.
+    onUpgradeItem: (item: ItemInstance) => Promise<{ success: boolean; messageKey: string; level?: number }>;
 }
 
 const getPotentialYield = (rarity: ItemRarity): [string, EssenceType | null] => {
@@ -55,17 +57,22 @@ const DisenchantPanel: React.FC<{
         [EssenceType.Legendary]: ItemRarity.Legendary,
     };
 
-    const handleDisenchantClick = () => {
+    // FIX: Made handler async and used await to handle the Promise returned by onDisenchantItem.
+    const handleDisenchantClick = async () => {
         if (!selectedItem) return;
         
-        const result = onDisenchantItem(selectedItem);
+        const result = await onDisenchantItem(selectedItem);
         
         if (result.success && result.amount && result.essenceType) {
             setNotification({
                 message: t('blacksmith.disenchantSuccess', { amount: result.amount, essenceName: t(`resources.${result.essenceType}`) }),
                 type: 'success'
             });
-        } else {
+        } else if (result.success === false && result.amount === undefined) {
+            // This case handles API errors where no result is returned.
+            // The alert is already shown in App.tsx, so we just do nothing here.
+        }
+        else {
             setNotification({
                 message: t('blacksmith.disenchantFailure'),
                 type: 'error'
@@ -220,7 +227,8 @@ const UpgradePanel: React.FC<{
     }, [allItems, selectedItem]);
 
 
-    const handleUpgradeClick = () => {
+    // FIX: Made handler async and used await to handle the Promise returned by onUpgradeItem.
+    const handleUpgradeClick = async () => {
         if (!selectedItem) return;
         const template = itemTemplates.find(t=>t.id === selectedItem.templateId);
         if (!template) return;
@@ -233,12 +241,14 @@ const UpgradePanel: React.FC<{
             }
         }
         
-        const result = onUpgradeItem(selectedItem);
+        const result = await onUpgradeItem(selectedItem);
         
-        setNotification({
-            message: t(result.messageKey, { level: result.level }),
-            type: result.success ? 'success' : 'error'
-        });
+        if (result.messageKey !== 'error.title') { // Check if it's not a generic error
+            setNotification({
+                message: t(result.messageKey, { level: result.level }),
+                type: result.success ? 'success' : 'error'
+            });
+        }
     };
 
     const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;

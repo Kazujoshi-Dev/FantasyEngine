@@ -49,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
     { id: Tab.Resources, label: t('sidebar.resources'), icon: <CoinsIcon className="h-5 w-5" /> },
     { id: Tab.Ranking, label: t('sidebar.ranking'), icon: <TrophyIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Messages, label: t('sidebar.messages'), icon: <MailIcon className="h-5 w-5" />, alwaysVisible: true, notification: hasUnreadMessages },
+    { id: Tab.Options, label: t('sidebar.options'), icon: <SettingsIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Admin, label: t('sidebar.admin'), icon: <SettingsIcon className="h-5 w-5" /> },
   ];
 

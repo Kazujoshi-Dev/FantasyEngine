@@ -1,5 +1,5 @@
 // FIX: Import `EssenceType` to resolve a type error in the `disenchantItem` function signature.
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType } from './types';
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language } from './types';
 
 const API_BASE_URL = '/api';
 
@@ -154,6 +154,7 @@ export const api = {
             questProgress: [],
             acceptedQuests: [],
             freeStatResetUsed: false,
+            settings: { language: Language.PL },
         };
 
         return fetchApi('/character', {

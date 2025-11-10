@@ -57,6 +57,7 @@ export default {
         blacksmith: 'Blacksmith',
         tavern: 'Tavern',
         market: 'Market',
+        options: 'Options',
         logout: 'Logout',
         actionBlockedWarning: 'This action cannot be performed while resting or traveling.',
         actionBlockedExpeditionWarning: 'This action is unavailable during an expedition.',
@@ -627,6 +628,17 @@ export default {
         title: 'News and Announcements',
         close: 'Close',
     },
+    options: {
+        title: 'Options',
+        languageSettings: 'Language Settings',
+        language: 'Game Language',
+        save: 'Save',
+        saveSuccess: 'Saved!',
+    },
+    languages: {
+        pl: 'Polski',
+        en: 'English',
+    },
     admin: {
         title: 'Admin Panel',
         tabs: {
@@ -645,9 +657,14 @@ export default {
             description: 'Description',
             cancel: 'Cancel',
             save: 'Save',
+            saving: 'Saving',
             search: 'Search...',
             searchByName: 'Search by name...',
             none: 'None'
+        },
+        news: {
+            title: 'News and Announcements',
+            content: 'Announcement Content',
         },
         titleScreen: {
             title: 'Title Screen Settings',

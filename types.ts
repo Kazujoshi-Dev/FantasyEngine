@@ -15,6 +15,7 @@ export enum Tab {
   Quests,
   Tavern,
   Market,
+  Options,
 }
 
 export enum Race {
@@ -47,6 +48,7 @@ export enum CharacterClass {
 
 export enum Language {
     PL = 'pl',
+    EN = 'en',
 }
 
 export enum GrammaticalGender {
@@ -506,6 +508,9 @@ export interface PlayerCharacter {
   traderPurchases?: string[];
   freeStatResetUsed?: boolean;
   lastReadNewsTimestamp?: number;
+  settings?: {
+    language?: Language;
+  };
 }
 
 export interface TraderSettings {
