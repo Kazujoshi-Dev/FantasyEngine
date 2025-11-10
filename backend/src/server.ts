@@ -1,6 +1,3 @@
-
-
-
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -676,6 +673,12 @@ async function completeExpedition(
             break;
         }
 
+        // Druid bonus
+        if (updatedChar.characterClass === CharacterClass.Druid) {
+            const derivedStats = calculateDerivedStatsOnServer(updatedChar, allItemTemplates, allAffixes).stats;
+            updatedChar.stats.currentHealth = Math.min(derivedStats.maxHealth, updatedChar.stats.currentHealth + derivedStats.maxHealth * 0.5);
+        }
+
         const goldReward = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
         const experienceReward = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
         
@@ -719,13 +722,28 @@ async function completeExpedition(
                 summary.essencesFound[drop.resource] = (summary.essencesFound[drop.resource] || 0) + amount;
             }
         }
+
+        // Dungeon Hunter bonus
+        if (updatedChar.characterClass === CharacterClass.DungeonHunter && expeditionDetails.lootTable.length > 0) {
+            if (Math.random() < 0.5) {
+                const extraDrop = expeditionDetails.lootTable[Math.floor(Math.random() * expeditionDetails.lootTable.length)];
+                summary.itemsFound.push(createItemInstance(extraDrop.templateId, allItemTemplates, allAffixes));
+            }
+            if (Math.random() < 0.25) {
+                const extraDrop = expeditionDetails.lootTable[Math.floor(Math.random() * expeditionDetails.lootTable.length)];
+                summary.itemsFound.push(createItemInstance(extraDrop.templateId, allItemTemplates, allAffixes));
+            }
+        }
         
-        // Apply racial bonuses to total
+        // Apply racial & class bonuses to total
         if (updatedChar.race === Race.Human) {
              totalExperienceWithBonuses = Math.floor(totalExperienceWithBonuses * 1.1);
         }
         if(updatedChar.race === Race.Gnome){
              totalGoldWithBonuses = Math.floor(totalGoldWithBonuses * 1.2);
+        }
+        if(updatedChar.characterClass === CharacterClass.Thief) {
+            totalGoldWithBonuses = Math.floor(totalGoldWithBonuses * 1.25);
         }
         
         summary.totalGold = totalGoldWithBonuses;
@@ -784,6 +802,8 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
     let enemyHealth = enemyStats.maxHealth;
     let enemyMana = enemyStats.maxMana || 0;
 
+    let mageManaRestored = false;
+
     combatLog.push({
         turn: 0,
         attacker: player.name,
@@ -797,24 +817,27 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
     const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
 
     // Ranged opening shot
-    if (mainHandTemplate?.isRanged) {
+    const performAttack = (attackerStats: CharacterStats, defenderStats: EnemyStats, isPlayer: boolean, isCritForced: boolean) => {
         let damage = 0;
-        let isCrit = false;
+        let isCrit = isCritForced;
         let damageReduced = 0;
         let healthGained = 0;
         let manaGained = 0;
+
+        damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
         
-        damage = Math.floor(Math.random() * (playerStats.maxDamage - playerStats.minDamage + 1)) + playerStats.minDamage;
-        
-        if (Math.random() * 100 < playerStats.critChance) {
+        if (!isCrit && Math.random() * 100 < attackerStats.critChance) {
             isCrit = true;
-            damage = Math.floor(damage * (playerStats.critDamageModifier || 200) / 100);
+        }
+
+        if (isCrit) {
+            damage = Math.floor(damage * (attackerStats.critDamageModifier || 200) / 100);
         }
 
         // Armor Reduction
-        let armorPenPercent = playerStats.armorPenetrationPercent;
-        let armorPenFlat = playerStats.armorPenetrationFlat;
-        let effectiveArmor = enemyStats.armor * (1 - armorPenPercent / 100) - armorPenFlat;
+        let armorPenPercent = isPlayer ? attackerStats.armorPenetrationPercent : 0;
+        let armorPenFlat = isPlayer ? attackerStats.armorPenetrationFlat : 0;
+        let effectiveArmor = defenderStats.armor * (1 - armorPenPercent / 100) - armorPenFlat;
         effectiveArmor = Math.max(0, effectiveArmor);
         const reduction = Math.floor(effectiveArmor * 0.5);
         damageReduced = Math.min(damage, reduction);
@@ -822,37 +845,53 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
 
         damage = Math.max(0, damage);
         
-        // Life/Mana Steal
-        healthGained = Math.floor(damage * (playerStats.lifeStealPercent / 100)) + playerStats.lifeStealFlat;
-        manaGained = Math.floor(damage * (playerStats.manaStealPercent / 100)) + playerStats.manaStealFlat;
+        if (isPlayer) {
+            healthGained = Math.floor(damage * (attackerStats.lifeStealPercent / 100)) + attackerStats.lifeStealFlat;
+            manaGained = Math.floor(damage * (attackerStats.manaStealPercent / 100)) + attackerStats.manaStealFlat;
+        }
+
+        return { damage, isCrit, damageReduced, healthGained, manaGained };
+    }
+
+    if (mainHandTemplate?.isRanged) {
+        const { damage, isCrit, damageReduced, healthGained, manaGained } = performAttack(playerStats, enemyStats, true, false);
+        let finalDamage = damage;
+
         if(healthGained > 0) playerHealth = Math.min(playerStats.maxHealth, playerHealth + healthGained);
         if(manaGained > 0) playerMana = Math.min(playerStats.maxMana, playerMana + manaGained);
 
-        // Apply Damage
-        enemyHealth -= damage;
+        // Hunter Bonus
+        if (player.characterClass === CharacterClass.Hunter) {
+            const bonusDamage = Math.floor(damage * 0.5);
+            finalDamage += bonusDamage; // Add to total for log
+        }
+        
+        enemyHealth -= finalDamage;
         enemyHealth = Math.max(0, enemyHealth);
 
         combatLog.push({
-            turn: 0, // Opening shot
-            attacker: player.name, 
-            defender: initialEnemy.name, 
-            action: 'attacks', 
-            damage, 
-            isCrit, 
-            damageReduced, 
-            healthGained, 
-            manaGained, 
-            playerHealth, 
-            playerMana, 
-            enemyHealth, 
-            enemyMana,
+            turn: 0, attacker: player.name, defender: initialEnemy.name, action: 'attacks', 
+            damage: finalDamage, isCrit, damageReduced, healthGained, manaGained, 
+            playerHealth, playerMana, enemyHealth, enemyMana,
             weaponName: mainHandTemplate.name,
         });
     }
     
     let turn = 1; // Round counter
-    while (playerHealth > 0 && enemyHealth > 0) {
+    let isFirstAttackOfTurnForPlayer = true;
+    while (playerHealth > 0 && enemyHealth > 0 && turn < 50) {
         // --- Round Start ---
+        isFirstAttackOfTurnForPlayer = true;
+        
+        // Shaman Bonus
+        if (player.characterClass === CharacterClass.Shaman && playerMana > 0) {
+            const shamanDamage = Math.floor(playerMana);
+            enemyHealth -= shamanDamage;
+            enemyHealth = Math.max(0, enemyHealth);
+            combatLog.push({ turn, attacker: player.name, defender: initialEnemy.name, action: 'attacks', damage: shamanDamage, magicAttackType: MagicAttackType.ShadowBolt, playerHealth, playerMana, enemyHealth, enemyMana });
+            if (enemyHealth <= 0) break;
+        }
+
         let playerAttacksRemaining = Math.floor(playerStats.attacksPerRound);
         let enemyAttacksRemaining = enemyStats.attacksPerTurn || 1;
 
@@ -875,7 +914,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
 
         // --- Single Attack Loop for the Round ---
         while ((playerAttacksRemaining > 0 || enemyAttacksRemaining > 0) && playerHealth > 0 && enemyHealth > 0) {
-            let attacker: { name: string, stats: CharacterStats | EnemyStats, race?: Race };
+            let attacker: { name: string, stats: CharacterStats | EnemyStats, race?: Race, characterClass?: CharacterClass | null };
             let defender: { name: string, stats: CharacterStats | EnemyStats, race?: Race };
             let attackerStats: CharacterStats | EnemyStats;
             let defenderStats: CharacterStats | EnemyStats;
@@ -904,6 +943,9 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                 let healthGained = 0;
                 let manaGained = 0;
                 let magicAttackType: MagicAttackType | undefined = undefined;
+                
+                // Warrior Bonus
+                const isWarriorCrit = isPlayerTurn && (attacker.characterClass === CharacterClass.Warrior) && isFirstAttackOfTurnForPlayer;
 
                 // Dodge Check
                 const baseDodge = (defenderStats as CharacterStats).dodgeChance || 0;
@@ -911,7 +953,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                 const agilityDiff = defenderStats.agility - ((attackerStats as CharacterStats).accuracy || 0);
                 const agilityDodge = Math.max(0, agilityDiff * 0.1);
 
-                if (Math.random() * 100 < (baseDodge + racialDodge + agilityDodge)) {
+                if (!isWarriorCrit && Math.random() * 100 < (baseDodge + racialDodge + agilityDodge)) {
                     isDodge = true;
                 }
 
@@ -929,9 +971,17 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                                 magicAttackType = mainHandTemplate.magicAttackType;
                             } else {
                                 notEnoughMana = true;
+                                if (!mageManaRestored && (player.characterClass === CharacterClass.Mage || player.characterClass === CharacterClass.Wizard)) {
+                                    playerMana = playerStats.maxMana;
+                                    mageManaRestored = true;
+                                    isMagicAttack = true;
+                                    playerMana -= mainHandTemplate.manaCost;
+                                    magicAttackType = mainHandTemplate.magicAttackType;
+                                    notEnoughMana = false; // Resolved
+                                }
                             }
                         }
-                    } else {
+                    } else { // Enemy turn
                         const eStats = attackerStats as EnemyStats;
                         if (eStats.magicAttackType && eStats.magicAttackChance && eStats.magicAttackManaCost) {
                             if (Math.random() * 100 < eStats.magicAttackChance && enemyMana >= eStats.magicAttackManaCost) {
@@ -948,10 +998,21 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                     // Damage Calculation
                     if (isMagicAttack) {
                         damage = Math.floor(Math.random() * ((attackerStats.magicDamageMax || 0) - (attackerStats.magicDamageMin || 0) + 1)) + (attackerStats.magicDamageMin || 0);
+                        if (isPlayerTurn && (player.characterClass === CharacterClass.Mage || player.characterClass === CharacterClass.Wizard)) {
+                            if (Math.random() * 100 < attackerStats.critChance) {
+                                isCrit = true;
+                                damage = Math.floor(damage * ((attackerStats as CharacterStats).critDamageModifier || 200) / 100);
+                            }
+                        }
                     } else { // Physical Attack
                         damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
-                        if (Math.random() * 100 < attackerStats.critChance) {
+                        if (isWarriorCrit) {
                             isCrit = true;
+                        } else if (Math.random() * 100 < attackerStats.critChance) {
+                            isCrit = true;
+                        }
+
+                        if(isCrit) {
                             damage = Math.floor(damage * ((attackerStats as CharacterStats).critDamageModifier || 200) / 100);
                         }
 
@@ -1003,7 +1064,10 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
                     });
                 }
                 
-                if (isPlayerTurn) playerAttacksRemaining--;
+                if (isPlayerTurn) {
+                    playerAttacksRemaining--;
+                    isFirstAttackOfTurnForPlayer = false;
+                }
                 else enemyAttacksRemaining--;
             }
 
@@ -1026,8 +1090,18 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
             }
         } // End of single-attack loop for the round
 
+        // Berserker Bonus
+        if (playerHealth > 0 && enemyHealth > 0 && player.characterClass === CharacterClass.Berserker && playerHealth < playerStats.maxHealth * 0.3) {
+            const { damage, isCrit, damageReduced, healthGained, manaGained } = performAttack(playerStats, enemyStats, true, false);
+            enemyHealth -= damage;
+            enemyHealth = Math.max(0, enemyHealth);
+            if(healthGained > 0) playerHealth = Math.min(playerStats.maxHealth, playerHealth + healthGained);
+            if(manaGained > 0) playerMana = Math.min(playerStats.maxMana, playerMana + manaGained);
+            combatLog.push({ turn, attacker: player.name, defender: initialEnemy.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, playerHealth, playerMana, enemyHealth, enemyMana });
+        }
+
+
         turn++;
-        if (turn > 50) break; // Safety break
     } // End of round loop
 
     return {
@@ -1067,6 +1141,9 @@ function simulatePvpFight(
     let defenderHealth = defenderStats.currentHealth;
     let defenderMana = defenderStats.currentMana;
 
+    let attackerMageManaRestored = false;
+    let defenderMageManaRestored = false;
+
     combatLog.push({
         turn: 0,
         attacker: attacker.name,
@@ -1077,78 +1154,179 @@ function simulatePvpFight(
         playerStats: attackerStats, enemyStats: defenderStats,
     });
     
+    const attackerMainHandItem = attacker.equipment[EquipmentSlot.MainHand] || attacker.equipment[EquipmentSlot.TwoHand];
+    const attackerMainHandTemplate = attackerMainHandItem ? itemTemplates.find(t => t.id === attackerMainHandItem.templateId) : null;
+    const defenderMainHandItem = defender.equipment[EquipmentSlot.MainHand] || defender.equipment[EquipmentSlot.TwoHand];
+    const defenderMainHandTemplate = defenderMainHandItem ? itemTemplates.find(t => t.id === defenderMainHandItem.templateId) : null;
+
+     // Hunter Bonus
+    if (attacker.characterClass === CharacterClass.Hunter && attackerMainHandTemplate?.isRanged) {
+        let damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
+        if (Math.random() * 100 < attackerStats.critChance) {
+             damage = Math.floor(damage * (attackerStats.critDamageModifier / 100));
+        }
+        damage = Math.floor(damage * 0.5);
+        defenderHealth -= damage;
+        combatLog.push({ turn: 0, attacker: attacker.name, defender: defender.name, action: 'attacks', damage, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+    }
+     if (defender.characterClass === CharacterClass.Hunter && defenderMainHandTemplate?.isRanged) {
+        let damage = Math.floor(Math.random() * (defenderStats.maxDamage - defenderStats.minDamage + 1)) + defenderStats.minDamage;
+         if (Math.random() * 100 < defenderStats.critChance) {
+             damage = Math.floor(damage * (defenderStats.critDamageModifier / 100));
+        }
+        damage = Math.floor(damage * 0.5);
+        attackerHealth -= damage;
+        combatLog.push({ turn: 0, attacker: defender.name, defender: attacker.name, action: 'attacks', damage, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+    }
+
     let turn = 1;
-    let isAttackerTurn = (attacker.race === Race.Elf) || attackerStats.agility >= defenderStats.agility;
-    
     while (attackerHealth > 0 && defenderHealth > 0 && turn <= 50) {
+        let isFirstAttackOfTurnForAttacker = true;
+        let isFirstAttackOfTurnForDefender = true;
+        
+        // Shaman Bonus
+        if (attacker.characterClass === CharacterClass.Shaman && attackerMana > 0) {
+            defenderHealth -= Math.floor(attackerMana);
+             combatLog.push({ turn, attacker: attacker.name, defender: defender.name, action: 'attacks', damage: Math.floor(attackerMana), magicAttackType: MagicAttackType.ShadowBolt, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+        }
+         if (defender.characterClass === CharacterClass.Shaman && defenderMana > 0) {
+            attackerHealth -= Math.floor(defenderMana);
+            combatLog.push({ turn, attacker: defender.name, defender: attacker.name, action: 'attacks', damage: Math.floor(defenderMana), magicAttackType: MagicAttackType.ShadowBolt, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+        }
+        if (attackerHealth <= 0 || defenderHealth <= 0) break;
+
         // Mana Regen
-        if (attackerMana < attackerStats.maxMana) {
-            attackerMana = Math.min(attackerStats.maxMana, attackerMana + attackerStats.manaRegen);
-        }
-        if (defenderMana < defenderStats.maxMana) {
-            defenderMana = Math.min(defenderStats.maxMana, defenderMana + defenderStats.manaRegen);
-        }
+        attackerMana = Math.min(attackerStats.maxMana, attackerMana + attackerStats.manaRegen);
+        defenderMana = Math.min(defenderStats.maxMana, defenderMana + defenderStats.manaRegen);
 
-        let playerA: PlayerCharacter, statsA: CharacterStats, playerB: PlayerCharacter, statsB: CharacterStats;
-        if (isAttackerTurn) {
-            [playerA, statsA] = [attacker, attackerStats];
-            [playerB, statsB] = [defender, defenderStats];
-        } else {
-            [playerA, statsA] = [defender, defenderStats];
-            [playerB, statsB] = [attacker, attackerStats];
-        }
+        let attackerAttacksRemaining = Math.floor(attackerStats.attacksPerRound);
+        let defenderAttacksRemaining = Math.floor(defenderStats.attacksPerRound);
 
-        let attacksRemaining = Math.floor(statsA.attacksPerRound);
-        while (attacksRemaining > 0 && attackerHealth > 0 && defenderHealth > 0) {
-            let damage = 0;
-            let isCrit = false, isDodge = false, damageReduced = 0, healthGained = 0, manaGained = 0;
-            let magicAttackType: MagicAttackType | undefined = undefined;
+        let isAttackerTurn = (turn === 1 && attacker.race === Race.Elf) || (turn > 1 && attackerStats.agility >= defenderStats.agility);
 
-            if (Math.random() * 100 < statsB.dodgeChance) {
-                isDodge = true;
+        while ((attackerAttacksRemaining > 0 || defenderAttacksRemaining > 0) && attackerHealth > 0 && defenderHealth > 0) {
+            let playerA: PlayerCharacter, statsA: CharacterStats, playerB: PlayerCharacter, statsB: CharacterStats;
+            let currentAttacksRemaining: number;
+            let isFirstAttackOfTurn: boolean;
+
+            if (isAttackerTurn) {
+                [playerA, statsA] = [attacker, attackerStats];
+                [playerB, statsB] = [defender, defenderStats];
+                currentAttacksRemaining = attackerAttacksRemaining;
+                isFirstAttackOfTurn = isFirstAttackOfTurnForAttacker;
+            } else {
+                [playerA, statsA] = [defender, defenderStats];
+                [playerB, statsB] = [attacker, attackerStats];
+                currentAttacksRemaining = defenderAttacksRemaining;
+                 isFirstAttackOfTurn = isFirstAttackOfTurnForDefender;
             }
 
-            if(!isDodge) {
-                damage = Math.floor(Math.random() * (statsA.maxDamage - statsA.minDamage + 1)) + statsA.minDamage;
-                if (Math.random() * 100 < statsA.critChance) {
-                    isCrit = true;
-                    damage = Math.floor(damage * (statsA.critDamageModifier / 100));
+            if (currentAttacksRemaining > 0) {
+                let damage = 0, isCrit = false, isDodge = false, damageReduced = 0, healthGained = 0, manaGained = 0;
+                let magicAttackType: MagicAttackType | undefined = undefined;
+
+                const isWarriorCrit = playerA.characterClass === CharacterClass.Warrior && isFirstAttackOfTurn;
+
+                const dodgeChance = statsB.dodgeChance + (playerB.race === Race.Gnome ? 10 : 0);
+                if (!isWarriorCrit && Math.random() * 100 < dodgeChance) {
+                    isDodge = true;
                 }
 
-                let effectiveArmor = statsB.armor * (1 - statsA.armorPenetrationPercent / 100) - statsA.armorPenetrationFlat;
-                effectiveArmor = Math.max(0, effectiveArmor);
-                damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
-                damage -= damageReduced;
-                damage = Math.max(0, damage);
-                
-                healthGained = Math.floor(damage * (statsA.lifeStealPercent / 100)) + statsA.lifeStealFlat;
-                manaGained = Math.floor(damage * (statsA.manaStealPercent / 100)) + statsA.manaStealFlat;
+                if (!isDodge) {
+                    const mainHand = isAttackerTurn ? attackerMainHandTemplate : defenderMainHandTemplate;
+                    let isMagicAttack = false;
+                    
+                    if (mainHand?.isMagical && mainHand.magicAttackType && mainHand.manaCost) {
+                        let currentMana = isAttackerTurn ? attackerMana : defenderMana;
+                        if (currentMana >= mainHand.manaCost) {
+                            isMagicAttack = true;
+                            currentMana -= mainHand.manaCost;
+                            magicAttackType = mainHand.magicAttackType;
+                        } else {
+                             const isMage = playerA.characterClass === CharacterClass.Mage || playerA.characterClass === CharacterClass.Wizard;
+                             const hasRestored = isAttackerTurn ? attackerMageManaRestored : defenderMageManaRestored;
+                             if (isMage && !hasRestored) {
+                                currentMana = statsA.maxMana - mainHand.manaCost;
+                                isMagicAttack = true;
+                                if (isAttackerTurn) attackerMageManaRestored = true; else defenderMageManaRestored = true;
+                             }
+                        }
+                        if (isAttackerTurn) attackerMana = currentMana; else defenderMana = currentMana;
+                    }
 
-                if (playerA.id === attacker.id) { // isAttackerTurn
-                    attackerHealth = Math.min(statsA.maxHealth, attackerHealth + healthGained);
-                    attackerMana = Math.min(statsA.maxMana, attackerMana + manaGained);
-                    defenderHealth -= damage;
-                } else { // isDefenderTurn
-                    defenderHealth = Math.min(statsA.maxHealth, defenderHealth + healthGained);
-                    defenderMana = Math.min(statsA.maxMana, defenderMana + manaGained);
-                    attackerHealth -= damage;
+                    if (isMagicAttack) {
+                        damage = Math.floor(Math.random() * (statsA.magicDamageMax - statsA.magicDamageMin + 1)) + statsA.magicDamageMin;
+                        const isMage = playerA.characterClass === CharacterClass.Mage || playerA.characterClass === CharacterClass.Wizard;
+                        if (isMage && Math.random() * 100 < statsA.critChance) {
+                             isCrit = true;
+                             damage = Math.floor(damage * (statsA.critDamageModifier / 100));
+                        }
+                    } else {
+                        damage = Math.floor(Math.random() * (statsA.maxDamage - statsA.minDamage + 1)) + statsA.minDamage;
+                        if (isWarriorCrit || Math.random() * 100 < statsA.critChance) {
+                            isCrit = true;
+                            damage = Math.floor(damage * (statsA.critDamageModifier / 100));
+                        }
+
+                        let effectiveArmor = statsB.armor * (1 - statsA.armorPenetrationPercent / 100) - statsA.armorPenetrationFlat;
+                        effectiveArmor = Math.max(0, effectiveArmor);
+                        damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
+                        damage -= damageReduced;
+                    }
+
+                    if (playerA.race === Race.Orc && (isAttackerTurn ? attackerHealth : defenderHealth) < statsA.maxHealth * 0.25) damage = Math.floor(damage * 1.25);
+                    if (playerB.race === Race.Dwarf && (isAttackerTurn ? defenderHealth : attackerHealth) < statsB.maxHealth * 0.5) damage = Math.floor(damage * 0.8);
+
+                    damage = Math.max(0, damage);
+                    healthGained = Math.floor(damage * (statsA.lifeStealPercent / 100)) + statsA.lifeStealFlat;
+                    manaGained = Math.floor(damage * (statsA.manaStealPercent / 100)) + statsA.manaStealFlat;
+
+                    if (isAttackerTurn) {
+                        attackerHealth = Math.min(statsA.maxHealth, attackerHealth + healthGained);
+                        attackerMana = Math.min(statsA.maxMana, attackerMana + manaGained);
+                        defenderHealth -= damage;
+                    } else {
+                        defenderHealth = Math.min(statsA.maxHealth, defenderHealth + healthGained);
+                        defenderMana = Math.min(statsA.maxMana, defenderMana + manaGained);
+                        attackerHealth -= damage;
+                    }
+                }
+
+                combatLog.push({
+                    turn, attacker: playerA.name, defender: playerB.name, action: 'attacks',
+                    damage: isDodge ? 0 : damage, isCrit, isDodge, damageReduced, healthGained, manaGained, magicAttackType,
+                    playerHealth: attackerHealth, playerMana: attackerMana,
+                    enemyHealth: defenderHealth, enemyMana: defenderMana,
+                });
+
+                if (isAttackerTurn) {
+                    attackerAttacksRemaining--;
+                    isFirstAttackOfTurnForAttacker = false;
+                } else {
+                    defenderAttacksRemaining--;
+                    isFirstAttackOfTurnForDefender = false;
                 }
             }
-
-            combatLog.push({
-                turn,
-                attacker: playerA.name,
-                defender: playerB.name,
-                action: 'attacks',
-                damage: isDodge ? 0 : damage, isCrit, isDodge, damageReduced, healthGained, manaGained, magicAttackType,
-                playerHealth: attackerHealth, playerMana: attackerMana,
-                enemyHealth: defenderHealth, enemyMana: defenderMana,
-            });
-
-            attacksRemaining--;
+            
+            const agilityAdvantage = statsA.agility - statsB.agility;
+            const chanceToAttackAgain = Math.min(75, Math.max(0, agilityAdvantage * 2));
+    
+            if (Math.random() * 100 < chanceToAttackAgain && (isAttackerTurn ? attackerAttacksRemaining > 0 : defenderAttacksRemaining > 0)) {
+                // Current attacker attacks again
+            } else {
+                isAttackerTurn = !isAttackerTurn;
+                if (isAttackerTurn && attackerAttacksRemaining === 0 && defenderAttacksRemaining > 0) {
+                    isAttackerTurn = false;
+                } else if (!isAttackerTurn && defenderAttacksRemaining === 0 && attackerAttacksRemaining > 0) {
+                    isAttackerTurn = true;
+                }
+            }
         }
         
-        isAttackerTurn = !isAttackerTurn;
+        // Berserker Bonus
+        if (attacker.characterClass === CharacterClass.Berserker && attackerHealth < attackerStats.maxHealth * 0.3) attackerAttacksRemaining++;
+        if (defender.characterClass === CharacterClass.Berserker && defenderHealth < defenderStats.maxHealth * 0.3) defenderAttacksRemaining++;
+        
         turn++;
     }
 
@@ -1969,6 +2147,7 @@ app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Respon
 });
 
 // --- Blacksmith: Disenchant ---
+// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -2024,6 +2203,11 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, r
                 break;
         }
 
+        // Engineer bonus
+        if (character.characterClass === CharacterClass.Engineer && amount > 0 && Math.random() < 0.5) {
+            amount *= 2;
+        }
+
         if (essenceType && amount > 0) {
             character.resources[essenceType] = (character.resources[essenceType] || 0) + amount;
             success = true;
@@ -2044,6 +2228,7 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, r
 
 
 // --- Blacksmith: Upgrade ---
+// FIX: Add explicit types for Express request and response objects to resolve type errors.
 app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
@@ -2109,7 +2294,14 @@ app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res:
         if (essenceType) character.resources[essenceType] -= essenceCostAmount;
 
         const successChance = Math.max(10, 100 - (currentLevel * 10));
-        const roll = Math.random() * 100;
+        let roll = Math.random() * 100;
+        
+        // Blacksmith bonus
+        if (character.characterClass === CharacterClass.Blacksmith) {
+            const roll2 = Math.random() * 100;
+            roll = Math.min(roll, roll2); // Take the better (lower) roll
+        }
+        
         let result: { success: boolean, messageKey: string, level?: number };
 
         if (roll < successChance) {
@@ -2201,16 +2393,30 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, 
             goldStolen = Math.min(defender.resources.gold, Math.floor(defender.level * 100 * Math.random()));
             xpGained = Math.floor(defender.level * 20 * (1 + Math.random()));
 
+            // Rogue Bonus
+            if (attacker.characterClass === CharacterClass.Rogue) {
+                xpGained *= 2;
+            }
+
             attacker.resources.gold += goldStolen;
             attacker.experience += xpGained;
             attacker.pvpWins = (attacker.pvpWins || 0) + 1;
 
             defender.resources.gold -= goldStolen;
             defender.pvpLosses = (defender.pvpLosses || 0) + 1;
+
+            // Druid Bonus for Attacker
+            if (attacker.characterClass === CharacterClass.Druid) {
+                attacker.stats.currentHealth = Math.min(initialDerivedAttacker.stats.maxHealth, attacker.stats.currentHealth + initialDerivedAttacker.stats.maxHealth * 0.5);
+            }
         } else {
-            // No penalties for attacker on loss, except energy cost
             attacker.pvpLosses = (attacker.pvpLosses || 0) + 1;
             defender.pvpWins = (defender.pvpWins || 0) + 1;
+
+            // Druid Bonus for Defender
+            if (defender.characterClass === CharacterClass.Druid) {
+                defender.stats.currentHealth = Math.min(initialDerivedDefender.stats.maxHealth, defender.stats.currentHealth + initialDerivedDefender.stats.maxHealth * 0.5);
+            }
         }
         
         // Level up check for attacker

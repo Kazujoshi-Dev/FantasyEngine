@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Import NewsModal component.
 import { Sidebar, NewsModal } from './components/Sidebar';
@@ -68,7 +69,7 @@ const App: React.FC = () => {
   const inactivityTimerRef = useRef<number | null>(null);
 
   // i18n
-  const currentLanguage = playerCharacter?.settings?.language || gameData?.settings.language || Language.PL;
+  const currentLanguage = playerCharacter?.settings?.language || Language.PL;
   const t = useMemo(() => getT(currentLanguage), [currentLanguage]);
 
   // Derived State
