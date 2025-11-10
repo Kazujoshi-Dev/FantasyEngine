@@ -366,7 +366,7 @@ export default {
         losses: 'Losses',
         experience: 'Experience',
         action: 'Action',
-        attack: 'Attack',
+        race: 'Race',
         noPlayers: 'No players found in the ranking yet.',
         administrator: 'Administrator',
     },
@@ -781,11 +781,7 @@ export default {
             secondaryBonuses: 'Secondary Bonuses (min-max)'
         },
         resetStats: 'Reset Stats',
-        resetStatsConfirm: 'Are you sure you want to reset the stats for this character? All spent attribute points will be refunded.',
-        resetStatsSuccess: 'Character stats have been successfully reset.',
         heal: 'Heal',
-        healCharacterConfirm: 'Are you sure you want to fully heal this character?',
-        healSuccess: 'The character has been healed to full health.',
         lootSources: {
             title: 'Loot Sources',
             none: 'Not assigned to any loot table.',
@@ -818,6 +814,8 @@ export default {
             itemRewards: 'Item Rewards',
             resourceRewards: 'Resource Rewards',
             quantity: 'Quantity',
+            addItemReward: 'Dodaj nagrodę (przedmiot)',
+            addResourceReward: 'Dodaj nagrodę (zasób)',
             types: {
                 Kill: 'Kill Enemies',
                 Gather: 'Gather Items',

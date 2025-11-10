@@ -280,6 +280,7 @@ export default {
         baseReward: 'Nagroda za Ekspedycję',
         totalRewards: 'Suma Nagród',
         itemsFound: 'Zdobyte Przedmioty',
+        itemsLost: 'Znaleziono także {count} innych przedmiotów, ale plecak był pełny i przepadły!',
         essencesFound: 'Zdobyte Esencje',
         maxEnemiesNote: 'Pojawi się maksymalnie {count} wrogów.',
         manaGained: 'regeneruje',
@@ -367,7 +368,7 @@ export default {
         losses: 'Porażki',
         experience: 'Doświadczenie',
         action: 'Akcja',
-        attack: 'Atakuj',
+        race: 'Rasa',
         noPlayers: 'Brak graczy w rankingu.',
         administrator: 'Administrator',
     },
@@ -821,28 +822,28 @@ export default {
             addItemReward: 'Dodaj nagrodę (przedmiot)',
             addResourceReward: 'Dodaj nagrodę (zasób)',
             types: {
-                Kill: 'Zabij Wrogów',
-                Gather: 'Zbierz Przedmioty',
-                GatherResource: 'Zbierz Zasoby',
-                PayGold: 'Zapłać Złoto'
+                Kill: 'Kill Enemies',
+                Gather: 'Gather Items',
+                GatherResource: 'Gather Resources',
+                PayGold: 'Pay Gold'
             }
         },
         pvp: {
             title: 'Ustawienia PvP',
-            protectionDuration: 'Czas Trwania Ochrony (minuty)',
-            protectionDurationDesc: 'Jak długo gracz jest chroniony przed atakami po byciu zaatakowanym.',
-            actions: 'Akcje',
-            resetCooldowns: 'Zresetuj Wszystkie Cooldowny',
-            resetCooldownsConfirm: 'Czy na pewno chcesz zresetować cooldown ochrony PvP dla wszystkich graczy?',
-            resetCooldownsSuccess: 'Wszystkie cooldowny PvP zostały zresetowane.',
-            saveSuccess: 'Ustawienia PvP zostały zapisane!'
+            protectionDuration: 'Protection Duration (minutes)',
+            protectionDurationDesc: 'How long a player is protected from attacks after being attacked.',
+            actions: 'Actions',
+            resetCooldowns: 'Reset All Cooldowns',
+            resetCooldownsConfirm: 'Are you sure you want to reset the PvP protection cooldown for all players?',
+            resetCooldownsSuccess: 'All PvP cooldowns have been reset.',
+            saveSuccess: 'PvP settings have been saved!'
         },
         globalMessage: {
-            title: 'Wyślij Globalną Wiadomość',
-            contentPlaceholder: 'Treść wiadomości...',
-            sendButton: 'Wyślij do wszystkich graczy',
-            validationError: 'Temat i treść są wymagane.',
-            sendSuccess: 'Globalna wiadomość wysłana pomyślnie!'
+            title: 'Send Global Message',
+            contentPlaceholder: 'Message content...',
+            sendButton: 'Send to all players',
+            validationError: 'Subject and content are required.',
+            sendSuccess: 'Global message sent successfully!'
         }
     }
 };

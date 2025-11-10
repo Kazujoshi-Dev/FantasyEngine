@@ -82,6 +82,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
               <tr>
                 <th scope="col" className="p-4 w-16 text-center">{t('ranking.rank')}</th>
                 <th scope="col" className="p-4">{t('ranking.player')}</th>
+                <th scope="col" className="p-4">{t('ranking.race')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.level')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.wins')}</th>
                 <th scope="col" className="p-4 text-center">{t('ranking.losses')}</th>
@@ -107,28 +108,28 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                       {index + 1}
                     </td>
                     <td className="p-4 font-medium text-white">
-                        <div className="flex flex-col">
-                            <div className="flex items-center">
-                                <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={player.isOnline ? 'Online' : 'Offline'}></span>
-                                <span>{player.name}</span>
-                                {isAdmin && (
-                                    <span className="ml-2 text-xs font-bold text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full">
-                                        {t('ranking.administrator')}
-                                    </span>
-                                )}
-                                {!isCurrentUser && (
-                                    <button
-                                        onClick={() => onComposeMessage(player.name)}
-                                        className="ml-2 text-gray-400 hover:text-white transition-colors"
-                                        title={t('messages.compose.title')}
-                                    >
-                                        <MailIcon className="h-4 w-4" />
-                                    </button>
-                                )}
-                                {isProtected && !isCurrentUser && <CooldownTimer until={player.pvpProtectionUntil} />}
-                            </div>
-                            <span className="text-sm text-gray-400 ml-4">{t(`race.${player.race}`)}</span>
+                        <div className="flex items-center">
+                            <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={player.isOnline ? 'Online' : 'Offline'}></span>
+                            <span>{player.name}</span>
+                            {isAdmin && (
+                                <span className="ml-2 text-xs font-bold text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full">
+                                    {t('ranking.administrator')}
+                                </span>
+                            )}
+                            {!isCurrentUser && (
+                                <button
+                                    onClick={() => onComposeMessage(player.name)}
+                                    className="ml-2 text-gray-400 hover:text-white transition-colors"
+                                    title={t('messages.compose.title')}
+                                >
+                                    <MailIcon className="h-4 w-4" />
+                                </button>
+                            )}
+                            {isProtected && !isCurrentUser && <CooldownTimer until={player.pvpProtectionUntil} />}
                         </div>
+                    </td>
+                    <td className="p-4 text-gray-300">
+                      {t(`race.${player.race}`)}
                     </td>
                     <td className="p-4 text-lg font-mono text-center text-gray-300">
                       {player.level}
