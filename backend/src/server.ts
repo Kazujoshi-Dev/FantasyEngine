@@ -1,3 +1,4 @@
+
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -816,7 +817,7 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
     const mainHandItem = player.equipment[EquipmentSlot.MainHand] || player.equipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
 
-    // Ranged opening shot
+    // Ranged opening shot helper
     const performAttack = (attackerStats: CharacterStats, defenderStats: EnemyStats, isPlayer: boolean, isCritForced: boolean) => {
         let damage = 0;
         let isCrit = isCritForced;
@@ -854,27 +855,43 @@ function simulateFight(player: PlayerCharacter, initialEnemy: Enemy, itemTemplat
     }
 
     if (mainHandTemplate?.isRanged) {
-        const { damage, isCrit, damageReduced, healthGained, manaGained } = performAttack(playerStats, enemyStats, true, false);
-        let finalDamage = damage;
-
-        if(healthGained > 0) playerHealth = Math.min(playerStats.maxHealth, playerHealth + healthGained);
-        if(manaGained > 0) playerMana = Math.min(playerStats.maxMana, playerMana + manaGained);
-
-        // Hunter Bonus
-        if (player.characterClass === CharacterClass.Hunter) {
-            const bonusDamage = Math.floor(damage * 0.5);
-            finalDamage += bonusDamage; // Add to total for log
-        }
-        
-        enemyHealth -= finalDamage;
+        // Standard ranged opening attack
+        const attack1 = performAttack(playerStats, enemyStats, true, false);
+        if(attack1.healthGained > 0) playerHealth = Math.min(playerStats.maxHealth, playerHealth + attack1.healthGained);
+        if(attack1.manaGained > 0) playerMana = Math.min(playerStats.maxMana, playerMana + attack1.manaGained);
+        enemyHealth -= attack1.damage;
         enemyHealth = Math.max(0, enemyHealth);
 
         combatLog.push({
             turn: 0, attacker: player.name, defender: initialEnemy.name, action: 'attacks', 
-            damage: finalDamage, isCrit, damageReduced, healthGained, manaGained, 
+            damage: attack1.damage, isCrit: attack1.isCrit, damageReduced: attack1.damageReduced, 
+            healthGained: attack1.healthGained, manaGained: attack1.manaGained, 
             playerHealth, playerMana, enemyHealth, enemyMana,
             weaponName: mainHandTemplate.name,
         });
+
+        // Hunter's bonus second attack
+        if (player.characterClass === CharacterClass.Hunter && enemyHealth > 0) {
+            let attack2 = performAttack(playerStats, enemyStats, true, false);
+            // Hunter bonus shot deals 50% damage
+            attack2.damage = Math.floor(attack2.damage * 0.5);
+            attack2.healthGained = Math.floor(attack2.healthGained * 0.5);
+            attack2.manaGained = Math.floor(attack2.manaGained * 0.5);
+
+            if(attack2.healthGained > 0) playerHealth = Math.min(playerStats.maxHealth, playerHealth + attack2.healthGained);
+            if(attack2.manaGained > 0) playerMana = Math.min(playerStats.maxMana, playerMana + attack2.manaGained);
+
+            enemyHealth -= attack2.damage;
+            enemyHealth = Math.max(0, enemyHealth);
+
+            combatLog.push({
+                turn: 0, attacker: player.name, defender: initialEnemy.name, action: 'attacks', 
+                damage: attack2.damage, isCrit: attack2.isCrit, damageReduced: attack2.damageReduced, 
+                healthGained: attack2.healthGained, manaGained: attack2.manaGained, 
+                playerHealth, playerMana, enemyHealth, enemyMana,
+                weaponName: mainHandTemplate.name,
+            });
+        }
     }
     
     let turn = 1; // Round counter
@@ -1159,25 +1176,75 @@ function simulatePvpFight(
     const defenderMainHandItem = defender.equipment[EquipmentSlot.MainHand] || defender.equipment[EquipmentSlot.TwoHand];
     const defenderMainHandTemplate = defenderMainHandItem ? itemTemplates.find(t => t.id === defenderMainHandItem.templateId) : null;
 
-     // Hunter Bonus
-    if (attacker.characterClass === CharacterClass.Hunter && attackerMainHandTemplate?.isRanged) {
-        let damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
-        if (Math.random() * 100 < attackerStats.critChance) {
-             damage = Math.floor(damage * (attackerStats.critDamageModifier / 100));
+     // Turn 0 - Ranged opening shots
+    const performPvpOpeningAttack = (
+        attackingPlayer: PlayerCharacter, attackingStats: CharacterStats, 
+        defendingPlayer: PlayerCharacter, defendingStats: CharacterStats,
+        currentAttackerHealth: number, currentDefenderHealth: number
+    ) => {
+        let damage = Math.floor(Math.random() * (attackingStats.maxDamage - attackingStats.minDamage + 1)) + attackingStats.minDamage;
+        let isCrit = false;
+        if (Math.random() * 100 < attackingStats.critChance) {
+            isCrit = true;
+            damage = Math.floor(damage * (attackingStats.critDamageModifier / 100));
         }
-        damage = Math.floor(damage * 0.5);
+        
+        let effectiveArmor = defendingStats.armor * (1 - attackingStats.armorPenetrationPercent / 100) - attackingStats.armorPenetrationFlat;
+        effectiveArmor = Math.max(0, effectiveArmor);
+        const damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
+        damage -= damageReduced;
+        
+        if (attackingPlayer.race === Race.Orc && currentAttackerHealth < attackingStats.maxHealth * 0.25) damage = Math.floor(damage * 1.25);
+        if (defendingPlayer.race === Race.Dwarf && currentDefenderHealth < defendingStats.maxHealth * 0.5) damage = Math.floor(damage * 0.8);
+        
+        damage = Math.max(0, damage);
+        const healthGained = Math.floor(damage * (attackingStats.lifeStealPercent / 100)) + attackingStats.lifeStealFlat;
+        const manaGained = Math.floor(damage * (attackingStats.manaStealPercent / 100)) + attackingStats.manaStealFlat;
+
+        return { damage, isCrit, damageReduced, healthGained, manaGained };
+    };
+
+    // Attacker's base ranged shot
+    if (attackerMainHandTemplate?.isRanged) {
+        const { damage, isCrit, damageReduced, healthGained, manaGained } = performPvpOpeningAttack(attacker, attackerStats, defender, defenderStats, attackerHealth, defenderHealth);
+        attackerHealth = Math.min(attackerStats.maxHealth, attackerHealth + healthGained);
+        attackerMana = Math.min(attackerStats.maxMana, attackerMana + manaGained);
         defenderHealth -= damage;
-        combatLog.push({ turn: 0, attacker: attacker.name, defender: defender.name, action: 'attacks', damage, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+        combatLog.push({ turn: 0, attacker: attacker.name, defender: defender.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana, weaponName: attackerMainHandTemplate.name });
     }
-     if (defender.characterClass === CharacterClass.Hunter && defenderMainHandTemplate?.isRanged) {
-        let damage = Math.floor(Math.random() * (defenderStats.maxDamage - defenderStats.minDamage + 1)) + defenderStats.minDamage;
-         if (Math.random() * 100 < defenderStats.critChance) {
-             damage = Math.floor(damage * (defenderStats.critDamageModifier / 100));
-        }
-        damage = Math.floor(damage * 0.5);
+    // Defender's base ranged shot
+    if (defenderHealth > 0 && defenderMainHandTemplate?.isRanged) {
+        const { damage, isCrit, damageReduced, healthGained, manaGained } = performPvpOpeningAttack(defender, defenderStats, attacker, attackerStats, defenderHealth, attackerHealth);
+        defenderHealth = Math.min(defenderStats.maxHealth, defenderHealth + healthGained);
+        defenderMana = Math.min(defenderStats.maxMana, defenderMana + manaGained);
         attackerHealth -= damage;
-        combatLog.push({ turn: 0, attacker: defender.name, defender: attacker.name, action: 'attacks', damage, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana });
+        combatLog.push({ turn: 0, attacker: defender.name, defender: attacker.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana, weaponName: defenderMainHandTemplate.name });
     }
+    // Attacker's Hunter bonus shot
+    if (attackerHealth > 0 && defenderHealth > 0 && attacker.characterClass === CharacterClass.Hunter && attackerMainHandTemplate?.isRanged) {
+        let { damage, isCrit, damageReduced, healthGained, manaGained } = performPvpOpeningAttack(attacker, attackerStats, defender, defenderStats, attackerHealth, defenderHealth);
+        damage = Math.floor(damage * 0.5);
+        healthGained = Math.floor(healthGained * 0.5);
+        manaGained = Math.floor(manaGained * 0.5);
+        attackerHealth = Math.min(attackerStats.maxHealth, attackerHealth + healthGained);
+        attackerMana = Math.min(attackerStats.maxMana, attackerMana + manaGained);
+        defenderHealth -= damage;
+        combatLog.push({ turn: 0, attacker: attacker.name, defender: defender.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana, weaponName: attackerMainHandTemplate.name });
+    }
+    // Defender's Hunter bonus shot
+    if (attackerHealth > 0 && defenderHealth > 0 && defender.characterClass === CharacterClass.Hunter && defenderMainHandTemplate?.isRanged) {
+        let { damage, isCrit, damageReduced, healthGained, manaGained } = performPvpOpeningAttack(defender, defenderStats, attacker, attackerStats, defenderHealth, attackerHealth);
+        damage = Math.floor(damage * 0.5);
+        healthGained = Math.floor(healthGained * 0.5);
+        manaGained = Math.floor(manaGained * 0.5);
+        defenderHealth = Math.min(defenderStats.maxHealth, defenderHealth + healthGained);
+        defenderMana = Math.min(defenderStats.maxMana, defenderMana + manaGained);
+        attackerHealth -= damage;
+        combatLog.push({ turn: 0, attacker: defender.name, defender: attacker.name, action: 'attacks', damage, isCrit, damageReduced, healthGained, manaGained, playerHealth: attackerHealth, playerMana: attackerMana, enemyHealth: defenderHealth, enemyMana: defenderMana, weaponName: defenderMainHandTemplate.name });
+    }
+
+    attackerHealth = Math.max(0, attackerHealth);
+    defenderHealth = Math.max(0, defenderHealth);
 
     let turn = 1;
     while (attackerHealth > 0 && defenderHealth > 0 && turn <= 50) {
