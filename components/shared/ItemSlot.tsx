@@ -60,6 +60,16 @@ export const ItemDetailsPanel: React.FC<{
     const prefix = affixes.find(a => a.id === item.prefixId);
     const suffix = affixes.find(a => a.id === item.suffixId);
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+    
+    let genderKey: keyof Affix['name'] = 'masculine';
+    if (template.gender === GrammaticalGender.Feminine) {
+        genderKey = 'feminine';
+    } else if (template.gender === GrammaticalGender.Neuter) {
+        genderKey = 'neuter';
+    }
+    
+    const prefixName = (prefix && typeof prefix.name === 'object') ? prefix.name[genderKey] : (prefix?.name as unknown as string);
+    const suffixName = (suffix && typeof suffix.name === 'object') ? suffix.name[genderKey] : (suffix?.name as unknown as string);
 
     const totalValue = useMemo(() => {
         if (!template) return 0;
@@ -131,8 +141,8 @@ export const ItemDetailsPanel: React.FC<{
                 </div>
 
                 <StatSection source={template} isItem isUpgrade />
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefix.name.masculine} (+)`} source={item.rolledPrefix} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffix.name.masculine} (+)`} source={item.rolledSuffix} />}
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} />}
 
                 {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && (
                     <div className={`border-t border-slate-700/50 pt-2 mt-2 ${isSmall ? 'text-xs' : 'text-sm'}`}>
