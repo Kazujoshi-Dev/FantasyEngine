@@ -142,42 +142,7 @@ const App: React.FC = () => {
       let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
       let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
       let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
-
-      const applyItemBonuses = (source: ItemTemplate, upgradeFactor: number) => {
-        if (source.statsBonus) {
-            for (const stat in source.statsBonus) {
-                const key = stat as keyof typeof source.statsBonus;
-                const bonusRange = source.statsBonus[key];
-                const baseBonus = bonusRange ? bonusRange.max : 0;
-                totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
-            }
-        }
-
-        const baseDamageMin = source.damageMin ? source.damageMin.max : 0;
-        const baseDamageMax = source.damageMax ? source.damageMax.max : 0;
-        const baseMagicDamageMin = source.magicDamageMin ? source.magicDamageMin.max : 0;
-        const baseMagicDamageMax = source.magicDamageMax ? source.magicDamageMax.max : 0;
-        const baseArmor = source.armorBonus ? source.armorBonus.max : 0;
-        const baseCritChance = source.critChanceBonus ? source.critChanceBonus.max : 0;
-        const baseMaxHealth = source.maxHealthBonus ? source.maxHealthBonus.max : 0;
-        
-        bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
-        bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
-        bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeFactor);
-        bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeFactor);
-        bonusArmor += baseArmor + Math.round(baseArmor * upgradeFactor);
-        bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
-        bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
-
-        bonusCritDamageModifier += source.critDamageModifierBonus ? source.critDamageModifierBonus.max : 0;
-        bonusArmorPenetrationPercent += source.armorPenetrationPercent ? source.armorPenetrationPercent.max : 0;
-        bonusArmorPenetrationFlat += source.armorPenetrationFlat ? source.armorPenetrationFlat.max : 0;
-        bonusLifeStealPercent += source.lifeStealPercent ? source.lifeStealPercent.max : 0;
-        bonusLifeStealFlat += source.lifeStealFlat ? source.lifeStealFlat.max : 0;
-        bonusManaStealPercent += source.manaStealPercent ? source.manaStealPercent.max : 0;
-        bonusManaStealFlat += source.manaStealFlat ? source.manaStealFlat.max : 0;
-    };
-
+      
       const applyAffixBonuses = (source: RolledAffixStats) => {
           if (source.statsBonus) {
               for (const stat in source.statsBonus) {
@@ -210,7 +175,39 @@ const App: React.FC = () => {
               if (template) {
                   const upgradeLevel = itemInstance.upgradeLevel || 0;
                   const upgradeBonusFactor = upgradeLevel * 0.1;
-                  applyItemBonuses(template, upgradeBonusFactor);
+                  
+                  if (template.statsBonus) {
+                      for (const stat in template.statsBonus) {
+                          const key = stat as keyof typeof template.statsBonus;
+                          const bonusRange = template.statsBonus[key];
+                          const baseBonus = bonusRange ? bonusRange.max : 0;
+                          totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                      }
+                  }
+
+                  const baseDamageMin = template.damageMin ? template.damageMin.max : 0;
+                  const baseDamageMax = template.damageMax ? template.damageMax.max : 0;
+                  const baseMagicDamageMin = template.magicDamageMin ? template.magicDamageMin.max : 0;
+                  const baseMagicDamageMax = template.magicDamageMax ? template.magicDamageMax.max : 0;
+                  const baseArmor = template.armorBonus ? template.armorBonus.max : 0;
+                  const baseCritChance = template.critChanceBonus ? template.critChanceBonus.max : 0;
+                  const baseMaxHealth = template.maxHealthBonus ? template.maxHealthBonus.max : 0;
+                  
+                  bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
+                  bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
+                  bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
+                  bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
+                  bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
+                  bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
+                  bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
+
+                  bonusCritDamageModifier += template.critDamageModifierBonus ? template.critDamageModifierBonus.max : 0;
+                  bonusArmorPenetrationPercent += template.armorPenetrationPercent ? template.armorPenetrationPercent.max : 0;
+                  bonusArmorPenetrationFlat += template.armorPenetrationFlat ? template.armorPenetrationFlat.max : 0;
+                  bonusLifeStealPercent += template.lifeStealPercent ? template.lifeStealPercent.max : 0;
+                  bonusLifeStealFlat += template.lifeStealFlat ? template.lifeStealFlat.max : 0;
+                  bonusManaStealPercent += template.manaStealPercent ? template.manaStealPercent.max : 0;
+                  bonusManaStealFlat += template.manaStealFlat ? template.manaStealFlat.max : 0;
               }
               if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
               if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);

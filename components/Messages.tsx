@@ -181,6 +181,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
             setViewingPvpReport({ report: msg.body as PvpRewardSummary, isDefenderView: isDefender });
         } else if (msg.message_type === 'expedition_report') {
             try {
+                // FIX: Ensure that if msg.body is a string, it is parsed into an object.
                 const reportData = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                 setViewingExpeditionReport(reportData as ExpeditionRewardSummary);
             } catch (e) {
