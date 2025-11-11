@@ -85,7 +85,7 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    // Stat calculation logic moved here from ItemDetailsPanel for a custom compact view
+    // FIX: Corrected arithmetic type errors by using the `.max` property from range objects ({min, max}). Also ensured calculations return numbers instead of undefined.
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { upgradeLevel: 0 };
 

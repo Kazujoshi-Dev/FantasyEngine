@@ -474,8 +474,12 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     };
 
     const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
-        strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
-        stamina: character.stats.stamina, intelligence: character.stats.intelligence, energy: character.stats.energy
+        strength: Number(character.stats.strength) || 0, 
+        agility: Number(character.stats.agility) || 0, 
+        accuracy: Number(character.stats.accuracy) || 0,
+        stamina: Number(character.stats.stamina) || 0, 
+        intelligence: Number(character.stats.intelligence) || 0, 
+        energy: Number(character.stats.energy) || 0
     };
 
     let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
@@ -490,7 +494,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
         if (source.statsBonus) {
             for (const stat in source.statsBonus) {
                 const key = stat as keyof typeof source.statsBonus;
-                totalPrimaryStats[key] += source.statsBonus[key] || 0;
+                totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + (source.statsBonus[key] || 0);
             }
         }
         bonusDamageMin += source.damageMin || 0;
@@ -524,7 +528,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
                         const key = stat as keyof typeof template.statsBonus;
                         const bonusValue = template.statsBonus[key];
                         const baseBonus = getMaxValue(bonusValue as any);
-                        totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                        totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
 

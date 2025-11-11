@@ -74,22 +74,29 @@ export const ItemDetailsPanel: React.FC<{
         const calculateStat = (base?: number) => base !== undefined ? base + Math.round(base * bonusFactor) : undefined;
         const calculateFloatStat = (base?: number) => base !== undefined ? base + base * bonusFactor : undefined;
         
+        const getMaxValue = (value: any): number => {
+            if (value === undefined || value === null) return 0;
+            if (typeof value === 'number') return value;
+            if (typeof value === 'object' && 'max' in value) return value.max;
+            return 0;
+        };
+        
         const s = source as any; // To access properties dynamically
         
         const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(v as number) : v}`, color: 'text-green-300'})) : []),
-            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(s.damageMin) : s.damageMin}-${isItem ? calculateStat(s.damageMax) : s.damageMax}`},
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(getMaxValue(v)) : v}`, color: 'text-green-300'})) : []),
+            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(getMaxValue(s.damageMin)) : s.damageMin}-${isItem ? calculateStat(getMaxValue(s.damageMax)) : s.damageMax}`},
             (s.attacksPerRound !== undefined) && {label: t('statistics.attacksPerTurn'), value: s.attacksPerRound},
-            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(s.armorBonus) : s.armorBonus}`},
-            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(isItem ? calculateFloatStat(s.critChanceBonus) : s.critChanceBonus)?.toFixed(1)}%`},
-            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${isItem ? calculateStat(s.maxHealthBonus) : s.maxHealthBonus}`},
-            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${s.critDamageModifierBonus}%`},
-            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent || 0}% / ${s.armorPenetrationFlat || 0}`},
-            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${s.lifeStealFlat || 0}`},
-            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
-            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${isItem ? calculateStat(s.magicDamageMin) : s.magicDamageMin}-${isItem ? calculateStat(s.magicDamageMax) : s.magicDamageMax}`, color: 'text-purple-300'},
-            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${s.attacksPerRoundBonus}`},
-            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
+            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(getMaxValue(s.armorBonus)) : s.armorBonus}`},
+            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(isItem ? calculateFloatStat(getMaxValue(s.critChanceBonus)) : s.critChanceBonus)?.toFixed(1)}%`},
+            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${isItem ? calculateStat(getMaxValue(s.maxHealthBonus)) : s.maxHealthBonus}`},
+            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${getMaxValue(s.critDamageModifierBonus)}%`},
+            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${getMaxValue(s.armorPenetrationPercent) || 0}% / ${getMaxValue(s.armorPenetrationFlat) || 0}`},
+            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${getMaxValue(s.lifeStealPercent) || 0}% / ${getMaxValue(s.lifeStealFlat) || 0}`},
+            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${getMaxValue(s.manaStealPercent) || 0}% / ${getMaxValue(s.manaStealFlat) || 0}`},
+            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${isItem ? calculateStat(getMaxValue(s.magicDamageMin)) : s.magicDamageMin}-${isItem ? calculateStat(getMaxValue(s.magicDamageMax)) : s.magicDamageMax}`, color: 'text-purple-300'},
+            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${getMaxValue(s.attacksPerRoundBonus)}`},
+            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${getMaxValue(s.dodgeChanceBonus).toFixed(1)}%`},
         ].filter(Boolean);
 
         if (entries.length === 0) return null;
@@ -114,147 +121,139 @@ export const ItemDetailsPanel: React.FC<{
                 </h4>
                 {showIcon && template.icon && <img src={template.icon} alt={template.name} className="w-48 h-48 object-contain border border-slate-600 rounded-md bg-slate-800 mx-auto mb-4" />}
                 <p className={`italic text-center ${isSmall ? 'text-xs text-gray-400 mb-2' : 'text-sm text-gray-400 mb-4'}`}>{template.description}</p>
-                
-                <div className={`${isSmall ? 'space-y-0.5 text-xs' : 'space-y-1 text-sm'}`}>
-                    <StatSection title="Statystyki bazowe" source={template} isItem={true} isUpgrade={true} />
-                    {!hideAffixes && prefix && item.rolledPrefix && <StatSection title={`Prefiks: ${typeof prefix.name === 'string' ? prefix.name : prefix.name.masculine}`} source={item.rolledPrefix} />}
-                    {!hideAffixes && suffix && item.rolledSuffix && <StatSection title={`Sufiks: ${typeof suffix.name === 'string' ? suffix.name : suffix.name.masculine}`} source={item.rolledSuffix} />}
+                <div className="border-t border-slate-700/50 pt-2">
+                    <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                        <span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`item.slot.${template.slot}`)}</span>
+                    </p>
+                    <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                        <span>{t('item.value')}:</span> <span className="font-mono text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span>
+                    </p>
                 </div>
 
-                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && character && (
-                     <div className={`border-t border-slate-700/50 mt-4 pt-2 text-gray-300 space-y-1 ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        <h5 className={`font-semibold text-gray-400 mb-1 ${isSmall ? 'text-sm' : 'text-base'}`}>{t('item.requirements')}</h5>
-                        {totalRequiredLevel > 1 && <p className={`flex justify-between ${character.level >= totalRequiredLevel ? 'text-green-400' : 'text-red-400'}`}>
-                            <span>{t('item.levelRequirement')}:</span>
-                            <span>{totalRequiredLevel}</span>
-                        </p>}
-                        {Object.entries(allRequiredStats).map(([stat, value]) => {
-                            if (!value || !character.stats) return null;
-                            const meetsReq = character.stats[stat as keyof CharacterStats] >= value;
-                            return (
-                                <p key={stat} className={`flex justify-between ${meetsReq ? 'text-green-400' : 'text-red-400'}`}>
-                                    <span>{t(`statistics.${stat}`)}:</span>
-                                    <span>{value}</span>
+                <StatSection source={template} isItem isUpgrade />
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefix.name.masculine} (+)`} source={item.rolledPrefix} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffix.name.masculine} (+)`} source={item.rolledSuffix} />}
+
+                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && (
+                    <div className={`border-t border-slate-700/50 pt-2 mt-2 ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                        <h5 className="font-semibold text-gray-400 mb-1">{t('item.requirements')}:</h5>
+                        <div className="space-y-0.5">
+                            {totalRequiredLevel > 1 && (
+                                <p className={`flex justify-between ${character && character.level < totalRequiredLevel ? 'text-red-400' : 'text-gray-300'}`}>
+                                    <span>{t('item.levelRequirement')}:</span> <span>{totalRequiredLevel}</span>
                                 </p>
-                            )
-                        })}
-                     </div>
-                 )}
-
-
-                {/* General Info */}
-                <div className={`border-t border-slate-700/50 mt-4 pt-2 text-gray-400 space-y-1 ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                    <p className="flex justify-between"><span>{t('item.rarity')}:</span> <span className={rarityStyles[template.rarity].text}>{t(`rarity.${template.rarity}`)}</span></p>
-                    <p className="flex justify-between"><span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`item.slot.${template.slot}`)}</span></p>
-                    <p className="flex justify-between items-center"><span>{t('item.value')}:</span> <span className="text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span></p>
-                </div>
+                            )}
+                            {Object.entries(allRequiredStats).map(([stat, value]) => {
+                                const meetsReq = character ? character.stats[stat as keyof CharacterStats] >= value : true;
+                                return (
+                                    <p key={stat} className={`flex justify-between ${!meetsReq ? 'text-red-400' : 'text-gray-300'}`}>
+                                        <span>{t(`statistics.${stat}`)}:</span> <span>{value}</span>
+                                    </p>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
-            {children}
+            {children && <div className="flex-shrink-0">{children}</div>}
         </div>
     );
 };
 
 // ===================================================================================
-//                                Item List Item
+//                                  Item Tooltip
 // ===================================================================================
+export const ItemTooltip: React.FC<{
+  instance: ItemInstance;
+  template: ItemTemplate;
+  affixes: Affix[];
+}> = ({ instance, template, affixes }) => {
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0 });
 
-interface ItemListItemProps {
+    useLayoutEffect(() => {
+        if (tooltipRef.current && tooltipRef.current.parentElement) {
+            const parentRect = tooltipRef.current.parentElement.getBoundingClientRect();
+            const tooltipHeight = tooltipRef.current.offsetHeight;
+
+            let top = parentRect.bottom + 8;
+            if (top + tooltipHeight > window.innerHeight) {
+                top = parentRect.top - tooltipHeight - 8;
+            }
+
+            setStyle({
+                opacity: 1,
+                top: `${top}px`,
+                left: `${parentRect.left}px`,
+                position: 'fixed'
+            });
+        }
+    }, []);
+
+    return (
+        <div
+            ref={tooltipRef}
+            style={style}
+            className="absolute z-20 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300 pointer-events-none"
+        >
+            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" />
+        </div>
+    );
+};
+
+// ===================================================================================
+//                                Item List Components
+// ===================================================================================
+interface ItemListItemProps extends React.HTMLAttributes<HTMLDivElement> {
     item: ItemInstance;
     template: ItemTemplate;
     affixes: Affix[];
     isSelected: boolean;
-    onMouseEnter?: (event: React.MouseEvent<HTMLDivElement>, item: ItemInstance) => void;
-    onMouseLeave?: () => void;
-    onClick?: () => void;
+    isEquipped?: boolean;
     price?: number;
     showPrimaryStat?: boolean;
-    draggable?: boolean;
-    onDragStart?: (e: React.DragEvent) => void;
-    onDragEnd?: (e: React.DragEvent) => void;
-    className?: string;
-    isEquipped?: boolean;
     meetsRequirements?: boolean;
 }
 
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, onMouseEnter, onMouseLeave, onClick, price, showPrimaryStat = true, draggable, onDragStart, onDragEnd, className, isEquipped, meetsRequirements = true }) => {
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, isEquipped, price, showPrimaryStat = true, meetsRequirements = true, ...divProps }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
+    const { border, text, bg, shadow } = rarityStyles[template.rarity];
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-    
-    let primaryStat = '';
-    if (showPrimaryStat) {
-        if (template.damageMin !== undefined) primaryStat = `${template.damageMin}-${template.damageMax} ${t('item.damage')}`;
-        else if (template.armorBonus) primaryStat = `+${template.armorBonus} ${t('statistics.armor')}`;
-    }
-    
+
     return (
-        <div
-            onClick={onClick}
-            onMouseEnter={onMouseEnter ? (e) => onMouseEnter(e, item) : undefined}
-            onMouseLeave={onMouseLeave}
-            draggable={draggable}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            className={`relative flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-all duration-150 ${
-                isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : 'hover:bg-slate-700/50'
-            } ${className}`}
+         <div
+            {...divProps}
+            className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
+                isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
+            } ${border} ${shadow} ${divProps.className || ''}`}
         >
-             {isEquipped && (
-                <div className="absolute top-0 left-0 z-10" title={t('equipment.equipped') || 'Equipped'}>
-                    <ShieldIcon className="h-4 w-4 text-sky-300 bg-slate-900/50 rounded-full" />
+            {template.icon && <img src={template.icon} alt={template.name} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
+            <div className="flex-grow">
+                <p className={`font-semibold ${text} ${!meetsRequirements ? 'text-red-500 line-through' : ''}`}>
+                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
+                </p>
+                <div className="flex justify-between items-center text-xs mt-1">
+                    <span className="text-gray-400">{t(`item.slot.${template.slot}`)}</span>
+                    {price !== undefined && <span className="font-mono text-amber-400 flex items-center">{price} <CoinsIcon className="h-3 w-3 ml-1"/></span>}
+                    {isEquipped && <span className="text-sky-400 font-semibold">{t('equipment.equipped')}</span>}
                 </div>
-            )}
-            <div className={`relative flex-shrink-0 w-10 h-10 rounded-md border-2 flex items-center justify-center ${rarityStyles[template.rarity].border} ${rarityStyles[template.rarity].bg} ${!meetsRequirements ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-red-600' : ''}`}>
-                {template.icon ? <img src={template.icon} alt={template.name} className="h-full w-full object-contain" /> : <span className="text-xs text-slate-500">?</span>}
-                {upgradeLevel > 0 && (
-                     <div className="absolute -top-1 -right-1 flex items-center bg-black/70 rounded-full px-1 py-0.5 text-xs font-bold text-amber-300">
-                        <StarIcon className="h-3 w-3" />
-                        <span>{upgradeLevel}</span>
-                    </div>
-                )}
-            </div>
-            <div className="flex-grow overflow-hidden">
-                <p className={`font-semibold truncate text-sm ${rarityStyles[template.rarity].text}`}>{fullName}</p>
-                {(primaryStat || price !== undefined) && (
-                    <div className="flex justify-between items-center">
-                        <p className="text-xs text-slate-400">{primaryStat}</p>
-                        {price !== undefined && (
-                            <p className="text-xs text-amber-400 font-semibold flex items-center">
-                                {price} <CoinsIcon className="h-3 w-3 ml-1" />
-                            </p>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     );
 };
 
-// ===================================================================================
-//                                  Empty Slot
-// ===================================================================================
-
-export const EmptySlotListItem: React.FC<{
-  slotName: string;
-  onMouseEnter: () => void;
-}> = ({ slotName, onMouseEnter }) => (
-  <div
-    onMouseEnter={onMouseEnter}
-    className="flex items-center gap-2 p-1 rounded-lg cursor-pointer transition-colors duration-150 hover:bg-slate-700/50"
-  >
-    <div className="relative flex-shrink-0 w-10 h-10 rounded-md border-2 border-dashed border-slate-700 flex items-center justify-center bg-slate-800/50">
-      {/* A placeholder icon could go here */}
+export const EmptySlotListItem: React.FC<{ slotName: string, onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void }> = ({ slotName, onMouseEnter }) => (
+    <div className={`p-2 rounded-lg border border-slate-800 flex items-center gap-3 bg-slate-900/30`} onMouseEnter={onMouseEnter}>
+        <div className="w-12 h-12 bg-slate-800/50 rounded-md flex-shrink-0 flex items-center justify-center">
+            <ShieldIcon className="h-6 w-6 text-slate-600" />
+        </div>
+        <div className="flex-grow">
+            <p className="font-semibold text-slate-600">{slotName}</p>
+        </div>
     </div>
-    <div className="flex-grow overflow-hidden">
-      <p className="font-semibold truncate text-slate-500 text-sm">{slotName}</p>
-    </div>
-  </div>
 );
 
-
-// ===================================================================================
-//                                  Item List
-// ===================================================================================
 
 interface ItemListProps {
     items: ItemInstance[];
@@ -271,10 +270,21 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
             {items.map(item => {
                 const template = itemTemplates.find(t => t.id === item.templateId);
                 if (!template) return null;
+                const isSelected = selectedItem?.uniqueId === item.uniqueId;
                 
-                const price = showPrice 
-                    ? (showPrice === 'buy' ? template.value * 2 : template.value) 
-                    : undefined;
+                let price;
+                if (showPrice) {
+                    let itemValue = template.value || 0;
+                    if (item.prefixId) {
+                        const prefix = affixes.find(a => a.id === item.prefixId);
+                        itemValue += prefix?.value || 0;
+                    }
+                    if (item.suffixId) {
+                        const suffix = affixes.find(a => a.id === item.suffixId);
+                        itemValue += suffix?.value || 0;
+                    }
+                    price = showPrice === 'buy' ? itemValue * 2 : itemValue;
+                }
 
                 return (
                     <ItemListItem
@@ -282,69 +292,13 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                         item={item}
                         template={template}
                         affixes={affixes}
-                        isSelected={selectedItem?.uniqueId === item.uniqueId}
+                        isSelected={isSelected}
                         onClick={() => onSelectItem(item)}
                         price={price}
+                        showPrimaryStat={false}
                     />
                 );
             })}
-        </div>
-    );
-};
-
-export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[], character?: PlayerCharacter }> = ({ instance, template, affixes, character }) => {
-    const tooltipRef = useRef<HTMLDivElement | null>(null);
-    const [style, setStyle] = useState<React.CSSProperties>({});
-
-    useLayoutEffect(() => {
-        if (!tooltipRef.current || !tooltipRef.current.parentElement) return;
-
-        const parentRect = tooltipRef.current.parentElement.getBoundingClientRect();
-        const tooltipRect = tooltipRef.current.getBoundingClientRect();
-
-        const spaceAbove = parentRect.top;
-        const spaceBelow = window.innerHeight - parentRect.bottom;
-        const spaceRight = window.innerWidth - parentRect.right;
-        const spaceLeft = parentRect.left;
-
-        const newStyle: React.CSSProperties = {};
-        const transforms: string[] = [];
-
-        // Vertical positioning
-        if (spaceBelow < tooltipRect.height && spaceAbove > tooltipRect.height) {
-            newStyle.bottom = '100%';
-            newStyle.marginBottom = '0.5rem';
-            // Center horizontally
-            newStyle.left = '50%';
-            transforms.push('translateX(-50%)');
-        } else { // Default to side positioning
-            newStyle.top = '50%';
-            transforms.push('translateY(-50%)');
-            
-            // Horizontal positioning
-            if (spaceRight < tooltipRect.width && spaceLeft > tooltipRect.width) {
-                newStyle.right = '100%';
-                newStyle.marginRight = '0.5rem';
-            } else {
-                newStyle.left = '100%';
-                newStyle.marginLeft = '0.5rem';
-            }
-        }
-        
-        if (transforms.length > 0) {
-            newStyle.transform = transforms.join(' ');
-        }
-
-        setStyle(newStyle);
-    }, []);
-
-    return (
-        <div
-            ref={tooltipRef}
-            style={style}
-            className="absolute w-72 p-3 bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20"
-        >
-            <ItemDetailsPanel item={instance} template={template} affixes={affixes} character={character} />
         </div>
     );
 };
