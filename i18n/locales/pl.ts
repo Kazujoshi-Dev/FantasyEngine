@@ -1,5 +1,3 @@
-
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -110,7 +108,7 @@ export default {
         attacksPerTurn: 'Ataki na Turę',
         armor: 'Pancerz',
         critChance: 'Szansa na Trafienie Krytyczne',
-        manaRegen: 'Regen. Many / Turę',
+        manaRegen: 'Regeneracja many na turę',
         nextEnergyIn: 'Następny za {time}',
         itemBonusNote: 'Zielone wartości w nawiasach to bonusy z założonych przedmiotów.',
         critDamageModifier: 'Modyfikator Obr. Kryt.',
@@ -130,7 +128,9 @@ export default {
         lifeSteal: 'Kradzież Życia',
         lifeStealDesc: 'Leczy Cię o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
         manaSteal: 'Kradzież Many',
-        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.'
+        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
+        dodgeChance: 'Szansa na Unik',
+        dodgeChanceDesc: 'Procentowa szansa na uniknięcie ataku fizycznego przeciwnika. Zwiększa się wraz ze Zręcznością.'
     },
     equipment: {
         title: 'Ekwipunek',
