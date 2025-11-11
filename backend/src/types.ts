@@ -2,6 +2,8 @@
 
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -657,4 +659,16 @@ export interface OrphanAuditResult {
     characterName: string;
     userId: number;
     orphans: OrphanInfo[];
+}
+
+export interface ItemLocationInfo {
+    ownerName: string;
+    userId: number;
+    location: string; // e.g., 'inventory', 'equipment.mainHand', 'market.123', 'mailbox.456'
+}
+
+export interface ItemSearchResult {
+    item: ItemInstance;
+    template: ItemTemplate;
+    locations: ItemLocationInfo[];
 }
