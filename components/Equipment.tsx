@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -346,7 +345,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                 template={template}
                                 affixes={gameData.affixes}
                                 isSelected={false}
-                                onMouseEnter={(e, item) => setHoveredItemInfo({ item, element: e.currentTarget, source: slot })}
+                                onMouseEnter={(e) => setHoveredItemInfo({ item, element: e.currentTarget, source: slot })}
                                 onMouseLeave={() => setHoveredItemInfo(null)}
                                 draggable
                                 onDragStart={e => handleDragStart(e, item, slot)}
@@ -428,7 +427,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                           template={template}
                           affixes={gameData.affixes}
                           isSelected={false}
-                          onMouseEnter={(e, item) => setHoveredItemInfo({ item, element: e.currentTarget, source: 'inventory' })}
+                          onMouseEnter={(e) => setHoveredItemInfo({ item, element: e.currentTarget, source: 'inventory' })}
                           onMouseLeave={() => setHoveredItemInfo(null)}
                           draggable
                           onDragStart={e => handleDragStart(e, item, 'inventory')}
