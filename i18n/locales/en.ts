@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Loading adventure...',
     error: {
@@ -148,6 +149,7 @@ export default {
         filterByType: 'Filter by type',
         showAll: 'Show All',
         ringSlotsFull: 'Both ring slots are occupied. Unequip a ring to make space.',
+        hideUnusable: 'Hide unusable items',
         slot: {
             head: 'Head',
             chest: 'Chest',

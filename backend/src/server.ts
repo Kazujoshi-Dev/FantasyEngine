@@ -1,5 +1,6 @@
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+// FIX: Explicitly import the `Express` type for the application instance.
+import express, { Express, Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -32,7 +33,8 @@ declare global {
 
 // FIX: Correctly instantiated the express app. `express()` is the correct way, and `express.default()` does not exist.
 // Letting TypeScript infer the app type to avoid potential type conflicts.
-const app = express();
+// FIX: Explicitly type the Express app to resolve type inference issues with middleware and route handlers.
+const app: Express = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;

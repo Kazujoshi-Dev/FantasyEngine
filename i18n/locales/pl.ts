@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -150,6 +151,7 @@ export default {
         filterByType: 'Filtruj wg typu',
         showAll: 'Pokaż wszystko',
         ringSlotsFull: 'Oba miejsca na pierścienie są zajęte. Zdejmij pierścień, aby zrobić miejsce.',
+        hideUnusable: 'Ukryj przedmioty, których nie możesz użyć',
         slot: {
             head: 'Głowa',
             chest: 'Klatka piersiowa',

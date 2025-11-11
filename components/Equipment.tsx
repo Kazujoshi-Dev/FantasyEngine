@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -219,6 +220,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
   const [slotFilter, setSlotFilter] = useState<string>('all');
   const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
   const [hoveredItemInfo, setHoveredItemInfo] = useState<HoveredItemInfo | null>(null);
+  const [hideUnusable, setHideUnusable] = useState(false);
 
 
   const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
@@ -227,18 +229,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     character.inventory.filter(item => gameData.itemTemplates.find(t => t.id === item.templateId)),
     [character.inventory, gameData.itemTemplates]
   );
-
-  const filteredInventory = useMemo(() => {
-    return validInventory.filter(item => {
-        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-        if (!template) return false;
-
-        const rarityMatch = rarityFilter === 'all' || template.rarity === rarityFilter;
-        const slotMatch = slotFilter === 'all' || template.slot === slotFilter;
-        
-        return rarityMatch && slotMatch;
-    });
-  }, [validInventory, slotFilter, rarityFilter, gameData.itemTemplates]);
 
   const meetsRequirements = useCallback((item: ItemInstance): boolean => {
     const template = gameData.itemTemplates.find(t => t.id === item.templateId);
@@ -258,6 +248,22 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     }
     return true;
   }, [character, gameData.itemTemplates]);
+
+  const filteredInventory = useMemo(() => {
+    return validInventory.filter(item => {
+        if (hideUnusable && !meetsRequirements(item)) {
+            return false;
+        }
+
+        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+        if (!template) return false;
+
+        const rarityMatch = rarityFilter === 'all' || template.rarity === rarityFilter;
+        const slotMatch = slotFilter === 'all' || template.slot === slotFilter;
+        
+        return rarityMatch && slotMatch;
+    });
+  }, [validInventory, slotFilter, rarityFilter, gameData.itemTemplates, hideUnusable, meetsRequirements]);
 
   const handleDragStart = (e: React.DragEvent, item: ItemInstance, sourceSlot: EquipmentSlot | 'inventory') => {
     setDraggedItemInfo({ item, sourceSlot });
@@ -378,25 +384,38 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                 {character.inventory.length} / {backpackCapacity}
             </div>
           </div>
-          <div className="px-2 mb-4 flex gap-2">
-            <select
-                value={slotFilter}
-                onChange={e => setSlotFilter(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm"
-            >
-                <option value="all">{t('equipment.showAll')}</option>
-                {filterableSlots.map(s => (
-                    <option key={s} value={s}>{t(`item.slot.${s}`)}</option>
-                ))}
-            </select>
-            <select
-                value={rarityFilter}
-                onChange={e => setRarityFilter(e.target.value as ItemRarity | 'all')}
-                className="bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm"
-            >
-                <option value="all">{t('market.create.allRarities')}</option>
-                {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
-            </select>
+          <div className="px-2 mb-4">
+            <div className="flex gap-2">
+                <select
+                    value={slotFilter}
+                    onChange={e => setSlotFilter(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm"
+                >
+                    <option value="all">{t('equipment.showAll')}</option>
+                    {filterableSlots.map(s => (
+                        <option key={s} value={s}>{t(`item.slot.${s}`)}</option>
+                    ))}
+                </select>
+                <select
+                    value={rarityFilter}
+                    onChange={e => setRarityFilter(e.target.value as ItemRarity | 'all')}
+                    className="bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm"
+                >
+                    <option value="all">{t('market.create.allRarities')}</option>
+                    {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                </select>
+            </div>
+            <div className="mt-2">
+                <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={hideUnusable}
+                        onChange={e => setHideUnusable(e.target.checked)}
+                        className="form-checkbox h-4 w-4 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>{t('equipment.hideUnusable')}</span>
+                </label>
+            </div>
           </div>
           <div className="flex-grow overflow-y-auto pr-2 space-y-1">
               {filteredInventory.map(item => {
