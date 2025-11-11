@@ -1,5 +1,6 @@
+
 // FIX: Import `EssenceType` to resolve a type error in the `disenchantItem` function signature.
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language } from './types';
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult } from './types';
 
 const API_BASE_URL = '/api';
 
@@ -407,6 +408,17 @@ export const api = {
 
     async resolveDuplications(): Promise<{ resolvedSets: number, itemsDeleted: number }> {
         return fetchApi('/admin/resolve-duplicates', {
+            method: 'POST',
+        });
+    },
+
+    // Admin orphan audit
+    async runOrphanAudit(): Promise<OrphanAuditResult[]> {
+        return fetchApi('/admin/audit/orphans');
+    },
+
+    async resolveOrphans(): Promise<{ charactersAffected: number, itemsRemoved: number }> {
+        return fetchApi('/admin/resolve-orphans', {
             method: 'POST',
         });
     },

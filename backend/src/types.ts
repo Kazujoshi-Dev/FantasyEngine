@@ -1,5 +1,7 @@
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -643,4 +645,16 @@ export interface DuplicationAuditResult {
     itemName: string;
     gender: GrammaticalGender;
     instances: DuplicationInfo[];
+}
+
+export interface OrphanInfo {
+    uniqueId: string;
+    templateId: string;
+    location: string; // e.g., 'inventory', 'equipment.mainHand'
+}
+
+export interface OrphanAuditResult {
+    characterName: string;
+    userId: number;
+    orphans: OrphanInfo[];
 }

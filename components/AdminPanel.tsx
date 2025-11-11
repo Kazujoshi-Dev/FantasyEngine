@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward, GameData, Affix, AffixType, ItemCategory, GrammaticalGender, DuplicationAuditResult, DuplicationInfo, RolledAffixStats } from '../types';
+import { Location, Tab, Expedition, Enemy, GameSettings, Language, User, AdminCharacterInfo, ItemTemplate, EquipmentSlot, ItemRarity, CharacterStats, LootDrop, TraderSettings, EssenceType, ResourceDrop, MagicAttackType, Quest, QuestType, ItemReward, ResourceReward, GameData, Affix, AffixType, ItemCategory, GrammaticalGender, DuplicationAuditResult, DuplicationInfo, RolledAffixStats, OrphanAuditResult } from '../types';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
@@ -23,7 +23,7 @@ interface AdminPanelProps {
   onSendGlobalMessage: (data: { subject: string; content: string }) => Promise<void>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'duplicationAudit';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'duplicationAudit' | 'orphanAudit';
 
 
 const LocationEditor: React.FC<{
@@ -1189,6 +1189,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAuditing, setIsAuditing] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [goldInputs, setGoldInputs] = useState<Record<number, string>>({});
+  const [orphanResults, setOrphanResults] = useState<OrphanAuditResult[]>([]);
+  const [isAuditingOrphans, setIsAuditingOrphans] = useState(false);
+  const [isResolvingOrphans, setIsResolvingOrphans] = useState(false);
 
   // Item filters
   const [itemSearch, setItemSearch] = useState('');
@@ -1357,6 +1360,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const runOrphanAudit = async () => {
+    setIsAuditingOrphans(true);
+    try {
+        const results = await api.runOrphanAudit();
+        setOrphanResults(results);
+    } catch (err: any) {
+        alert(`Orphan audit failed: ${err.message}`);
+    } finally {
+        setIsAuditingOrphans(false);
+    }
+};
+
+const resolveOrphans = async () => {
+    if (window.confirm(`Are you sure you want to resolve ${orphanResults.length} sets of orphaned items? This will permanently delete items that no longer have a valid template.`)) {
+        setIsResolvingOrphans(true);
+        try {
+            const result = await api.resolveOrphans();
+            alert(`Resolved orphans. ${result.itemsRemoved} items were removed from ${result.charactersAffected} characters.`);
+            await runOrphanAudit(); // Re-run audit
+        } catch (err: any) {
+            alert(`Failed to resolve orphans: ${err.message}`);
+        } finally {
+            setIsResolvingOrphans(false);
+        }
+    }
+};
+
   const filteredItems = useMemo(() => {
     return gameData.itemTemplates.filter(item => {
         const nameMatch = item.name.toLowerCase().includes(itemSearch.toLowerCase());
@@ -1406,6 +1436,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     { id: 'quests', label: 'Zadania' },
     { id: 'pvp', label: 'PvP' },
     { id: 'duplicationAudit', label: 'Audyt Duplikatów' },
+    { id: 'orphanAudit', label: 'Audyt Osieroconych Przedmiotów' },
   ];
   
   return (
@@ -1770,6 +1801,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                          </div>
                     ))}
                  </div>
+            </div>
+        )}
+        {adminTab === 'orphanAudit' && (
+            <div className="animate-fade-in">
+                <h3 className="text-2xl font-bold text-indigo-400 mb-4">Audyt osieroconych przedmiotów</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    To narzędzie wyszukuje przedmioty w ekwipunkach graczy, których szablony (item templates) zostały usunięte z gry. Takie przedmioty mogą powodować błędy.
+                </p>
+                <div className="flex gap-4 mb-4">
+                    <button onClick={runOrphanAudit} disabled={isAuditingOrphans} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600">
+                        {isAuditingOrphans ? 'Audytowanie...' : 'Uruchom audyt'}
+                    </button>
+                    {orphanResults.length > 0 && (
+                        <button onClick={resolveOrphans} disabled={isResolvingOrphans} className="px-4 py-2 rounded-md bg-red-800 hover:bg-red-700 font-semibold disabled:bg-slate-600">
+                            {isResolvingOrphans ? 'Usuwanie...' : `Usuń ${orphanResults.reduce((sum, r) => sum + r.orphans.length, 0)} osieroconych przedmiotów`}
+                        </button>
+                    )}
+                </div>
+                {orphanResults.length === 0 && !isAuditingOrphans && <p className="text-gray-400">Nie znaleziono osieroconych przedmiotów.</p>}
+                <div className="space-y-2">
+                    {orphanResults.map(result => (
+                        <div key={result.userId} className="bg-slate-800/50 p-3 rounded-lg">
+                            <p className="font-semibold text-white">Gracz: {result.characterName} (ID: {result.userId})</p>
+                            <ul className="list-disc list-inside text-sm text-gray-300 mt-1">
+                                {result.orphans.map((orphan, index) => (
+                                    <li key={index}>ID szablonu: <span className="font-mono text-red-400">{orphan.templateId}</span>, Unikalne ID: <span className="font-mono text-gray-500">{orphan.uniqueId}</span>, Lokalizacja: <span className="font-mono">{orphan.location}</span></li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
             </div>
         )}
       </div>
