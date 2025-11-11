@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Import NewsModal component.
 import { Sidebar, NewsModal } from './components/Sidebar';
@@ -146,31 +147,39 @@ const App: React.FC = () => {
       let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
 
       const applyItemBonuses = (source: ItemTemplate, upgradeFactor: number) => {
-          for (const stat in source.statsBonus) {
-              const key = stat as keyof typeof source.statsBonus;
-              const baseBonus = source.statsBonus[key] || 0;
-              totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
-          }
-          const baseDamageMin = source.damageMin || 0, baseDamageMax = source.damageMax || 0;
-          const baseMagicDamageMin = source.magicDamageMin || 0, baseMagicDamageMax = source.magicDamageMax || 0;
-          const baseArmor = source.armorBonus || 0, baseCritChance = source.critChanceBonus || 0, baseMaxHealth = source.maxHealthBonus || 0;
-          
-          bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
-          bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
-          bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeFactor);
-          bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeFactor);
-          bonusArmor += baseArmor + Math.round(baseArmor * upgradeFactor);
-          bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
-          bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
+        if (source.statsBonus) {
+            for (const stat in source.statsBonus) {
+                const key = stat as keyof typeof source.statsBonus;
+                const bonusRange = source.statsBonus[key];
+                const baseBonus = bonusRange ? bonusRange.max : 0;
+                totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
+            }
+        }
 
-          bonusCritDamageModifier += source.critDamageModifierBonus || 0;
-          bonusArmorPenetrationPercent += source.armorPenetrationPercent || 0;
-          bonusArmorPenetrationFlat += source.armorPenetrationFlat || 0;
-          bonusLifeStealPercent += source.lifeStealPercent || 0;
-          bonusLifeStealFlat += source.lifeStealFlat || 0;
-          bonusManaStealPercent += source.manaStealPercent || 0;
-          bonusManaStealFlat += source.manaStealFlat || 0;
-      };
+        const baseDamageMin = source.damageMin ? source.damageMin.max : 0;
+        const baseDamageMax = source.damageMax ? source.damageMax.max : 0;
+        const baseMagicDamageMin = source.magicDamageMin ? source.magicDamageMin.max : 0;
+        const baseMagicDamageMax = source.magicDamageMax ? source.magicDamageMax.max : 0;
+        const baseArmor = source.armorBonus ? source.armorBonus.max : 0;
+        const baseCritChance = source.critChanceBonus ? source.critChanceBonus.max : 0;
+        const baseMaxHealth = source.maxHealthBonus ? source.maxHealthBonus.max : 0;
+        
+        bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
+        bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
+        bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeFactor);
+        bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeFactor);
+        bonusArmor += baseArmor + Math.round(baseArmor * upgradeFactor);
+        bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
+        bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
+
+        bonusCritDamageModifier += source.critDamageModifierBonus ? source.critDamageModifierBonus.max : 0;
+        bonusArmorPenetrationPercent += source.armorPenetrationPercent ? source.armorPenetrationPercent.max : 0;
+        bonusArmorPenetrationFlat += source.armorPenetrationFlat ? source.armorPenetrationFlat.max : 0;
+        bonusLifeStealPercent += source.lifeStealPercent ? source.lifeStealPercent.max : 0;
+        bonusLifeStealFlat += source.lifeStealFlat ? source.lifeStealFlat.max : 0;
+        bonusManaStealPercent += source.manaStealPercent ? source.manaStealPercent.max : 0;
+        bonusManaStealFlat += source.manaStealFlat ? source.manaStealFlat.max : 0;
+    };
 
       const applyAffixBonuses = (source: RolledAffixStats) => {
           if (source.statsBonus) {

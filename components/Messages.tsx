@@ -179,7 +179,13 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
             const isDefender = (msg.body as PvpRewardSummary).defender.id === currentPlayer.id;
             setViewingPvpReport({ report: msg.body as PvpRewardSummary, isDefenderView: isDefender });
         } else if (msg.message_type === 'expedition_report') {
-            setViewingExpeditionReport(msg.body as ExpeditionRewardSummary);
+            try {
+                const reportData = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                setViewingExpeditionReport(reportData as ExpeditionRewardSummary);
+            } catch (e) {
+                console.error("Failed to parse expedition report:", e);
+                alert("Could not open expedition report, data may be corrupted.");
+            }
         } else if (msg.message_type === 'player_message' || msg.message_type === 'system') {
             setViewingMessage(msg);
         }
