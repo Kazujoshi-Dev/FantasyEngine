@@ -344,7 +344,8 @@ export default {
         lackEnergy: 'Brak energii.',
         error: 'Błąd: Nie można znaleźć aktualnej lokalizacji. Skontaktuj się z administratorem.',
         travelingTitle: 'Podróżowanie...',
-        arrivesIn: 'Dotrzesz za:'
+        arrivesIn: 'Dotrzesz za:',
+        availableFacilities: 'Dostępne w lokacji',
     },
     resources: {
         title: 'Zasoby',

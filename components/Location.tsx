@@ -1,13 +1,16 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, Location as LocationType } from '../types';
+import { PlayerCharacter, Location as LocationType, Tab } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { MapIcon } from './icons/MapIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { useTranslation } from '../contexts/LanguageContext';
+import { HandshakeIcon } from './icons/HandshakeIcon';
+import { AnvilIcon } from './icons/AnvilIcon';
+import { QuestIcon } from './icons/QuestIcon';
+import { MessageSquareIcon } from './icons/MessageSquareIcon';
+import { ScaleIcon } from './icons/ScaleIcon';
 
 interface LocationProps {
   playerCharacter: PlayerCharacter;
@@ -63,6 +66,15 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
   const { t } = useTranslation();
   const currentLocation = locations.find(loc => loc.id === playerCharacter.currentLocationId);
   const otherLocations = locations.filter(loc => loc.id !== playerCharacter.currentLocationId);
+
+  const tabInfoMap: Partial<Record<Tab, { icon: React.ReactElement; label: string }>> = {
+    [Tab.Expedition]: { icon: <MapIcon />, label: t('sidebar.expedition') },
+    [Tab.Quests]: { icon: <QuestIcon />, label: t('sidebar.quests') },
+    [Tab.Tavern]: { icon: <MessageSquareIcon />, label: t('sidebar.tavern') },
+    [Tab.Trader]: { icon: <HandshakeIcon />, label: t('sidebar.trader') },
+    [Tab.Blacksmith]: { icon: <AnvilIcon />, label: t('sidebar.blacksmith') },
+    [Tab.Market]: { icon: <ScaleIcon />, label: t('sidebar.market') },
+  };
 
   const handleStartTravel = (destinationId: string) => {
     const destination = locations.find(loc => loc.id === destinationId);
@@ -139,7 +151,7 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
                 <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center">
                   <div className="flex items-start gap-4 flex-grow">
                      {loc.image && <img src={loc.image} alt={loc.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />}
-                     <div>
+                     <div className="flex-grow">
                         <p className="text-lg font-semibold text-white">{loc.name}</p>
                         <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
                         <div className="flex items-center text-sm mt-2 space-x-4">
@@ -156,6 +168,26 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
                             <span>{loc.travelTime}s</span>
                           </div>
                         </div>
+                        {loc.availableTabs && loc.availableTabs.length > 0 && (
+                            <div className="mt-3 border-t border-slate-700/50 pt-3">
+                                <h4 className="text-xs font-semibold text-gray-500 mb-2">{t('location.availableFacilities')}</h4>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    {loc.availableTabs
+                                        .filter(tabId => tabInfoMap[tabId])
+                                        .map(tabId => {
+                                            const tabInfo = tabInfoMap[tabId]!;
+                                            return (
+                                                <div key={tabId} title={tabInfo.label} className="flex items-center gap-1.5 text-slate-400">
+                                                    {/* FIX: Cast icon to React.ReactElement<any> to resolve typing issue with cloneElement. */}
+                                                    {React.cloneElement(tabInfo.icon as React.ReactElement<any>, { className: 'h-4 w-4' })}
+                                                    <span className="text-xs">{tabInfo.label}</span>
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                            </div>
+                        )}
                       </div>
                   </div>
                   <button

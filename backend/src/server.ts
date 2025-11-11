@@ -1,5 +1,3 @@
-
-
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
@@ -3335,6 +3333,7 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: ExpressReq
 });
 
 // FIX: Complete the unfinished route handler to resolve parsing errors.
+// FIX: Added missing types to route handler
 app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);

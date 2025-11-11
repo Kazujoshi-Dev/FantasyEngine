@@ -342,7 +342,8 @@ export default {
         lackEnergy: 'You lack energy.',
         error: 'Error: Cannot find current location. Contact an administrator.',
         travelingTitle: 'Traveling...',
-        arrivesIn: 'Arrives in:'
+        arrivesIn: 'Arrives in:',
+        availableFacilities: 'Available Facilities',
     },
     resources: {
         title: 'Resources',
@@ -842,4 +843,4 @@ export default {
             sendSuccess: 'Global message sent successfully!'
         }
     }
-};
+}
