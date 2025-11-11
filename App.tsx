@@ -129,6 +129,14 @@ const App: React.FC = () => {
   // Derived Stat Calculation for UI Previews
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
       if (!gameDataForCalc) return character;
+      const { itemTemplates, affixes } = gameDataForCalc;
+
+      const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
+        if (value === undefined || value === null) return 0;
+        if (typeof value === 'number') return value; // Handles old format
+        if (typeof value === 'object' && 'max' in value) return value.max; // Handles new format
+        return 0; // Fallback for any other case
+      };
 
       const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
           strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
@@ -171,7 +179,7 @@ const App: React.FC = () => {
       for (const slot in character.equipment) {
           const itemInstance = character.equipment[slot as EquipmentSlot];
           if (itemInstance) {
-              const template = gameDataForCalc.itemTemplates.find(t => t.id === itemInstance.templateId);
+              const template = itemTemplates.find(t => t.id === itemInstance.templateId);
               if (template) {
                   const upgradeLevel = itemInstance.upgradeLevel || 0;
                   const upgradeBonusFactor = upgradeLevel * 0.1;
@@ -179,19 +187,19 @@ const App: React.FC = () => {
                   if (template.statsBonus) {
                       for (const stat in template.statsBonus) {
                           const key = stat as keyof typeof template.statsBonus;
-                          const bonusRange = template.statsBonus[key];
-                          const baseBonus = bonusRange ? bonusRange.max : 0;
+                          const bonusValue = template.statsBonus[key];
+                          const baseBonus = getMaxValue(bonusValue as any);
                           totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                       }
                   }
 
-                  const baseDamageMin = template.damageMin ? template.damageMin.max : 0;
-                  const baseDamageMax = template.damageMax ? template.damageMax.max : 0;
-                  const baseMagicDamageMin = template.magicDamageMin ? template.magicDamageMin.max : 0;
-                  const baseMagicDamageMax = template.magicDamageMax ? template.magicDamageMax.max : 0;
-                  const baseArmor = template.armorBonus ? template.armorBonus.max : 0;
-                  const baseCritChance = template.critChanceBonus ? template.critChanceBonus.max : 0;
-                  const baseMaxHealth = template.maxHealthBonus ? template.maxHealthBonus.max : 0;
+                  const baseDamageMin = getMaxValue(template.damageMin as any);
+                  const baseDamageMax = getMaxValue(template.damageMax as any);
+                  const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);
+                  const baseMagicDamageMax = getMaxValue(template.magicDamageMax as any);
+                  const baseArmor = getMaxValue(template.armorBonus as any);
+                  const baseCritChance = getMaxValue(template.critChanceBonus as any);
+                  const baseMaxHealth = getMaxValue(template.maxHealthBonus as any);
                   
                   bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
                   bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
@@ -201,13 +209,13 @@ const App: React.FC = () => {
                   bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
                   bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
 
-                  bonusCritDamageModifier += template.critDamageModifierBonus ? template.critDamageModifierBonus.max : 0;
-                  bonusArmorPenetrationPercent += template.armorPenetrationPercent ? template.armorPenetrationPercent.max : 0;
-                  bonusArmorPenetrationFlat += template.armorPenetrationFlat ? template.armorPenetrationFlat.max : 0;
-                  bonusLifeStealPercent += template.lifeStealPercent ? template.lifeStealPercent.max : 0;
-                  bonusLifeStealFlat += template.lifeStealFlat ? template.lifeStealFlat.max : 0;
-                  bonusManaStealPercent += template.manaStealPercent ? template.manaStealPercent.max : 0;
-                  bonusManaStealFlat += template.manaStealFlat ? template.manaStealFlat.max : 0;
+                  bonusCritDamageModifier += getMaxValue(template.critDamageModifierBonus as any);
+                  bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
+                  bonusArmorPenetrationFlat += getMaxValue(template.armorPenetrationFlat as any);
+                  bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
+                  bonusLifeStealFlat += getMaxValue(template.lifeStealFlat as any);
+                  bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
+                  bonusManaStealFlat += getMaxValue(template.manaStealFlat as any);
               }
               if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
               if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);
@@ -215,7 +223,7 @@ const App: React.FC = () => {
       }
 
       const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
-      const mainHandTemplate = mainHandItem ? gameDataForCalc.itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+      const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
 
       const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
       const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
@@ -257,6 +265,13 @@ const App: React.FC = () => {
       const currentHealth = Math.min(character.stats.currentHealth, maxHealth);
       const currentMana = Math.min(character.stats.currentMana, maxMana);
       const currentEnergy = Math.min(character.stats.currentEnergy, maxEnergy);
+      
+      if (isNaN(maxHealth) || isNaN(maxEnergy) || isNaN(maxMana)) {
+          console.error("NaN detected in derived stats calculation!", {
+              totalPrimaryStats, bonusMaxHealth, bonusCritChance, bonusArmor
+          });
+          return character;
+      }
 
       return {
           ...character,

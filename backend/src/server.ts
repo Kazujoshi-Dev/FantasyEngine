@@ -1,3 +1,5 @@
+
+
 // FIX: Import Request, Response, and NextFunction from express and apply them to all route handlers and middleware to resolve widespread type errors.
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
@@ -462,8 +464,15 @@ const verifyPassword = (password: string, salt: string, storedHash: string): boo
 };
 
 // --- Server-side Stat Calculation ---
-// FIX: Rewrote this function to mirror the client-side implementation, fixing multiple type errors.
 const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[]): PlayerCharacter => {
+    
+    const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
+        if (value === undefined || value === null) return 0;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'object' && 'max' in value) return value.max;
+        return 0;
+    };
+
     const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
         strength: character.stats.strength, agility: character.stats.agility, accuracy: character.stats.accuracy,
         stamina: character.stats.stamina, intelligence: character.stats.intelligence, energy: character.stats.energy
@@ -476,41 +485,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
     let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
-    
-    // FIX: Corrected multiple arithmetic type errors by using the `.max` property from range objects ({min, max}) for calculations.
-    const applyItemBonuses = (source: ItemTemplate, upgradeFactor: number) => {
-        for (const stat in source.statsBonus) {
-            const key = stat as keyof typeof source.statsBonus;
-            const bonusRange = source.statsBonus[key];
-            const baseBonus = bonusRange ? bonusRange.max : 0;
-            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeFactor);
-        }
 
-        const baseDamageMin = source.damageMin ? source.damageMin.max : 0;
-        const baseDamageMax = source.damageMax ? source.damageMax.max : 0;
-        const baseMagicDamageMin = source.magicDamageMin ? source.magicDamageMin.max : 0;
-        const baseMagicDamageMax = source.magicDamageMax ? source.magicDamageMax.max : 0;
-        const baseArmor = source.armorBonus ? source.armorBonus.max : 0;
-        const baseCritChance = source.critChanceBonus ? source.critChanceBonus.max : 0;
-        const baseMaxHealth = source.maxHealthBonus ? source.maxHealthBonus.max : 0;
-        
-        bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeFactor);
-        bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeFactor);
-        bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeFactor);
-        bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeFactor);
-        bonusArmor += baseArmor + Math.round(baseArmor * upgradeFactor);
-        bonusCritChance += baseCritChance + (baseCritChance * upgradeFactor);
-        bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeFactor);
-
-        bonusCritDamageModifier += source.critDamageModifierBonus ? source.critDamageModifierBonus.max : 0;
-        bonusArmorPenetrationPercent += source.armorPenetrationPercent ? source.armorPenetrationPercent.max : 0;
-        bonusArmorPenetrationFlat += source.armorPenetrationFlat ? source.armorPenetrationFlat.max : 0;
-        bonusLifeStealPercent += source.lifeStealPercent ? source.lifeStealPercent.max : 0;
-        bonusLifeStealFlat += source.lifeStealFlat ? source.lifeStealFlat.max : 0;
-        bonusManaStealPercent += source.manaStealPercent ? source.manaStealPercent.max : 0;
-        bonusManaStealFlat += source.manaStealFlat ? source.manaStealFlat.max : 0;
-    };
-    
     const applyAffixBonuses = (source: RolledAffixStats) => {
         if (source.statsBonus) {
             for (const stat in source.statsBonus) {
@@ -543,7 +518,39 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
             if (template) {
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;
-                applyItemBonuses(template, upgradeBonusFactor);
+                
+                if (template.statsBonus) {
+                    for (const stat in template.statsBonus) {
+                        const key = stat as keyof typeof template.statsBonus;
+                        const bonusValue = template.statsBonus[key];
+                        const baseBonus = getMaxValue(bonusValue as any);
+                        totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                    }
+                }
+
+                const baseDamageMin = getMaxValue(template.damageMin as any);
+                const baseDamageMax = getMaxValue(template.damageMax as any);
+                const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);
+                const baseMagicDamageMax = getMaxValue(template.magicDamageMax as any);
+                const baseArmor = getMaxValue(template.armorBonus as any);
+                const baseCritChance = getMaxValue(template.critChanceBonus as any);
+                const baseMaxHealth = getMaxValue(template.maxHealthBonus as any);
+                
+                bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
+                bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
+                bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
+                bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
+                bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
+                bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
+                bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
+
+                bonusCritDamageModifier += getMaxValue(template.critDamageModifierBonus as any);
+                bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
+                bonusArmorPenetrationFlat += getMaxValue(template.armorPenetrationFlat as any);
+                bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
+                bonusLifeStealFlat += getMaxValue(template.lifeStealFlat as any);
+                bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
+                bonusManaStealFlat += getMaxValue(template.manaStealFlat as any);
             }
             if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
             if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);
@@ -553,7 +560,7 @@ const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates
     const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
-    const attacksPerRound = baseAttacksPerRound + bonusAttacksPerRound;
+    const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
 
@@ -1487,6 +1494,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
+// FIX: Add explicit types for req and res to resolve property access errors.
 app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1513,6 +1521,7 @@ app.post('/api/auth/register', async (req: ExpressRequest, res: ExpressResponse)
     }
 });
 
+// FIX: Add explicit types for req and res to resolve property access errors.
 app.post('/api/auth/login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -3325,7 +3334,7 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: ExpressReq
     }
 });
 
-// FIX: Added missing types to route handler
+// FIX: Complete the unfinished route handler to resolve parsing errors.
 app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -3338,44 +3347,50 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Express
             await client.query('BEGIN');
 
             const itemMap = new Map<string, { templateId: string, instances: DuplicationInfo[] }>();
-            const charactersRes = await client.query("SELECT user_id, data->>'name' as name, data FROM characters");
-            const allCharactersData = new Map<number, { name: string; data: PlayerCharacter }>();
-            charactersRes.rows.forEach(r => allCharactersData.set(r.user_id, { name: r.name, data: r.data }));
 
-            // 1. GATHER ALL ITEMS
-            for (const [userId, charInfo] of allCharactersData.entries()) {
-                const character = charInfo.data;
-                const ownerName = charInfo.name;
-                
+            // Lock tables to prevent race conditions while we work
+            const charactersRes = await client.query("SELECT user_id, data->>'name' as name, data FROM characters FOR UPDATE");
+            for (const row of charactersRes.rows) {
+                const character: PlayerCharacter = row.data;
+                const ownerName = character.name;
+                const userId = row.user_id;
+
                 for (const item of character.inventory) {
-                    if (!itemMap.has(item.uniqueId)) itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
+                    if (!itemMap.has(item.uniqueId)) {
+                        itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
+                    }
                     itemMap.get(item.uniqueId)!.instances.push({ ownerName, location: 'inventory', userId });
                 }
+
                 for (const slot in character.equipment) {
                     const item = character.equipment[slot as EquipmentSlot];
                     if (item) {
-                        if (!itemMap.has(item.uniqueId)) itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
+                        if (!itemMap.has(item.uniqueId)) {
+                            itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
+                        }
                         itemMap.get(item.uniqueId)!.instances.push({ ownerName, location: `equipment.${slot}`, userId });
                     }
                 }
             }
-            const marketRes = await client.query("SELECT id, item_data, seller_id, status FROM market_listings WHERE status IN ('ACTIVE', 'EXPIRED', 'CANCELLED')");
+            
+            const marketRes = await client.query("SELECT id, item_data, seller_id FROM market_listings WHERE status IN ('ACTIVE', 'EXPIRED', 'CANCELLED') FOR UPDATE");
             for (const row of marketRes.rows) {
                 const item: ItemInstance = row.item_data;
                 const sellerId = row.seller_id;
-                const sellerName = allCharactersData.get(sellerId)?.name || 'Unknown';
+                const sellerName = charactersRes.rows.find(c => c.user_id === sellerId)?.name || 'Unknown';
                  if (!itemMap.has(item.uniqueId)) {
                     itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
                 }
                 itemMap.get(item.uniqueId)!.instances.push({ ownerName: sellerName, location: `market.${row.id}`, userId: sellerId });
             }
-            const messagesRes = await client.query("SELECT id, body, recipient_id FROM messages WHERE message_type = 'market_notification' AND body->>'type' = 'ITEM_RETURNED'");
+            
+            const messagesRes = await client.query("SELECT id, body, recipient_id FROM messages WHERE message_type = 'market_notification' AND body->>'type' = 'ITEM_RETURNED' FOR UPDATE");
             for (const row of messagesRes.rows) {
                 const body: MarketNotificationBody = row.body;
                 if (body.item) {
                     const item = body.item;
                     const recipientId = row.recipient_id;
-                    const recipientName = allCharactersData.get(recipientId)?.name || 'Unknown';
+                    const recipientName = charactersRes.rows.find(c => c.user_id === recipientId)?.name || 'Unknown';
                     if (!itemMap.has(item.uniqueId)) {
                         itemMap.set(item.uniqueId, { templateId: item.templateId, instances: [] });
                     }
@@ -3383,103 +3398,84 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Express
                 }
             }
 
-            // 2. IDENTIFY DUPLICATES
-            const duplicates = Array.from(itemMap.entries()).filter(([, d]) => d.instances.length > 1);
+            const duplicates = Array.from(itemMap.entries()).filter(([, data]) => data.instances.length > 1);
+
+            let resolvedSets = 0;
             let itemsDeleted = 0;
+            
+            const locationPriority: { [key: string]: number } = { 'equipment': 1, 'market': 2, 'inventory': 3, 'mailbox': 4 };
 
-            // 3. RESOLVE DUPLICATES
-            const priority = ['equipment', 'market', 'inventory', 'mailbox'];
-            for (const [uniqueId, dupSet] of duplicates) {
-                let bestInstance: DuplicationInfo | null = null;
-                let bestPriority = Infinity;
+            const charactersToUpdate = new Map<number, PlayerCharacter>(charactersRes.rows.map(r => [r.user_id, r.data]));
 
-                for (const instance of dupSet.instances) {
-                    const currentPriority = priority.findIndex(p => instance.location.startsWith(p));
-                    if (currentPriority !== -1 && currentPriority < bestPriority) {
-                        bestPriority = currentPriority;
-                        bestInstance = instance;
-                    }
-                }
-                if (!bestInstance) bestInstance = dupSet.instances[0];
+            for (const [uniqueId, data] of duplicates) {
+                data.instances.sort((a, b) => {
+                    const priorityA = locationPriority[a.location.split('.')[0]] || 99;
+                    const priorityB = locationPriority[b.location.split('.')[0]] || 99;
+                    return priorityA - priorityB;
+                });
 
-                const instancesToDelete = dupSet.instances.filter(i => i !== bestInstance);
+                const instancesToDelete = data.instances.slice(1);
 
-                for (const inst of instancesToDelete) {
-                    const [locationType, id] = inst.location.split('.');
-                    const characterData = allCharactersData.get(inst.userId)?.data;
-                    if (!characterData) continue;
-
-                    let modified = false;
-                    if (locationType === 'inventory') {
-                        const initialLength = characterData.inventory.length;
-                        const itemIndex = characterData.inventory.findIndex(i => i.uniqueId === uniqueId);
-                        if (itemIndex > -1) {
-                            characterData.inventory.splice(itemIndex, 1);
-                        }
-                        if (characterData.inventory.length < initialLength) modified = true;
-                    } else if (locationType === 'equipment') {
-                        const slot = id as EquipmentSlot;
-                        if (characterData.equipment[slot]?.uniqueId === uniqueId) {
-                            characterData.equipment[slot] = null;
-                            modified = true;
-                        }
-                    }
+                for (const instance of instancesToDelete) {
+                    const [locationType, locationId] = instance.location.split('.');
                     
-                    if (modified) {
-                        allCharactersData.set(inst.userId, { ...allCharactersData.get(inst.userId)!, data: characterData });
-                        itemsDeleted++;
+                    if (locationType === 'inventory' || locationType === 'equipment') {
+                        const char = charactersToUpdate.get(instance.userId);
+                        if (char) {
+                            if (locationType === 'inventory') {
+                                char.inventory = char.inventory.filter(i => i.uniqueId !== uniqueId);
+                            } else if (locationType === 'equipment') {
+                                const slot = locationId as EquipmentSlot;
+                                if (char.equipment[slot]?.uniqueId === uniqueId) {
+                                    char.equipment[slot] = null;
+                                }
+                            }
+                        }
                     } else if (locationType === 'market') {
-                        await client.query("DELETE FROM market_listings WHERE id = $1", [id]);
-                        itemsDeleted++;
+                        await client.query("DELETE FROM market_listings WHERE id = $1 AND item_data->>'uniqueId' = $2", [parseInt(locationId, 10), uniqueId]);
                     } else if (locationType === 'mailbox') {
-                         await client.query("DELETE FROM messages WHERE id = $1", [id]);
-                         itemsDeleted++;
+                        await client.query("DELETE FROM messages WHERE id = $1 AND body->'item'->>'uniqueId' = $2", [parseInt(locationId, 10), uniqueId]);
                     }
+                    itemsDeleted++;
                 }
+                resolvedSets++;
             }
 
-            // 4. SAVE CHANGES
-            for (const [userId, charInfo] of allCharactersData.entries()) {
-                 await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [JSON.stringify(charInfo.data), userId]);
+            for (const [userId, char] of charactersToUpdate.entries()) {
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
             }
-
+            
             await client.query('COMMIT');
-            res.json({ resolvedSets: duplicates.length, itemsDeleted });
+            res.json({ resolvedSets, itemsDeleted });
 
         } catch (err: any) {
             await client.query('ROLLBACK');
-            throw err;
+            console.error('Error resolving duplicates:', err);
+            res.status(500).json({ message: err.message });
         } finally {
             client.release();
         }
     } catch (err: any) {
-        console.error('Resolve duplicates error:', err);
+        console.error('Error resolving duplicates (outer):', err);
         res.status(500).json({ message: err.message });
     }
 });
+try {
+    const client = await pool.connect();
+    console.log('Connected to the database');
+    client.release();
 
+    await initializeDatabase();
+    
+    // Start periodic cleanup of old tavern messages
+    setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); // Run every hour
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-// FIX: Added missing types to route handler
-app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
-    res.sendFile(path.join(__dirname, '../../dist/index.html'));
-});
-
-// Start the server
-// Initialize DB first, then start the server
-initializeDatabase().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-
-        // --- Periodic Tasks ---
-        // Initial cleanup on start
-        cleanupOldTavernMessages();
-        // Run cleanup every hour
-        setInterval(cleanupOldTavernMessages, 1000 * 60 * 60);
+    // FIX: Correctly handle PORT which can be a string from process.env by casting to Number.
+    app.listen(Number(PORT), '0.0.0.0', () => {
+        console.log(`Server is running on http://0.0.0.0:${PORT}`);
     });
-}).catch(err => {
-    console.error("Failed to initialize database. Server will not start.", err);
-    // FIX: Replaced `process.exit(1)` with a call to the imported `exit` function to ensure correct Node.js API usage and prevent type errors in environments with conflicting global types.
+
+} catch (err) {
+    console.error('Failed to connect to the database or start server:', err);
     exit(1);
-});
+}
