@@ -645,7 +645,7 @@ const ItemEditor: React.FC<{
         });
     };
 
-    const handleNestedMinMaxChange = (category: 'statsBonus' | 'requiredStats', key: string, field: 'min' | 'max', value: string) => {
+    const handleNestedMinMaxChange = (category: 'statsBonus', key: string, field: 'min' | 'max', value: string) => {
       const numValue = parseInt(value, 10);
       setFormData(prev => {
         const newCategory = { ...(prev as any)[category] };
@@ -663,6 +663,19 @@ const ItemEditor: React.FC<{
         }
         
         return { ...prev, [category]: newCategory };
+      });
+    };
+
+    const handleRequiredStatChange = (key: string, value: string) => {
+      const numValue = parseInt(value, 10);
+      setFormData(prev => {
+        const newRequiredStats = { ...prev.requiredStats };
+        if (isNaN(numValue) || numValue <= 0) {
+          delete (newRequiredStats as any)[key];
+        } else {
+          (newRequiredStats as any)[key] = numValue;
+        }
+        return { ...prev, requiredStats: newRequiredStats };
       });
     };
     
@@ -765,7 +778,7 @@ const ItemEditor: React.FC<{
                 <div><label>{t('item.levelRequirement')}:<input type="number" name="requiredLevel" value={formData.requiredLevel || 1} onChange={e => handleNumericChange('requiredLevel', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div className="col-span-full"><label>{t('item.requiredStats')}:</label>
                     <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-1">
-                        {primaryStats.map(stat => <label key={stat} className="text-xs">{t(`statistics.${stat}`)}:<input type="number" value={(formData.requiredStats as any)?.[stat] || ''} onChange={e => handleNestedMinMaxChange('requiredStats', stat, 'min', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md mt-1 text-sm" /></label>)}
+                        {primaryStats.map(stat => <label key={stat} className="text-xs">{t(`statistics.${stat}`)}:<input type="number" value={(formData.requiredStats as any)?.[stat] || ''} onChange={e => handleRequiredStatChange(stat, e.target.value)} className="w-full bg-slate-700 p-1 rounded-md mt-1 text-sm" /></label>)}
                     </div>
                 </div>
             </fieldset>
