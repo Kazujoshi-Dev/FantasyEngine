@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
@@ -174,6 +174,7 @@ const CombatantStatsPanel: React.FC<{
         
         <div className="border-t border-slate-700/50 my-2"></div>
         
+        {/* FIX: Corrected function call syntax for translation. */}
         <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span>{stats.minDamage} - {stats.maxDamage}</span></p>
         {magicDamageDisplay && (
             <p className="flex justify-between"><strong>{t('statistics.magicDamage')}:</strong> <span>{magicDamageDisplay}</span></p>
@@ -216,6 +217,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     const [animationFinished, setAnimationFinished] = useState(false);
     const combatLogRef = useRef<HTMLDivElement>(null);
     const timerRef = useRef<number>();
+
+    // FIX: Use type guard to correctly access properties from the union type.
+    const totalGold = 'totalGold' in reward ? reward.totalGold : (reward as PvpRewardSummary).gold;
+    const totalExperience = 'totalExperience' in reward ? reward.totalExperience : (reward as PvpRewardSummary).experience;
 
     useEffect(() => {
         if (reward.combatLog.length === 0) {
@@ -299,22 +304,22 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                                 <>
                                     <p className="flex justify-between items-center">
                                         <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {isDefenderView ? t('pvp.goldLost') : t('pvp.goldGained')}</span>
-                                        <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{reward.totalGold.toLocaleString()}</span>
+                                        <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{totalGold.toLocaleString()}</span>
                                     </p>
                                     <p className="flex justify-between items-center">
                                         <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {isDefenderView ? t('pvp.xpLost') : t('pvp.xpGained')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{reward.totalExperience.toLocaleString()}</span>
+                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
                                     </p>
                                 </>
                             ) : (
                                 <>
                                     <p className="flex justify-between items-center">
                                         <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('expedition.goldGained')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{reward.totalGold.toLocaleString()}</span>
+                                        <span className="font-mono font-bold text-green-400">+{totalGold.toLocaleString()}</span>
                                     </p>
                                     <p className="flex justify-between items-center">
                                         <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {t('expedition.experience')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{reward.totalExperience.toLocaleString()}</span>
+                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
                                     </p>
                                 </>
                             )}
@@ -424,12 +429,16 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
             <div className="space-y-6">
                 {availableExpeditions.length > 0 ? availableExpeditions.map(exp => {
                     const canAfford = character.resources.gold >= exp.goldCost && character.stats.currentEnergy >= exp.energyCost;
-                    const expeditionEnemies = exp.enemies
-                        .map(ee => ({
-                            ...enemies.find(e => e.id === ee.enemyId),
-                            spawnChance: ee.spawnChance
-                        }))
-                        .filter(e => e.id);
+                    const expeditionEnemies = (exp.enemies || [])
+                        .map(ee => {
+                            const enemy = enemies.find(e => e.id === ee.enemyId);
+                            if (!enemy) return null;
+                            return {
+                                ...enemy,
+                                spawnChance: ee.spawnChance
+                            };
+                        })
+                        .filter((e): e is Enemy & { spawnChance: number } => e !== null);
                     
                     return (
                         <div key={exp.id} className="bg-slate-900/40 p-6 rounded-xl flex flex-col md:flex-row gap-6">

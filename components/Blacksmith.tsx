@@ -85,9 +85,16 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    // FIX: Corrected arithmetic type errors by using a helper function to safely get max values from range objects and handle undefined properties.
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
-        if (!selectedItem || !selectedTemplate) return { upgradeLevel: 0 };
+        if (!selectedItem || !selectedTemplate) return { 
+            upgradeLevel: 0,
+            finalDamageMin: 0,
+            finalDamageMax: 0,
+            finalCritChanceBonus: 0,
+            attacksPerRound: undefined,
+            finalArmorBonus: 0,
+            statBonusEntries: []
+        };
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
             if (value === undefined || value === null) return 0;
@@ -206,17 +213,12 @@ const UpgradePanel: React.FC<{
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
     const [filterSlot, setFilterSlot] = useState<EquipmentSlot | 'consumable' | 'all'>('all');
 
-    const validInventory = useMemo(() => 
-        character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
-        [character.inventory, itemTemplates]
-    );
-
     const allItems = useMemo(() => [
         ...Object.values(character.equipment)
             .filter((i): i is ItemInstance => i !== null)
             .filter(item => itemTemplates.find(t => t.id === item.templateId)),
-        ...validInventory
-    ], [character.equipment, validInventory, itemTemplates]);
+        ...character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId))
+    ], [character.equipment, character.inventory, itemTemplates]);
 
     const equippedItemIds = useMemo(() => 
         new Set(Object.values(character.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
@@ -308,7 +310,7 @@ const UpgradePanel: React.FC<{
                      <div className="flex items-center gap-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.title')} / {t('equipment.backpack')}</h3>
                         <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                            {validInventory.length} / {40 + ((character.backpack?.level || 1) - 1) * 10}
+                            {character.inventory.length} / {40 + ((character.backpack?.level || 1) - 1) * 10}
                         </div>
                      </div>
                      <div className="flex items-center space-x-2">
