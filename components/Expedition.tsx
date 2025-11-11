@@ -174,7 +174,6 @@ const CombatantStatsPanel: React.FC<{
         
         <div className="border-t border-slate-700/50 my-2"></div>
         
-        {/* FIX: Corrected function call syntax for translation. */}
         <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span>{stats.minDamage} - {stats.maxDamage}</span></p>
         {magicDamageDisplay && (
             <p className="flex justify-between"><strong>{t('statistics.magicDamage')}:</strong> <span>{magicDamageDisplay}</span></p>
@@ -222,6 +221,17 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     const totalGold = 'totalGold' in reward ? reward.totalGold : (reward as PvpRewardSummary).gold;
     const totalExperience = 'totalExperience' in reward ? reward.totalExperience : (reward as PvpRewardSummary).experience;
 
+    const isExpeditionReward = 'rewardBreakdown' in reward;
+    const isVictory = isPvp && pvpData ? (isDefenderView ? !reward.isVictory : reward.isVictory) : reward.isVictory;
+
+    // FIX: Extracted title logic into a helper function to improve readability and avoid potential cryptic linter errors.
+    const getTitle = () => {
+        if (isPvp) {
+            return t('pvp.duelResult');
+        }
+        return isVictory ? t('expedition.victory') : t('expedition.defeat');
+    };
+
     useEffect(() => {
         if (reward.combatLog.length === 0) {
             setAnimationFinished(true);
@@ -261,15 +271,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
         setAnimationFinished(true);
     };
 
-    const isExpeditionReward = 'rewardBreakdown' in reward;
-    const isVictory = isPvp && pvpData ? (isDefenderView ? !reward.isVictory : reward.isVictory) : reward.isVictory;
-
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-6xl w-full">
                  <div className="text-center mb-4">
                     <h2 className={`text-5xl font-extrabold ${isVictory ? 'text-green-400' : 'text-red-500'}`}>
-                        {isPvp ? t('pvp.duelResult') : (isVictory ? t('expedition.victory') : t('expedition.defeat'))}
+                        {getTitle()}
                     </h2>
                 </div>
                 

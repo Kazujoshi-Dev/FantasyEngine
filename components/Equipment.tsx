@@ -152,7 +152,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
     const handleUnequip = () => {
         if (selectedItem && selectedItem.from !== 'inventory') {
-// FIX: The inner if condition was redundant and caused a type error. The outer if already ensures `selectedItem.from` is an `EquipmentSlot`.
+            // FIX: The inner if condition was redundant and caused a type error. The outer if already ensures `selectedItem.from` is an `EquipmentSlot`.
             onUnequipItem(selectedItem.item, selectedItem.from);
             setSelectedItem(null);
         }

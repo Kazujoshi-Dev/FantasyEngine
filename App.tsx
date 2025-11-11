@@ -588,16 +588,13 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     futureEquipment[targetSlot] = itemToEquip;
     
     // 3. Find which items were unequipped by comparing the original and simulated states
-    // FIX: Add a type guard to properly infer the type of `i` as `ItemInstance` after filtering, preventing `unknown` type errors.
     const originalEquippedIds = new Set(Object.values(baseCharacter.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId));
-    // FIX: Add a type guard to properly infer the type of `i` as `ItemInstance` after filtering, preventing `unknown` type errors.
     const futureEquippedIds = new Set(Object.values(futureEquipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId));
     
     const unequippedItems: ItemInstance[] = [];
     originalEquippedIds.forEach(id => {
         if (!futureEquippedIds.has(id)) {
             // Find the full item object from the original equipment to add to the inventory
-            // FIX: Cast the result of Object.values to `(ItemInstance | null)[]` to ensure correct type inference for `i` within the `find` method, resolving property access errors on `unknown`. This also resolves the consequential error on the `push` method below.
             const unequippedItem = (Object.values(baseCharacter.equipment) as (ItemInstance | null)[]).find(i => i?.uniqueId === id);
             if (unequippedItem) {
                 unequippedItems.push(unequippedItem);
@@ -1177,8 +1174,13 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
       );
   }
 
+  const handleLoginSuccess = (newToken: string) => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+  };
+
   if (!token) {
-    return <Auth onLoginSuccess={(newToken) => setToken(newToken)} settings={gameData?.settings} />;
+    return <Auth onLoginSuccess={handleLoginSuccess} settings={gameData?.settings} />;
   }
   
   if (!baseCharacter || !playerCharacter) {
