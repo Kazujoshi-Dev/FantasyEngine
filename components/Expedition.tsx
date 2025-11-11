@@ -224,14 +224,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     const isExpeditionReward = 'rewardBreakdown' in reward;
     const isVictory = isPvp && pvpData ? (isDefenderView ? !reward.isVictory : reward.isVictory) : reward.isVictory;
 
-    // FIX: Extracted title logic into a helper function to improve readability and avoid potential cryptic linter errors.
-    const getTitle = () => {
-        if (isPvp) {
-            return t('pvp.duelResult');
-        }
-        return isVictory ? t('expedition.victory') : t('expedition.defeat');
-    };
-
     useEffect(() => {
         if (reward.combatLog.length === 0) {
             setAnimationFinished(true);
@@ -274,22 +266,17 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-6xl w-full">
-                 <div className="text-center mb-4">
+                 {/* FIX: Inlined title logic to resolve "Expected 1 arguments, but got 0" error. */}
+                <div className="text-center mb-4">
                     <h2 className={`text-5xl font-extrabold ${isVictory ? 'text-green-400' : 'text-red-500'}`}>
-                        {getTitle()}
+                        {isPvp ? t('pvp.duelResult') : (isVictory ? t('expedition.victory') : t('expedition.defeat'))}
                     </h2>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[70vh]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh]">
                     {/* Combat Log */}
-                    <div className="lg:col-span-2 bg-slate-900/50 p-4 rounded-lg flex flex-col">
+                    <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
                         <h3 className="text-xl font-bold text-indigo-400 mb-2">{isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}</h3>
-                        {pvpData && (
-                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <CombatantStatsPanel name={pvpData.attacker.name} stats={pvpData.attacker.stats} currentHealth={reward.combatLog[0]?.playerHealth} currentMana={reward.combatLog[0]?.playerMana} />
-                                <CombatantStatsPanel name={pvpData.defender.name} stats={pvpData.defender.stats} currentHealth={reward.combatLog[0]?.enemyHealth} currentMana={reward.combatLog[0]?.enemyMana} />
-                            </div>
-                        )}
                         <div ref={combatLogRef} className="flex-grow bg-black/30 p-3 rounded-md overflow-y-auto space-y-1 font-mono text-sm">
                              {reward.combatLog.slice(0, visibleLogs).map((log, index) => (
                                 <CombatLogRow key={index} log={log} characterName={isPvp && pvpData ? pvpData.attacker.name : characterName} />
@@ -303,81 +290,93 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                         )}
                     </div>
 
-                    {/* Rewards */}
+                    {/* Rewards and Stats */}
                     <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
-                         <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
-                         <div className="space-y-2 text-lg">
-                            {isPvp ? (
-                                <>
-                                    <p className="flex justify-between items-center">
-                                        <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {isDefenderView ? t('pvp.goldLost') : t('pvp.goldGained')}</span>
-                                        <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{totalGold.toLocaleString()}</span>
-                                    </p>
-                                    <p className="flex justify-between items-center">
-                                        <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {isDefenderView ? t('pvp.xpLost') : t('pvp.xpGained')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="flex justify-between items-center">
-                                        <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('expedition.goldGained')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{totalGold.toLocaleString()}</span>
-                                    </p>
-                                    <p className="flex justify-between items-center">
-                                        <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {t('expedition.experience')}</span>
-                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
-                                    </p>
-                                </>
+                        <div className="flex-grow overflow-y-auto pr-2 space-y-4">
+                            {pvpData && (
+                                <div>
+                                    <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.combatStats')}</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <CombatantStatsPanel name={pvpData.attacker.name} stats={pvpData.attacker.stats} currentHealth={reward.combatLog[0]?.playerHealth} currentMana={reward.combatLog[0]?.playerMana} />
+                                        <CombatantStatsPanel name={pvpData.defender.name} stats={pvpData.defender.stats} currentHealth={reward.combatLog[0]?.enemyHealth} currentMana={reward.combatLog[0]?.enemyMana} />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
+                                <div className="space-y-2 text-lg">
+                                    {isPvp ? (
+                                        <>
+                                            <p className="flex justify-between items-center">
+                                                <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {isDefenderView ? t('pvp.goldLost') : t('pvp.goldGained')}</span>
+                                                <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{totalGold.toLocaleString()}</span>
+                                            </p>
+                                            <p className="flex justify-between items-center">
+                                                <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {isDefenderView ? t('pvp.xpLost') : t('pvp.xpGained')}</span>
+                                                <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="flex justify-between items-center">
+                                                <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('expedition.goldGained')}</span>
+                                                <span className="font-mono font-bold text-green-400">+{totalGold.toLocaleString()}</span>
+                                            </p>
+                                            <p className="flex justify-between items-center">
+                                                <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {t('expedition.experience')}</span>
+                                                <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {isExpeditionReward && reward.rewardBreakdown.length > 0 && animationFinished && (
+                                <div className="border-t border-slate-700/50 pt-2 text-xs space-y-1">
+                                    {reward.rewardBreakdown.map((source, index) => (
+                                        <div key={index} className="grid grid-cols-3 gap-2 text-gray-400">
+                                            <span className="col-span-1 truncate">{source.source}</span>
+                                            <span className="col-span-1 text-right text-amber-500 font-mono">+{source.gold}</span>
+                                            <span className="col-span-1 text-right text-sky-500 font-mono">+{source.experience}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {isExpeditionReward && reward.itemsFound.length > 0 && animationFinished && (
+                                <div className="border-t border-slate-700/50 pt-2">
+                                    <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.itemsFound')}</h4>
+                                    <div className="max-h-32 overflow-y-auto pr-2 space-y-1">
+                                        {reward.itemsFound.map((item, index) => {
+                                            const template = itemTemplates.find(t => t.id === item.templateId);
+                                            if (!template) return null;
+                                            return (
+                                                <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
+                                                    <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
+                                                    <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                        <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {isExpeditionReward && Object.keys(reward.essencesFound).length > 0 && animationFinished && (
+                                <div className="border-t border-slate-700/50 pt-2">
+                                    <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.essencesFound')}</h4>
+                                    <div className="space-y-1">
+                                        {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                            if (!amount) return null;
+                                            return <p key={essence}>{t(`resources.${essence}`)}: +{amount}</p>
+                                        })}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                        
-                        {isExpeditionReward && reward.rewardBreakdown.length > 0 && animationFinished && (
-                            <div className="mt-4 border-t border-slate-700/50 pt-2 text-xs space-y-1">
-                                {reward.rewardBreakdown.map((source, index) => (
-                                    <div key={index} className="grid grid-cols-3 gap-2 text-gray-400">
-                                        <span className="col-span-1 truncate">{source.source}</span>
-                                        <span className="col-span-1 text-right text-amber-500 font-mono">+{source.gold}</span>
-                                        <span className="col-span-1 text-right text-sky-500 font-mono">+{source.experience}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        
-                        {isExpeditionReward && reward.itemsFound.length > 0 && animationFinished && (
-                            <div className="mt-4 border-t border-slate-700/50 pt-2">
-                                <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.itemsFound')}</h4>
-                                <div className="max-h-32 overflow-y-auto pr-2 space-y-1">
-                                    {reward.itemsFound.map((item, index) => {
-                                        const template = itemTemplates.find(t => t.id === item.templateId);
-                                        if (!template) return null;
-                                        return (
-                                            <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
-                                                <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
-                                                <ItemTooltip instance={item} template={template} affixes={affixes} />
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                                 {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                     <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
-                                 )}
-                            </div>
-                        )}
-
-                        {isExpeditionReward && Object.keys(reward.essencesFound).length > 0 && animationFinished && (
-                             <div className="mt-4 border-t border-slate-700/50 pt-2">
-                                <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.essencesFound')}</h4>
-                                <div className="space-y-1">
-                                    {Object.entries(reward.essencesFound).map(([essence, amount]) => {
-                                        if (!amount) return null;
-                                        return <p key={essence}>{t(`resources.${essence}`)}: +{amount}</p>
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex-grow"></div>
                         <button onClick={onClose} className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg text-lg transition-colors">
                             {t('expedition.excellent')}
                         </button>

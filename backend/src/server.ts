@@ -3,7 +3,8 @@
 
 
 
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+
+import express, { Express, Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -34,7 +35,7 @@ declare global {
   }
 }
 
-const app: express.Express = express();
+const app: Express = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;
