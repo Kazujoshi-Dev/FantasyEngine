@@ -1486,9 +1486,10 @@ const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((chara
 //                                  ROUTES
 // ===================================================================================
 app.use(cors());
+// FIX: Add explicit types for req and res to resolve property access errors.
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static files from the React app
+// FIX: Add explicit types for req and res to resolve property access errors.
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---

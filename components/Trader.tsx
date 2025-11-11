@@ -262,7 +262,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                          <h3 className="text-xl font-bold text-indigo-400">{t('trader.yourBag')}</h3>
                          <div className="flex items-center gap-2">
                             <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                                {validInventory.length} / {backpackCapacity}
+                                {character.inventory.length} / {backpackCapacity}
                             </div>
                             <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full">
                                 <CoinsIcon className="h-5 w-5 text-amber-400" />
