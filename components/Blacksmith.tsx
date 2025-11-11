@@ -85,7 +85,7 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    // FIX: Corrected arithmetic type errors by using the `.max` property from range objects ({min, max}). Also ensured calculations return numbers instead of undefined.
+    // FIX: Corrected arithmetic type errors by using a helper function to safely get max values from range objects and handle undefined properties.
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { upgradeLevel: 0 };
 
@@ -129,7 +129,7 @@ const DisenchantPanel: React.FC<{
                  <div className="flex justify-between items-center mb-4 px-2">
                     <h3 className="text-xl font-bold text-indigo-400">{t('blacksmith.yourBag')}</h3>
                     <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                        {character.inventory.length} / {backpackCapacity}
+                        {validInventory.length} / {backpackCapacity}
                     </div>
                 </div>
                 <ItemList
