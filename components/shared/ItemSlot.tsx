@@ -84,7 +84,7 @@ export const ItemDetailsPanel: React.FC<{
         const s = source as any; // To access properties dynamically
         
         const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(getMaxValue(v)) : v}`, color: 'text-green-300'})) : []),
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(getMaxValue(v)) : getMaxValue(v)}`, color: 'text-green-300'})) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(getMaxValue(s.damageMin)) : s.damageMin}-${isItem ? calculateStat(getMaxValue(s.damageMax)) : s.damageMax}`},
             (s.attacksPerRound !== undefined) && {label: t('statistics.attacksPerTurn'), value: s.attacksPerRound},
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(getMaxValue(s.armorBonus)) : s.armorBonus}`},
@@ -220,13 +220,14 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
     const upgradeLevel = item.upgradeLevel || 0;
     const { border, text, bg, shadow } = rarityStyles[template.rarity];
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+    const finalBorder = meetsRequirements ? border : 'border-red-500';
 
     return (
          <div
             {...divProps}
             className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
                 isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
-            } ${border} ${shadow} ${divProps.className || ''}`}
+            } ${finalBorder} ${shadow} ${divProps.className || ''}`}
         >
             {template.icon && <img src={template.icon} alt={template.name} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
             <div className="flex-grow">
@@ -262,9 +263,10 @@ interface ItemListProps {
     selectedItem: ItemInstance | null;
     onSelectItem: (item: ItemInstance) => void;
     showPrice?: 'buy' | 'sell';
+    meetsRequirements?: (item: ItemInstance) => boolean;
 }
 
-export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, showPrice }) => {
+export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, showPrice, meetsRequirements }) => {
     return (
         <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {items.map(item => {
@@ -296,6 +298,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                         onClick={() => onSelectItem(item)}
                         price={price}
                         showPrimaryStat={false}
+                        meetsRequirements={meetsRequirements ? meetsRequirements(item) : true}
                     />
                 );
             })}

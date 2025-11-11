@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats } from '../types';
 import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -99,6 +99,25 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
         [character.inventory, itemTemplates]
     );
+
+    const meetsRequirements = useCallback((item: ItemInstance): boolean => {
+        const template = itemTemplates.find(t => t.id === item.templateId);
+        if (!template) return true;
+
+        if (character.level < template.requiredLevel) {
+            return false;
+        }
+
+        if (template.requiredStats) {
+            for (const stat in template.requiredStats) {
+                const key = stat as keyof CharacterStats;
+                if (character.stats[key] < (template.requiredStats[key] || 0)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }, [character, itemTemplates]);
 
     useEffect(() => {
         const timerId = setInterval(() => {
@@ -248,6 +267,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                         selectedItem={detailsItem ? detailsItem.item : null}
                         onSelectItem={handleTraderItemClick}
                         showPrice="buy"
+                        meetsRequirements={meetsRequirements}
                     />
                 </div>
 
@@ -296,6 +316,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                                     onClick={() => handlePlayerItemClick(item)}
                                     price={itemValue}
                                     showPrimaryStat={false}
+                                    meetsRequirements={meetsRequirements(item)}
                                 />
                             );
                         })}
