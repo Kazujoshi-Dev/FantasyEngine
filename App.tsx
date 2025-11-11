@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Import NewsModal component.
 import { Sidebar, NewsModal } from './components/Sidebar';
