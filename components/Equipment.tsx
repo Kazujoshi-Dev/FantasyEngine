@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity } from '../types';
@@ -104,7 +104,6 @@ const ComparisonTooltips: React.FC<{
 }> = ({ hoveredInfo, character, gameData }) => {
     const { t } = useTranslation();
     const tooltipContainerRef = useRef<HTMLDivElement>(null);
-    const [style, setStyle] = useState<React.CSSProperties>({});
 
     const { hoveredItem, hoveredTemplate, equippedItemsAndTemplates } = useMemo(() => {
         const hoveredTemplate = gameData.itemTemplates.find(t => t.id === hoveredInfo.item.templateId);
@@ -147,64 +146,35 @@ const ComparisonTooltips: React.FC<{
         };
     }, [hoveredInfo, character, gameData, t]);
 
-    useLayoutEffect(() => {
-        if (!tooltipContainerRef.current) return;
-        
-        const rect = hoveredInfo.element.getBoundingClientRect();
-        
-        const numTooltips = 1 + equippedItemsAndTemplates.length;
-        const singleTooltipWidth = 288; // w-72
-        const gap = 16; // gap-4
-        const estimatedWidth = (numTooltips * singleTooltipWidth) + ((numTooltips - 1) * gap);
-        
-        let top = rect.top;
-        let left = rect.right + 15; // Default position to the right
-
-        if (left + estimatedWidth > window.innerWidth - 15) {
-            left = rect.left - estimatedWidth - 15;
-        }
-
-        if (left < 15) {
-            left = 15;
-        }
-
-        const tooltipHeight = tooltipContainerRef.current.offsetHeight;
-        if (top + tooltipHeight > window.innerHeight - 10) {
-            top = window.innerHeight - tooltipHeight - 10;
-        }
-        
-        if (top < 10) {
-            top = 10;
-        }
-
-        setStyle({ top: `${top}px`, left: `${left}px`, position: 'fixed' });
-
-    }, [hoveredInfo, equippedItemsAndTemplates]);
-
     if (!hoveredTemplate) return null;
 
     return (
-        <div ref={tooltipContainerRef} style={style} className="z-20 flex gap-4 pointer-events-none">
-            {equippedItemsAndTemplates.map(({ item, template, slotName }) => (
-                <div key={item.uniqueId} className="w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in">
+        <div className="fixed inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <div
+                ref={tooltipContainerRef}
+                className="flex gap-4"
+            >
+                {equippedItemsAndTemplates.map(({ item, template, slotName }) => (
+                    <div key={item.uniqueId} className="w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in">
+                        <ItemDetailsPanel
+                            item={item}
+                            template={template}
+                            affixes={gameData.affixes}
+                            character={character}
+                            size="small"
+                            title={`${t('equipment.equipped')} (${slotName})`}
+                        />
+                    </div>
+                ))}
+                <div className="w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in">
                     <ItemDetailsPanel
-                        item={item}
-                        template={template}
+                        item={hoveredItem!}
+                        template={hoveredTemplate}
                         affixes={gameData.affixes}
                         character={character}
                         size="small"
-                        title={`${t('equipment.equipped')} (${slotName})`}
                     />
                 </div>
-            ))}
-            <div className="w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in">
-                <ItemDetailsPanel
-                    item={hoveredItem!}
-                    template={hoveredTemplate}
-                    affixes={gameData.affixes}
-                    character={character}
-                    size="small"
-                />
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -76,9 +76,9 @@ export const ItemDetailsPanel: React.FC<{
         
         const getMaxValue = (value: any): number => {
             if (value === undefined || value === null) return 0;
-            if (typeof value === 'number') return value;
-            if (typeof value === 'object' && 'max' in value) return value.max;
-            return 0;
+            if (typeof value === 'number') return value; // Handles old format
+            if (typeof value === 'object' && 'max' in value) return value.max; // Handles new format
+            return 0; // Fallback for any other case
         };
         
         const s = source as any; // To access properties dynamically
@@ -168,32 +168,14 @@ export const ItemTooltip: React.FC<{
   template: ItemTemplate;
   affixes: Affix[];
 }> = ({ instance, template, affixes }) => {
-    const tooltipRef = useRef<HTMLDivElement>(null);
-    const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0 });
-
-    useLayoutEffect(() => {
-        if (tooltipRef.current && tooltipRef.current.parentElement) {
-            const parentRect = tooltipRef.current.parentElement.getBoundingClientRect();
-            const tooltipHeight = tooltipRef.current.offsetHeight;
-
-            let top = parentRect.bottom + 8;
-            if (top + tooltipHeight > window.innerHeight) {
-                top = parentRect.top - tooltipHeight - 8;
-            }
-
-            setStyle({
-                opacity: 1,
-                top: `${top}px`,
-                left: `${parentRect.left}px`,
-                position: 'fixed'
-            });
-        }
-    }, []);
-
     return (
         <div
-            ref={tooltipRef}
-            style={style}
+            style={{
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+            }}
             className="absolute z-20 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300 pointer-events-none"
         >
             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" />

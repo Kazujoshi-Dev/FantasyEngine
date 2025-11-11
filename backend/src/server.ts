@@ -1,7 +1,8 @@
 
 
 
-import express, { Express } from 'express';
+
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -1495,7 +1496,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
-app.post('/api/auth/register', async (req: express.Request, res: express.Response) => {
+app.post('/api/auth/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1521,7 +1522,7 @@ app.post('/api/auth/register', async (req: express.Request, res: express.Respons
     }
 });
 
-app.post('/api/auth/login', async (req: express.Request, res: express.Response) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1548,7 +1549,7 @@ app.post('/api/auth/login', async (req: express.Request, res: express.Response) 
     }
 });
 
-app.post('/api/auth/logout', authenticateToken, (req: express.Request, res: express.Response) => {
+app.post('/api/auth/logout', authenticateToken, (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
         pool.query('DELETE FROM sessions WHERE token = $1', [token])
@@ -1563,7 +1564,7 @@ app.post('/api/auth/logout', authenticateToken, (req: express.Request, res: expr
 });
 
 // Heartbeat endpoint
-app.post('/api/session/heartbeat', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/session/heartbeat', authenticateToken, async (req: Request, res: Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
         return res.sendStatus(401);
@@ -1578,7 +1579,7 @@ app.post('/api/session/heartbeat', authenticateToken, async (req: express.Reques
 });
 
 // --- Middleware for authentication ---
-async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1598,7 +1599,7 @@ async function authenticateToken(req: express.Request, res: express.Response, ne
 }
 
 // --- Character Routes ---
-app.get('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -1692,7 +1693,7 @@ app.get('/api/character', authenticateToken, async (req: express.Request, res: e
     }
 });
 
-app.post('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1707,7 +1708,7 @@ app.post('/api/character', authenticateToken, async (req: express.Request, res: 
     }
 });
 
-app.put('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/character', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1719,7 +1720,7 @@ app.put('/api/character', authenticateToken, async (req: express.Request, res: e
     }
 });
 
-app.post('/api/character/select-class', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
 
@@ -1770,7 +1771,7 @@ app.post('/api/character/select-class', authenticateToken, async (req: express.R
     }
 });
 
-app.get('/api/characters/all', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/characters/all', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1797,7 +1798,7 @@ app.get('/api/characters/all', authenticateToken, async (req: express.Request, r
     }
 });
 
-app.delete('/api/characters/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/characters/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1813,7 +1814,7 @@ app.delete('/api/characters/:userId', authenticateToken, async (req: express.Req
     }
 });
 
-app.get('/api/characters/names', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
         res.json(result.rows.map(r => r.name));
@@ -1823,7 +1824,7 @@ app.get('/api/characters/names', authenticateToken, async (req: express.Request,
     }
 });
 
-app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1852,7 +1853,7 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: e
     }
 });
 
-app.post('/api/characters/:userId/heal', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1876,7 +1877,7 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req: express.
     }
 });
 
-app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1920,7 +1921,7 @@ app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (r
 });
 
 // --- User Routes (Admin) ---
-app.get('/api/users', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/users', authenticateToken, async (req: Request, res: Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1935,7 +1936,7 @@ app.get('/api/users', authenticateToken, async (req: express.Request, res: expre
     }
 });
 
-app.delete('/api/users/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/users/:userId', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1953,7 +1954,7 @@ app.delete('/api/users/:userId', authenticateToken, async (req: express.Request,
 
 
 // --- Game Data Routes ---
-app.get('/api/game-data', async (req: express.Request, res: express.Response) => {
+app.get('/api/game-data', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: { [key: string]: any } = {};
@@ -1970,7 +1971,7 @@ app.get('/api/game-data', async (req: express.Request, res: express.Response) =>
 });
 
 // --- Admin: Update Game Data ---
-app.put('/api/game-data', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/game-data', authenticateToken, async (req: Request, res: Response) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1999,7 +2000,7 @@ app.put('/api/game-data', authenticateToken, async (req: express.Request, res: e
 
 
 // --- Ranking Route ---
-app.get('/api/ranking', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/ranking', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -2032,7 +2033,7 @@ app.get('/api/ranking', authenticateToken, async (req: express.Request, res: exp
 });
 
 // --- Trader Routes ---
-app.get('/api/trader/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/trader/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
 
     try {
@@ -2062,7 +2063,7 @@ app.get('/api/trader/inventory', authenticateToken, async (req: express.Request,
 });
 
 // --- Trader: Buy Item ---
-app.post('/api/trader/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/trader/buy', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
     if (!itemId) {
@@ -2143,7 +2144,7 @@ app.post('/api/trader/buy', authenticateToken, async (req: express.Request, res:
 });
 
 // --- Trader: Sell Items ---
-app.post('/api/trader/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/trader/sell', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
 
@@ -2207,7 +2208,7 @@ app.post('/api/trader/sell', authenticateToken, async (req: express.Request, res
 });
 
 // --- Blacksmith: Disenchant ---
-app.post('/api/blacksmith/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/blacksmith/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2287,7 +2288,7 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req: express.Re
 
 
 // --- Blacksmith: Upgrade ---
-app.post('/api/blacksmith/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/blacksmith/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2392,7 +2393,7 @@ app.post('/api/blacksmith/upgrade', authenticateToken, async (req: express.Reque
 
 
 // --- PvP Route ---
-app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
 
@@ -2533,7 +2534,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: express.R
 
 
 // --- Message Routes ---
-app.get('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
@@ -2544,7 +2545,7 @@ app.get('/api/messages', authenticateToken, async (req: express.Request, res: ex
     }
 });
 
-app.post('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/messages', authenticateToken, async (req: Request, res: Response) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
 
@@ -2577,7 +2578,7 @@ app.post('/api/messages', authenticateToken, async (req: express.Request, res: e
     }
 });
 
-app.put('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.put('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     const { is_read } = req.body;
@@ -2591,7 +2592,7 @@ app.put('/api/messages/:id', authenticateToken, async (req: express.Request, res
     }
 });
 
-app.delete('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.delete('/api/messages/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     try {
@@ -2603,7 +2604,7 @@ app.delete('/api/messages/:id', authenticateToken, async (req: express.Request, 
     }
 });
 
-app.post('/api/admin/global-message', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/global-message', authenticateToken, async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     
     const client = await pool.connect();
@@ -2634,7 +2635,7 @@ app.post('/api/admin/global-message', authenticateToken, async (req: express.Req
     }
 });
 
-app.post('/api/messages/claim-return/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/messages/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const messageId = parseInt(req.params.id, 10);
 
@@ -2694,7 +2695,7 @@ app.post('/api/messages/claim-return/:id', authenticateToken, async (req: expres
 
 
 // --- Tavern (Chat) ---
-app.get('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
         res.json(result.rows);
@@ -2704,7 +2705,7 @@ app.get('/api/tavern/messages', authenticateToken, async (req: express.Request, 
     }
 });
 
-app.post('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/tavern/messages', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { content } = req.body;
     if (!content || content.trim().length === 0) {
@@ -2728,7 +2729,7 @@ app.post('/api/tavern/messages', authenticateToken, async (req: express.Request,
 });
 
 // --- Market Routes ---
-app.get('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -2786,7 +2787,7 @@ app.get('/api/market/listings', authenticateToken, async (req: express.Request, 
     }
 });
 
-app.post('/api/market/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/buy', authenticateToken, async (req: Request, res: Response) => {
     const buyerId = req.user!.id;
     const { listingId } = req.body;
 
@@ -2885,7 +2886,7 @@ app.post('/api/market/buy', authenticateToken, async (req: express.Request, res:
     }
 });
 
-app.post('/api/market/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/bid', authenticateToken, async (req: Request, res: Response) => {
     const bidderId = req.user!.id;
     const { listingId, amount } = req.body;
 
@@ -2960,7 +2961,7 @@ app.post('/api/market/bid', authenticateToken, async (req: express.Request, res:
 });
 
 // --- Admin Routes ---
-app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -2974,7 +2975,7 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: expres
     }
 });
 
-app.post('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { itemId, listingType, currency, price, durationHours } = req.body as {
         itemId: string;
@@ -3037,7 +3038,7 @@ app.post('/api/market/listings', authenticateToken, async (req: express.Request,
     }
 });
 
-app.get('/api/market/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/market/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -3093,7 +3094,7 @@ app.get('/api/market/my-listings', authenticateToken, async (req: express.Reques
     }
 });
 
-app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const sellerId = req.user!.id;
     const { id } = req.params;
 
@@ -3143,7 +3144,7 @@ app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: expre
 });
 
 
-app.post('/api/market/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/market/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
@@ -3205,7 +3206,7 @@ app.post('/api/market/listings/:id/claim', authenticateToken, async (req: expres
 });
 
 // Admin duplication audit route
-app.get('/api/admin/audit/duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.get('/api/admin/audit/duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3293,7 +3294,7 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req: express.Re
 });
 
 // FIX: Complete the unfinished route handler to resolve parsing errors.
-app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: Request, res: Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
