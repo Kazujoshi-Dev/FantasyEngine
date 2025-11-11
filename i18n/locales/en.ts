@@ -373,6 +373,7 @@ export default {
         class: 'Class',
         noPlayers: 'No players found in the ranking yet.',
         administrator: 'Administrator',
+        attack: 'Attack',
     },
     pvp: {
         attackInProgress: 'Attack in progress...',
@@ -429,6 +430,14 @@ export default {
         },
         classChoiceSubject: 'Time to Choose a Class!',
         classChoiceBody: 'Congratulations! You have reached level 10. You can now choose a class for your character in the Statistics -> Development Path tab. Choose wisely, as this choice is final!',
+        bulkDelete: {
+            deleteRead: 'Delete Read',
+            deleteAll: 'Delete All',
+            deleteReports: 'Delete Expedition Reports',
+            confirmRead: 'Are you sure you want to delete all read messages?',
+            confirmAll: 'Are you sure you want to delete ALL messages? This action is irreversible.',
+            confirmReports: 'Are you sure you want to delete all expedition reports?',
+        },
     },
     trader: {
         title: 'Trader',

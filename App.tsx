@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Import NewsModal component.
 import { Sidebar, NewsModal } from './components/Sidebar';
@@ -474,6 +475,16 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
     } catch (err: any) {
         setError(err.message);
+    }
+  }, []);
+
+  const handleBulkDeleteMessages = useCallback(async (type: 'read' | 'all' | 'expedition_reports') => {
+    try {
+      await api.deleteBulkMessages(type);
+      const freshMessages = await api.getMessages();
+      setMessages(freshMessages);
+    } catch (err: any) {
+      alert(err.message);
     }
   }, []);
 
@@ -995,17 +1006,18 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         let updated = false;
 
         // Resting
-        if (char.isResting && char.stats.currentHealth < (playerCharacter?.stats.maxHealth || 0)) {
+        if (char.isResting && char.lastRestTime) {
           const now = Date.now();
-          const lastRest = char.lastRestTime || now;
-          const secondsPassed = (now - lastRest) / 1000;
-          if (secondsPassed >= 5) {
-            const maxHealth = playerCharacter?.stats.maxHealth || char.stats.maxHealth;
-            const regenPerMinute = maxHealth * (char.camp.level / 100);
-            const regenPerInterval = regenPerMinute / 12; // 12 intervals of 5s in a minute
-            char.stats.currentHealth = Math.min(maxHealth, char.stats.currentHealth + regenPerInterval);
-            char.lastRestTime = now;
-            updated = true;
+          const restDuration = now - char.lastRestTime;
+          const healthToRegen = (char.camp.level / 100) * (restDuration / (60 * 1000)); 
+          if (healthToRegen > 0) {
+              const derivedStats = calculateDerivedStats(char, gameData);
+              const newHealth = Math.min(derivedStats.stats.maxHealth, char.stats.currentHealth + healthToRegen);
+              if (newHealth > char.stats.currentHealth) {
+                  char.stats.currentHealth = newHealth;
+                  char.lastRestTime = now;
+                  updated = true;
+              }
           }
         }
 
@@ -1015,354 +1027,286 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
           char.activeTravel = null;
           updated = true;
         }
+        
+        // Energy regeneration
+        const now = Date.now();
+        const timeSinceLastUpdate = now - char.lastEnergyUpdateTime;
+        const hoursPassed = Math.floor(timeSinceLastUpdate / (1000 * 60 * 60));
+
+        if (hoursPassed > 0) {
+            const derivedStats = calculateDerivedStats(char, gameData);
+            if (char.stats.currentEnergy < derivedStats.stats.maxEnergy) {
+                const newEnergy = Math.min(derivedStats.stats.maxEnergy, char.stats.currentEnergy + hoursPassed);
+                if (newEnergy > char.stats.currentEnergy) {
+                    char.stats.currentEnergy = newEnergy;
+                    char.lastEnergyUpdateTime += hoursPassed * (1000 * 60 * 60);
+                    updated = true;
+                }
+            }
+        }
+
 
         if (updated) {
-          await handleCharacterUpdate(char, true);
+          handleCharacterUpdate(char);
         }
       }
-    }, 2000); // Check every 2 seconds
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [baseCharacter, playerCharacter, handleCharacterUpdate, handleCheckExpeditionCompletion]);
+  }, [baseCharacter, gameData, calculateDerivedStats, handleCharacterUpdate, handleCheckExpeditionCompletion]);
 
-  // Initial data fetch
+  // Initial data load
   useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-            // Always fetch game data, it's needed everywhere.
-            const gData = await api.getGameData();
-            setGameData(gData);
-
-            if (token) {
-                // If logged in, attempt to fetch character and other private data.
-                try {
-                    const [charData, messagesData, charNamesData] = await Promise.all([
-                        api.getCharacter(),
-                        api.getMessages(),
-                        api.getCharacterNames(),
-                    ]);
-                    
-                    setMessages(messagesData);
-                    setAllCharacterNames(charNamesData);
-
-                    if (charData.expeditionSummary) {
-                        setExpeditionReport(charData.expeditionSummary);
-                        delete charData.expeditionSummary;
-                    }
-                    setBaseCharacter(charData);
-                } catch (userSpecificError: any) {
-                    if (userSpecificError.message !== 'Character not found.') {
-                        // Re-throw errors that are not the "new user" case.
-                        throw userSpecificError;
-                    }
-                    // If "Character not found", `baseCharacter` remains null, which is correct.
-                }
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (token) {
+          const [gameDataRes, charData] = await Promise.all([
+            api.getGameData(),
+            api.getCharacter(),
+          ]);
+          setGameData(gameDataRes);
+          if (charData) {
+            if (charData.expeditionSummary) {
+                setExpeditionReport(charData.expeditionSummary);
+                delete charData.expeditionSummary;
             }
-        } catch (err: any) {
-            if (err.message === 'Invalid token') {
-                handleLogout();
-            } else {
-                setError(err.message);
-            }
-        } finally {
-            setIsLoading(false);
+            setBaseCharacter(charData);
+            const initialMessages = await api.getMessages();
+            setMessages(initialMessages);
+          } else {
+            setBaseCharacter(null); // No character exists for this user
+          }
+        } else {
+            const gameDataRes = await api.getGameData();
+            setGameData(gameDataRes);
         }
-    };
-
-    fetchData();
-}, [token, handleLogout]);
-
-  // Expedition finish timeout
-  useEffect(() => {
-    if (baseCharacter?.activeExpedition) {
-      const finishTime = baseCharacter.activeExpedition.finishTime;
-      const timeToFinish = finishTime - Date.now();
-      if (timeToFinish > 0) {
-        const timer = setTimeout(handleCheckExpeditionCompletion, timeToFinish);
-        return () => clearTimeout(timer);
+      } catch (err: any) {
+        if (err.message === 'Invalid token') {
+            handleLogout();
+        } else {
+            setError(err.message);
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [baseCharacter?.activeExpedition, handleCheckExpeditionCompletion]);
+    };
+    loadInitialData();
+  }, [token, handleLogout]);
 
-  // Tavern Polling
+    useEffect(() => {
+        const loadCharacterNames = async () => {
+            if(playerCharacter) {
+                const names = await api.getCharacterNames();
+                setAllCharacterNames(names.filter(name => name !== playerCharacter.name));
+            }
+        };
+        loadCharacterNames();
+    }, [playerCharacter]);
+    
+  // Tavern message polling
   useEffect(() => {
     const fetchTavernMessages = async () => {
+      if (token) {
         try {
-            const allMessages = await api.getTavernMessages();
-            if (activeTabRef.current === Tab.Tavern) {
-                setTavernMessages(allMessages);
-                if (allMessages.length > 0) {
-                    lastReadTavernMessageIdRef.current = allMessages[allMessages.length - 1].id;
-                }
-                setHasNewTavernMessages(false);
-            } else {
-                const lastMessageId = allMessages.length > 0 ? allMessages[allMessages.length - 1].id : null;
-                if (lastReadTavernMessageIdRef.current !== null && lastMessageId !== null && lastMessageId > lastReadTavernMessageIdRef.current) {
-                    setHasNewTavernMessages(true);
-                }
+          const latestMessages = await api.getTavernMessages();
+          setTavernMessages(latestMessages);
+
+          if (latestMessages.length > 0) {
+            const latestId = latestMessages[latestMessages.length - 1].id;
+            if (activeTabRef.current !== Tab.Tavern && lastReadTavernMessageIdRef.current !== null && latestId > lastReadTavernMessageIdRef.current) {
+                setHasNewTavernMessages(true);
             }
-        } catch(e) { console.error("Failed to fetch tavern messages", e)}
+            if (activeTabRef.current === Tab.Tavern) {
+                lastReadTavernMessageIdRef.current = latestId;
+                setHasNewTavernMessages(false);
+            } else if (lastReadTavernMessageIdRef.current === null) {
+                lastReadTavernMessageIdRef.current = latestId;
+            }
+          }
+
+        } catch (err) {
+          console.error("Failed to fetch tavern messages:", err);
+        }
+      }
     };
 
-    api.getTavernMessages().then(initialMessages => {
-        setTavernMessages(initialMessages);
-        if (initialMessages.length > 0) {
-            lastReadTavernMessageIdRef.current = initialMessages[initialMessages.length - 1].id;
-        }
-    });
-
-    tavernIntervalRef.current = window.setInterval(fetchTavernMessages, 5000); // Poll every 5 seconds
+    fetchTavernMessages(); 
+    tavernIntervalRef.current = window.setInterval(fetchTavernMessages, 5000); 
 
     return () => {
-        if (tavernIntervalRef.current) {
-            clearInterval(tavernIntervalRef.current);
-        }
+      if (tavernIntervalRef.current) {
+        clearInterval(tavernIntervalRef.current);
+      }
     };
-  }, []);
+  }, [token]);
 
-  // Inactivity logout timer
+  // Inactivity and Heartbeat timers
   useEffect(() => {
-    if (!token) {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
+      if (token) {
+          const events = ['mousemove', 'keydown', 'mousedown', 'touchstart'];
+          events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+          
+          const heartbeatInterval = setInterval(() => api.sendHeartbeat(), 60 * 1000); // Send heartbeat every minute
+
+          resetInactivityTimer();
+          
+          return () => {
+              events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+              if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+              clearInterval(heartbeatInterval);
+          };
       }
-      return;
-    }
-
-    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    
-    const handleActivity = () => {
-      resetInactivityTimer();
-    };
-
-    activityEvents.forEach(event => {
-      window.addEventListener(event, handleActivity);
-    });
-
-    resetInactivityTimer();
-
-    return () => {
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, handleActivity);
-      });
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-    };
   }, [token, resetInactivityTimer]);
 
-  // Heartbeat for online status
-  useEffect(() => {
-    if (!token) {
-        return;
-    }
-
-    const heartbeatInterval = setInterval(() => {
-        api.sendHeartbeat().catch(err => {
-            console.error("Heartbeat failed:", err.message);
-        });
-    }, 60 * 1000); // Send heartbeat every 1 minute
-
-    // Send one immediately on load
-    api.sendHeartbeat().catch(err => console.error("Initial heartbeat failed:", err.message));
-
-    return () => {
-        clearInterval(heartbeatInterval);
-    };
-}, [token]);
-
-
-  const handleLoginSuccess = (newToken: string) => {
-    localStorage.setItem('token', newToken);
-    setToken(newToken);
-    setIsLoading(true);
-  };
-  
-  const handleCharacterCreate = async (data: { name: string; race: Race }) => {
-    if (!gameData) return;
-    const startLocation = gameData.locations.find(l => l.isStartLocation);
-    if (!startLocation) {
-      alert("Error: No starting location defined in game data.");
-      return;
-    }
-    try {
-      const newChar = await api.createCharacter(data.name, data.race, startLocation.id);
-      setBaseCharacter(newChar);
-    } catch (err: any) {
-      alert(err.message);
-      throw err;
-    }
-  };
-  
-  const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
-    const gold = Math.floor(500 * Math.pow(level, 2.1));
-    const essences: { type: EssenceType; amount: number }[] = [];
-
-    if (level <= 10) {
-        essences.push({ type: EssenceType.Common, amount: level * 5 });
-    } else if (level <= 20) {
-        essences.push({ type: EssenceType.Common, amount: 50 });
-        essences.push({ type: EssenceType.Uncommon, amount: (level - 10) * 2 });
-    } else if (level <= 30) {
-        essences.push({ type: EssenceType.Uncommon, amount: 20 });
-        essences.push({ type: EssenceType.Rare, amount: (level - 20) * 1 });
-    } else if (level <= 40) {
-        essences.push({ type: EssenceType.Rare, amount: 10 });
-        essences.push({ type: EssenceType.Epic, amount: Math.ceil((level - 30) / 2) });
-    } else {
-        essences.push({ type: EssenceType.Epic, amount: 5 });
-        essences.push({ type: EssenceType.Legendary, amount: Math.ceil((level - 40) / 5) });
-    }
-    
-    return { gold, essences };
-  };
-
-  const getBackpackUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
-    const goldCosts = [1000, 3000, 7500, 15000, 30000, 60000, 120000, 250000, 500000];
-    const essenceCosts: { type: EssenceType; amount: number }[][] = [
-        [{ type: EssenceType.Common, amount: 10 }],
-        [{ type: EssenceType.Common, amount: 25 }],
-        [{ type: EssenceType.Uncommon, amount: 10 }],
-        [{ type: EssenceType.Uncommon, amount: 25 }],
-        [{ type: EssenceType.Rare, amount: 10 }],
-        [{ type: EssenceType.Rare, amount: 25 }],
-        [{ type: EssenceType.Epic, amount: 10 }],
-        [{ type: EssenceType.Epic, amount: 25 }],
-        [{ type: EssenceType.Legendary, amount: 10 }],
-    ];
-    return {
-        gold: goldCosts[level - 1] || Infinity,
-        essences: essenceCosts[level - 1] || [],
-    };
-  };
-
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">{t('loading')}</div>;
+    return <div className="min-h-screen flex items-center justify-center text-white">{t('loading')}</div>;
   }
   
   if (error) {
-     return (
-        <div className="min-h-screen flex flex-col items-center justify-center text-center text-red-400">
-            <h1 className="text-2xl font-bold mb-4">{t('error.title')}</h1>
-            <p className="mb-4">{error}</p>
-            <p className="mb-6 text-gray-400">{t('error.refresh')}</p>
-            <button onClick={handleLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">{t('error.logout')}</button>
-        </div>
-    );
+      return (
+          <div className="min-h-screen flex items-center justify-center text-white text-center p-4">
+            <div>
+              <h2 className="text-2xl font-bold text-red-500 mb-4">{t('error.title')}</h2>
+              <p className="mb-4">{error}</p>
+              <p className="mb-6">{t('error.refresh')}</p>
+              <button onClick={handleLogout} className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700">{t('error.logout')}</button>
+            </div>
+          </div>
+      );
   }
 
   if (!token) {
-    return <Auth onLoginSuccess={handleLoginSuccess} settings={gameData?.settings} />;
-  }
-
-  if (!gameData) {
-    return <div className="min-h-screen flex items-center justify-center">Error: Game data could not be loaded.</div>;
-  }
-
-  if (!baseCharacter) {
-     const startLocationExists = gameData && gameData.locations.some(l => l.isStartLocation);
-      if (!startLocationExists) {
-        return <div className="min-h-screen flex items-center justify-center">Admin: Please set a starting location.</div>;
-      }
-    return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
+    return <Auth onLoginSuccess={(newToken) => setToken(newToken)} settings={gameData?.settings} />;
   }
   
-  if (!playerCharacter) {
-    return <div className="min-h-screen flex items-center justify-center">{t('loading')}</div>;
+  if (!baseCharacter || !playerCharacter) {
+    if (!gameData) return <div>{t('loading')}</div>;
+    const startLocation = gameData.locations.find(l => l.isStartLocation);
+    if (!startLocation) return <div className="text-red-500">CRITICAL ERROR: No start location defined!</div>;
+    
+    return <CharacterCreation onCharacterCreate={async (char) => {
+        try {
+            const newChar = await api.createCharacter(char.name, char.race, startLocation.id);
+            setBaseCharacter(newChar);
+        } catch(err: any) {
+            alert(err.message);
+            throw err;
+        }
+    }} />;
   }
+
+  const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
+        return {
+            gold: Math.floor(500 * Math.pow(1.8, level - 1)),
+            essences: [
+                { type: EssenceType.Common, amount: level * 5 },
+                { type: EssenceType.Uncommon, amount: level > 2 ? Math.floor(Math.pow(level - 2, 1.5)) * 3 : 0 },
+            ].filter(e => e.amount > 0)
+        };
+    };
+
+    const getBackpackUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
+        return {
+            gold: Math.floor(250 * Math.pow(2, level - 1)),
+            essences: [
+                { type: EssenceType.Common, amount: level * 10 },
+                { type: EssenceType.Uncommon, amount: level > 1 ? Math.floor(Math.pow(level - 1, 1.6)) * 4 : 0 },
+            ].filter(e => e.amount > 0)
+        };
+    };
   
   const mainContent = () => {
-    switch (activeTab) {
-        case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
-        case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
-        case Tab.Expedition: return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} />;
-        case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;
-        case Tab.Location: return <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
-        case Tab.Resources: return <Resources character={playerCharacter} />;
-        case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
-        case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
-        case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
-        case Tab.Messages: return <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} currentPlayer={playerCharacter} onClaimReturn={handleClaimMessageItem} />;
-        case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests || []} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes || []} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />;
-        case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage}/>;
-        case Tab.Market: return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={setBaseCharacter} />;
-        case Tab.Options: return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
-        case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onUpdateCharacterGold={handleUpdateCharacterGold} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />;
-        default: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
+    if (!gameData) return <div>{t('loading')}</div>;
+
+    switch(activeTab) {
+      case Tab.Statistics: return <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass}/>;
+      case Tab.Equipment: return <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
+      case Tab.Expedition: return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />;
+      case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;
+      case Tab.Location: return <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
+      case Tab.Resources: return <Resources character={playerCharacter} />;
+      case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
+      case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
+      case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
+      case Tab.Messages: return <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} onClaimReturn={handleClaimMessageItem} onDeleteBulk={handleBulkDeleteMessages} />;
+      case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest}/>;
+      case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage} />;
+      case Tab.Market: return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={handleCharacterUpdate} />;
+      case Tab.Options: return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
+      case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onUpdateCharacterGold={handleUpdateCharacterGold} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />;
+      default: return null;
     }
-  }
+  };
 
   return (
     <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
-        {gameData.settings.gameBackground && (
-            <div 
-                className="fixed inset-0 bg-cover bg-center -z-10"
-                style={{ backgroundImage: `url(${gameData.settings.gameBackground})` }}
-            />
-        )}
-        <div className={`flex h-screen text-gray-200 ${!gameData.settings.gameBackground ? 'bg-slate-900' : ''}`}>
-            {/* FIX: Passed missing onOpenNews and hasNewNews props to Sidebar. */}
-            <Sidebar 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                playerCharacter={playerCharacter}
-                currentLocation={currentLocation}
-                onLogout={handleLogout}
-                hasUnreadMessages={hasUnreadMessages}
-                hasNewTavernMessages={hasNewTavernMessages}
-                onOpenNews={handleOpenNews}
-                hasNewNews={hasNewNews}
-            />
-            <main className="flex-1 overflow-y-auto p-8">
-                {mainContent()}
-            </main>
-        </div>
-        {isNewsModalOpen && (
-            <NewsModal isOpen={isNewsModalOpen} onClose={handleCloseNews} content={gameData.settings.newsContent || ''} />
-        )}
-        {expeditionReport && (
-            <ExpeditionSummaryModal 
-                reward={expeditionReport}
-                onClose={() => setExpeditionReport(null)}
-                characterName={playerCharacter.name}
-                itemTemplates={gameData.itemTemplates}
-                affixes={gameData.affixes || []}
-            />
-        )}
-        {pvpReport && (
-            <ExpeditionSummaryModal
-                reward={{
-                    combatLog: pvpReport.combatLog,
-                    isVictory: pvpReport.isVictory,
-                    totalGold: pvpReport.gold,
-                    totalExperience: pvpReport.experience,
-                    rewardBreakdown: [],
-                    itemsFound: [],
-                    essencesFound: {}
-                }}
-                onClose={() => setPvpReport(null)}
-                characterName={pvpReport.attacker.name}
-                itemTemplates={gameData.itemTemplates}
-                affixes={gameData.affixes || []}
-                isPvp={true}
-                pvpData={{
-                    attacker: pvpReport.attacker,
-                    defender: pvpReport.defender,
-                }}
-            />
-        )}
-        {isComposingMessage && (
-            <ComposeMessageModal 
-                allCharacterNames={allCharacterNames}
-                onClose={() => setIsComposingMessage(false)}
-                onSendMessage={handleSendMessage}
-                initialRecipient={composeInitialData?.recipient}
-                initialSubject={composeInitialData?.subject}
-            />
-        )}
+      <div 
+        className="min-h-screen flex" 
+        style={{ backgroundImage: gameData?.settings.gameBackground ? `url(${gameData.settings.gameBackground})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}
+      >
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          playerCharacter={playerCharacter} 
+          currentLocation={currentLocation}
+          onLogout={handleLogout}
+          hasUnreadMessages={hasUnreadMessages}
+          hasNewTavernMessages={hasNewTavernMessages}
+          onOpenNews={handleOpenNews}
+          hasNewNews={hasNewNews}
+        />
+        <main className="flex-1 p-6 overflow-y-auto">
+          {mainContent()}
+        </main>
+      </div>
+      {expeditionReport && (
+          <ExpeditionSummaryModal 
+            reward={expeditionReport} 
+            onClose={() => setExpeditionReport(null)} 
+            characterName={playerCharacter.name}
+            itemTemplates={gameData?.itemTemplates || []}
+            affixes={gameData?.affixes || []}
+          />
+      )}
+      {pvpReport && (
+          <ExpeditionSummaryModal 
+            reward={{
+                combatLog: pvpReport.combatLog,
+                isVictory: pvpReport.isVictory,
+                totalGold: pvpReport.gold,
+                totalExperience: pvpReport.experience,
+                rewardBreakdown: [],
+                itemsFound: [],
+                essencesFound: {}
+            }} 
+            onClose={() => setPvpReport(null)} 
+            characterName={pvpReport.attacker.name}
+            itemTemplates={gameData?.itemTemplates || []}
+            affixes={gameData?.affixes || []}
+            isPvp={true}
+            pvpData={{
+                attacker: pvpReport.attacker,
+                defender: pvpReport.defender,
+            }}
+          />
+      )}
+       {isComposingMessage && (
+        <ComposeMessageModal 
+            onClose={() => setIsComposingMessage(false)} 
+            onSendMessage={handleSendMessage}
+            allCharacterNames={allCharacterNames}
+            initialRecipient={composeInitialData?.recipient}
+            initialSubject={composeInitialData?.subject}
+        />
+      )}
+      {/* FIX: Add NewsModal to the main render tree. */}
+      <NewsModal 
+        isOpen={isNewsModalOpen}
+        onClose={handleCloseNews}
+        content={gameData?.settings.newsContent || ''}
+      />
     </LanguageContext.Provider>
   );
 };

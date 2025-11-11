@@ -332,6 +332,13 @@ export const api = {
         });
     },
 
+    async deleteBulkMessages(type: 'read' | 'all' | 'expedition_reports'): Promise<{ deletedCount: number }> {
+        return fetchApi('/messages/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ type }),
+        });
+    },
+
     async claimMarketReturn(messageId: number): Promise<PlayerCharacter> {
         return fetchApi(`/messages/claim-return/${messageId}`, {
             method: 'POST',

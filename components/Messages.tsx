@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance } from '../types';
@@ -159,9 +160,10 @@ interface MessagesProps {
     affixes: Affix[];
     currentPlayer: PlayerCharacter;
     onClaimReturn: (messageId: number) => Promise<boolean>;
+    onDeleteBulk: (type: 'read' | 'all' | 'expedition_reports') => void;
 }
 
-export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, onMarkAsRead, onCompose, itemTemplates, affixes, currentPlayer, onClaimReturn }) => {
+export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, onMarkAsRead, onCompose, itemTemplates, affixes, currentPlayer, onClaimReturn, onDeleteBulk }) => {
     const { t } = useTranslation();
     const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
     const [viewingPvpReport, setViewingPvpReport] = useState<{ report: PvpRewardSummary, isDefenderView: boolean } | null>(null);
@@ -208,6 +210,24 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
         }
     };
 
+    const handleBulkDelete = (type: 'read' | 'all' | 'expedition_reports') => {
+        let confirmMessage = '';
+        switch (type) {
+            case 'read':
+                confirmMessage = t('messages.bulkDelete.confirmRead');
+                break;
+            case 'all':
+                confirmMessage = t('messages.bulkDelete.confirmAll');
+                break;
+            case 'expedition_reports':
+                confirmMessage = t('messages.bulkDelete.confirmReports');
+                break;
+        }
+        if (window.confirm(confirmMessage)) {
+            onDeleteBulk(type);
+        }
+    };
+
     return (
         <>
             <ContentPanel title={t('messages.title')}>
@@ -219,6 +239,12 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
                         <button onClick={() => onCompose()} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
                             {t('messages.compose.title')}
                         </button>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mb-4 border-b border-slate-700/50 pb-4">
+                        <button onClick={() => handleBulkDelete('expedition_reports')} className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-red-800/80">{t('messages.bulkDelete.deleteReports')}</button>
+                        <button onClick={() => handleBulkDelete('read')} className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-red-800/80">{t('messages.bulkDelete.deleteRead')}</button>
+                        <button onClick={() => handleBulkDelete('all')} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('messages.bulkDelete.deleteAll')}</button>
                     </div>
 
                     <div className="space-y-2">
