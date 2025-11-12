@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix } from '../types';
-import { ItemDetailsPanel, ItemListItem, EmptySlotListItem } from './shared/ItemSlot';
+import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
+import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
 
 interface EquipmentProps {
@@ -29,7 +29,7 @@ const slotOrder: EquipmentSlot[] = [
 ];
 
 const StatDisplayRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-    <div className="flex justify-between items-center py-0.5 px-2 rounded-lg text-xs hover:bg-slate-800/50">
+    <div className="flex justify-between items-center py-0.5 px-2 rounded-lg text-sm hover:bg-slate-800/50">
         <span className="font-medium text-gray-400">{label}</span>
         <span className="font-mono font-bold text-white flex items-baseline">{value}</span>
     </div>
@@ -44,9 +44,9 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
     return (
         <div className="flex flex-col h-full">
             <h3 className="text-xl font-bold text-indigo-400 mb-2 px-2">{t('statistics.combatStats')}</h3>
-            <div className="flex-grow overflow-y-auto pr-2">
+            <div className="flex-grow overflow-y-auto pr-2 space-y-1">
 
-                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.baseAttributes')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5 uppercase tracking-wider">{t('statistics.baseAttributes')}</h4>
                 {baseStatKeys.map(key => {
                     const total = character.stats[key];
                     const base = baseCharacter.stats[key];
@@ -57,7 +57,7 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
                             label={t(`statistics.${key}`)} 
                             value={
                                 <>
-                                    {base}
+                                    <span className="text-gray-300">{base}</span>
                                     {bonus > 0 && 
                                         <>
                                             <span className="text-green-400 ml-1">(+{bonus})</span>
@@ -70,12 +70,12 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
                     )
                 })}
                 
-                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.vitals')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-4 mb-0.5 uppercase tracking-wider">{t('statistics.vitals')}</h4>
                 <StatDisplayRow label={t('statistics.health')} value={`${stats.currentHealth.toFixed(0)} / ${stats.maxHealth}`} />
                 <StatDisplayRow label={t('statistics.mana')} value={`${stats.currentMana.toFixed(0)} / ${stats.maxMana}`} />
                 <StatDisplayRow label={t('statistics.energyLabel')} value={`${stats.currentEnergy} / ${stats.maxEnergy}`} />
 
-                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5">{t('statistics.combatStats')}</h4>
+                <h4 className="font-semibold text-gray-300 text-xs px-2 mt-4 mb-0.5 uppercase tracking-wider">{t('statistics.combatStats')}</h4>
                 <StatDisplayRow label={t('statistics.physicalDamage')} value={`${stats.minDamage} - ${stats.maxDamage}`} />
                 <StatDisplayRow label={t('statistics.magicDamage')} value={`${stats.magicDamageMin} - ${stats.magicDamageMax}`} />
                 <StatDisplayRow label={t('statistics.armor')} value={stats.armor} />
@@ -94,24 +94,145 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
 
 const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
+const getItemStats = (item: ItemInstance | null, template: ItemTemplate | null, affixes: Affix[]) => {
+    const stats: Record<string, number> = {};
+    if (!item || !template) return stats;
+
+    const sources: (ItemTemplate | RolledAffixStats)[] = [template];
+    if (item.rolledPrefix) sources.push(item.rolledPrefix);
+    if (item.rolledSuffix) sources.push(item.rolledSuffix);
+    
+    const upgradeBonusFactor = (item.upgradeLevel || 0) * 0.1;
+
+    for (const source of sources) {
+        if ('statsBonus' in source && source.statsBonus) {
+            for (const [key, value] of Object.entries(source.statsBonus)) {
+                let statValue = 0;
+                if (source === template) { // is base item
+                    const base = typeof value === 'number' ? value : value?.max || 0;
+                    statValue = base + Math.round(base * upgradeBonusFactor);
+                } else { // is affix
+                    statValue = typeof value === 'number' ? value : value?.max || 0;
+                }
+                stats[key] = (stats[key] || 0) + statValue;
+            }
+        }
+    }
+    return stats;
+}
+
+
+const ItemComparisonTooltip: React.FC<{
+    hoveredItem: ItemInstance;
+    character: PlayerCharacter;
+    gameData: GameData;
+    position: { x: number, y: number };
+}> = ({ hoveredItem, character, gameData, position }) => {
+    const { t } = useTranslation();
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState<React.CSSProperties>({
+        opacity: 0,
+        position: 'fixed',
+        top: position.y + 20,
+        left: position.x + 20,
+    });
+    
+    const hoveredTemplate = gameData.itemTemplates.find(t => t.id === hoveredItem.templateId);
+    if (!hoveredTemplate) return null;
+
+    let equippedItems: { item: ItemInstance | null, slotName: string }[] = [];
+    if (hoveredTemplate.slot === 'ring') {
+        equippedItems.push({ item: character.equipment.ring1, slotName: t('equipment.slot.ring1') });
+        equippedItems.push({ item: character.equipment.ring2, slotName: t('equipment.slot.ring2') });
+    } else {
+        equippedItems.push({ item: character.equipment[hoveredTemplate.slot as EquipmentSlot], slotName: t(`equipment.slot.${hoveredTemplate.slot}`) });
+    }
+
+    const hoveredStats = getItemStats(hoveredItem, hoveredTemplate, gameData.affixes);
+    const allStatKeys = new Set([...Object.keys(hoveredStats)]);
+    equippedItems.forEach(({ item }) => {
+        if (item) {
+            const equippedTemplate = gameData.itemTemplates.find(t => t.id === item.templateId);
+            const equippedStats = getItemStats(item, equippedTemplate, gameData.affixes);
+            Object.keys(equippedStats).forEach(key => allStatKeys.add(key));
+        }
+    });
+
+    const StatComparison: React.FC<{ title: string; equippedItem: ItemInstance | null }> = ({ title, equippedItem }) => {
+        const equippedTemplate = equippedItem ? gameData.itemTemplates.find(t => t.id === equippedItem.templateId) : null;
+        const equippedStats = getItemStats(equippedItem, equippedTemplate, gameData.affixes);
+
+        return (
+            <div className="flex-1">
+                <h4 className="text-center font-bold text-gray-400 text-sm mb-2">{title}</h4>
+                {Array.from(allStatKeys).map(statKey => {
+                    const hoveredValue = hoveredStats[statKey] || 0;
+                    const equippedValue = equippedStats[statKey] || 0;
+                    const diff = hoveredValue - equippedValue;
+                    if (hoveredValue === 0 && equippedValue === 0) return null;
+
+                    let color = 'text-gray-400';
+                    let sign = '';
+                    if (diff > 0) { color = 'text-green-400'; sign = '+'; }
+                    if (diff < 0) { color = 'text-red-400'; sign = ''; }
+
+                    return (
+                        <div key={statKey} className="flex justify-between text-xs">
+                            <span>{t(`statistics.${statKey}`)}</span>
+                            <span className={`font-mono ${color}`}>{sign}{diff}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        )
+    };
+    
+    // Adjust position to stay within viewport
+    useEffect(() => {
+        if (tooltipRef.current) {
+            const rect = tooltipRef.current.getBoundingClientRect();
+            let newX = position.x + 20;
+            let newY = position.y + 20;
+
+            if (newX + rect.width > window.innerWidth) {
+                newX = position.x - rect.width - 20;
+            }
+            if (newY + rect.height > window.innerHeight) {
+                newY = position.y - rect.height - 20;
+            }
+            
+            setStyle({
+                opacity: 1,
+                position: 'fixed',
+                top: newY,
+                left: newX,
+                transition: 'opacity 0.2s ease-in-out'
+            });
+        }
+    }, [position]);
+
+    return (
+        <div ref={tooltipRef} style={style} className="z-30 w-auto bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 pointer-events-none">
+            <h3 className="text-lg font-bold text-center text-indigo-400 mb-2">{t('equipment.comparison')}</h3>
+            <div className="flex gap-4">
+                {equippedItems.map(({ item, slotName }) => (
+                    <StatComparison key={slotName} title={slotName} equippedItem={item} />
+                ))}
+            </div>
+        </div>
+    );
+};
+
 export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, gameData, onEquipItem, onUnequipItem }) => {
     const { t } = useTranslation();
-    const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance, from: 'inventory' | EquipmentSlot } | null>(null);
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, from: 'inventory' | EquipmentSlot } | null>(null);
     const [draggedItemInfo, setDraggedItemInfo] = useState<{ item: ItemInstance, from: 'inventory' | EquipmentSlot } | null>(null);
     const [hideUnusable, setHideUnusable] = useState(false);
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     const [slotFilter, setSlotFilter] = useState<string>('all');
-
-    const handleItemClick = (item: ItemInstance, from: 'inventory' | EquipmentSlot) => {
-        setSelectedItem({ item, from });
-    };
-
-    const handleContextMenu = (e: React.MouseEvent, item: ItemInstance, from: 'inventory' | EquipmentSlot) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, item, from });
-    };
     
+    const [hoveredItem, setHoveredItem] = useState<ItemInstance | null>(null);
+    const [tooltipPosition, setTooltipPosition] = useState<{ x: number, y: number } | null>(null);
+
     const handleDragStart = (item: ItemInstance, from: 'inventory' | EquipmentSlot) => {
         setDraggedItemInfo({ item, from });
     };
@@ -119,6 +240,12 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
     };
+    
+    const handleSmartDrop = () => {
+        if (!draggedItemInfo || draggedItemInfo.from !== 'inventory') return;
+        onEquipItem(draggedItemInfo.item);
+        setDraggedItemInfo(null);
+    }
 
     const handleDropOnBackpack = () => {
         if (draggedItemInfo && draggedItemInfo.from !== 'inventory') {
@@ -126,50 +253,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         }
         setDraggedItemInfo(null);
     };
-
-    const handleDropOnSlot = (targetSlot: EquipmentSlot) => {
-        if (!draggedItemInfo) return;
-        
-        const { item, from } = draggedItemInfo;
-
-        // Logic for swapping items between equipment slots
-        if (from !== 'inventory' && from !== targetSlot) {
-            const sourceItem = item;
-            const targetItem = character.equipment[targetSlot];
-            const sourceTemplate = gameData.itemTemplates.find(t => t.id === sourceItem.templateId);
-            const targetTemplate = targetItem ? gameData.itemTemplates.find(t => t.id === targetItem.templateId) : null;
-
-            if (!sourceTemplate) return;
-
-            // Check if source item can go into target slot
-            const isSourceCompatible = sourceTemplate.slot === targetSlot || (sourceTemplate.slot === 'ring' && (targetSlot === EquipmentSlot.Ring1 || targetSlot === EquipmentSlot.Ring2));
-            // Check if target item (if exists) can go into source slot
-            const isTargetCompatible = !targetTemplate || targetTemplate.slot === from || (targetTemplate.slot === 'ring' && (from === EquipmentSlot.Ring1 || from === EquipmentSlot.Ring2));
-
-            if (isSourceCompatible && isTargetCompatible) {
-                // Perform a swap by un-equipping both and then re-equipping them in the new slots.
-                // This logic should be handled in App.tsx to ensure atomicity. For now, let's just do a simple swap.
-                // A full implementation would need a dedicated `swapItems(item1, slot1, item2, slot2)` API call.
-                // Simplified: just unequip source, then equip it into new slot. The old item in target slot will be unequipped by `onEquipItem` logic.
-                onUnequipItem(sourceItem, from);
-                onEquipItem(sourceItem); // `onEquipItem` should handle finding the right slot
-            }
-        }
-        // Logic for equipping from inventory
-        else if (from === 'inventory') {
-            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-            if (!template) return;
-
-            const isCorrectSlot = template.slot === targetSlot || (template.slot === 'ring' && (targetSlot === EquipmentSlot.Ring1 || targetSlot === EquipmentSlot.Ring2));
-
-            if (isCorrectSlot) {
-                onEquipItem(item);
-            }
-        }
-
-        setDraggedItemInfo(null);
-    };
-
 
     const meetsRequirements = useCallback((item: ItemInstance): boolean => {
         const template = gameData.itemTemplates.find(t => t.id === item.templateId);
@@ -208,43 +291,31 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
     const backpackCapacity = getBackpackCapacity(character);
 
-    const contextMenuOptions = useMemo(() => {
-        if (!contextMenu) return [];
-        const { from } = contextMenu;
-        if (from === 'inventory') {
-            return [{ label: t('equipment.equip'), action: () => onEquipItem(contextMenu.item) }];
-        } else {
-            return [{ label: t('equipment.unequip'), action: () => onUnequipItem(contextMenu.item, from as EquipmentSlot) }];
-        }
-    }, [contextMenu, onEquipItem, onUnequipItem, t]);
-
     return (
         <ContentPanel title={t('equipment.title')}>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
 
                 {/* Column 1: Equipped Items */}
-                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+                <div 
+                    onDragOver={handleDragOver}
+                    onDrop={handleSmartDrop}
+                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
+                >
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
                             const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
-                             const canDrop = draggedItemInfo && (
-                                (draggedItemInfo.from === 'inventory' && (gameData.itemTemplates.find(t=>t.id === draggedItemInfo.item.templateId)?.slot === slot || (gameData.itemTemplates.find(t=>t.id === draggedItemInfo.item.templateId)?.slot === 'ring' && (slot === 'ring1' || slot === 'ring2'))))
-                                || (draggedItemInfo.from !== 'inventory') // allow swapping
-                            );
 
                             return (
-                                <div key={slot} onDragOver={handleDragOver} onDrop={() => handleDropOnSlot(slot)}
-                                    className={`rounded-lg ${canDrop ? 'bg-indigo-500/20' : ''}`}>
+                                <div key={slot}>
                                     {item && template ? (
                                         <ItemListItem 
                                             item={item} 
                                             template={template} 
                                             affixes={gameData.affixes} 
-                                            isSelected={selectedItem?.item.uniqueId === item.uniqueId} 
-                                            onClick={() => handleItemClick(item, slot)} 
-                                            onContextMenu={(e) => handleContextMenu(e, item, slot)}
+                                            isSelected={false} 
+                                            onClick={() => onUnequipItem(item, slot)}
                                             onDragStart={() => handleDragStart(item, slot)}
                                         />
                                     ) : (
@@ -262,15 +333,15 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
                 {/* Column 2: Details / Stats */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
-                    {selectedItem ? (
-                        <ItemDetailsPanel item={selectedItem.item} template={gameData.itemTemplates.find(t => t.id === selectedItem.item.templateId) || null} affixes={gameData.affixes} character={character} />
-                    ) : (
-                        <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
-                    )}
+                    <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
                 </div>
 
                 {/* Column 3: Backpack */}
-                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+                <div 
+                    onDragOver={handleDragOver}
+                    onDrop={handleDropOnBackpack}
+                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
+                >
                     <div className="flex justify-between items-center mb-2 px-2">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
                         <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">{validInventory.length} / {backpackCapacity}</div>
@@ -292,7 +363,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                             <span>{t('equipment.hideUnusable')}</span>
                         </label>
                     </div>
-                    <div onDragOver={handleDragOver} onDrop={handleDropOnBackpack} className="flex-grow overflow-y-auto pr-2 space-y-1 border border-transparent rounded-lg">
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-1 border border-transparent rounded-lg">
                         {validInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
@@ -301,23 +372,24 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         item={item} 
                                         template={template} 
                                         affixes={gameData.affixes} 
-                                        isSelected={selectedItem?.item.uniqueId === item.uniqueId} 
-                                        onClick={() => handleItemClick(item, 'inventory')} 
-                                        onContextMenu={(e) => handleContextMenu(e, item, 'inventory')} 
+                                        isSelected={false} 
+                                        onClick={() => onEquipItem(item)}
                                         meetsRequirements={meetsRequirements(item)}
                                         onDragStart={() => handleDragStart(item, 'inventory')}
+                                        onMouseEnter={(e) => { setHoveredItem(item); setTooltipPosition({ x: e.clientX, y: e.clientY }); }}
+                                        onMouseLeave={() => { setHoveredItem(null); setTooltipPosition(null); }}
                                     />;
                         })}
                     </div>
                 </div>
             </div>
 
-            {contextMenu && (
-                <ContextMenu
-                    x={contextMenu.x}
-                    y={contextMenu.y}
-                    options={contextMenuOptions}
-                    onClose={() => setContextMenu(null)}
+            {hoveredItem && tooltipPosition && (
+                <ItemComparisonTooltip 
+                    hoveredItem={hoveredItem}
+                    character={character}
+                    gameData={gameData}
+                    position={tooltipPosition}
                 />
             )}
         </ContentPanel>
