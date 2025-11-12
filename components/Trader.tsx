@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats, ItemRarity } from '../types';
 import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -175,6 +175,40 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         }
     }
 
+    const handleBulkSell = useCallback((raritiesToSell: ItemRarity[]) => {
+        if (!baseCharacter) return;
+
+        const itemsToSell = baseCharacter.inventory.filter(item => {
+            const template = itemTemplates.find(t => t.id === item.templateId);
+            return template && raritiesToSell.includes(template.rarity);
+        });
+
+        if (itemsToSell.length === 0) {
+            alert(t('trader.noItemsToSellOfRarity'));
+            return;
+        }
+
+        const totalValue = itemsToSell.reduce((sum, item) => {
+            const template = itemTemplates.find(t => t.id === item.templateId);
+            let itemValue = template?.value || 0;
+            if (item.prefixId) {
+                const prefix = affixes.find(a => a.id === item.prefixId);
+                itemValue += prefix?.value || 0;
+            }
+            if (item.suffixId) {
+                const suffix = affixes.find(a => a.id === item.suffixId);
+                itemValue += suffix?.value || 0;
+            }
+            return sum + itemValue;
+        }, 0);
+
+        if (window.confirm(t('trader.bulkSellConfirm', { count: itemsToSell.length, value: totalValue }))) {
+            onSellItems(itemsToSell);
+            setItemsToSellIds(new Set());
+            setDetailsItem(null);
+        }
+    }, [baseCharacter, itemTemplates, affixes, onSellItems, t]);
+
     const renderMiddlePanel = () => {
         if (detailsItem) {
             const template = itemTemplates.find(t => t.id === detailsItem.item.templateId);
@@ -288,6 +322,35 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                                 <CoinsIcon className="h-5 w-5 text-amber-400" />
                                 <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
                             </div>
+                        </div>
+                    </div>
+                    <div className="px-2 mb-4 border-b border-slate-700/50 pb-4">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">{t('trader.bulkSellTitle')}</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                            <button
+                                onClick={() => handleBulkSell([ItemRarity.Common, ItemRarity.Uncommon])}
+                                className="w-full py-1.5 rounded-md bg-slate-600 hover:bg-slate-500 font-semibold"
+                            >
+                                {t('trader.sellAllJunk')}
+                            </button>
+                            <button
+                                onClick={() => handleBulkSell([ItemRarity.Common])}
+                                className="w-full py-1.5 rounded-md bg-slate-700/80 hover:bg-slate-700 border border-slate-600 font-semibold text-gray-300"
+                            >
+                                {t('trader.sellAllRarity', { rarity: t('rarity.Common') })}
+                            </button>
+                            <button
+                                onClick={() => handleBulkSell([ItemRarity.Uncommon])}
+                                className="w-full py-1.5 rounded-md bg-green-900/60 hover:bg-green-800/60 border border-green-800 font-semibold text-green-400"
+                            >
+                                {t('trader.sellAllRarity', { rarity: t('rarity.Uncommon') })}
+                            </button>
+                            <button
+                                onClick={() => handleBulkSell([ItemRarity.Rare])}
+                                className="w-full py-1.5 rounded-md bg-sky-900/60 hover:bg-sky-800/60 border border-sky-800 font-semibold text-sky-400"
+                            >
+                                {t('trader.sellAllRarity', { rarity: t('rarity.Rare') })}
+                            </button>
                         </div>
                     </div>
                      <div className="flex-grow overflow-y-auto pr-2 space-y-1">

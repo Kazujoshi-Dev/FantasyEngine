@@ -455,7 +455,12 @@ export default {
         newWaresIn: 'Nowe towary za:',
         sellMultipleItems: 'Sprzedaj {count} przedmiotów',
         totalValue: 'Łączna wartość',
-        sellAllFor: 'Sprzedaj wszystko za {value}'
+        sellAllFor: 'Sprzedaj wszystko za {value}',
+        bulkSellTitle: 'Szybka sprzedaż',
+        sellAllJunk: 'Sprzedaj rupiecie',
+        sellAllRarity: 'Sprzedaj wszystkie {rarity}',
+        bulkSellConfirm: 'Czy na pewno chcesz sprzedać {count} przedmiotów za {value} złota?',
+        noItemsToSellOfRarity: 'Nie masz żadnych przedmiotów o wybranej rzadkości do sprzedania.'
     },
     blacksmith: {
         title: 'Kowal',
