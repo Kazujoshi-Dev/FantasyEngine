@@ -51,7 +51,7 @@ export const ItemDetailsPanel: React.FC<{
     const isSmall = size === 'small';
     
     if (!item || !template) {
-        return <div className="flex items-center justify-center h-full text-slate-500">{t('equipment.selectItemPrompt')}</div>;
+        return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
     }
 
     const upgradeLevel = item.upgradeLevel || 0;

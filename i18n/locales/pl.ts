@@ -151,6 +151,8 @@ export default {
         showAll: 'Pokaż wszystko',
         ringSlotsFull: 'Oba miejsca na pierścienie są zajęte. Zdejmij pierścień, aby zrobić miejsce.',
         hideUnusable: 'Ukryj nieużywalne przedmioty',
+        comparison: 'Porównanie Przedmiotów',
+        itemToEquip: 'Przedmiot do założenia',
         slot: {
             head: 'Głowa',
             chest: 'Tors',
@@ -442,7 +444,7 @@ export default {
     },
     trader: {
         title: 'Handlarz',
-        traderWares: 'Towary Handlarza',
+        traderWares: "Towary Handlarza",
         yourBag: 'Twój Plecak',
         buyPrice: 'Cena Kupna',
         sellPrice: 'Cena Sprzedaży',

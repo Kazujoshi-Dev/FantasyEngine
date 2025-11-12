@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -95,130 +94,64 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
 
 const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
-const getItemStats = (item: ItemInstance | null, template: ItemTemplate | null, affixes: Affix[]) => {
-    const stats: Record<string, number> = {};
-    if (!item || !template) return stats;
-
-    const sources: (ItemTemplate | RolledAffixStats)[] = [template];
-    if (item.rolledPrefix) sources.push(item.rolledPrefix);
-    if (item.rolledSuffix) sources.push(item.rolledSuffix);
-    
-    const upgradeBonusFactor = (item.upgradeLevel || 0) * 0.1;
-
-    for (const source of sources) {
-        if ('statsBonus' in source && source.statsBonus) {
-            for (const [key, value] of Object.entries(source.statsBonus)) {
-                let statValue = 0;
-                if (source === template) { // is base item
-                    const base = typeof value === 'number' ? value : value?.max || 0;
-                    statValue = base + Math.round(base * upgradeBonusFactor);
-                } else { // is affix
-                    statValue = typeof value === 'number' ? value : value?.max || 0;
-                }
-                stats[key] = (stats[key] || 0) + statValue;
-            }
-        }
-    }
-    return stats;
-}
-
-
 const ItemComparisonTooltip: React.FC<{
     hoveredItem: ItemInstance;
     character: PlayerCharacter;
     gameData: GameData;
-    position: { x: number, y: number };
-}> = ({ hoveredItem, character, gameData, position }) => {
+}> = ({ hoveredItem, character, gameData }) => {
     const { t } = useTranslation();
-    const tooltipRef = useRef<HTMLDivElement>(null);
-    const [style, setStyle] = useState<React.CSSProperties>({
-        opacity: 0,
-        position: 'fixed',
-        top: position.y + 20,
-        left: position.x + 20,
-    });
     
     const hoveredTemplate = gameData.itemTemplates.find(t => t.id === hoveredItem.templateId);
     if (!hoveredTemplate) return null;
 
-    let equippedItems: { item: ItemInstance | null, slotName: string }[] = [];
+    const equippedItemsToCompare: { item: ItemInstance | null, slotName: string }[] = [];
     if (hoveredTemplate.slot === 'ring') {
-        equippedItems.push({ item: character.equipment.ring1, slotName: t('equipment.slot.ring1') });
-        equippedItems.push({ item: character.equipment.ring2, slotName: t('equipment.slot.ring2') });
-    } else {
-        equippedItems.push({ item: character.equipment[hoveredTemplate.slot as EquipmentSlot], slotName: t(`equipment.slot.${hoveredTemplate.slot}`) });
+        equippedItemsToCompare.push({ item: character.equipment.ring1, slotName: t('equipment.slot.ring1') });
+        equippedItemsToCompare.push({ item: character.equipment.ring2, slotName: t('equipment.slot.ring2') });
+    } else if (hoveredTemplate.slot === EquipmentSlot.TwoHand) {
+        // Compare 2H with current 1H main hand and offhand
+        equippedItemsToCompare.push({ item: character.equipment.mainHand, slotName: t('equipment.slot.mainHand') });
+        equippedItemsToCompare.push({ item: character.equipment.offHand, slotName: t('equipment.slot.offHand') });
+    } else if (hoveredTemplate.slot === EquipmentSlot.MainHand || hoveredTemplate.slot === EquipmentSlot.OffHand) {
+        // Compare 1H with current 2H or the specific 1H slot
+        if (character.equipment.twoHand) {
+            equippedItemsToCompare.push({ item: character.equipment.twoHand, slotName: t('equipment.slot.twoHand') });
+        } else {
+             equippedItemsToCompare.push({ item: character.equipment[hoveredTemplate.slot], slotName: t(`equipment.slot.${hoveredTemplate.slot}`) });
+        }
+    } else if (hoveredTemplate.slot !== 'consumable') {
+        const slot = hoveredTemplate.slot as EquipmentSlot;
+        equippedItemsToCompare.push({ item: character.equipment[slot], slotName: t(`equipment.slot.${slot}`) });
     }
 
-    const hoveredStats = getItemStats(hoveredItem, hoveredTemplate, gameData.affixes);
-    const allStatKeys = new Set([...Object.keys(hoveredStats)]);
-    equippedItems.forEach(({ item }) => {
-        if (item) {
-            const equippedTemplate = gameData.itemTemplates.find(t => t.id === item.templateId);
-            const equippedStats = getItemStats(item, equippedTemplate, gameData.affixes);
-            Object.keys(equippedStats).forEach(key => allStatKeys.add(key));
-        }
-    });
-
-    const StatComparison: React.FC<{ title: string; equippedItem: ItemInstance | null }> = ({ title, equippedItem }) => {
-        const equippedTemplate = equippedItem ? gameData.itemTemplates.find(t => t.id === equippedItem.templateId) : null;
-        const equippedStats = getItemStats(equippedItem, equippedTemplate, gameData.affixes);
-
-        return (
-            <div className="flex-1">
-                <h4 className="text-center font-bold text-gray-400 text-sm mb-2">{title}</h4>
-                {Array.from(allStatKeys).map(statKey => {
-                    const hoveredValue = hoveredStats[statKey] || 0;
-                    const equippedValue = equippedStats[statKey] || 0;
-                    const diff = hoveredValue - equippedValue;
-                    if (hoveredValue === 0 && equippedValue === 0) return null;
-
-                    let color = 'text-gray-400';
-                    let sign = '';
-                    if (diff > 0) { color = 'text-green-400'; sign = '+'; }
-                    if (diff < 0) { color = 'text-red-400'; sign = ''; }
-
+    return (
+        <div className="fixed inset-0 z-30 flex justify-center items-center pointer-events-none animate-fade-in">
+            <div className="flex gap-4 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm max-w-5xl">
+                <div className="w-72 flex-shrink-0">
+                    <ItemDetailsPanel 
+                        item={hoveredItem} 
+                        template={hoveredTemplate} 
+                        affixes={gameData.affixes} 
+                        character={character} 
+                        size="small"
+                        title={t('equipment.itemToEquip')}
+                    />
+                </div>
+                {equippedItemsToCompare.map(({ item, slotName }, index) => {
+                    const equippedTemplate = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
                     return (
-                        <div key={statKey} className="flex justify-between text-xs">
-                            <span>{t(`statistics.${statKey}`)}</span>
-                            <span className={`font-mono ${color}`}>{sign}{diff}</span>
+                        <div key={index} className="w-72 flex-shrink-0">
+                            <ItemDetailsPanel
+                                item={item}
+                                template={equippedTemplate}
+                                affixes={gameData.affixes}
+                                character={character}
+                                size="small"
+                                title={item ? `${t('equipment.equipped')}: ${slotName}` : slotName}
+                            />
                         </div>
                     );
                 })}
-            </div>
-        )
-    };
-    
-    // Adjust position to stay within viewport
-    useEffect(() => {
-        if (tooltipRef.current) {
-            const rect = tooltipRef.current.getBoundingClientRect();
-            let newX = position.x + 20;
-            let newY = position.y + 20;
-
-            if (newX + rect.width > window.innerWidth) {
-                newX = position.x - rect.width - 20;
-            }
-            if (newY + rect.height > window.innerHeight) {
-                newY = position.y - rect.height - 20;
-            }
-            
-            setStyle({
-                opacity: 1,
-                position: 'fixed',
-                top: newY,
-                left: newX,
-                transition: 'opacity 0.2s ease-in-out'
-            });
-        }
-    }, [position]);
-
-    return (
-        <div ref={tooltipRef} style={style} className="z-30 w-auto bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 pointer-events-none">
-            <h3 className="text-lg font-bold text-center text-indigo-400 mb-2">{t('equipment.comparison')}</h3>
-            <div className="flex gap-4">
-                {equippedItems.map(({ item, slotName }) => (
-                    <StatComparison key={slotName} title={slotName} equippedItem={item} />
-                ))}
             </div>
         </div>
     );
@@ -232,7 +165,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const [slotFilter, setSlotFilter] = useState<string>('all');
     
     const [hoveredItem, setHoveredItem] = useState<ItemInstance | null>(null);
-    const [tooltipPosition, setTooltipPosition] = useState<{ x: number, y: number } | null>(null);
 
     const handleDragStart = (item: ItemInstance, from: 'inventory' | EquipmentSlot) => {
         setDraggedItemInfo({ item, from });
@@ -316,7 +248,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             template={template} 
                                             affixes={gameData.affixes} 
                                             isSelected={false} 
-                                            onClick={() => onUnequipItem(item, slot)}
                                             onDragStart={() => handleDragStart(item, slot)}
                                         />
                                     ) : (
@@ -374,23 +305,21 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         template={template} 
                                         affixes={gameData.affixes} 
                                         isSelected={false} 
-                                        onClick={() => onEquipItem(item)}
                                         meetsRequirements={meetsRequirements(item)}
                                         onDragStart={() => handleDragStart(item, 'inventory')}
-                                        onMouseEnter={(e) => { setHoveredItem(item); setTooltipPosition({ x: e.clientX, y: e.clientY }); }}
-                                        onMouseLeave={() => { setHoveredItem(null); setTooltipPosition(null); }}
+                                        onMouseEnter={(e) => { setHoveredItem(item); }}
+                                        onMouseLeave={() => { setHoveredItem(null); }}
                                     />;
                         })}
                     </div>
                 </div>
             </div>
 
-            {hoveredItem && tooltipPosition && (
+            {hoveredItem && (
                 <ItemComparisonTooltip 
                     hoveredItem={hoveredItem}
                     character={character}
                     gameData={gameData}
-                    position={tooltipPosition}
                 />
             )}
         </ContentPanel>
