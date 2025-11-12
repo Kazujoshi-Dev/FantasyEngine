@@ -1,7 +1,12 @@
 
 
 
-import express, { Express, Request, Response, NextFunction } from 'express';
+
+
+
+
+
+import express from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -33,7 +38,7 @@ declare global {
   }
 }
 
-const app: Express = express();
+const app: express.Express = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;
@@ -1496,8 +1501,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // --- Authentication Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', async (req: express.Request, res: express.Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1523,8 +1527,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req: express.Request, res: express.Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -1551,8 +1554,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/auth/logout', authenticateToken, (req, res) => {
+app.post('/api/auth/logout', authenticateToken, (req: express.Request, res: express.Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (token) {
         pool.query('DELETE FROM sessions WHERE token = $1', [token])
@@ -1567,8 +1569,7 @@ app.post('/api/auth/logout', authenticateToken, (req, res) => {
 });
 
 // Heartbeat endpoint
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/session/heartbeat', authenticateToken, async (req, res) => {
+app.post('/api/session/heartbeat', authenticateToken, async (req: express.Request, res: express.Response) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
         return res.sendStatus(401);
@@ -1583,8 +1584,7 @@ app.post('/api/session/heartbeat', authenticateToken, async (req, res) => {
 });
 
 // --- Middleware for authentication ---
-// FIX: Re-adding explicit types to the middleware function to help TypeScript correctly resolve Express's route handler overloads and fix 'No overload matches this call' errors.
-async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1604,8 +1604,7 @@ async function authenticateToken(req: Request, res: Response, next: NextFunction
 }
 
 // --- Character Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/character', authenticateToken, async (req, res) => {
+app.get('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -1699,8 +1698,7 @@ app.get('/api/character', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/character', authenticateToken, async (req, res) => {
+app.post('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1715,8 +1713,7 @@ app.post('/api/character', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.put('/api/character', authenticateToken, async (req, res) => {
+app.put('/api/character', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const characterData: PlayerCharacter = req.body;
     try {
@@ -1728,8 +1725,7 @@ app.put('/api/character', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/character/select-class', authenticateToken, async (req, res) => {
+app.post('/api/character/select-class', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { characterClass } = req.body;
 
@@ -1780,8 +1776,7 @@ app.post('/api/character/select-class', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/characters/all', authenticateToken, async (req, res) => {
+app.get('/api/characters/all', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1808,8 +1803,7 @@ app.get('/api/characters/all', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.delete('/api/characters/:userId', authenticateToken, async (req, res) => {
+app.delete('/api/characters/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1825,8 +1819,7 @@ app.delete('/api/characters/:userId', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/characters/names', authenticateToken, async (req, res) => {
+app.get('/api/characters/names', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters`);
         res.json(result.rows.map(r => r.name));
@@ -1836,8 +1829,7 @@ app.get('/api/characters/names', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req, res) => {
+app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req: express.Request, res: express.Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1866,8 +1858,7 @@ app.post('/api/characters/:userId/reset-stats', authenticateToken, async (req, r
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/characters/:userId/heal', authenticateToken, async (req, res) => {
+app.post('/api/characters/:userId/heal', authenticateToken, async (req: express.Request, res: express.Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -1891,8 +1882,7 @@ app.post('/api/characters/:userId/heal', authenticateToken, async (req, res) => 
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req, res) => {
+app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1936,8 +1926,7 @@ app.post('/api/admin/character/:userId/update-gold', authenticateToken, async (r
 });
 
 // --- User Routes (Admin) ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/users', authenticateToken, async (req, res) => {
+app.get('/api/users', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         // First check if the user is an admin
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -1952,8 +1941,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.delete('/api/users/:userId', authenticateToken, async (req, res) => {
+app.delete('/api/users/:userId', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -1971,8 +1959,7 @@ app.delete('/api/users/:userId', authenticateToken, async (req, res) => {
 
 
 // --- Game Data Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/game-data', async (req, res) => {
+app.get('/api/game-data', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: { [key: string]: any } = {};
@@ -1989,8 +1976,7 @@ app.get('/api/game-data', async (req, res) => {
 });
 
 // --- Admin: Update Game Data ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.put('/api/game-data', authenticateToken, async (req, res) => {
+app.put('/api/game-data', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username !== 'Kazujoshi') {
@@ -2019,8 +2005,7 @@ app.put('/api/game-data', authenticateToken, async (req, res) => {
 
 
 // --- Ranking Route ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/ranking', authenticateToken, async (req, res) => {
+app.get('/api/ranking', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -2053,8 +2038,7 @@ app.get('/api/ranking', authenticateToken, async (req, res) => {
 });
 
 // --- Trader Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/trader/inventory', authenticateToken, async (req, res) => {
+app.get('/api/trader/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
     const forceRefresh = req.query.force === 'true';
 
     try {
@@ -2084,8 +2068,7 @@ app.get('/api/trader/inventory', authenticateToken, async (req, res) => {
 });
 
 // --- Trader: Buy Item ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/trader/buy', authenticateToken, async (req, res) => {
+app.post('/api/trader/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
     if (!itemId) {
@@ -2166,8 +2149,7 @@ app.post('/api/trader/buy', authenticateToken, async (req, res) => {
 });
 
 // --- Trader: Sell Items ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/trader/sell', authenticateToken, async (req, res) => {
+app.post('/api/trader/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { itemIds } = req.body as { itemIds: string[] };
 
@@ -2231,8 +2213,7 @@ app.post('/api/trader/sell', authenticateToken, async (req, res) => {
 });
 
 // --- Blacksmith: Disenchant ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/blacksmith/disenchant', authenticateToken, async (req, res) => {
+app.post('/api/blacksmith/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2312,8 +2293,7 @@ app.post('/api/blacksmith/disenchant', authenticateToken, async (req, res) => {
 
 
 // --- Blacksmith: Upgrade ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/blacksmith/upgrade', authenticateToken, async (req, res) => {
+app.post('/api/blacksmith/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { itemId } = req.body;
 
@@ -2418,8 +2398,7 @@ app.post('/api/blacksmith/upgrade', authenticateToken, async (req, res) => {
 
 
 // --- PvP Route ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req, res) => {
+app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
     const attackerId = req.user!.id;
     const { defenderId } = req.params;
 
@@ -2560,8 +2539,7 @@ app.post('/api/pvp/attack/:defenderId', authenticateToken, async (req, res) => {
 
 
 // --- Message Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/messages', authenticateToken, async (req, res) => {
+app.get('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     try {
         const result = await pool.query('SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC', [userId]);
@@ -2572,8 +2550,7 @@ app.get('/api/messages', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/messages', authenticateToken, async (req, res) => {
+app.post('/api/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     const senderId = req.user!.id;
     const { recipientName, subject, content } = req.body;
 
@@ -2606,8 +2583,7 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.put('/api/messages/:id', authenticateToken, async (req, res) => {
+app.put('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     const { is_read } = req.body;
@@ -2621,8 +2597,7 @@ app.put('/api/messages/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
+app.delete('/api/messages/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
     try {
@@ -2634,8 +2609,7 @@ app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/messages/bulk-delete', authenticateToken, async (req, res) => {
+app.post('/api/messages/bulk-delete', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { type } = req.body; // type will be 'read', 'all', or 'expedition_reports'
 
@@ -2662,8 +2636,7 @@ app.post('/api/messages/bulk-delete', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/admin/global-message', authenticateToken, async (req, res) => {
+app.post('/api/admin/global-message', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { subject, content } = req.body;
     
     const client = await pool.connect();
@@ -2694,8 +2667,7 @@ app.post('/api/admin/global-message', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/messages/claim-return/:id', authenticateToken, async (req, res) => {
+app.post('/api/messages/claim-return/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const messageId = parseInt(req.params.id, 10);
 
@@ -2755,8 +2727,7 @@ app.post('/api/messages/claim-return/:id', authenticateToken, async (req, res) =
 
 
 // --- Tavern (Chat) ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/tavern/messages', authenticateToken, async (req, res) => {
+app.get('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100');
         res.json(result.rows);
@@ -2766,8 +2737,7 @@ app.get('/api/tavern/messages', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/tavern/messages', authenticateToken, async (req, res) => {
+app.post('/api/tavern/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { content } = req.body;
     if (!content || content.trim().length === 0) {
@@ -2791,8 +2761,7 @@ app.post('/api/tavern/messages', authenticateToken, async (req, res) => {
 });
 
 // --- Market Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/market/listings', authenticateToken, async (req, res) => {
+app.get('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -2850,8 +2819,7 @@ app.get('/api/market/listings', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/market/buy', authenticateToken, async (req, res) => {
+app.post('/api/market/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const buyerId = req.user!.id;
     const { listingId } = req.body;
 
@@ -2950,8 +2918,7 @@ app.post('/api/market/buy', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/market/bid', authenticateToken, async (req, res) => {
+app.post('/api/market/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
     const bidderId = req.user!.id;
     const { listingId, amount } = req.body;
 
@@ -3026,8 +2993,7 @@ app.post('/api/market/bid', authenticateToken, async (req, res) => {
 });
 
 // Admin Routes ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req, res) => {
+app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: express.Request, res: express.Response) => {
      try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') return res.status(403).json({ message: 'Forbidden' });
@@ -3041,8 +3007,7 @@ app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req, res) =
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/market/listings', authenticateToken, async (req, res) => {
+app.post('/api/market/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const sellerId = req.user!.id;
     const { itemId, listingType, currency, price, durationHours } = req.body as {
         itemId: string;
@@ -3105,8 +3070,7 @@ app.post('/api/market/listings', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/market/my-listings', authenticateToken, async (req, res) => {
+app.get('/api/market/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const sellerId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -3162,8 +3126,7 @@ app.get('/api/market/my-listings', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/market/listings/:id/cancel', authenticateToken, async (req, res) => {
+app.post('/api/market/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
     const sellerId = req.user!.id;
     const { id } = req.params;
 
@@ -3213,8 +3176,7 @@ app.post('/api/market/listings/:id/cancel', authenticateToken, async (req, res) 
 });
 
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/market/listings/:id/claim', authenticateToken, async (req, res) => {
+app.post('/api/market/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
@@ -3276,8 +3238,7 @@ app.post('/api/market/listings/:id/claim', authenticateToken, async (req, res) =
 });
 
 // Admin duplication audit route
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/admin/audit/duplicates', authenticateToken, async (req, res) => {
+app.get('/api/admin/audit/duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3365,8 +3326,7 @@ app.get('/api/admin/audit/duplicates', authenticateToken, async (req, res) => {
 });
 
 // FIX: Complete the unfinished route handler to resolve parsing errors.
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/admin/resolve-duplicates', authenticateToken, async (req, res) => {
+app.post('/api/admin/resolve-duplicates', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3493,8 +3453,7 @@ app.post('/api/admin/resolve-duplicates', authenticateToken, async (req, res) =>
 });
 
 // Admin orphan audit route
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/admin/audit/orphans', authenticateToken, async (req, res) => {
+app.get('/api/admin/audit/orphans', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3547,8 +3506,7 @@ app.get('/api/admin/audit/orphans', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.post('/api/admin/resolve-orphans', authenticateToken, async (req, res) => {
+app.post('/api/admin/resolve-orphans', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3610,8 +3568,7 @@ app.post('/api/admin/resolve-orphans', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-app.get('/api/admin/find-item/:uniqueId', authenticateToken, async (req, res) => {
+app.get('/api/admin/find-item/:uniqueId', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const adminRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (adminRes.rows[0]?.username !== 'Kazujoshi') {
@@ -3708,10 +3665,9 @@ try {
 
     // FIX: Correctly handle PORT which can be a string from process.env by casting to Number.
     app.listen(Number(PORT), '0.0.0.0', () => {
-        console.log(`Server is running on http://0.0.0.0:${PORT}`);
+        console.log(`Server is running on port ${PORT}`);
     });
-
 } catch (err) {
-    console.error('Failed to connect to the database or start server:', err);
+    console.error('Failed to initialize and start server:', err);
     exit(1);
 }

@@ -15,4 +15,8 @@ export default {
         password: 'Password',
         processing: 'Processing...',
         login: 'Log In',
-        register: 'Register
+        register: 'Register',
+        toggleToRegister: "Don't have an account? Create one!",
+        toggleToLogin: "Already have an account? Log in!"
+    },
+};

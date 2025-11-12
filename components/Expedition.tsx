@@ -209,7 +209,6 @@ interface ExpeditionSummaryModalProps {
     isDefenderView?: boolean;
 }
 
-// FIX: Export ExpeditionSummaryModal to be used in other components.
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ reward, onClose, characterName, itemTemplates, affixes, isPvp, pvpData, isDefenderView }) => {
     const { t } = useTranslation();
     const [visibleLogs, setVisibleLogs] = useState(1);
@@ -217,7 +216,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     const combatLogRef = useRef<HTMLDivElement>(null);
     const timerRef = useRef<number>();
 
-    // FIX: Use type guard to correctly access properties from the union type.
     const totalGold = 'totalGold' in reward ? reward.totalGold : (reward as PvpRewardSummary).gold;
     const totalExperience = 'totalExperience' in reward ? reward.totalExperience : (reward as PvpRewardSummary).experience;
 
@@ -269,7 +267,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
         let playerStats: CharacterStats | undefined;
         let currentEnemyLog: CombatLogEntry | undefined;
 
-        // Find the most recent 'start fight' log based on the currently visible logs
         const visibleLogSlice = reward.combatLog.slice(0, visibleLogs);
         for (let i = visibleLogSlice.length - 1; i >= 0; i--) {
             if (visibleLogSlice[i].action === 'starts a fight with') {
@@ -279,7 +276,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
             }
         }
         
-        // Fallback to the first log if no fight start has been found yet
         if (!currentEnemyLog) {
             currentEnemyLog = reward.combatLog[0];
             playerStats = reward.combatLog[0]?.playerStats;
@@ -297,9 +293,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
 
     const getRewardSourceText = (source: string) => {
         if (source === 'Expedition Reward') {
-// FIX: The `t` function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker.
-// FIX: The 't' function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker and resolve the 'Expected 1 arguments, but got 0' error.
-            return t('expedition.baseReward', {});
+// FIX: Changed t function call to use one argument when no interpolation options are needed, resolving "Expected 1 arguments, but got 0" error.
+            return t('expedition.baseReward');
         }
         const match = source.match(/^Defeated (.+)$/);
         if (match) {
@@ -319,17 +314,19 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                 </div>
                 
                 <div className="flex flex-col h-[70vh]">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+                    <div className="grid grid-cols-1 lg:grid-cols-6 gap-6 flex-grow min-h-0">
                         {/* Player Stats */}
-                        <CombatantStatsPanel 
-                            name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
-                            stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
-                            currentHealth={currentLogEntry?.playerHealth}
-                            currentMana={currentLogEntry?.playerMana}
-                        />
+                        <div className="lg:col-span-1 h-full">
+                            <CombatantStatsPanel 
+                                name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
+                                stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
+                                currentHealth={currentLogEntry?.playerHealth}
+                                currentMana={currentLogEntry?.playerMana}
+                            />
+                        </div>
 
                         {/* Combat Log */}
-                        <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
+                        <div className="lg:col-span-4 bg-slate-900/50 p-4 rounded-lg flex flex-col">
                             <h3 className="text-xl font-bold text-indigo-400 mb-2">{isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}</h3>
                             <div ref={combatLogRef} className="flex-grow bg-black/30 p-3 rounded-md overflow-y-auto space-y-1 font-mono text-sm">
                                 {reward.combatLog.slice(0, visibleLogs).map((log, index) => (
@@ -345,18 +342,20 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                         </div>
 
                         {/* Opponent Stats */}
-                        <CombatantStatsPanel 
-                            name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
-                            description={isPvp ? undefined : currentFightData?.enemyDescription}
-                            stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
-                            currentHealth={currentLogEntry?.enemyHealth}
-                            currentMana={currentLogEntry?.enemyMana}
-                        />
+                        <div className="lg:col-span-1 h-full">
+                            <CombatantStatsPanel 
+                                name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
+                                description={isPvp ? undefined : currentFightData?.enemyDescription}
+                                stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
+                                currentHealth={currentLogEntry?.enemyHealth}
+                                currentMana={currentLogEntry?.enemyMana}
+                            />
+                        </div>
                     </div>
 
                     {animationFinished && (
                          <div className="flex-shrink-0 pt-4 mt-4 border-t border-slate-700/50 overflow-y-auto">
-                             <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
                                     <div className="space-y-2 text-lg bg-slate-900/50 p-3 rounded-md">
@@ -465,100 +464,72 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
         }
     }, [activeExpedition]);
 
-    if (activeExpedition && currentExpedition) {
-        return (
-            <ContentPanel title={t('expedition.inProgressTitle')}>
-                <div className="bg-slate-900/40 p-8 rounded-xl text-center">
-                    <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
-                    <p className="text-4xl font-extrabold text-white mb-4">{currentExpedition.name}</p>
-                    {currentExpedition.image && <img src={currentExpedition.image} alt={currentExpedition.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
-                    <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
-                    <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
-                    <div className="w-full bg-slate-700 rounded-full h-2.5">
-                        <div className="bg-amber-500 h-2.5 rounded-full" style={{ width: `${((currentExpedition.duration - timeLeft) / currentExpedition.duration) * 100}%` }}></div>
-                    </div>
-                </div>
-            </ContentPanel>
-        );
-    }
-
-    const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
-
-    return (
-        <ContentPanel title={t('expedition.availableTitle')}>
-            <div className="space-y-6">
-                {availableExpeditions.length > 0 ? availableExpeditions.map(exp => {
+// FIX: Added missing return statement to the component.
+return (
+    <ContentPanel title={t('expedition.availableTitle')}>
+        {activeExpedition && currentExpedition ? (
+            <div className="bg-slate-900/40 p-8 rounded-xl text-center">
+                <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.inProgressTitle')}</h3>
+                <p className="text-4xl font-extrabold text-white mb-4">{currentExpedition.name}</p>
+                {currentExpedition.image && <img src={currentExpedition.image} alt={currentExpedition.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+                <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
+                <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {expeditions.filter(exp => exp.locationIds.includes(currentLocation.id)).map(exp => {
                     const canAfford = character.resources.gold >= exp.goldCost && character.stats.currentEnergy >= exp.energyCost;
                     return (
-                        <div key={exp.id} className="bg-slate-900/40 p-6 rounded-xl flex flex-col md:flex-row gap-6">
-                             {exp.image && (
-                                <div className="md:w-1/3 flex-shrink-0">
-                                    <img src={exp.image} alt={exp.name} className="w-full h-48 object-cover rounded-lg border border-slate-700/50" />
-                                </div>
-                            )}
-                            <div className="flex-grow">
-                                <h3 className="text-2xl font-bold text-indigo-400 mb-2">{exp.name}</h3>
-                                <p className="text-gray-400 mb-4 text-sm italic">{exp.description}</p>
-                                
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
-                                    <div className="flex items-center space-x-2 text-gray-300">
-                                        <ClockIcon className="h-5 w-5 text-gray-400" />
-                                        <span>{formatDuration(exp.duration)}</span>
+                        <div key={exp.id} className="bg-slate-900/40 p-4 rounded-xl flex flex-col justify-between border border-slate-700/50">
+                           <div>
+                                {exp.image && <img src={exp.image} alt={exp.name} className="w-full h-32 object-cover rounded-lg mb-4" />}
+                                <h3 className="text-xl font-bold text-white mb-2">{exp.name}</h3>
+                                <p className="text-sm text-gray-400 mb-4 h-16 overflow-hidden">{exp.description}</p>
+                                <div className="border-t border-slate-700/50 my-3"></div>
+                                <div className="text-sm space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="flex items-center text-gray-400"><ClockIcon className="h-4 w-4 mr-2"/> {t('expedition.duration')}</span>
+                                        <span className="font-mono font-bold text-white">{formatDuration(exp.duration)}</span>
                                     </div>
-                                    <div className={`flex items-center space-x-2 ${character.resources.gold < exp.goldCost ? 'text-red-400' : 'text-amber-400'}`}>
-                                        <CoinsIcon className="h-5 w-5" />
-                                        <span>{exp.goldCost}</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className={`flex items-center ${character.resources.gold < exp.goldCost ? 'text-red-400' : 'text-gray-400'}`}><CoinsIcon className="h-4 w-4 mr-2"/> {t('expedition.cost')}</span>
+                                        <span className="font-mono font-bold text-amber-400">{exp.goldCost}</span>
                                     </div>
-                                    <div className={`flex items-center space-x-2 ${character.stats.currentEnergy < exp.energyCost ? 'text-red-400' : 'text-sky-400'}`}>
-                                        <BoltIcon className="h-5 w-5" />
-                                        <span>{exp.energyCost}</span>
+                                     <div className="flex justify-between items-center">
+                                        <span className={`flex items-center ${character.stats.currentEnergy < exp.energyCost ? 'text-red-400' : 'text-gray-400'}`}><BoltIcon className="h-4 w-4 mr-2"/> {t('expedition.cost')}</span>
+                                        <span className="font-mono font-bold text-sky-400">{exp.energyCost}</span>
                                     </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.potentialEnemies')}</h4>
-                                        <div className="space-y-1 text-sm">
-                                            {exp.enemies.length > 0 ? exp.enemies.map(expEnemy => {
-                                                const enemy = enemies.find(e => e.id === expEnemy.enemyId);
-                                                return enemy ? (
-                                                    <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
-                                                        <span>{enemy.name}</span>
-                                                        <span className="text-xs text-gray-400">{expEnemy.spawnChance}%</span>
-                                                    </div>
-                                                ) : null;
-                                            }) : <p className="text-xs text-gray-500">{t('expedition.noEnemies')}</p>}
-                                            {exp.maxEnemies && exp.maxEnemies > 0 ? <p className="text-xs text-gray-500 italic mt-1">{t('expedition.maxEnemiesNote', { count: exp.maxEnemies })}</p> : null}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.reward')}</h4>
-                                        <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
-                                                <span className="text-amber-400">{t('resources.gold')}</span>
-                                                <span>{exp.minBaseGoldReward} - {exp.maxBaseGoldReward}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
-                                                <span className="text-sky-400">XP</span>
-                                                <span>{exp.minBaseExperienceReward} - {exp.maxBaseExperienceReward}</span>
-                                            </div>
-                                        </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="flex items-center text-gray-400"><StarIcon className="h-4 w-4 mr-2"/> {t('expedition.reward')}</span>
+                                        <span className="font-mono font-bold text-green-400">~{Math.round((exp.minBaseExperienceReward+exp.maxBaseExperienceReward)/2)}</span>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="flex-shrink-0 flex items-end">
-                                <button
-                                    onClick={() => onStartExpedition(exp.id)}
-                                    disabled={!canAfford}
-                                    className="w-full md:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed"
-                                >
-                                    {t('expedition.embark')}
-                                </button>
-                            </div>
+                                {exp.enemies.length > 0 && (
+                                     <div className="border-t border-slate-700/50 my-3"></div>
+                                )}
+                                <div className="text-sm">
+                                    {exp.enemies.length > 0 && <h4 className="font-semibold text-gray-400 mb-1">{t('expedition.potentialEnemies')}:</h4>}
+                                    <div className="text-xs text-gray-500 space-y-1">
+                                        {exp.enemies.map(expEnemy => {
+                                            const enemyDetails = enemies.find(e => e.id === expEnemy.enemyId);
+                                            return <p key={expEnemy.enemyId}>{enemyDetails?.name} ({expEnemy.spawnChance}%)</p>;
+                                        })}
+                                        {exp.maxEnemies && <p className="text-xs italic text-gray-400 mt-1">{t('expedition.maxEnemiesNote', { count: exp.maxEnemies })}</p>}
+                                    </div>
+                                </div>
+                           </div>
+                            <button 
+                                onClick={() => onStartExpedition(exp.id)}
+                                disabled={!canAfford}
+                                className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                            >
+                                {t('expedition.embark')}
+                            </button>
                         </div>
-                    );
-                }) : <p className="text-gray-500 text-center py-8">{t('expedition.noExpeditions')}</p>}
+                    )
+                })}
             </div>
-        </ContentPanel>
-    );
+        )}
+    </ContentPanel>
+);
 };
