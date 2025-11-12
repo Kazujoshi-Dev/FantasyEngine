@@ -1,11 +1,12 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// Replaced aliased express types with direct imports to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ItemRarity, EssenceType } from '../types.js';
+import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = express.Router();
 
-router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -22,7 +23,7 @@ router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: E
         }
         
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates = gameDataRes.rows[0].data;
+        const itemTemplates: ItemTemplate[] = gameDataRes.rows[0].data;
         const template = itemTemplates.find((t: any) => t.id === character.inventory[itemIndex].templateId);
         if (!template) {
              return res.status(404).json({ message: 'Item template not found' });
@@ -64,7 +65,7 @@ router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: E
     }
 });
 
-router.post('/upgrade', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -85,7 +86,7 @@ router.post('/upgrade', authenticateToken, async (req: ExpressRequest, res: Expr
         const item = isInventory ? character.inventory.find(i=>i.uniqueId === itemId)! : (character.equipment as any)[itemLocation];
 
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const template = gameDataRes.rows[0].data.find((t: any) => t.id === item.templateId);
+        const template: ItemTemplate | undefined = gameDataRes.rows[0].data.find((t: any) => t.id === item.templateId);
         if (!template) return res.status(404).json({ message: 'Item template not found' });
 
         const currentLevel = item.upgradeLevel || 0;

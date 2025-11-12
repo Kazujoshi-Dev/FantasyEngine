@@ -1,4 +1,5 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// Replaced aliased express types with direct imports to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -7,7 +8,7 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = express.Router();
 
-router.post('/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 

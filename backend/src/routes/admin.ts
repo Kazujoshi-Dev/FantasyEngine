@@ -1,4 +1,5 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// Replaced aliased express types with direct imports to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter } from '../types.js';
@@ -6,7 +7,7 @@ import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInst
 const router = express.Router();
 
 // Middleware to check for admin privileges
-const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: express.NextFunction) => {
+const isAdmin = async (req: Request, res: Response, next: express.NextFunction) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows.length > 0 && userRes.rows[0].username === 'Kazujoshi') {
@@ -22,7 +23,7 @@ const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: express.
 // All routes in this file are protected by admin middleware
 router.use(isAdmin);
 
-router.get('/users', async (req, res) => {
+router.get('/users', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
         res.json(result.rows);
@@ -31,7 +32,7 @@ router.get('/users', async (req, res) => {
     }
 });
 
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', async (req: Request, res: Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.sendStatus(204);
@@ -40,7 +41,7 @@ router.delete('/users/:id', async (req, res) => {
     }
 });
 
-router.get('/characters/all', async (req, res) => {
+router.get('/characters/all', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -60,7 +61,7 @@ router.get('/characters/all', async (req, res) => {
     }
 });
 
-router.delete('/characters/:userId', async (req, res) => {
+router.delete('/characters/:userId', async (req: Request, res: Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
         res.sendStatus(204);
@@ -69,7 +70,7 @@ router.delete('/characters/:userId', async (req, res) => {
     }
 });
 
-router.post('/characters/:userId/reset-stats', async (req, res) => {
+router.post('/characters/:userId/reset-stats', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -98,7 +99,7 @@ router.post('/characters/:userId/reset-stats', async (req, res) => {
     }
 });
 
-router.post('/characters/:userId/heal', async (req, res) => {
+router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     const client = await pool.connect();
      try {
         await client.query('BEGIN');
@@ -120,7 +121,7 @@ router.post('/characters/:userId/heal', async (req, res) => {
     }
 });
 
-router.post('/character/:userId/update-gold', async (req, res) => {
+router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
      try {
@@ -144,7 +145,7 @@ router.post('/character/:userId/update-gold', async (req, res) => {
 });
 
 // Duplication Audit
-router.get('/audit/duplicates', async (req, res) => {
+router.get('/audit/duplicates', async (req: Request, res: Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
         const result = await pool.query(`
@@ -163,21 +164,21 @@ router.get('/audit/duplicates', async (req, res) => {
     }
 });
 
-router.post('/resolve-duplicates', async (req, res) => {
+router.post('/resolve-duplicates', async (req: Request, res: Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
-router.get('/audit/orphans', async (req, res) => {
+router.get('/audit/orphans', async (req: Request, res: Response) => {
      res.json([]); // Placeholder
 });
-router.post('/resolve-orphans', async (req, res) => {
+router.post('/resolve-orphans', async (req: Request, res: Response) => {
     res.json({ charactersAffected: 0, itemsRemoved: 0 }); // Placeholder
 });
 
 // Item Inspector
-router.get('/find-item/:uniqueId', async (req, res) => {
+router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 

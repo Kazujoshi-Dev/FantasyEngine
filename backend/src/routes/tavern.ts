@@ -1,11 +1,12 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// Replaced aliased express types with direct imports to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
 
 const router = express.Router();
 
-router.get('/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100"
@@ -16,7 +17,7 @@ router.get('/messages', authenticateToken, async (req: ExpressRequest, res: Expr
     }
 });
 
-router.post('/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {
         return res.status(400).json({ message: 'Invalid message content.' });

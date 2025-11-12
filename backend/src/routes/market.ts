@@ -1,4 +1,5 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+// Replaced aliased express types with direct imports to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 // FIX: Import `getBackpackCapacity` from the correct helper file.
@@ -9,7 +10,7 @@ import { getBackpackCapacity } from '../logic/helpers.js';
 const router = express.Router();
 
 // GET all active listings
-router.get('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     try {
         await processExpiredListings(pool);
         const result = await pool.query(
@@ -29,7 +30,7 @@ router.get('/listings', authenticateToken, async (req: ExpressRequest, res: Expr
 });
 
 // GET user's listings
-router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     try {
         await processExpiredListings(pool);
         const result = await pool.query(
@@ -43,7 +44,7 @@ router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: E
 });
 
 // POST a new listing
-router.post('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -77,25 +78,25 @@ router.post('/listings', authenticateToken, async (req: ExpressRequest, res: Exp
 });
 
 // POST to buy an item
-router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for buy now
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to bid on an item
-router.post('/bid', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/bid', async (req: Request, res: Response) => {
     // Implementation for bidding
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to cancel a listing
-router.post('/listings/:id/cancel', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for cancelling
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to claim a finished listing (sold, expired, cancelled)
-router.post('/listings/:id/claim', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for claiming
     res.status(501).json({ message: "Not implemented" });
 });
