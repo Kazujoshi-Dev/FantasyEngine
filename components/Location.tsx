@@ -178,8 +178,8 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
                                             const tabInfo = tabInfoMap[tabId]!;
                                             return (
                                                 <div key={tabId} title={tabInfo.label} className="flex items-center gap-1.5 text-slate-400">
-                                                    {/* FIX: Cast icon to React.ReactElement<any> to resolve typing issue with cloneElement. */}
-                                                    {React.cloneElement(tabInfo.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
+                                                    {/* FIX: Cast icon to React.ReactElement to resolve typing issue with cloneElement. */}
+                                                    {React.cloneElement(tabInfo.icon as React.ReactElement, { className: 'h-4 w-4' })}
                                                     <span className="text-xs">{tabInfo.label}</span>
                                                 </div>
                                             );
