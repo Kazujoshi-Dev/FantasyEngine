@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
@@ -3028,7 +3021,7 @@ app.post('/api/market/bid', authenticateToken, async (req: Request, res: Respons
     }
 });
 
-// --- Admin Routes ---
+// Admin Routes ---
 // FIX: Add explicit Express Request and Response types to all route handlers
 app.post('/api/admin/pvp/reset-cooldowns', authenticateToken, async (req: Request, res: Response) => {
      try {

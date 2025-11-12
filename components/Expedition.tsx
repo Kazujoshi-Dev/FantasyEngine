@@ -295,9 +295,22 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
 
     const currentLogEntry = visibleLogs > 0 ? reward.combatLog[visibleLogs - 1] : null;
 
+    const getRewardSourceText = (source: string) => {
+        if (source === 'Expedition Reward') {
+// FIX: The `t` function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker when no interpolation is needed. This might be a workaround for a toolchain issue.
+            return t('expedition.baseReward', {});
+        }
+        const match = source.match(/^Defeated (.+)$/);
+        if (match) {
+            const enemyName = match[1];
+            return t('expedition.enemyDefeated', { enemyName: enemyName });
+        }
+        return source;
+    };
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-6xl w-full">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-7xl w-full">
                 <div className="text-center mb-4">
                     <h2 className={`text-5xl font-extrabold ${isVictory ? 'text-green-400' : 'text-red-500'}`}>
                         {isPvp ? t('pvp.duelResult') : (isVictory ? t('expedition.victory') : t('expedition.defeat'))}
@@ -305,7 +318,16 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                 </div>
                 
                 <div className="flex flex-col h-[70vh]">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+                        {/* Player Stats */}
+                        <CombatantStatsPanel 
+                            name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
+                            stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
+                            currentHealth={currentLogEntry?.playerHealth}
+                            currentMana={currentLogEntry?.playerMana}
+                        />
+
+                        {/* Combat Log */}
                         <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
                             <h3 className="text-xl font-bold text-indigo-400 mb-2">{isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}</h3>
                             <div ref={combatLogRef} className="flex-grow bg-black/30 p-3 rounded-md overflow-y-auto space-y-1 font-mono text-sm">
@@ -321,29 +343,19 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                             )}
                         </div>
 
-                        <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col min-h-0">
-                            <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.combatStats')}</h3>
-                            <div className="grid grid-cols-2 gap-4 flex-grow">
-                                <CombatantStatsPanel 
-                                    name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
-                                    stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
-                                    currentHealth={currentLogEntry?.playerHealth}
-                                    currentMana={currentLogEntry?.playerMana}
-                                />
-                                <CombatantStatsPanel 
-                                    name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
-                                    description={isPvp ? undefined : currentFightData?.enemyDescription}
-                                    stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
-                                    currentHealth={currentLogEntry?.enemyHealth}
-                                    currentMana={currentLogEntry?.enemyMana}
-                                />
-                            </div>
-                        </div>
+                        {/* Opponent Stats */}
+                        <CombatantStatsPanel 
+                            name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
+                            description={isPvp ? undefined : currentFightData?.enemyDescription}
+                            stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
+                            currentHealth={currentLogEntry?.enemyHealth}
+                            currentMana={currentLogEntry?.enemyMana}
+                        />
                     </div>
 
                     {animationFinished && (
                          <div className="flex-shrink-0 pt-4 mt-4 border-t border-slate-700/50 overflow-y-auto">
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                             <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
                                     <div className="space-y-2 text-lg bg-slate-900/50 p-3 rounded-md">
@@ -375,7 +387,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                                         <div className="text-xs space-y-1 mt-2 bg-slate-900/50 p-2 rounded-md">
                                             {reward.rewardBreakdown.map((source, index) => (
                                                 <div key={index} className="grid grid-cols-3 gap-2 text-gray-400">
-                                                    <span className="col-span-1 truncate">{source.source}</span>
+                                                    <span className="col-span-1 truncate">{getRewardSourceText(source.source)}</span>
                                                     <span className="col-span-1 text-right text-amber-500 font-mono">+{source.gold}</span>
                                                     <span className="col-span-1 text-right text-sky-500 font-mono">+{source.experience}</span>
                                                 </div>
@@ -383,24 +395,28 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                                         </div>
                                     )}
                                 </div>
-                                {isExpeditionReward && reward.itemsFound.length > 0 && (
-                                    <div className="md:col-span-2">
-                                        <h4 className="font-semibold text-indigo-400 mb-2">{t('expedition.itemsFound')}</h4>
-                                        <div className="max-h-32 overflow-y-auto pr-2 space-y-1 bg-slate-900/50 p-2 rounded-md">
-                                            {reward.itemsFound.map((item, index) => {
-                                                const template = itemTemplates.find(t => t.id === item.templateId);
-                                                if (!template) return null;
-                                                return (
-                                                    <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
-                                                        <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
-                                                        <ItemTooltip instance={item} template={template} affixes={affixes} />
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                        {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                            <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
-                                        )}
+                                {isExpeditionReward && (reward.itemsFound.length > 0 || Object.keys(reward.essencesFound).length > 0) && (
+                                    <div>
+                                        {reward.itemsFound.length > 0 &&
+                                            <div>
+                                                <h4 className="font-semibold text-indigo-400 mb-2">{t('expedition.itemsFound')}</h4>
+                                                <div className="max-h-24 overflow-y-auto pr-2 space-y-1 bg-slate-900/50 p-2 rounded-md">
+                                                    {reward.itemsFound.map((item, index) => {
+                                                        const template = itemTemplates.find(t => t.id === item.templateId);
+                                                        if (!template) return null;
+                                                        return (
+                                                            <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
+                                                                <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
+                                                                <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                                    <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                                )}
+                                            </div>
+                                        }
                                          {Object.keys(reward.essencesFound).length > 0 && (
                                             <div className="mt-2">
                                                 <h4 className="font-semibold text-indigo-400 mb-2">{t('expedition.essencesFound')}</h4>
