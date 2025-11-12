@@ -126,21 +126,11 @@ const ItemComparisonTooltip: React.FC<{
 
     return (
         <div className="fixed inset-0 z-30 flex justify-center items-center pointer-events-none animate-fade-in">
-            <div className="flex gap-4 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm max-w-5xl">
-                <div className="w-72 flex-shrink-0">
-                    <ItemDetailsPanel 
-                        item={hoveredItem} 
-                        template={hoveredTemplate} 
-                        affixes={gameData.affixes} 
-                        character={character} 
-                        size="small"
-                        title={t('equipment.itemToEquip')}
-                    />
-                </div>
+            <div className="flex gap-4">
                 {equippedItemsToCompare.map(({ item, slotName }, index) => {
                     const equippedTemplate = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
                     return (
-                        <div key={index} className="w-72 flex-shrink-0">
+                        <div key={index} className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
                             <ItemDetailsPanel
                                 item={item}
                                 template={equippedTemplate}
@@ -152,6 +142,16 @@ const ItemComparisonTooltip: React.FC<{
                         </div>
                     );
                 })}
+                <div className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
+                    <ItemDetailsPanel 
+                        item={hoveredItem} 
+                        template={hoveredTemplate} 
+                        affixes={gameData.affixes} 
+                        character={character} 
+                        size="small"
+                        title={t('equipment.itemToEquip')}
+                    />
+                </div>
             </div>
         </div>
     );
