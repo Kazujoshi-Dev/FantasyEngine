@@ -47,7 +47,6 @@ app.use(express.json({ limit: '10mb' }));
 // ===================================================================================
 app.use('/api/auth', authRoutes);
 app.use('/api/game-data', gameDataRoutes);
-app.use('/api', characterRoutes); // Includes /character, /characters/*
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/trader', traderRoutes);
 app.use('/api/blacksmith', blacksmithRoutes);
@@ -56,6 +55,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/tavern', tavernRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/admin', adminRoutes);
+// This must be the last API route because it's a broad catch-all for /character, /characters/* etc.
+app.use('/api', characterRoutes);
 
 
 // ===================================================================================
