@@ -1,46 +1,44 @@
-# === ETAP 1: Budowanie aplikacji ===
-# Używamy pełnego obrazu Node.js do zbudowania naszej aplikacji TypeScript.
-# 'builder' to nazwa tego etapu, której użyjemy później.
-FROM node:20-alpine AS builder
+# Etap 1: Budowanie aplikacji (frontend i backend)
+FROM node:20-alpine AS build
 
-# Ustawiamy katalog roboczy wewnątrz kontenera
+# Ustawienie katalogu roboczego w kontenerze
 WORKDIR /app
 
-# Kopiujemy pliki package.json i package-lock.json z folderu backend
-# Kopiujemy je najpierw, aby wykorzystać cache'owanie warstw Dockera.
-# Instalacja zależności uruchomi się ponownie tylko, gdy te pliki się zmienią.
-COPY backend/package*.json ./
+# Kopiowanie plików package.json, aby zoptymalizować warstwy cache'owania
+# Najpierw kopiujemy pliki zależności, aby uniknąć ponownej instalacji przy każdej zmianie kodu
+COPY package*.json ./
+COPY backend/package*.json ./backend/
 
-# Instalujemy wszystkie zależności, włącznie z deweloperskimi (np. typescript)
+# Instalacja wszystkich zależności (dla roota i dla backendu)
 RUN npm install
+RUN npm install --prefix backend
 
-# Kopiujemy resztę kodu źródłowego z folderu backend
-COPY backend/ ./
+# Kopiowanie reszty plików źródłowych aplikacji
+COPY . .
 
-# Uruchamiamy skrypt budujący, który kompiluje TypeScript do JavaScript
-# i umieszcza go w folderze /app/dist
+# Uruchomienie skryptu budującego całą aplikację (frontend i backend)
+# Ten skrypt powinien być zdefiniowany w głównym package.json
 RUN npm run build
 
-# === ETAP 2: Tworzenie finalnego obrazu produkcyjnego ===
-# Zaczynamy od nowa, używając lekkiego obrazu Node.js.
-FROM node:20-alpine
+# Etap 2: Tworzenie lekkiego obrazu produkcyjnego
+FROM node:20-alpine AS production
 
-# Ustawiamy katalog roboczy
 WORKDIR /app
 
-# Kopiujemy pliki package.json i package-lock.json z folderu backend
-COPY backend/package*.json ./
+# Kopiowanie tylko niezbędnych, zbudowanych plików z etapu 'build'
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/backend/package.json ./backend/
+COPY --from=build /app/package.json ./
 
-# Instalujemy TYLKO zależności produkcyjne. To znacznie zmniejsza rozmiar finalnego obrazu.
-RUN npm install --omit=dev
+# Instalacja tylko zależności produkcyjnych dla backendu
+RUN npm install --prefix backend --only=production
 
-# Kopiujemy skompilowany kod z etapu 'builder' do naszego finalnego obrazu.
-# To jest kluczowy krok - nie kopiujemy kodu źródłowego, tylko gotowy build.
-COPY --from=builder /app/dist ./dist
+# Ustawienie zmiennej środowiskowej na 'production'
+ENV NODE_ENV=production
 
-# Ustawiamy port, na którym nasza aplikacja będzie nasłuchiwać
+# Port, na którym będzie działał serwer (opcjonalne, ale dobra praktyka)
 EXPOSE 3001
 
-# Definiujemy komendę, która uruchomi serwer po starcie kontenera
-# Odpowiada to skryptowi "start" w package.json: "node dist/server.js"
-CMD [ "node", "dist/server.js" ]
+# Komenda uruchamiająca serwer backendowy, który serwuje również frontend
+CMD ["npm", "start", "--prefix", "backend"]

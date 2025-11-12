@@ -1,27 +1,28 @@
 
-// FIX: Import Request and Response from express to resolve type conflicts.
-import express, { NextFunction, Request, Response } from 'express';
+
+// FIX: Use fully qualified express types to resolve type conflicts with global types (e.g. from DOM).
+import express, { NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exit } from 'process';
 
-import { initializeDatabase } from './db.js';
-import { cleanupOldTavernMessages } from './logic/tasks.js';
+import { initializeDatabase } from './db';
+import { cleanupOldTavernMessages } from './logic/tasks';
 
 // Import all route handlers
-import authRoutes from './routes/auth.js';
-import gameDataRoutes from './routes/gameData.js';
-import characterRoutes from './routes/character.js';
-import rankingRoutes from './routes/ranking.js';
-import traderRoutes from './routes/trader.js';
-import blacksmithRoutes from './routes/blacksmith.js';
-import pvpRoutes from './routes/pvp.js';
-import messageRoutes from './routes/messages.js';
-import tavernRoutes from './routes/tavern.js';
-import marketRoutes from './routes/market.js';
-import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth';
+import gameDataRoutes from './routes/gameData';
+import characterRoutes from './routes/character';
+import rankingRoutes from './routes/ranking';
+import traderRoutes from './routes/trader';
+import blacksmithRoutes from './routes/blacksmith';
+import pvpRoutes from './routes/pvp';
+import messageRoutes from './routes/messages';
+import tavernRoutes from './routes/tavern';
+import marketRoutes from './routes/market';
+import adminRoutes from './routes/admin';
 
 
 dotenv.config();
@@ -63,14 +64,14 @@ app.use('/api/admin', adminRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// FIX: Use Request and Response types from express to fix method errors.
-app.get('*', (req: Request, res: Response) => {
+// FIX: Use fully qualified express types to resolve type conflicts.
+app.get('*', (req: express.Request, res: express.Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// FIX: Use Request and Response types from express to fix method errors.
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// FIX: Use fully qualified express types to resolve type conflicts.
+app.use((err: Error, req: express.Request, res: express.Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
