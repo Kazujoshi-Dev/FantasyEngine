@@ -1,12 +1,13 @@
-// Replaced aliased express types with direct imports to resolve type conflicts.
-import express, { Request, Response } from 'express';
+// Replaced named express type imports with default import to resolve type conflicts.
+import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = express.Router();
 
-router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Use express.Request and express.Response to resolve type conflicts.
+router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -65,7 +66,8 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
     }
 });
 
-router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Use express.Request and express.Response to resolve type conflicts.
+router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {

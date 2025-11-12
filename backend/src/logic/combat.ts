@@ -199,8 +199,14 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
         // Crit check
         if (Math.random() * 100 < attacker.stats.critChance) {
             isCrit = true;
-            // FIX: Provide a default crit modifier for enemies who don't have this stat.
-            const critModifier = (attacker.stats as CharacterStats).critDamageModifier ?? 200;
+            let critModifier: number;
+            if ('critDamageModifier' in attacker.stats) {
+                // Safely access property after type guard for Player
+                critModifier = attacker.stats.critDamageModifier;
+            } else {
+                // It's an Enemy, provide a default
+                critModifier = 200;
+            }
             damage = Math.floor(damage * (critModifier / 100));
         }
 

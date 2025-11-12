@@ -1,8 +1,9 @@
-// Replaced aliased express types with direct imports to resolve type conflicts.
-import { Request, Response, NextFunction } from 'express';
+// Replaced named express type imports with default import to resolve type conflicts.
+import express from 'express';
 import { pool } from '../db.js';
 
-export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+// FIX: Use express.Request, express.Response, and express.NextFunction to resolve type conflicts.
+export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
