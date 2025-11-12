@@ -1,5 +1,6 @@
 
 
+
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
@@ -12,7 +13,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // FIX: Import `exit` from `process` to resolve `Property 'exit' does not exist on type 'Process'` error. This ensures the correct Node.js API is used, especially in environments with conflicting global types.
 import { exit } from 'process';
-import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix, RolledAffixStats, AffixType, MarketListing, ListingType, CurrencyType, MarketNotificationBody, DuplicationAuditResult, DuplicationInfo, GrammaticalGender, CharacterClass, OrphanAuditResult, OrphanInfo, ItemSearchResult } from './types.js';
+// FIX: Import 'ItemLocationInfo' to resolve 'Cannot find name' error for item location tracking in admin audit routes.
+import { PlayerCharacter, ItemTemplate, EquipmentSlot, CharacterStats, Race, MagicAttackType, CombatLogEntry, PvpRewardSummary, Enemy, GameSettings, ItemRarity, ItemInstance, Expedition, ExpeditionRewardSummary, RewardSource, LootDrop, ResourceDrop, EssenceType, EnemyStats, Quest, QuestType, PlayerQuestProgress, Affix, RolledAffixStats, AffixType, MarketListing, ListingType, CurrencyType, MarketNotificationBody, DuplicationAuditResult, DuplicationInfo, GrammaticalGender, CharacterClass, OrphanAuditResult, OrphanInfo, ItemLocationInfo, ItemSearchResult } from './types.js';
 
 
 dotenv.config();
@@ -1581,8 +1583,8 @@ app.post('/api/session/heartbeat', authenticateToken, async (req, res) => {
 });
 
 // --- Middleware for authentication ---
-// FIX: Removed explicit Express Request and Response types from all route handlers to allow for correct type inference and resolve widespread type errors.
-async function authenticateToken(req, res, next) {
+// FIX: Re-adding explicit types to the middleware function to help TypeScript correctly resolve Express's route handler overloads and fix 'No overload matches this call' errors.
+async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

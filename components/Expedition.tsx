@@ -298,6 +298,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
     const getRewardSourceText = (source: string) => {
         if (source === 'Expedition Reward') {
 // FIX: The `t` function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker.
+// FIX: The 't' function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker and resolve the 'Expected 1 arguments, but got 0' error.
             return t('expedition.baseReward', {});
         }
         const match = source.match(/^Defeated (.+)$/);
@@ -468,4 +469,96 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
         return (
             <ContentPanel title={t('expedition.inProgressTitle')}>
                 <div className="bg-slate-900/40 p-8 rounded-xl text-center">
-                    <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('
+                    <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
+                    <p className="text-4xl font-extrabold text-white mb-4">{currentExpedition.name}</p>
+                    {currentExpedition.image && <img src={currentExpedition.image} alt={currentExpedition.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+                    <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
+                    <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
+                    <div className="w-full bg-slate-700 rounded-full h-2.5">
+                        <div className="bg-amber-500 h-2.5 rounded-full" style={{ width: `${((currentExpedition.duration - timeLeft) / currentExpedition.duration) * 100}%` }}></div>
+                    </div>
+                </div>
+            </ContentPanel>
+        );
+    }
+
+    const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
+
+    return (
+        <ContentPanel title={t('expedition.availableTitle')}>
+            <div className="space-y-6">
+                {availableExpeditions.length > 0 ? availableExpeditions.map(exp => {
+                    const canAfford = character.resources.gold >= exp.goldCost && character.stats.currentEnergy >= exp.energyCost;
+                    return (
+                        <div key={exp.id} className="bg-slate-900/40 p-6 rounded-xl flex flex-col md:flex-row gap-6">
+                             {exp.image && (
+                                <div className="md:w-1/3 flex-shrink-0">
+                                    <img src={exp.image} alt={exp.name} className="w-full h-48 object-cover rounded-lg border border-slate-700/50" />
+                                </div>
+                            )}
+                            <div className="flex-grow">
+                                <h3 className="text-2xl font-bold text-indigo-400 mb-2">{exp.name}</h3>
+                                <p className="text-gray-400 mb-4 text-sm italic">{exp.description}</p>
+                                
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
+                                    <div className="flex items-center space-x-2 text-gray-300">
+                                        <ClockIcon className="h-5 w-5 text-gray-400" />
+                                        <span>{formatDuration(exp.duration)}</span>
+                                    </div>
+                                    <div className={`flex items-center space-x-2 ${character.resources.gold < exp.goldCost ? 'text-red-400' : 'text-amber-400'}`}>
+                                        <CoinsIcon className="h-5 w-5" />
+                                        <span>{exp.goldCost}</span>
+                                    </div>
+                                    <div className={`flex items-center space-x-2 ${character.stats.currentEnergy < exp.energyCost ? 'text-red-400' : 'text-sky-400'}`}>
+                                        <BoltIcon className="h-5 w-5" />
+                                        <span>{exp.energyCost}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.potentialEnemies')}</h4>
+                                        <div className="space-y-1 text-sm">
+                                            {exp.enemies.length > 0 ? exp.enemies.map(expEnemy => {
+                                                const enemy = enemies.find(e => e.id === expEnemy.enemyId);
+                                                return enemy ? (
+                                                    <div key={enemy.id} className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
+                                                        <span>{enemy.name}</span>
+                                                        <span className="text-xs text-gray-400">{expEnemy.spawnChance}%</span>
+                                                    </div>
+                                                ) : null;
+                                            }) : <p className="text-xs text-gray-500">{t('expedition.noEnemies')}</p>}
+                                            {exp.maxEnemies && exp.maxEnemies > 0 ? <p className="text-xs text-gray-500 italic mt-1">{t('expedition.maxEnemiesNote', { count: exp.maxEnemies })}</p> : null}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.reward')}</h4>
+                                        <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
+                                                <span className="text-amber-400">{t('resources.gold')}</span>
+                                                <span>{exp.minBaseGoldReward} - {exp.maxBaseGoldReward}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-md">
+                                                <span className="text-sky-400">XP</span>
+                                                <span>{exp.minBaseExperienceReward} - {exp.maxBaseExperienceReward}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex-shrink-0 flex items-end">
+                                <button
+                                    onClick={() => onStartExpedition(exp.id)}
+                                    disabled={!canAfford}
+                                    className="w-full md:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed"
+                                >
+                                    {t('expedition.embark')}
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }) : <p className="text-gray-500 text-center py-8">{t('expedition.noExpeditions')}</p>}
+            </div>
+        </ContentPanel>
+    );
+};
