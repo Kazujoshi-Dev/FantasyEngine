@@ -176,9 +176,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
             .map(slot => ({ value: slot, label: t(`equipment.slot.${slot}`) as string }));
         
-        // FIX: Fix typing issue with equipment slot options by explicitly defining the array type.
-        const typedSlots: {value: string, label: string}[] = slots;
-        return typedSlots.concat([{ value: 'ring', label: t('item.slot.ring') as string }])
+        return slots.concat([{ value: 'ring', label: t('item.slot.ring') as string }])
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [t]);
 

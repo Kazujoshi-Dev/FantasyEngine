@@ -199,7 +199,8 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
         // Crit check
         if (Math.random() * 100 < attacker.stats.critChance) {
             isCrit = true;
-            const critModifier = (attacker.stats as CharacterStats).critDamageModifier || 200;
+            // FIX: Provide a default crit modifier for enemies who don't have this stat.
+            const critModifier = (attacker.stats as CharacterStats).critDamageModifier ?? 200;
             damage = Math.floor(damage * (critModifier / 100));
         }
 
