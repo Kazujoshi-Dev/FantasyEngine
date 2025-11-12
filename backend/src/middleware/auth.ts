@@ -1,10 +1,9 @@
-
-// FIX: Use fully qualified express types to resolve type conflicts with global types (e.g. from DOM).
-import express, { NextFunction } from 'express';
+// FIX: Import Request, Response, NextFunction from express to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// FIX: Use fully qualified express types to fix property access errors.
-export async function authenticateToken(req: express.Request, res: express.Response, next: NextFunction) {
+// FIX: Use named imports for express types to fix property access errors.
+export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

@@ -1,28 +1,26 @@
-
-
-// FIX: Use fully qualified express types to resolve type conflicts with global types (e.g. from DOM).
-import express, { NextFunction } from 'express';
+// FIX: Import Request, Response, NextFunction from express to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exit } from 'process';
 
-import { initializeDatabase } from './db';
-import { cleanupOldTavernMessages } from './logic/tasks';
+import { initializeDatabase } from './db.js';
+import { cleanupOldTavernMessages } from './logic/tasks.js';
 
 // Import all route handlers
-import authRoutes from './routes/auth';
-import gameDataRoutes from './routes/gameData';
-import characterRoutes from './routes/character';
-import rankingRoutes from './routes/ranking';
-import traderRoutes from './routes/trader';
-import blacksmithRoutes from './routes/blacksmith';
-import pvpRoutes from './routes/pvp';
-import messageRoutes from './routes/messages';
-import tavernRoutes from './routes/tavern';
-import marketRoutes from './routes/market';
-import adminRoutes from './routes/admin';
+import authRoutes from './routes/auth.js';
+import gameDataRoutes from './routes/gameData.js';
+import characterRoutes from './routes/character.js';
+import rankingRoutes from './routes/ranking.js';
+import traderRoutes from './routes/trader.js';
+import blacksmithRoutes from './routes/blacksmith.js';
+import pvpRoutes from './routes/pvp.js';
+import messageRoutes from './routes/messages.js';
+import tavernRoutes from './routes/tavern.js';
+import marketRoutes from './routes/market.js';
+import adminRoutes from './routes/admin.js';
 
 
 dotenv.config();
@@ -64,14 +62,14 @@ app.use('/api/admin', adminRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// FIX: Use fully qualified express types to resolve type conflicts.
-app.get('*', (req: express.Request, res: express.Response) => {
+// FIX: Use named imports for express types to resolve type conflicts.
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// FIX: Use fully qualified express types to resolve type conflicts.
-app.use((err: Error, req: express.Request, res: express.Response, next: NextFunction) => {
+// FIX: Use named imports for express types to resolve type conflicts.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
@@ -87,7 +85,7 @@ initializeDatabase().then(() => {
     });
     // Set up periodic cleanup for the tavern chat
     setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); // Run every hour
-}).catch(err => {
+}).catch((err: Error) => {
     console.error('Failed to start server:', err);
     exit(1);
 });
