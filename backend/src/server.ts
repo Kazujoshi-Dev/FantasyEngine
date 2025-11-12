@@ -1,5 +1,5 @@
-// FIX: Import Request, Response, NextFunction from express to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Use default import for express and qualify types to resolve conflicts.
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -62,14 +62,14 @@ app.use('/api/admin', adminRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// FIX: Use named imports for express types to resolve type conflicts.
-app.get('*', (req: Request, res: Response) => {
+// FIX: Use express.Request and express.Response to resolve type conflicts.
+app.get('*', (req: express.Request, res: express.Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// FIX: Use named imports for express types to resolve type conflicts.
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// FIX: Use express.Request, express.Response, and express.NextFunction to resolve type conflicts.
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

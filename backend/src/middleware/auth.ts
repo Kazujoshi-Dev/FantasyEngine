@@ -1,9 +1,9 @@
-// FIX: Import Request, Response, NextFunction from express to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Use default import for express and qualify types to resolve conflicts.
+import express from 'express';
 import { pool } from '../db.js';
 
-// FIX: Use named imports for express types to fix property access errors.
-export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+// FIX: Use express.Request, express.Response, express.NextFunction to resolve type conflicts.
+export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
