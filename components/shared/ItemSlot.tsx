@@ -205,9 +205,10 @@ interface ItemListItemProps extends React.HTMLAttributes<HTMLDivElement> {
     price?: number;
     showPrimaryStat?: boolean;
     meetsRequirements?: boolean;
+    onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, isEquipped, price, showPrimaryStat = true, meetsRequirements = true, ...divProps }) => {
+export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, isEquipped, price, showPrimaryStat = true, meetsRequirements = true, onDragStart, ...divProps }) => {
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
     const { border, text, bg, shadow } = rarityStyles[template.rarity];
@@ -216,6 +217,8 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
 
     return (
          <div
+            draggable="true"
+            onDragStart={onDragStart}
             {...divProps}
             className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
                 isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
