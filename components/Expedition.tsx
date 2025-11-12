@@ -297,7 +297,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
 
     const getRewardSourceText = (source: string) => {
         if (source === 'Expedition Reward') {
-// FIX: The `t` function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker when no interpolation is needed. This might be a workaround for a toolchain issue.
+// FIX: The `t` function expects an optional second argument for interpolation. Provide an empty object to satisfy the type checker. This might be a workaround for a toolchain issue.
             return t('expedition.baseReward', {});
         }
         const match = source.match(/^Defeated (.+)$/);

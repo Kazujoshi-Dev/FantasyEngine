@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';

@@ -85,9 +85,16 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    // FIX: Corrected arithmetic type errors by using a helper function to safely get max values from range objects and handle undefined properties.
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
-        if (!selectedItem || !selectedTemplate) return { upgradeLevel: 0 };
+        if (!selectedItem || !selectedTemplate) return { 
+            upgradeLevel: 0,
+            finalDamageMin: 0,
+            finalDamageMax: 0,
+            finalCritChanceBonus: 0,
+            attacksPerRound: undefined,
+            finalArmorBonus: 0,
+            statBonusEntries: []
+        };
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
             if (value === undefined || value === null) return 0;

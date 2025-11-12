@@ -87,7 +87,6 @@ const DisenchantPanel: React.FC<{
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
-        // FIX: Corrected arithmetic type errors by ensuring the return object for the empty case includes all destructured properties with default values.
         if (!selectedItem || !selectedTemplate) return { 
             upgradeLevel: 0,
             finalDamageMin: 0,
