@@ -129,63 +129,82 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
         <div className="flex justify-end items-center mb-4">
             <div className="flex items-center space-x-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-700/50">
                 <BoltIcon className="h-5 w-5 text-sky-400" />
-                <span className="font-mono text-lg text-white">{playerCharacter.stats.currentEnergy} / {playerCharacter.stats.maxEnergy}</span>
+                <span className="font-semibold text-gray-300">{t('statistics.energyLabel')}:</span>
+                <span className="font-mono text-lg font-bold text-white">{playerCharacter.stats.currentEnergy} / {playerCharacter.stats.maxEnergy}</span>
             </div>
         </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-slate-900/40 p-6 rounded-xl">
+          <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('location.currentLocation')}</h3>
+          <p className="text-4xl font-extrabold text-white">{currentLocation.name}</p>
+          {currentLocation.image && <img src={currentLocation.image} alt={currentLocation.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+          <p className="text-gray-400 mt-4 italic">{currentLocation.description}</p>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Current Location */}
-            <div className="md:col-span-1 bg-slate-900/40 p-6 rounded-xl">
-                <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('location.currentLocation')}</h3>
-                <p className="text-xl font-semibold text-white mb-4">{currentLocation.name}</p>
-                {currentLocation.image && <img src={currentLocation.image} alt={currentLocation.name} className="w-full h-40 object-cover rounded-lg mb-4" />}
-                <p className="text-sm text-gray-400 italic mb-6">{currentLocation.description}</p>
-                
-                <h4 className="font-semibold text-gray-300 mb-2">{t('location.availableFacilities')}</h4>
-                <div className="space-y-2">
-                    {currentLocation.availableTabs.map(tabId => {
-                        const tabInfo = tabInfoMap[tabId];
-                        if (!tabInfo) return null;
-                        const icon = React.cloneElement(tabInfo.icon as React.ReactElement<any>, { className: 'h-5 w-5 mr-3' });
-                        return (
-                            <div key={tabId} className="flex items-center bg-slate-800/50 p-2 rounded-md">
-                                {icon}
-                                <span className="text-sm">{tabInfo.label}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Travel Options */}
-            <div className="md:col-span-2">
-                <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('location.travels')}</h3>
-                <div className="space-y-4">
-                    {otherLocations.length > 0 ? otherLocations.map(loc => {
-                        const canAfford = playerCharacter.resources.gold >= loc.travelCost && playerCharacter.stats.currentEnergy >= loc.travelEnergyCost;
-                        return (
-                            <div key={loc.id} className="bg-slate-900/40 p-4 rounded-xl flex items-center justify-between">
-                                <div>
-                                    <h4 className="text-lg font-semibold text-white">{loc.name}</h4>
-                                    <div className="flex items-center space-x-4 text-sm text-gray-400 mt-1">
-                                        <span className="flex items-center"><ClockIcon className="h-4 w-4 mr-1"/> {loc.travelTime}s</span>
-                                        <span className={`flex items-center ${playerCharacter.resources.gold < loc.travelCost ? 'text-red-400' : ''}`}><CoinsIcon className="h-4 w-4 mr-1"/> {loc.travelCost}</span>
-                                        <span className={`flex items-center ${playerCharacter.stats.currentEnergy < loc.travelEnergyCost ? 'text-red-400' : ''}`}><BoltIcon className="h-4 w-4 mr-1"/> {loc.travelEnergyCost}</span>
-                                    </div>
+        <div className="bg-slate-900/40 p-6 rounded-xl">
+          <h3 className="text-2xl font-bold text-indigo-400 mb-4 flex items-center">
+            <MapIcon className="h-6 w-6 mr-2" /> {t('location.travels')}
+          </h3>
+          {otherLocations.length > 0 ? (
+            <ul className="space-y-4">
+              {otherLocations.map(loc => (
+                <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center">
+                  <div className="flex items-start gap-4 flex-grow">
+                     {loc.image && <img src={loc.image} alt={loc.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />}
+                     <div className="flex-grow">
+                        <p className="text-lg font-semibold text-white">{loc.name}</p>
+                        <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
+                        <div className="flex items-center text-sm mt-2 space-x-4">
+                          <div className="flex items-center text-amber-400">
+                            <CoinsIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelCost}</span>
+                          </div>
+                           <div className="flex items-center text-sky-400">
+                            <BoltIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelEnergyCost}</span>
+                          </div>
+                          <div className="flex items-center text-gray-400">
+                            <ClockIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelTime}s</span>
+                          </div>
+                        </div>
+                        {loc.availableTabs && loc.availableTabs.length > 0 && (
+                            <div className="mt-3 border-t border-slate-700/50 pt-3">
+                                <h4 className="text-xs font-semibold text-gray-500 mb-2">{t('location.availableFacilities')}</h4>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    {loc.availableTabs
+                                        .filter(tabId => tabInfoMap[tabId])
+                                        .map(tabId => {
+                                            const tabInfo = tabInfoMap[tabId]!;
+                                            return (
+                                                <div key={tabId} title={tabInfo.label} className="flex items-center gap-1.5 text-slate-400">
+                                                    {/* FIX: Cast icon to React.ReactElement<any> to resolve typing issue with cloneElement. */}
+                                                    {React.cloneElement(tabInfo.icon as React.ReactElement<any>, { className: 'h-4 w-4' })}
+                                                    <span className="text-xs">{tabInfo.label}</span>
+                                                </div>
+                                            );
+                                        })
+                                    }
                                 </div>
-                                <button
-                                    onClick={() => handleStartTravel(loc.id)}
-                                    disabled={!canAfford}
-                                    className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:bg-slate-600 disabled:cursor-not-allowed"
-                                >
-                                    {t('location.travel')}
-                                </button>
                             </div>
-                        )
-                    }) : <p className="text-gray-500">{t('location.noLocations')}</p>}
-                </div>
-            </div>
+                        )}
+                      </div>
+                  </div>
+                  <button
+                    onClick={() => handleStartTravel(loc.id)}
+                    disabled={playerCharacter.resources.gold < loc.travelCost || playerCharacter.stats.currentEnergy < loc.travelEnergyCost}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed flex-shrink-0 ml-4"
+                  >
+                    {t('location.travel')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400">{t('location.noLocations')}</p>
+          )}
         </div>
+      </div>
     </ContentPanel>
   );
 };
