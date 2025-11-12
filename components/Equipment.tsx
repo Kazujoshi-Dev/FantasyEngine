@@ -166,6 +166,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [hoveredInventoryItem, setHoveredInventoryItem] = useState<ItemInstance | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
+    const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     const [hideUnusable, setHideUnusable] = useState(false);
 
     const backpackCapacity = getBackpackCapacity(character);
@@ -175,6 +176,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
             .map(slot => ({ value: slot, label: t(`equipment.slot.${slot}`) as string }));
         
+        // FIX: Fix typing issue with equipment slot options by explicitly defining the array type.
         const typedSlots: {value: string, label: string}[] = slots;
         return typedSlots.concat([{ value: 'ring', label: t('item.slot.ring') as string }])
             .sort((a, b) => a.label.localeCompare(b.label));
@@ -207,6 +209,9 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
             if (hideUnusable && !meetsRequirements(item)) {
                 return false;
             }
+            
+            const rarityMatch = rarityFilter === 'all' || template.rarity === rarityFilter;
+            if (!rarityMatch) return false;
 
             if (filterSlot === 'all') return true;
             if (filterSlot === 'consumable') return template.slot === 'consumable';
@@ -217,7 +222,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
             return template.slot === filterSlot;
         });
-    }, [character.inventory, filterSlot, hideUnusable, gameData.itemTemplates, meetsRequirements]);
+    }, [character.inventory, filterSlot, rarityFilter, hideUnusable, gameData.itemTemplates, meetsRequirements]);
 
     const handleItemClick = (item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
         setSelectedItem({ item, source, fromSlot });
@@ -243,6 +248,44 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         if (!selectedItem) return null;
         return gameData.itemTemplates.find(t => t.id === selectedItem.item.templateId) || null;
     }, [selectedItem, gameData.itemTemplates]);
+
+    const handleDragStart = (e: React.DragEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
+        e.dataTransfer.setData('itemUniqueId', item.uniqueId);
+        e.dataTransfer.setData('source', source);
+        if (fromSlot) {
+            e.dataTransfer.setData('fromSlot', fromSlot);
+        }
+    };
+    
+    const handleDrop = (e: React.DragEvent, target: 'inventory' | { slot: EquipmentSlot }) => {
+        e.preventDefault();
+        const itemUniqueId = e.dataTransfer.getData('itemUniqueId');
+        const source = e.dataTransfer.getData('source') as 'equipment' | 'inventory';
+        const fromSlot = e.dataTransfer.getData('fromSlot') as EquipmentSlot;
+    
+        if (!itemUniqueId) return;
+    
+        let itemToMove: ItemInstance | null | undefined = null;
+        if (source === 'inventory') {
+            itemToMove = character.inventory.find(i => i.uniqueId === itemUniqueId);
+        } else if (source === 'equipment' && fromSlot) {
+            itemToMove = character.equipment[fromSlot];
+        }
+    
+        if (!itemToMove) return;
+    
+        if (target === 'inventory') {
+            if (source === 'equipment' && fromSlot) {
+                onUnequipItem(itemToMove, fromSlot);
+            }
+        } else {
+            onEquipItem(itemToMove);
+        }
+    };
+    
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
     
     return (
         <ContentPanel title={t('equipment.title')}>
@@ -266,6 +309,8 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         key={slot} 
                                         onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}
                                         className="relative group"
+                                        onDrop={(e) => handleDrop(e, { slot })}
+                                        onDragOver={handleDragOver}
                                     >
                                         <ItemListItem
                                             item={item}
@@ -274,11 +319,15 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             isSelected={selectedItem?.item.uniqueId === item.uniqueId}
                                             onClick={() => handleItemClick(item, 'equipment', slot)}
                                             showPrimaryStat={false}
+                                            draggable="true"
+                                            onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
                                         />
                                         <ItemTooltip instance={item} template={template} affixes={gameData.affixes} />
                                     </div>
                                 ) : (
-                                    <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
+                                    <div onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
+                                        <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
+                                    </div>
                                 )
                             );
                         })}
@@ -303,30 +352,44 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                         </div>
                     </div>
                     <div className="px-2 mb-4 space-y-2">
-                        <div className="flex items-center space-x-2">
-                            <label htmlFor="item-filter" className="text-sm text-gray-400">{t('equipment.filterByType')}:</label>
-                            <select
-                                id="item-filter"
-                                value={filterSlot}
-                                onChange={(e) => {
-                                    setFilterSlot(e.target.value);
-                                    setSelectedItem(null);
-                                }}
-                                className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                            >
-                                <option value="all">{t('equipment.showAll')}</option>
-                                {equipmentSlotOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                                <option value="consumable">{t('item.slot.consumable')}</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex items-center space-x-2">
+                                <label htmlFor="item-filter" className="text-sm text-gray-400 flex-shrink-0">{t('equipment.filterByType')}:</label>
+                                <select
+                                    id="item-filter"
+                                    value={filterSlot}
+                                    onChange={(e) => {
+                                        setFilterSlot(e.target.value);
+                                        setSelectedItem(null);
+                                    }}
+                                    className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-full"
+                                >
+                                    <option value="all">{t('equipment.showAll')}</option>
+                                    {equipmentSlotOptions.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                    <option value="consumable">{t('item.slot.consumable')}</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <label htmlFor="rarity-filter" className="text-sm text-gray-400 flex-shrink-0">{t('market.browse.filters.rarity')}:</label>
+                                <select
+                                    id="rarity-filter"
+                                    value={rarityFilter}
+                                    onChange={(e) => setRarityFilter(e.target.value as ItemRarity | 'all')}
+                                    className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-full"
+                                >
+                                    <option value="all">{t('market.browse.filters.all')}</option>
+                                    {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                                </select>
+                            </div>
                         </div>
-                         <label className="flex items-center space-x-2 text-sm text-gray-400">
+                        <label className="flex items-center space-x-2 text-sm text-gray-400">
                             <input type="checkbox" checked={hideUnusable} onChange={(e) => setHideUnusable(e.target.checked)} className="form-checkbox h-4 w-4 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/>
                             <span>{t('equipment.hideUnusable')}</span>
                         </label>
                     </div>
-                    <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredInventoryItem(null)}>
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredInventoryItem(null)} onDrop={(e) => handleDrop(e, 'inventory')} onDragOver={handleDragOver}>
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
@@ -345,6 +408,8 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         onClick={() => handleItemClick(item, 'inventory')}
                                         showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
+                                        draggable="true"
+                                        onDragStart={(e) => handleDragStart(e, item, 'inventory')}
                                     />
                                 </div>
                             );

@@ -1,7 +1,13 @@
 
 
-// FIX: Combined express value and type imports to resolve widespread typing errors with Request and Response objects.
-import express, { Request, Response, NextFunction } from 'express';
+
+// FIX: Changed express import to default and aliased types to fix widespread typing errors.
+// By explicitly creating type aliases from the default express export,
+// we ensure that the correct extended Request and Response types are used throughout the file.
+import express from 'express';
+type Request = express.Request;
+type Response = express.Response;
+type NextFunction = express.NextFunction;
 import cors from 'cors';
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
@@ -33,7 +39,9 @@ declare global {
   }
 }
 
-const app: express.Express = express();
+// FIX: Removed explicit type to allow TypeScript to infer it from `express()`.
+// This avoids potential type conflicts from the import changes.
+const app = express();
 const PORT = process.env.PORT || 3001;
 
 const connectionString = process.env.DATABASE_URL;
