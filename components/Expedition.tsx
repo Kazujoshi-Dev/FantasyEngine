@@ -304,76 +304,75 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                     </h2>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh]">
-                    <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
-                        <h3 className="text-xl font-bold text-indigo-400 mb-2">{isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}</h3>
-                        <div ref={combatLogRef} className="flex-grow bg-black/30 p-3 rounded-md overflow-y-auto space-y-1 font-mono text-sm">
-                             {reward.combatLog.slice(0, visibleLogs).map((log, index) => (
-                                <CombatLogRow key={index} log={log} characterName={isPvp && pvpData ? pvpData.attacker.name : characterName} />
-                            ))}
+                <div className="flex flex-col h-[70vh]">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
+                        <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
+                            <h3 className="text-xl font-bold text-indigo-400 mb-2">{isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}</h3>
+                            <div ref={combatLogRef} className="flex-grow bg-black/30 p-3 rounded-md overflow-y-auto space-y-1 font-mono text-sm">
+                                {reward.combatLog.slice(0, visibleLogs).map((log, index) => (
+                                    <CombatLogRow key={index} log={log} characterName={isPvp && pvpData ? pvpData.attacker.name : characterName} />
+                                ))}
+                                {!animationFinished && (
+                                    <p className="text-gray-500 animate-pulse">{t('expedition.combatInProgress')}</p>
+                                )}
+                            </div>
                             {!animationFinished && (
-                                <p className="text-gray-500 animate-pulse">{t('expedition.combatInProgress')}</p>
+                                <button onClick={skipAnimation} className="mt-2 text-xs text-gray-400 hover:text-white">{t('expedition.skipAnimation')}</button>
                             )}
                         </div>
-                        {!animationFinished && (
-                            <button onClick={skipAnimation} className="mt-2 text-xs text-gray-400 hover:text-white">{t('expedition.skipAnimation')}</button>
-                        )}
+
+                        <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col min-h-0">
+                            <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.combatStats')}</h3>
+                            <div className="grid grid-cols-2 gap-4 flex-grow">
+                                <CombatantStatsPanel 
+                                    name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
+                                    stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
+                                    currentHealth={currentLogEntry?.playerHealth}
+                                    currentMana={currentLogEntry?.playerMana}
+                                />
+                                <CombatantStatsPanel 
+                                    name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
+                                    description={isPvp ? undefined : currentFightData?.enemyDescription}
+                                    stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
+                                    currentHealth={currentLogEntry?.enemyHealth}
+                                    currentMana={currentLogEntry?.enemyMana}
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="bg-slate-900/50 p-4 rounded-lg flex flex-col">
-                        <div className="flex-grow overflow-y-auto pr-2 space-y-4">
-                            {(!animationFinished && reward.combatLog.length > 0) ? (
+                    {animationFinished && (
+                         <div className="flex-shrink-0 pt-4 mt-4 border-t border-slate-700/50 overflow-y-auto">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.combatStats')}</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <CombatantStatsPanel 
-                                            name={isPvp && pvpData ? pvpData.attacker.name : characterName} 
-                                            stats={isPvp && pvpData ? pvpData.attacker.stats : currentFightData?.playerStats || null}
-                                            currentHealth={currentLogEntry?.playerHealth}
-                                            currentMana={currentLogEntry?.playerMana}
-                                        />
-                                        <CombatantStatsPanel 
-                                            name={isPvp && pvpData ? pvpData.defender.name : currentFightData?.enemyName || ''}
-                                            description={isPvp ? undefined : currentFightData?.enemyDescription}
-                                            stats={isPvp && pvpData ? pvpData.defender.stats : currentFightData?.enemyStats || null}
-                                            currentHealth={currentLogEntry?.enemyHealth}
-                                            currentMana={currentLogEntry?.enemyMana}
-                                        />
+                                    <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
+                                    <div className="space-y-2 text-lg bg-slate-900/50 p-3 rounded-md">
+                                        {isPvp ? (
+                                            <>
+                                                <p className="flex justify-between items-center">
+                                                    <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {isDefenderView ? t('pvp.goldLost') : t('pvp.goldGained')}</span>
+                                                    <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{totalGold.toLocaleString()}</span>
+                                                </p>
+                                                <p className="flex justify-between items-center">
+                                                    <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {isDefenderView ? t('pvp.xpLost') : t('pvp.xpGained')}</span>
+                                                    <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="flex justify-between items-center">
+                                                    <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('expedition.goldGained')}</span>
+                                                    <span className="font-mono font-bold text-green-400">+{totalGold.toLocaleString()}</span>
+                                                </p>
+                                                <p className="flex justify-between items-center">
+                                                    <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {t('expedition.experience')}</span>
+                                                    <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('expedition.totalRewards')}</h3>
-                                        <div className="space-y-2 text-lg">
-                                            {isPvp ? (
-                                                <>
-                                                    <p className="flex justify-between items-center">
-                                                        <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {isDefenderView ? t('pvp.goldLost') : t('pvp.goldGained')}</span>
-                                                        <span className={`font-mono font-bold ${isVictory ? 'text-green-400' : 'text-red-400'}`}>{isVictory ? '+' : '-'}{totalGold.toLocaleString()}</span>
-                                                    </p>
-                                                    <p className="flex justify-between items-center">
-                                                        <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {isDefenderView ? t('pvp.xpLost') : t('pvp.xpGained')}</span>
-                                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
-                                                    </p>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <p className="flex justify-between items-center">
-                                                        <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('expedition.goldGained')}</span>
-                                                        <span className="font-mono font-bold text-green-400">+{totalGold.toLocaleString()}</span>
-                                                    </p>
-                                                    <p className="flex justify-between items-center">
-                                                        <span className="flex items-center"><StarIcon className="h-5 w-5 mr-2 text-sky-400"/> {t('expedition.experience')}</span>
-                                                        <span className="font-mono font-bold text-green-400">+{totalExperience.toLocaleString()}</span>
-                                                    </p>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                    
-                                    {isExpeditionReward && reward.rewardBreakdown.length > 0 && animationFinished && (
-                                        <div className="border-t border-slate-700/50 pt-2 text-xs space-y-1">
+                                     {isExpeditionReward && reward.rewardBreakdown.length > 0 && (
+                                        <div className="text-xs space-y-1 mt-2 bg-slate-900/50 p-2 rounded-md">
                                             {reward.rewardBreakdown.map((source, index) => (
                                                 <div key={index} className="grid grid-cols-3 gap-2 text-gray-400">
                                                     <span className="col-span-1 truncate">{source.source}</span>
@@ -383,46 +382,46 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
                                             ))}
                                         </div>
                                     )}
-                                    
-                                    {isExpeditionReward && reward.itemsFound.length > 0 && animationFinished && (
-                                        <div className="border-t border-slate-700/50 pt-2">
-                                            <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.itemsFound')}</h4>
-                                            <div className="max-h-32 overflow-y-auto pr-2 space-y-1">
-                                                {reward.itemsFound.map((item, index) => {
-                                                    const template = itemTemplates.find(t => t.id === item.templateId);
-                                                    if (!template) return null;
-                                                    return (
-                                                        <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
-                                                            <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
-                                                            <ItemTooltip instance={item} template={template} affixes={affixes} />
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                            {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                                <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
-                                            )}
+                                </div>
+                                {isExpeditionReward && reward.itemsFound.length > 0 && (
+                                    <div className="md:col-span-2">
+                                        <h4 className="font-semibold text-indigo-400 mb-2">{t('expedition.itemsFound')}</h4>
+                                        <div className="max-h-32 overflow-y-auto pr-2 space-y-1 bg-slate-900/50 p-2 rounded-md">
+                                            {reward.itemsFound.map((item, index) => {
+                                                const template = itemTemplates.find(t => t.id === item.templateId);
+                                                if (!template) return null;
+                                                return (
+                                                    <div key={index} className="relative group text-sm p-1 rounded-md hover:bg-slate-700/50">
+                                                        <p className={rarityStyles[template.rarity].text}>{getGrammaticallyCorrectFullName(item, template, affixes)}</p>
+                                                        <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
-                                    )}
-
-                                    {isExpeditionReward && Object.keys(reward.essencesFound).length > 0 && animationFinished && (
-                                        <div className="border-t border-slate-700/50 pt-2">
-                                            <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.essencesFound')}</h4>
-                                            <div className="space-y-1">
-                                                {Object.entries(reward.essencesFound).map(([essence, amount]) => {
-                                                    if (!amount) return null;
-                                                    return <p key={essence}>{t(`resources.${essence}`)}: +{amount}</p>
-                                                })}
+                                        {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                            <p className="text-xs text-red-500 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                        )}
+                                         {Object.keys(reward.essencesFound).length > 0 && (
+                                            <div className="mt-2">
+                                                <h4 className="font-semibold text-indigo-400 mb-2">{t('expedition.essencesFound')}</h4>
+                                                <div className="space-y-1 text-sm bg-slate-900/50 p-2 rounded-md">
+                                                    {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                                        if (!amount) return null;
+                                                        return <p key={essence}>{t(`resources.${essence}`)}: +{amount}</p>
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                        <button onClick={onClose} className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg text-lg transition-colors">
-                            {t('expedition.excellent')}
-                        </button>
-                    </div>
+                                        )}
+                                    </div>
+                                )}
+                             </div>
+                         </div>
+                    )}
+                </div>
+                <div className="text-center mt-4">
+                    <button onClick={onClose} className="w-full max-w-sm bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg text-lg transition-colors">
+                        {t('expedition.excellent')}
+                    </button>
                 </div>
             </div>
         </div>
