@@ -671,6 +671,9 @@ export default {
             affixes: 'Afiksy',
             quests: 'Zadania',
             pvp: 'PvP',
+            itemInspector: 'Inspektor Przedmiotów',
+            duplicationAudit: 'Audyt Duplikatów',
+            orphanAudit: 'Audyt Sierot'
         },
         general: {
             name: 'Nazwa',
@@ -801,7 +804,13 @@ export default {
             secondaryBonuses: 'Bonusy drugorzędne (min-max)'
         },
         resetStats: 'Resetuj Staty',
+        resetStatsConfirm: 'Czy na pewno chcesz zresetować statystyki tej postaci? Wszystkie punkty atrybutów zostaną zwrócone.',
+        resetStatsSuccess: 'Statystyki postaci zostały zresetowane.',
         heal: 'Ulecz',
+        healCharacterConfirm: 'Czy na pewno chcesz w pełni uleczyć tę postać?',
+        healSuccess: 'Postać została uleczona.',
+        updateGold: 'Zaktualizuj Złoto',
+        inspectEquipment: 'Inspekcja Ekwipunku',
         lootSources: {
             title: 'Źródła Łupu',
             none: 'Nie przypisano do żadnej tabeli łupów.',
@@ -859,6 +868,52 @@ export default {
             sendButton: 'Wyślij do wszystkich graczy',
             validationError: 'Temat i treść są wymagane.',
             sendSuccess: 'Globalna wiadomość wysłana pomyślnie!'
+        },
+        characterInspector: {
+            title: 'Inspektor Ekwipunku - {characterName}',
+            equipment: 'Ekwipunek',
+            inventory: 'Plecak',
+            uniqueId: 'Unikalne ID (kliknij aby skopiować)',
+            idCopied: 'ID skopiowane!',
+            deleteItemConfirm: 'Czy na pewno chcesz nieodwracalnie usunąć ten przedmiot?'
+        },
+        itemInspector: {
+            title: 'Inspektor Przedmiotów',
+            description: 'Wyszukaj przedmiot po jego unikalnym ID, aby zobaczyć jego lokalizację.',
+            placeholder: 'Wklej unikalne ID przedmiotu...',
+            search: 'Szukaj',
+            notFound: 'Nie znaleziono przedmiotu o podanym ID.',
+            itemDetails: 'Szczegóły Przedmiotu',
+            locations: 'Lokalizacje',
+            owner: 'Właściciel',
+            location: 'Miejsce'
+        },
+        duplicationAudit: {
+            title: 'Audyt Duplikatów',
+            description: 'To narzędzie skanuje całą bazę danych w poszukiwaniu przedmiotów z tym samym unikalnym ID, które istnieją w wielu miejscach jednocześnie (np. w ekwipunku gracza i na rynku).',
+            run: 'Uruchom audyt',
+            running: 'Skanowanie...',
+            noDuplicates: 'Nie znaleziono żadnych zduplikowanych przedmiotów.',
+            found: 'Znaleziono {count} zduplikowanych zestawów przedmiotów.',
+            resolve: 'Rozwiąż automatycznie (zachowaj 1, usuń resztę)',
+            resolving: 'Rozwiązywanie...',
+            resolveSuccess: 'Rozwiązano {resolvedSets} zestawów, usunięto {itemsDeleted} zduplikowanych przedmiotów.',
+            owner: 'Właściciel',
+            location: 'Lokalizacja'
+        },
+        orphanAudit: {
+            title: 'Audyt Osieroconych Przedmiotów',
+            description: 'To narzędzie skanuje postacie w poszukiwaniu przedmiotów, których szablon (templateId) już nie istnieje w bazie danych. Takie przedmioty mogą powodować błędy.',
+            run: 'Uruchom audyt',
+            running: 'Skanowanie...',
+            noOrphans: 'Nie znaleziono żadnych osieroconych przedmiotów.',
+            found: 'Znaleziono {count} osieroconych przedmiotów u {characters} postaci.',
+            resolve: 'Usuń wszystkie osierocone przedmioty',
+            resolving: 'Usuwanie...',
+            resolveSuccess: 'Usunięto {itemsRemoved} osieroconych przedmiotów od {charactersAffected} postaci.',
+            character: 'Postać',
+            item: 'Przedmiot (ID szablonu)',
+            location: 'Lokalizacja'
         }
     }
 }

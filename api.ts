@@ -1,6 +1,3 @@
-
-
-
 // FIX: Import `EssenceType` to resolve a type error in the `disenchantItem` function signature.
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult } from './types';
 
@@ -210,6 +207,16 @@ export const api = {
         return fetchApi(`/admin/character/${userId}/update-gold`, {
             method: 'POST',
             body: JSON.stringify({ gold }),
+        });
+    },
+
+    async getFullCharacterForAdmin(userId: number): Promise<PlayerCharacter> {
+        return fetchApi(`/admin/character/${userId}`);
+    },
+    
+    async deleteItemFromCharacter(userId: number, itemUniqueId: string): Promise<PlayerCharacter> {
+        return fetchApi(`/admin/character/${userId}/item/${itemUniqueId}`, {
+            method: 'DELETE',
         });
     },
     
