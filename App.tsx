@@ -27,6 +27,22 @@ import { getT } from './i18n';
 
 const getBackpackCapacity = (character: PlayerCharacter) => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
+const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
+    const gold = Math.floor(250 * Math.pow(1.8, level - 1));
+    const essences = [];
+    if (level >= 3) essences.push({ type: EssenceType.Uncommon, amount: Math.ceil(level / 2) });
+    if (level >= 6) essences.push({ type: EssenceType.Rare, amount: Math.ceil(level / 3) });
+    return { gold, essences };
+};
+
+const getBackpackUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
+    const gold = Math.floor(300 * Math.pow(1.7, level - 1));
+    const essences = [];
+    if (level >= 2) essences.push({ type: EssenceType.Common, amount: level * 5 });
+    if (level >= 5) essences.push({ type: EssenceType.Uncommon, amount: level });
+    return { gold, essences };
+};
+
 const App: React.FC = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
@@ -1035,4 +1051,198 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             if (char.stats.currentEnergy < derivedStats.stats.maxEnergy) {
                 const newEnergy = Math.min(derivedStats.stats.maxEnergy, char.stats.currentEnergy + hoursPassed);
                 if (newEnergy > char.stats.currentEnergy) {
-                    char.stats.currentEnergy
+                    char.stats.currentEnergy = newEnergy;
+                    char.lastEnergyUpdateTime = now - (timeSinceLastUpdate % (1000 * 60 * 60));
+                    updated = true;
+                }
+            }
+        }
+        
+        if (updated) {
+            handleCharacterUpdate(char, false);
+        }
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [baseCharacter, gameData, handleCharacterUpdate, handleCheckExpeditionCompletion, calculateDerivedStats]);
+
+  // Initial Data Load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const [charData, gameDataResponse] = await Promise.all([
+          token ? api.getCharacter() : Promise.resolve(null),
+          api.getGameData(),
+        ]);
+        
+        setGameData(gameDataResponse);
+        
+        if (charData) {
+          if (charData.expeditionSummary) {
+            setExpeditionReport(charData.expeditionSummary);
+            delete charData.expeditionSummary;
+          }
+          setBaseCharacter(charData);
+
+          const freshMessages = await api.getMessages();
+          setMessages(freshMessages);
+          
+          if (charData.username === 'Kazujoshi') {
+              const charNames = await api.getCharacterNames();
+              setAllCharacterNames(charNames);
+          }
+        }
+      } catch (err: any) {
+        if (err.message === 'Invalid token') {
+            handleLogout();
+        } else {
+            setError(err.message);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [token, handleLogout]);
+
+  // Activity tracker
+  useEffect(() => {
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+    resetInactivityTimer(); // Initial call
+    
+    // Heartbeat to keep session alive
+    const heartbeatInterval = setInterval(() => {
+      if (localStorage.getItem('token')) {
+        api.sendHeartbeat().catch(err => {
+          console.error("Heartbeat failed:", err);
+          if (err.message === 'Invalid token') {
+            handleLogout();
+          }
+        });
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      clearInterval(heartbeatInterval);
+    };
+  }, [resetInactivityTimer, handleLogout]);
+
+  // Tavern Message Polling
+  useEffect(() => {
+    const fetchTavernMessages = async () => {
+        try {
+            const newMessages = await api.getTavernMessages();
+            setTavernMessages(newMessages);
+
+            if (activeTabRef.current !== Tab.Tavern) {
+                const latestMessage = newMessages[newMessages.length - 1];
+                if (latestMessage && (!lastReadTavernMessageIdRef.current || latestMessage.id > lastReadTavernMessageIdRef.current)) {
+                    setHasNewTavernMessages(true);
+                }
+            } else {
+                 const latestMessage = newMessages[newMessages.length - 1];
+                 if(latestMessage) {
+                     lastReadTavernMessageIdRef.current = latestMessage.id;
+                 }
+                 setHasNewTavernMessages(false);
+            }
+
+        } catch (error) {
+            console.error("Failed to fetch tavern messages:", error);
+        }
+    };
+    
+    fetchTavernMessages(); // Initial fetch
+    tavernIntervalRef.current = window.setInterval(fetchTavernMessages, 5000); // Poll every 5 seconds
+
+    return () => {
+        if (tavernIntervalRef.current) clearInterval(tavernIntervalRef.current);
+    };
+  }, []);
+
+  // Reset new tavern message indicator when tab is opened
+  useEffect(() => {
+    if (activeTab === Tab.Tavern) {
+        setHasNewTavernMessages(false);
+        if (tavernMessages.length > 0) {
+            lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
+        }
+    }
+  }, [activeTab, tavernMessages]);
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center font-sans">{t('loading')}</div>;
+  }
+
+  if (error && error !== 'Invalid token') {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-sans text-center">
+        <div>
+          <h2 className="text-2xl font-bold text-red-500 mb-4">{t('error.title')}</h2>
+          <p className="mb-4">{error}</p>
+          <p className="text-sm text-gray-400 mb-4">{t('error.refresh')}</p>
+          <button onClick={handleLogout} className="px-4 py-2 bg-red-600 rounded hover:bg-red-700">{t('error.logout')}</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <Auth onLoginSuccess={setToken} settings={gameData?.settings} />;
+  }
+
+  if (!playerCharacter) {
+    const startLocation = gameData?.locations.find(l => l.isStartLocation);
+    if (!startLocation) {
+        return <div>Error: No start location configured. Please contact an administrator.</div>;
+    }
+    return <CharacterCreation onCharacterCreate={(char) => api.createCharacter(char.name, char.race, startLocation.id).then(newChar => setBaseCharacter(newChar))} />;
+  }
+  
+  // Main game view
+  return (
+    <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
+        <div className="min-h-screen flex font-sans" style={{ backgroundImage: gameData?.settings.gameBackground ? `url(${gameData.settings.gameBackground})` : "url('game_background.png')", backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            playerCharacter={playerCharacter}
+            currentLocation={currentLocation}
+            onLogout={handleLogout}
+            hasUnreadMessages={hasUnreadMessages}
+            hasNewTavernMessages={hasNewTavernMessages}
+            onOpenNews={handleOpenNews}
+            hasNewNews={hasNewNews}
+          />
+          <main className="flex-1 p-6 overflow-y-auto">
+            {activeTab === Tab.Statistics && <Statistics character={playerCharacter} baseCharacter={baseCharacter!} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />}
+            {activeTab === Tab.Equipment && <Equipment character={playerCharacter} baseCharacter={baseCharacter!} gameData={gameData!} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />}
+            {activeTab === Tab.Expedition && <ExpeditionComponent character={playerCharacter} expeditions={gameData!.expeditions} enemies={gameData!.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} />}
+            {activeTab === Tab.Camp && <Camp character={playerCharacter} baseCharacter={baseCharacter!} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />}
+            {activeTab === Tab.Location && <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData!.locations} />}
+            {activeTab === Tab.Resources && <Resources character={playerCharacter} />}
+            {activeTab === Tab.Ranking && <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />}
+            {activeTab === Tab.Trader && <Trader character={playerCharacter} baseCharacter={baseCharacter!} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} settings={gameData!.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />}
+            {activeTab === Tab.Blacksmith && <Blacksmith character={playerCharacter} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />}
+            {activeTab === Tab.Messages && <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} currentPlayer={playerCharacter} onClaimReturn={handleClaimMessageItem} onDeleteBulk={handleBulkDeleteMessages} />}
+            {activeTab === Tab.Quests && <Quests character={playerCharacter} quests={gameData!.quests} enemies={gameData!.enemies} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />}
+            {activeTab === Tab.Tavern && <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage} />}
+            {activeTab === Tab.Market && <Market character={playerCharacter} gameData={gameData!} onCharacterUpdate={handleCharacterUpdate} />}
+            {activeTab === Tab.Options && <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />}
+            {playerCharacter.username === 'Kazujoshi' && activeTab === Tab.Admin && <AdminPanel gameData={gameData!} onGameDataUpdate={handleGameDataUpdate} onSettingsUpdate={handleSettingsUpdate} users={users} onDeleteUser={handleDeleteUser} allCharacters={allCharacters} onDeleteCharacter={handleDeleteCharacter} onResetCharacterStats={handleResetCharacterStats} onHealCharacter={handleHealCharacter} onUpdateCharacterGold={handleUpdateCharacterGold} onForceTraderRefresh={handleForceTraderRefresh} onResetAllPvpCooldowns={handleResetAllPvpCooldowns} onSendGlobalMessage={handleSendGlobalMessage} />}
+          </main>
+          {expeditionReport && <ExpeditionSummaryModal reward={expeditionReport} onClose={() => setExpeditionReport(null)} characterName={playerCharacter.name} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes}/>}
+          {pvpReport && <ExpeditionSummaryModal reward={{ combatLog: pvpReport.combatLog, isVictory: pvpReport.isVictory, totalGold: pvpReport.gold, totalExperience: pvpReport.experience, rewardBreakdown: [], itemsFound: [], essencesFound: {} }} onClose={() => setPvpReport(null)} characterName={pvpReport.attacker.name} itemTemplates={gameData!.itemTemplates} affixes={gameData!.affixes} isPvp={true} pvpData={{ attacker: pvpReport.attacker, defender: pvpReport.defender }} />}
+          {isComposingMessage && <ComposeMessageModal allCharacterNames={allCharacterNames} onClose={() => setIsComposingMessage(false)} onSendMessage={handleSendMessage} initialRecipient={composeInitialData?.recipient} initialSubject={composeInitialData?.subject} />}
+          <NewsModal isOpen={isNewsModalOpen} onClose={handleCloseNews} content={gameData?.settings.newsContent || ''} />
+        </div>
+    </LanguageContext.Provider>
+  );
+};
+
+export default App;
