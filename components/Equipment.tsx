@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
-import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
+// FIX: Import `ItemTooltip` to resolve 'Cannot find name' error.
+import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
 
 interface EquipmentProps {
@@ -109,9 +110,17 @@ const ItemComparisonTooltip: React.FC<{
         equippedItemsToCompare.push({ item: character.equipment.ring1, slotName: t('equipment.slot.ring1') });
         equippedItemsToCompare.push({ item: character.equipment.ring2, slotName: t('equipment.slot.ring2') });
     } else if (hoveredTemplate.slot === EquipmentSlot.TwoHand) {
-        // Compare 2H with current 1H main hand and offhand
-        equippedItemsToCompare.push({ item: character.equipment.mainHand, slotName: t('equipment.slot.mainHand') });
-        equippedItemsToCompare.push({ item: character.equipment.offHand, slotName: t('equipment.slot.offHand') });
+        if (character.equipment.twoHand) {
+            equippedItemsToCompare.push({ item: character.equipment.twoHand, slotName: t('equipment.slot.twoHand') });
+        } else {
+            // Compare 2H with current 1H main hand and offhand, only if they are equipped
+            if (character.equipment.mainHand) {
+                equippedItemsToCompare.push({ item: character.equipment.mainHand, slotName: t('equipment.slot.mainHand') });
+            }
+            if (character.equipment.offHand) {
+                equippedItemsToCompare.push({ item: character.equipment.offHand, slotName: t('equipment.slot.offHand') });
+            }
+        }
     } else if (hoveredTemplate.slot === EquipmentSlot.MainHand || hoveredTemplate.slot === EquipmentSlot.OffHand) {
         // Compare 1H with current 2H or the specific 1H slot
         if (character.equipment.twoHand) {
@@ -143,53 +152,37 @@ const ItemComparisonTooltip: React.FC<{
                     );
                 })}
                 <div className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
-                    <ItemDetailsPanel 
-                        item={hoveredItem} 
-                        template={hoveredTemplate} 
-                        affixes={gameData.affixes} 
-                        character={character} 
-                        size="small"
-                        title={t('equipment.itemToEquip')}
-                    />
+                    <ItemDetailsPanel item={hoveredItem} template={hoveredTemplate} affixes={gameData.affixes} character={character} size="small" title={t('equipment.itemToEquip')} />
                 </div>
             </div>
         </div>
     );
 };
 
+
 export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, gameData, onEquipItem, onUnequipItem }) => {
     const { t } = useTranslation();
-    const [draggedItemInfo, setDraggedItemInfo] = useState<{ item: ItemInstance, from: 'inventory' | EquipmentSlot } | null>(null);
+    const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance; source: 'equipment' | 'inventory'; fromSlot?: EquipmentSlot } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
+    const [hoveredInventoryItem, setHoveredInventoryItem] = useState<ItemInstance | null>(null);
+    const [filterSlot, setFilterSlot] = useState<string>('all');
     const [hideUnusable, setHideUnusable] = useState(false);
-    const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
-    const [slotFilter, setSlotFilter] = useState<string>('all');
-    
-    const [hoveredItem, setHoveredItem] = useState<ItemInstance | null>(null);
 
-    const handleDragStart = (item: ItemInstance, from: 'inventory' | EquipmentSlot) => {
-        setDraggedItemInfo({ item, from });
-    };
+    const backpackCapacity = getBackpackCapacity(character);
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-    };
-    
-    const handleSmartDrop = () => {
-        if (!draggedItemInfo || draggedItemInfo.from !== 'inventory') return;
-        onEquipItem(draggedItemInfo.item);
-        setDraggedItemInfo(null);
-    }
-
-    const handleDropOnBackpack = () => {
-        if (draggedItemInfo && draggedItemInfo.from !== 'inventory') {
-            onUnequipItem(draggedItemInfo.item, draggedItemInfo.from);
-        }
-        setDraggedItemInfo(null);
-    };
+    const equipmentSlotOptions = useMemo(() => {
+        const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
+            .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
+            .map(slot => ({ value: slot, label: t(`equipment.slot.${slot}`) as string }));
+        
+        const typedSlots: {value: string, label: string}[] = slots;
+        return typedSlots.concat([{ value: 'ring', label: t('item.slot.ring') as string }])
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [t]);
 
     const meetsRequirements = useCallback((item: ItemInstance): boolean => {
         const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-        if (!template) return true;
+        if (!template) return true; // Should not happen
 
         if (character.level < template.requiredLevel) {
             return false;
@@ -206,122 +199,163 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         return true;
     }, [character, gameData.itemTemplates]);
 
-    const validInventory = useMemo(() => 
-        character.inventory
-            .filter(item => {
-                const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                if (!template) return false;
-                if (hideUnusable && !meetsRequirements(item)) return false;
-                if (rarityFilter !== 'all' && template.rarity !== rarityFilter) return false;
-                
-                const slotToCheck = template.slot === 'ring' ? 'ring' : template.slot;
-                if (slotFilter !== 'all' && slotToCheck !== slotFilter) return false;
+    const filteredInventory = useMemo(() => {
+        return character.inventory.filter(item => {
+            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+            if (!template) return false;
 
-                return true;
-            }),
-        [character.inventory, gameData.itemTemplates, hideUnusable, meetsRequirements, rarityFilter, slotFilter]
-    );
+            if (hideUnusable && !meetsRequirements(item)) {
+                return false;
+            }
 
-    const backpackCapacity = getBackpackCapacity(character);
+            if (filterSlot === 'all') return true;
+            if (filterSlot === 'consumable') return template.slot === 'consumable';
+            
+            if (filterSlot === 'ring') {
+                return template.slot === 'ring' || template.slot === EquipmentSlot.Ring1 || template.slot === EquipmentSlot.Ring2;
+            }
 
+            return template.slot === filterSlot;
+        });
+    }, [character.inventory, filterSlot, hideUnusable, gameData.itemTemplates, meetsRequirements]);
+
+    const handleItemClick = (item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
+        setSelectedItem({ item, source, fromSlot });
+    };
+
+    const handleRightClick = (e: React.MouseEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item, source, fromSlot });
+    };
+    
+    const contextMenuOptions = useMemo(() => {
+        if (!contextMenu) return [];
+        if (contextMenu.source === 'inventory') {
+            return [{ label: t('equipment.equip'), action: () => onEquipItem(contextMenu.item) }];
+        }
+        if (contextMenu.source === 'equipment' && contextMenu.fromSlot) {
+            return [{ label: t('equipment.unequip'), action: () => onUnequipItem(contextMenu.item, contextMenu.fromSlot!) }];
+        }
+        return [];
+    }, [contextMenu, onEquipItem, onUnequipItem, t]);
+
+    const selectedTemplate = useMemo(() => {
+        if (!selectedItem) return null;
+        return gameData.itemTemplates.find(t => t.id === selectedItem.item.templateId) || null;
+    }, [selectedItem, gameData.itemTemplates]);
+    
     return (
         <ContentPanel title={t('equipment.title')}>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
-
-                {/* Column 1: Equipped Items */}
-                <div 
-                    onDragOver={handleDragOver}
-                    onDrop={handleSmartDrop}
-                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
-                >
+                {/* Equipped Items */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
                             const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
-
+                             if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) {
+                                return null;
+                            }
+                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) {
+                                return null;
+                            }
                             return (
-                                <div key={slot}>
-                                    {item && template ? (
-                                        <ItemListItem 
-                                            item={item} 
-                                            template={template} 
-                                            affixes={gameData.affixes} 
-                                            isSelected={false} 
-                                            onDragStart={() => handleDragStart(item, slot)}
+                                item && template ? (
+                                    <div 
+                                        key={slot} 
+                                        onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}
+                                        className="relative group"
+                                    >
+                                        <ItemListItem
+                                            item={item}
+                                            template={template}
+                                            affixes={gameData.affixes}
+                                            isSelected={selectedItem?.item.uniqueId === item.uniqueId}
+                                            onClick={() => handleItemClick(item, 'equipment', slot)}
+                                            showPrimaryStat={false}
                                         />
-                                    ) : (
-                                        <>
-                                            {slot === EquipmentSlot.TwoHand && (character.equipment.mainHand || character.equipment.offHand) ? null :
-                                            (slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand ? null :
-                                            <EmptySlotListItem slotName={t(`equipment.slot.${slot}`)} />}
-                                        </>
-                                    )}
-                                </div>
+                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes} />
+                                    </div>
+                                ) : (
+                                    <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
+                                )
                             );
                         })}
                     </div>
                 </div>
 
-                {/* Column 2: Details / Stats */}
+                {/* Details/Stats Panel */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
-                    <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
+                    {selectedItem ? (
+                        <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes} character={character} />
+                    ) : (
+                        <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
+                    )}
                 </div>
 
-                {/* Column 3: Backpack */}
-                <div 
-                    onDragOver={handleDragOver}
-                    onDrop={handleDropOnBackpack}
-                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
-                >
-                    <div className="flex justify-between items-center mb-2 px-2">
+                {/* Inventory */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+                    <div className="flex justify-between items-center mb-4 px-2">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
-                        <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">{validInventory.length} / {backpackCapacity}</div>
+                        <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
+                            {character.inventory.length} / {backpackCapacity}
+                        </div>
                     </div>
-                     <div className="grid grid-cols-2 gap-2 mb-2 px-2">
-                        <select value={rarityFilter} onChange={e => setRarityFilter(e.target.value as ItemRarity | 'all')} className="w-full bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-xs">
-                            <option value="all">{t('admin.item.allRarities')}</option>
-                            {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
-                        </select>
-                         <select value={slotFilter} onChange={e => setSlotFilter(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-xs">
-                            <option value="all">{t('admin.item.allSlots')}</option>
-                            {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
-                            <option value="ring">{t('item.slot.ring')}</option>
-                        </select>
-                    </div>
-                    <div className="mb-2 px-2">
-                        <label className="flex items-center text-sm space-x-2">
+                    <div className="px-2 mb-4 space-y-2">
+                        <div className="flex items-center space-x-2">
+                            <label htmlFor="item-filter" className="text-sm text-gray-400">{t('equipment.filterByType')}:</label>
+                            <select
+                                id="item-filter"
+                                value={filterSlot}
+                                onChange={(e) => {
+                                    setFilterSlot(e.target.value);
+                                    setSelectedItem(null);
+                                }}
+                                className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            >
+                                <option value="all">{t('equipment.showAll')}</option>
+                                {equipmentSlotOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                                <option value="consumable">{t('item.slot.consumable')}</option>
+                            </select>
+                        </div>
+                         <label className="flex items-center space-x-2 text-sm text-gray-400">
                             <input type="checkbox" checked={hideUnusable} onChange={(e) => setHideUnusable(e.target.checked)} className="form-checkbox h-4 w-4 rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500"/>
                             <span>{t('equipment.hideUnusable')}</span>
                         </label>
                     </div>
-                    <div className="flex-grow overflow-y-auto pr-2 space-y-1 border border-transparent rounded-lg">
-                        {validInventory.map(item => {
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredInventoryItem(null)}>
+                        {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
-                            return <ItemListItem 
-                                        key={item.uniqueId} 
-                                        item={item} 
-                                        template={template} 
-                                        affixes={gameData.affixes} 
-                                        isSelected={false} 
+                            const isSelected = selectedItem?.item.uniqueId === item.uniqueId;
+                            return (
+                                <div 
+                                    key={item.uniqueId} 
+                                    onMouseEnter={() => setHoveredInventoryItem(item)}
+                                    onContextMenu={(e) => handleRightClick(e, item, 'inventory')}
+                                >
+                                    <ItemListItem
+                                        item={item}
+                                        template={template}
+                                        affixes={gameData.affixes}
+                                        isSelected={isSelected}
+                                        onClick={() => handleItemClick(item, 'inventory')}
+                                        showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
-                                        onDragStart={() => handleDragStart(item, 'inventory')}
-                                        onMouseEnter={(e) => { setHoveredItem(item); }}
-                                        onMouseLeave={() => { setHoveredItem(null); }}
-                                    />;
+                                    />
+                                </div>
+                            );
                         })}
                     </div>
                 </div>
             </div>
 
-            {hoveredItem && (
-                <ItemComparisonTooltip 
-                    hoveredItem={hoveredItem}
-                    character={character}
-                    gameData={gameData}
-                />
-            )}
+            {contextMenu && <ContextMenu {...contextMenu} options={contextMenuOptions} onClose={() => setContextMenu(null)} />}
+            {hoveredInventoryItem && <ItemComparisonTooltip hoveredItem={hoveredInventoryItem} character={character} gameData={gameData} />}
+
         </ContentPanel>
     );
 };

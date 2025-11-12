@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -212,7 +211,7 @@ const UpgradePanel: React.FC<{
 }> = ({ character, itemTemplates, affixes, onUpgradeItem, setNotification }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
-    const [filterSlot, setFilterSlot] = useState<EquipmentSlot | 'consumable' | 'all'>('all');
+    const [filterSlot, setFilterSlot] = useState<string>('all');
 
     const allItems = useMemo(() => [
         ...Object.values(character.equipment)
@@ -224,14 +223,31 @@ const UpgradePanel: React.FC<{
     const equippedItemIds = useMemo(() => 
         new Set(Object.values(character.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
     [character.equipment]);
+
+    const equipmentSlotOptions = useMemo(() => {
+        const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
+            .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
+            .map(slot => ({ value: slot, label: t(`equipment.slot.${slot}`) as string }));
+        
+        return slots.concat([{ value: 'ring', label: t('item.slot.ring') as string }])
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [t]);
     
     const filteredItems = useMemo(() => {
-        if (filterSlot === 'all') {
-            return allItems;
+        if (filterSlot === 'all' || filterSlot === 'consumable') {
+            const items = allItems.filter(item => {
+                 const template = itemTemplates.find(t => t.id === item.templateId);
+                 return template?.slot === filterSlot;
+            });
+            return filterSlot === 'all' ? allItems : items;
         }
         return allItems.filter(item => {
             const template = itemTemplates.find(t => t.id === item.templateId);
-            return template?.slot === filterSlot;
+            if (!template) return false;
+            
+            const slotToCheck = template.slot === 'ring' || template.slot === EquipmentSlot.Ring1 || template.slot === EquipmentSlot.Ring2 ? 'ring' : template.slot;
+            
+            return slotToCheck === filterSlot;
         });
     }, [allItems, filterSlot, itemTemplates]);
 
@@ -320,14 +336,14 @@ const UpgradePanel: React.FC<{
                             id="item-filter"
                             value={filterSlot}
                             onChange={(e) => {
-                                setFilterSlot(e.target.value as EquipmentSlot | 'consumable' | 'all');
+                                setFilterSlot(e.target.value);
                                 setSelectedItem(null);
                             }}
                             className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                         >
                             <option value="all">{t('equipment.showAll')}</option>
-                            {Object.values(EquipmentSlot).map(slot => (
-                                <option key={slot} value={slot}>{t(`equipment.slot.${slot}`)}</option>
+                            {equipmentSlotOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                             <option value="consumable">{t('item.slot.consumable')}</option>
                         </select>
