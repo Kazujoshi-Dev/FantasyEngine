@@ -7,6 +7,7 @@ const router = Router();
 
 // GET all messages for the user
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -21,6 +22,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 
 // POST a new message
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { recipientName, subject, content } = req.body;
     try {
@@ -50,6 +52,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
 // PUT to mark as read
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
@@ -64,6 +67,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 
 // DELETE a message
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
@@ -78,6 +82,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 
 // POST to claim item from market return message
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -113,6 +118,7 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
 
 // POST for bulk delete
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
     const { type } = req.body;
     let query;

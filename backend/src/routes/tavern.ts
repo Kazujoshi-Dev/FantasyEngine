@@ -6,6 +6,7 @@ import { TavernMessage } from '../types.js';
 const router = Router();
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -18,6 +19,7 @@ router.get('/messages', authenticateToken, async (req: Request, res: Response) =
 });
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {

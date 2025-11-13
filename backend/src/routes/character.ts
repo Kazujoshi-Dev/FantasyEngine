@@ -8,6 +8,7 @@ const router = Router();
 
 // GET /api/character - Get the current user's character data
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
@@ -17,6 +18,33 @@ router.get('/character', authenticateToken, async (req: Request, res: Response) 
         }
         
         const character: PlayerCharacter = result.rows[0].data;
+
+        // Energy regeneration logic
+        const now = Date.now();
+        const lastUpdate = character.lastEnergyUpdateTime || now;
+        const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
+
+        let needsDbUpdate = false;
+        if (hoursPassed > 0 && character.stats.currentEnergy < character.stats.maxEnergy) {
+            const energyToRegen = Math.min(
+                hoursPassed,
+                character.stats.maxEnergy - character.stats.currentEnergy
+            );
+
+            if (energyToRegen > 0) {
+                character.stats.currentEnergy += energyToRegen;
+                // Update the timestamp to the last full hour for which energy was granted
+                character.lastEnergyUpdateTime = lastUpdate + hoursPassed * (1000 * 60 * 60);
+                needsDbUpdate = true;
+            }
+        }
+        
+        // Asynchronously update the character in the DB if energy changed, without blocking the response.
+        if (needsDbUpdate) {
+            pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
+                .catch(err => console.error("Async energy update failed:", err));
+        }
+
 
         // Check if expedition is finished and update character state in memory if needed, but don't finalize here
         if (character.activeExpedition && Date.now() >= character.activeExpedition.finishTime) {
@@ -32,6 +60,7 @@ router.get('/character', authenticateToken, async (req: Request, res: Response) 
 });
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -81,6 +110,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: Req
 
 // POST /api/character - Create a new character
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const newCharacterData: PlayerCharacter = req.body;
@@ -106,6 +136,7 @@ router.post('/character', authenticateToken, async (req: Request, res: Response)
 
 // PUT /api/character - Update character data
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.put('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
@@ -126,6 +157,7 @@ router.put('/character', authenticateToken, async (req: Request, res: Response) 
 
 // POST /api/character/select-class
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const { characterClass } = req.body as { characterClass: CharacterClass };
      if (!Object.values(CharacterClass).includes(characterClass)) {
@@ -155,6 +187,7 @@ router.post('/character/select-class', authenticateToken, async (req: Request, r
 
 // GET /api/characters/names - Get all character names
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");

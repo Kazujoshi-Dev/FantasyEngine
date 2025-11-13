@@ -3,6 +3,7 @@ import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
 // FIX: Import `ItemTooltip` to resolve 'Cannot find name' error.
+// Import `ItemTooltip` to resolve 'Cannot find name' error.
 import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
 

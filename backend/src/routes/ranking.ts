@@ -18,6 +18,7 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
 };
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`

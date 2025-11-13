@@ -6,6 +6,7 @@ import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types
 const router = Router();
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
@@ -66,6 +67,7 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
 });
 
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();

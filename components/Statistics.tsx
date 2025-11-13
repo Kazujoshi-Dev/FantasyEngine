@@ -114,11 +114,35 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
   const [activeTab, setActiveTab] = useState<'stats' | 'development'>('stats');
   const [pendingStats, setPendingStats] = useState(baseCharacter.stats);
   const [spentPoints, setSpentPoints] = useState(0);
+  const [nextEnergyCountdown, setNextEnergyCountdown] = useState('');
 
   useEffect(() => {
     setPendingStats(baseCharacter.stats);
     setSpentPoints(0);
   }, [baseCharacter]);
+
+  useEffect(() => {
+    if (character.stats.currentEnergy >= character.stats.maxEnergy) {
+      setNextEnergyCountdown('');
+      return;
+    }
+
+    const calculateCountdown = () => {
+      const now = new Date();
+      const nextHour = new Date(now);
+      nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+      const diff = Math.floor((nextHour.getTime() - now.getTime()) / 1000);
+      
+      const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
+      const seconds = (diff % 60).toString().padStart(2, '0');
+      setNextEnergyCountdown(`(${minutes}:${seconds})`);
+    };
+
+    calculateCountdown(); // Initial call
+    const interval = setInterval(calculateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [character.stats.currentEnergy, character.stats.maxEnergy]);
 
   const availablePoints = baseCharacter.stats.statPoints - spentPoints;
 
@@ -290,7 +314,16 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                   <div className="space-y-1">
                       <StatRow label={t('statistics.health')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentHealth.toFixed(0)} / {previewCharacter.stats.maxHealth}</span>} description={t('statistics.healthDesc')} />
                       <StatRow label={t('statistics.mana')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentMana.toFixed(0)} / {previewCharacter.stats.maxMana}</span>} description={t('statistics.manaDesc')} />
-                      <StatRow label={t('statistics.energyLabel')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentEnergy} / {previewCharacter.stats.maxEnergy}</span>} description={t('statistics.energyDesc')} />
+                      <StatRow 
+                        label={t('statistics.energyLabel')} 
+                        value={
+                          <div className="flex items-baseline justify-end">
+                            <span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentEnergy} / {previewCharacter.stats.maxEnergy}</span>
+                            {nextEnergyCountdown && <span className="text-xs text-gray-400 ml-2 font-mono">{nextEnergyCountdown}</span>}
+                          </div>
+                        } 
+                        description={t('statistics.energyDesc')} 
+                      />
                   </div>
               </div>
           </div>

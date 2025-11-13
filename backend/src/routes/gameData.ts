@@ -7,6 +7,7 @@ const router = Router();
 
 // Public endpoint to get all game data
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
@@ -23,6 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 // Admin-only endpoint to update game data
 // FIX: Added explicit types for req and res.
+// Add explicit types for req and res.
 router.put('/', authenticateToken, async (req: Request, res: Response) => {
     // A simple admin check could be based on username
     const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
