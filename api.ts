@@ -409,14 +409,14 @@ export const api = {
         });
     },
 
-    // FIX: Add missing claimMarketListing function
+// FIX: Add missing claimMarketListing function
     async claimMarketListing(listingId: number): Promise<PlayerCharacter> {
         return fetchApi(`/market/listings/${listingId}/claim`, {
             method: 'POST',
         });
     },
 
-    // FIX: Add missing admin audit functions
+// FIX: Add missing admin audit functions
     async runDuplicationAudit(): Promise<DuplicationAuditResult[]> {
         return fetchApi('/admin/audit/duplicates');
     },

@@ -1026,6 +1026,11 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             setGameData(gameData);
     
             if (charData) {
+              // Check for completed expedition on load
+              if (charData.activeExpedition && Date.now() >= charData.activeExpedition.finishTime) {
+                  handleTriggerExpeditionCompletion();
+              }
+
               setBaseCharacter(charData);
               const [messages, tavernMessages] = await Promise.all([api.getMessages(), api.getTavernMessages()]);
               setMessages(messages);
@@ -1074,7 +1079,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             eventListeners.forEach(([event, listener]) => window.removeEventListener(event, listener));
             if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         };
-    }, [token, handleLogout, resetInactivityTimer]);
+    }, [token, handleLogout, resetInactivityTimer, handleTriggerExpeditionCompletion]);
     
      // Periodic tavern message fetch
     useEffect(() => {

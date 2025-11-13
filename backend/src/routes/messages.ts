@@ -1,6 +1,7 @@
 
 
-import express, { Request, Response } from 'express';
+
+import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -8,7 +9,7 @@ import { Message, MarketNotificationBody } from '../types.js';
 const router = express.Router();
 
 // GET all messages for the user
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
@@ -21,7 +22,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // POST a new message
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
+router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { recipientName, subject, content } = req.body;
     try {
         const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
@@ -49,7 +50,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // PUT to mark as read
-router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.put('/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
@@ -62,7 +63,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // DELETE a message
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.delete('/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
@@ -75,7 +76,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // POST to claim item from market return message
-router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
+router.post('/claim-return/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -109,7 +110,7 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
 });
 
 // POST for bulk delete
-router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
+router.post('/bulk-delete', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { type } = req.body;
     let query;
     const params = [req.user!.id];
