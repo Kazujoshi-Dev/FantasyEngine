@@ -1248,7 +1248,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
 
   return (
     <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
-      {playerCharacter && gameData && expeditionReport && (
+      {playerCharacter && gameData && expeditionReport && !playerCharacter.activeExpedition && (
         <ExpeditionSummaryModal
           reward={expeditionReport}
           onClose={() => setExpeditionReport(null)}

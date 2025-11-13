@@ -2,6 +2,7 @@ import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, 
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
+import { calculateDerivedStatsOnServer } from './stats.js';
 
 export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary } => {
     const expedition = gameData.expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
@@ -34,14 +35,15 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     }
 
     // 2. Simulate combat and gather logs/results
-    let playerHealth = character.stats.currentHealth;
-    let playerMana = character.stats.currentMana;
+    const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates, gameData.affixes);
+    let playerHealth = characterWithStats.stats.currentHealth;
+    let playerMana = characterWithStats.stats.currentMana;
     let isVictory = true;
     const fullCombatLog: CombatLogEntry[] = [];
     const rewardBreakdown: RewardSource[] = [];
 
     for (const enemy of encounteredEnemies) {
-        const combatCharacter = { ...character, stats: { ...character.stats, currentHealth: playerHealth, currentMana: playerMana }};
+        const combatCharacter = { ...characterWithStats, stats: { ...characterWithStats.stats, currentHealth: playerHealth, currentMana: playerMana }};
         const combatLog = simulateCombat(combatCharacter, enemy, gameData);
         fullCombatLog.push(...combatLog);
         
