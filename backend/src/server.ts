@@ -1,5 +1,6 @@
 
-import express, { NextFunction } from 'express';
+
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -65,13 +66,15 @@ app.use('/api', characterRoutes);
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // FIX: No overload matches this call. Property 'sendFile' does not exist on type 'Response<any, Record<string, any>>'.
-app.get('*', (req: express.Request, res: express.Response) => {
+// FIX: Added explicit Request and Response types from express.
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
 // FIX: Property 'status' does not exist on type 'Response<any, Record<string, any>>'.
-app.use((err: Error, req: express.Request, res: express.Response, next: NextFunction) => {
+// FIX: Added explicit Request and Response types from express.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

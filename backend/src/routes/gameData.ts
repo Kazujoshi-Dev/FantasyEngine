@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import { Response, Request } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';

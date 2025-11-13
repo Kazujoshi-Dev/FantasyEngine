@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import { Response, Request } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';

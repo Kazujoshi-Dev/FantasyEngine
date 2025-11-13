@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import { Response, Request } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
@@ -106,7 +105,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         if (listingRes.rows.length === 0) {
             return res.status(404).json({ message: "Listing not found or already sold." });
         }
-        const listing = listingRes.rows[0];
+        const listing: MarketListing = listingRes.rows[0];
 
         if (listing.seller_id === buyerId) return res.status(400).json({ message: "You cannot buy your own item." });
         if (listing.listing_type !== 'buy_now' || !listing.buy_now_price) return res.status(400).json({ message: "This is not a 'buy now' listing." });
@@ -212,7 +211,7 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
         const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 AND seller_id = $2 AND status = 'ACTIVE' FOR UPDATE", [listingId, sellerId]);
         if (listingRes.rows.length === 0) return res.status(404).json({ message: "Listing not found or not yours." });
         
-        const listing = listingRes.rows[0];
+        const listing: MarketListing = listingRes.rows[0];
         if (listing.listing_type === 'auction' && listing.highest_bidder_id) {
             return res.status(400).json({ message: "Cannot cancel an auction that has bids." });
         }
@@ -245,7 +244,7 @@ router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: 
         if (listingRes.rows.length === 0) {
             return res.status(404).json({ message: "No claimable listing found." });
         }
-        const listing = listingRes.rows[0];
+        const listing: MarketListing = listingRes.rows[0];
         
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [sellerId]);
         let character: PlayerCharacter = charRes.rows[0].data;
