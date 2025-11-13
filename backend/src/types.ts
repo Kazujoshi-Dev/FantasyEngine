@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 export enum Tab {
   Statistics,
   Equipment,
