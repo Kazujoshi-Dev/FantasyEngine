@@ -44,7 +44,29 @@ router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: 
         const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!);
         const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!);
 
-        const combatLog = simulateCombat(attackerWithStats, { ...defenderWithStats, id: defender.id!.toString() } as any, gameData); // Adapt to simulateCombat
+        const defenderAsEnemy: Enemy = {
+            id: defenderId.toString(),
+            name: defenderWithStats.name,
+            description: `Level ${defenderWithStats.level} ${defenderWithStats.race} ${defenderWithStats.characterClass || ''}`.trim(),
+            stats: {
+                maxHealth: defenderWithStats.stats.maxHealth,
+                minDamage: defenderWithStats.stats.minDamage,
+                maxDamage: defenderWithStats.stats.maxDamage,
+                armor: defenderWithStats.stats.armor,
+                critChance: defenderWithStats.stats.critChance,
+                critDamageModifier: defenderWithStats.stats.critDamageModifier,
+                agility: defenderWithStats.stats.agility,
+                maxMana: defenderWithStats.stats.maxMana,
+                manaRegen: defenderWithStats.stats.manaRegen,
+                magicDamageMin: defenderWithStats.stats.magicDamageMin,
+                magicDamageMax: defenderWithStats.stats.magicDamageMax,
+                attacksPerTurn: defenderWithStats.stats.attacksPerRound,
+            },
+            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
+            lootTable: [],
+        };
+
+        const combatLog = simulateCombat(attackerWithStats, defenderAsEnemy, gameData);
         const lastLog = combatLog[combatLog.length - 1];
         const isVictory = lastLog.enemyHealth <= 0;
 

@@ -219,7 +219,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         // Crit logic
         if (Math.random() * 100 < attackerStats.critChance) {
             isCrit = true;
-            const critModifier = 'critDamageModifier' in attackerStats ? attackerStats.critDamageModifier : 200;
+            const critModifier = 'critDamageModifier' in attackerStats && attackerStats.critDamageModifier ? attackerStats.critDamageModifier : 200;
             damage = Math.floor(damage * (critModifier / 100));
         }
 
