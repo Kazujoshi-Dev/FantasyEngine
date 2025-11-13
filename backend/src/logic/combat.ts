@@ -1,4 +1,5 @@
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../types.js';
+import { getGrammaticallyCorrectFullName } from './items.js';
 
 interface CombatState {
     player: { stats: CharacterStats, currentHealth: number, currentMana: number, name: string };
@@ -7,11 +8,13 @@ interface CombatState {
     turn: number;
 }
 
-const getEquippedWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
+const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
     const weaponInstance = playerData.equipment.mainHand || playerData.equipment.twoHand;
     if (weaponInstance) {
         const template = gameData.itemTemplates.find(t => t.id === weaponInstance.templateId);
-        return template?.name;
+        if (template) {
+            return getGrammaticallyCorrectFullName(weaponInstance, template, gameData.affixes);
+        }
     }
     return undefined; 
 };
@@ -50,7 +53,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
         enemyDescription: state.enemy.description
     });
     
-    const weaponName = getEquippedWeaponName(playerData, gameData);
+    const weaponName = getFullWeaponName(playerData, gameData);
 
     let playerAttacksFirst = state.player.stats.agility >= state.enemy.stats.agility;
     if (playerData.race === Race.Elf) {

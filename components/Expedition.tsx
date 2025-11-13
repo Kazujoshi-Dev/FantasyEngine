@@ -104,8 +104,8 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = 
             <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
             <span className={`${textColor} font-semibold`}>{log.attacker}</span>
             <span> {attackVerb} </span>
+            {log.weaponName && <span className="text-gray-500 mx-1">({log.weaponName})</span>}
             <span className={`${isPlayerAttacker ? 'text-red-400' : 'text-sky-400'} font-semibold`}>{log.defender}</span>
-            {log.weaponName && <span className="text-gray-500 ml-1">({log.weaponName})</span>}
             <span> {t('expedition.dealing')} </span>
             <span className="font-bold text-white">{log.damage}</span>
             <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
@@ -230,8 +230,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const logContainerRef = useRef<HTMLDivElement>(null);
     const [currentPlayerStats, setCurrentPlayerStats] = useState<CharacterStats | null>(null);
     const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(null);
-    // FIX: Changed type of animationTimerRef to `any` to avoid Node/browser type conflicts with `setTimeout`.
-    const animationTimerRef = useRef<any | null>(null);
+    const animationTimerRef = useRef<number | null>(null);
     
     // In PvP, isVictory from backend is always from attacker's perspective.
     // For defender view (from messages), we need to flip it.
