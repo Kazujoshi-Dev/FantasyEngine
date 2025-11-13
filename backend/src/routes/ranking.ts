@@ -30,13 +30,12 @@ router.get('/', async (req: Request, res: Response) => {
                 (c.data->>'pvpWins')::int as "pvpWins",
                 (c.data->>'pvpLosses')::int as "pvpLosses",
                 (c.data->>'pvpProtectionUntil')::bigint as "pvpProtectionUntil",
-                (active_sessions.user_id IS NOT NULL) as "isOnline"
+                EXISTS (
+                    SELECT 1 
+                    FROM sessions s 
+                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes'
+                ) as "isOnline"
             FROM characters c
-            LEFT JOIN (
-                SELECT DISTINCT user_id 
-                FROM sessions 
-                WHERE last_active_at > NOW() - INTERVAL '5 minutes'
-            ) as active_sessions ON c.user_id = active_sessions.user_id
         `);
 
         const rankingData: RankingPlayer[] = result.rows;
