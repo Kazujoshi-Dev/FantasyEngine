@@ -62,10 +62,10 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
         
         const attackers = playerAttacksFirst ? ['player', 'enemy'] : ['enemy', 'player'];
 
-        for (const attacker of attackers) {
+        for (const attackerType of attackers) {
             if (state.player.currentHealth <= 0 || state.enemy.currentHealth <= 0) break;
 
-            if (attacker === 'player') {
+            if (attackerType === 'player') {
                  // Player mana regen
                 const manaToRegen = state.player.stats.manaRegen;
                 if (manaToRegen > 0) {
@@ -89,7 +89,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 // Player attacks
                 for (let i = 0; i < state.player.stats.attacksPerRound; i++) {
                      if (state.enemy.currentHealth <= 0) break;
-                     performAttack(state, 'player', 'enemy', gameData, playerData, weaponName);
+                     performAttack(state, 'player', gameData, playerData, weaponName);
                 }
 
             } else {
@@ -116,7 +116,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 // Enemy attacks
                 for (let i = 0; i < (state.enemy.stats.attacksPerTurn || 1); i++) {
                     if (state.player.currentHealth <= 0) break;
-                    performAttack(state, 'enemy', 'player', gameData, playerData);
+                    performAttack(state, 'enemy', gameData, playerData);
                 }
             }
         }
@@ -129,12 +129,14 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
 };
 
 
-const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', defenderType: 'player' | 'enemy', gameData: GameData, playerData: PlayerCharacter, weaponName?: string) => {
-    const attacker = state[attackerType];
-    const defender = state[defenderType];
+const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gameData: GameData, playerData: PlayerCharacter, weaponName?: string) => {
+    // 1. Explicitly define attacker and defender references
+    const isPlayerAttacking = attackerType === 'player';
+    const attacker = isPlayerAttacking ? state.player : state.enemy;
+    const defender = isPlayerAttacking ? state.enemy : state.player;
 
-    // Dodge check
-    const dodgeChance = defenderType === 'player' ? (defender.stats as CharacterStats).dodgeChance : 0; // Enemies don't dodge for now
+    // 2. Dodge check
+    const dodgeChance = !isPlayerAttacking ? (defender.stats as CharacterStats).dodgeChance : 0; // Enemies don't dodge
     if (Math.random() * 100 < dodgeChance) {
         state.log.push({
             turn: state.turn,
@@ -145,11 +147,11 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
             playerHealth: state.player.currentHealth,
             playerMana: state.player.currentMana,
             enemyHealth: state.enemy.currentHealth,
-            enemyMana: state.enemy.currentMana
+            enemyMana: state.enemy.currentMana,
         });
         return;
     }
-    
+
     let damage = 0;
     let isCrit = false;
     let damageReduced = 0;
@@ -158,9 +160,8 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
     let magicAttackType: MagicAttackType | undefined = undefined;
     let useMagicAttack = false;
 
-    // Determine if magic attack is used
-    const attackerStats = attacker.stats as CharacterStats | EnemyStats;
-    if (attackerType === 'player') {
+    // 3. Magic Attack Logic
+    if (isPlayerAttacking) {
         const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
         if (template && template.isMagical && template.magicAttackType) {
@@ -173,12 +174,12 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
                 const magicDmgMin = (attacker.stats as CharacterStats).magicDamageMin || 0;
                 const magicDmgMax = (attacker.stats as CharacterStats).magicDamageMax || 0;
                 damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
-                
+
                 if (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) {
                     if (Math.random() * 100 < attacker.stats.critChance) {
-                       isCrit = true;
-                       damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier / 100));
-                   }
+                        isCrit = true;
+                        damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier / 100));
+                    }
                 }
             } else {
                 state.log.push({
@@ -189,14 +190,11 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
                     playerHealth: state.player.currentHealth,
                     playerMana: state.player.currentMana,
                     enemyHealth: state.enemy.currentHealth,
-                    enemyMana: state.enemy.currentMana
+                    enemyMana: state.enemy.currentMana,
                 });
             }
-        } else {
-            // This 'else' block handles non-magical weapons and clarifies the control flow for TypeScript.
-            // The logic will correctly fall through to the physical attack calculation.
         }
-    } else { // Enemy attack
+    } else { // Enemy is attacking
         const enemyStats = attacker.stats as EnemyStats;
         const manaCost = enemyStats.magicAttackManaCost || 0;
         if (Math.random() * 100 < (enemyStats.magicAttackChance || 0) && attacker.currentMana >= manaCost) {
@@ -206,63 +204,56 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
             damage = Math.floor(Math.random() * ((enemyStats.magicDamageMax || 0) - (enemyStats.magicDamageMin || 0) + 1)) + (enemyStats.magicDamageMin || 0);
         }
     }
-    
+
+    // 4. Physical Attack Logic
     if (!useMagicAttack) {
         damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
 
-        // Crit check
         if (Math.random() * 100 < attacker.stats.critChance) {
             isCrit = true;
-            // The attacker could be an enemy, whose stats don't have critDamageModifier.
-            // We safely access it and provide a default of 200 if it's missing or not a number.
-            const critModifier = (attacker.stats as CharacterStats).critDamageModifier;
-            const finalCritModifier = typeof critModifier === 'number' ? critModifier : 200;
-            damage = Math.floor(damage * (finalCritModifier / 100));
+            const critModifier = (attacker.stats as CharacterStats).critDamageModifier || 200;
+            damage = Math.floor(damage * (critModifier / 100));
         }
 
-        // Armor reduction
         const armorPenPercent = (attacker.stats as CharacterStats).armorPenetrationPercent || 0;
         const armorPenFlat = (attacker.stats as CharacterStats).armorPenetrationFlat || 0;
         const effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
-        
         damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
         damage -= damageReduced;
     }
 
-    // Special race/class bonuses
-    if (attackerType === 'player') {
-        if (playerData.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
-            damage = Math.floor(damage * 1.25);
-        }
+    // 5. Special Bonuses
+    if (isPlayerAttacking && playerData.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
+        damage = Math.floor(damage * 1.25);
     }
-    if (defenderType === 'player') {
-        if (playerData.race === Race.Dwarf && defender.currentHealth < defender.stats.maxHealth * 0.5) {
-            const reduction = Math.floor(damage * 0.20);
-            damage -= reduction;
-            damageReduced += reduction;
-        }
+    if (!isPlayerAttacking && playerData.race === Race.Dwarf && defender.currentHealth < defender.stats.maxHealth * 0.5) {
+        const reduction = Math.floor(damage * 0.20);
+        damage -= reduction;
+        damageReduced += reduction;
     }
 
-    // Lifesteal / Manasteal
-    if (attackerType === 'player') {
-        const lifeStealAmount = Math.floor(damage * ((attacker.stats as CharacterStats).lifeStealPercent / 100)) + (attacker.stats as CharacterStats).lifeStealFlat;
+    // 6. Lifesteal / Manasteal
+    if (isPlayerAttacking) {
+        const playerStats = attacker.stats as CharacterStats;
+        const lifeStealAmount = Math.floor(damage * (playerStats.lifeStealPercent / 100)) + playerStats.lifeStealFlat;
         if (lifeStealAmount > 0) {
             const newHealth = Math.min(attacker.stats.maxHealth, attacker.currentHealth + lifeStealAmount);
             healthGained = newHealth - attacker.currentHealth;
             attacker.currentHealth = newHealth;
         }
-
-        const manaStealAmount = Math.floor(damage * ((attacker.stats as CharacterStats).manaStealPercent / 100)) + (attacker.stats as CharacterStats).manaStealFlat;
-         if (manaStealAmount > 0) {
+        const manaStealAmount = Math.floor(damage * (playerStats.manaStealPercent / 100)) + playerStats.manaStealFlat;
+        if (manaStealAmount > 0) {
             const newMana = Math.min(attacker.stats.maxMana, attacker.currentMana + manaStealAmount);
             manaGained = newMana - attacker.currentMana;
             attacker.currentMana = newMana;
         }
     }
     
+    // 7. Apply damage
     defender.currentHealth -= damage;
     if (defender.currentHealth < 0) defender.currentHealth = 0;
     
+    // 8. Log Entry (reading directly from state)
     const logEntry: CombatLogEntry = {
         turn: state.turn,
         attacker: attacker.name,
