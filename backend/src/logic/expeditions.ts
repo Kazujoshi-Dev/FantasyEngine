@@ -1,10 +1,11 @@
+
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 
-export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary } => {
+export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
     const expedition = gameData.expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expedition) {
         // This case should ideally not happen if data is consistent
@@ -14,7 +15,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             summary: { 
                 rewardBreakdown: [], totalGold: 0, totalExperience: 0, 
                 combatLog: [], isVictory: false, itemsFound: [], essencesFound: {}
-            }
+            },
+            expeditionName: 'Unknown Expedition'
         };
     }
     
@@ -189,5 +191,5 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         itemsLostCount: itemsLostCount > 0 ? itemsLostCount : undefined
     };
 
-    return { updatedCharacter: finalCharacter, summary };
+    return { updatedCharacter: finalCharacter, summary, expeditionName: expedition.name };
 };

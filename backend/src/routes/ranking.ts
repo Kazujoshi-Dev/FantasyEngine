@@ -1,4 +1,5 @@
 
+
 import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -18,9 +19,13 @@ router.get('/', async (req: Request, res: Response) => {
                 (c.data->>'pvpWins')::int as "pvpWins",
                 (c.data->>'pvpLosses')::int as "pvpLosses",
                 (c.data->>'pvpProtectionUntil')::bigint as "pvpProtectionUntil",
-                (s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
+                (active_sessions.user_id IS NOT NULL) as "isOnline"
             FROM characters c
-            LEFT JOIN sessions s ON c.user_id = s.user_id
+            LEFT JOIN (
+                SELECT DISTINCT user_id 
+                FROM sessions 
+                WHERE last_active_at > NOW() - INTERVAL '5 minutes'
+            ) as active_sessions ON c.user_id = active_sessions.user_id
         `);
 
         const ranking: RankingPlayer[] = result.rows.map(row => {

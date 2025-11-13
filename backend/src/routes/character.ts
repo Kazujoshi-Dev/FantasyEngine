@@ -1,4 +1,5 @@
 
+
 import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -55,9 +56,16 @@ router.post('/character/complete-expedition', authenticateToken, async (req: Req
             return acc;
         }, {} as GameData);
 
-        const { updatedCharacter, summary } = processCompletedExpedition(character, gameData);
+        const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(character, gameData);
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
+
+        // Save expedition report as a message
+        await client.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
+             VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
+        );
 
         await client.query('COMMIT');
         res.json({ updatedCharacter, summary });
