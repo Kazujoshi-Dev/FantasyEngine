@@ -1,11 +1,14 @@
-import express, { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
 const router = Router();
 
-const calculateTotalExperience = (level: number, currentExperience: number): number => {
-    let totalXp = currentExperience;
+const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
+    // The pg driver returns bigint as a string, so we must cast to Number
+    // to prevent string concatenation.
+    let totalXp = Number(currentExperience);
+    
     // Sum up the experience required for all previous levels
     for (let i = 1; i < level; i++) {
         const xpForPrevLevel = Math.floor(100 * Math.pow(i, 1.3));
@@ -14,7 +17,7 @@ const calculateTotalExperience = (level: number, currentExperience: number): num
     return totalXp;
 };
 
-router.get('/', async (req: express.Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 

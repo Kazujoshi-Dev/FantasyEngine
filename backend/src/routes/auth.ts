@@ -1,4 +1,4 @@
-import express, { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';
@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from '../logic/helpers.js';
 const router = Router();
 
 // POST /api/auth/register
-router.post('/register', async (req: express.Request, res: Response) => {
+router.post('/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -29,7 +29,7 @@ router.post('/register', async (req: express.Request, res: Response) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: express.Request, res: Response) => {
+router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -62,7 +62,7 @@ router.post('/login', async (req: express.Request, res: Response) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', async (req: express.Request, res: Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -77,7 +77,7 @@ router.post('/logout', async (req: express.Request, res: Response) => {
     res.sendStatus(204);
 });
 
-router.post('/session/heartbeat', async (req: express.Request, res: Response) => {
+router.post('/session/heartbeat', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (token) {

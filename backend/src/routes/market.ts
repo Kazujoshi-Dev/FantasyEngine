@@ -1,4 +1,4 @@
-import express, { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 // FIX: Import `getBackpackCapacity` from the correct helper file.
@@ -9,7 +9,7 @@ import { getBackpackCapacity } from '../logic/helpers.js';
 const router = Router();
 
 // GET all active listings
-router.get('/listings', authenticateToken, async (req: express.Request, res: Response) => {
+router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     try {
         await processExpiredListings(pool);
         const result = await pool.query(
@@ -29,7 +29,7 @@ router.get('/listings', authenticateToken, async (req: express.Request, res: Res
 });
 
 // GET user's listings
-router.get('/my-listings', authenticateToken, async (req: express.Request, res: Response) => {
+router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     try {
         await processExpiredListings(pool);
         const result = await pool.query(
@@ -43,7 +43,7 @@ router.get('/my-listings', authenticateToken, async (req: express.Request, res: 
 });
 
 // POST a new listing
-router.post('/listings', authenticateToken, async (req: express.Request, res: Response) => {
+router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -77,25 +77,25 @@ router.post('/listings', authenticateToken, async (req: express.Request, res: Re
 });
 
 // POST to buy an item
-router.post('/buy', authenticateToken, async (req: express.Request, res: Response) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for buy now
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to bid on an item
-router.post('/bid', authenticateToken, async (req: express.Request, res: Response) => {
+router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for bidding
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to cancel a listing
-router.post('/listings/:id/cancel', authenticateToken, async (req: express.Request, res: Response) => {
+router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for cancelling
     res.status(501).json({ message: "Not implemented" });
 });
 
 // POST to claim a finished listing (sold, expired, cancelled)
-router.post('/listings/:id/claim', authenticateToken, async (req: express.Request, res: Response) => {
+router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for claiming
     res.status(501).json({ message: "Not implemented" });
 });
