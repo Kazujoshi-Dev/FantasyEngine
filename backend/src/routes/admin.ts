@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Response, NextFunction, Request } from 'express';
+import { Response, NextFunction, Request } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter } from '../types.js';

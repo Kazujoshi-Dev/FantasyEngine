@@ -1,4 +1,3 @@
-
 import { pool } from '../db.js';
 import { ItemTemplate, MarketNotificationBody } from '../types.js';
 
@@ -15,19 +14,36 @@ export async function processExpiredListings(client: any) { // Can be PoolClient
     const allItemTemplates: ItemTemplate[] = gameDataRes.rows[0]?.data || [];
 
     for (const listing of expiredRes.rows) {
-        const isUnsold = listing.listing_type === 'buy_now' || (listing.listing_type === 'auction' && !listing.highest_bidder_id);
-        
-        if (isUnsold) {
-            await client.query("UPDATE market_listings SET status = 'EXPIRED' WHERE id = $1", [listing.id]);
+        const template = allItemTemplates.find(t => t.id === listing.item_data.templateId);
+        const itemName = template?.name || 'Unknown Item';
 
-            const template = allItemTemplates.find(t => t.id === listing.item_data.templateId);
+        // Case 1: Auction won
+        if (listing.listing_type === 'auction' && listing.highest_bidder_id) {
+            await client.query("UPDATE market_listings SET status = 'SOLD' WHERE id = $1", [listing.id]);
+            
+            // Notify seller
+            const sellerNotification: MarketNotificationBody = { type: 'SOLD', itemName, price: listing.current_bid_price, currency: listing.currency };
+            await client.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Przedmiot sprzedany na aukcji!', $2)`,
+                [listing.seller_id, JSON.stringify(sellerNotification)]
+            );
+            
+            // Notify winner and send item
+            const winnerNotification: MarketNotificationBody = { type: 'WON', itemName, price: listing.current_bid_price, currency: listing.currency, item: listing.item_data };
+            await client.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Wygrałeś aukcję!', $2)`,
+                [listing.highest_bidder_id, JSON.stringify(winnerNotification)]
+            );
+        
+        // Case 2: Unsold item (Buy Now or Auction with no bids)
+        } else {
+            await client.query("UPDATE market_listings SET status = 'EXPIRED' WHERE id = $1", [listing.id]);
             const notificationBody: MarketNotificationBody = {
                 type: 'ITEM_RETURNED',
-                itemName: template?.name || 'Unknown Item',
+                itemName,
                 item: listing.item_data,
                 listingId: listing.id
             };
-            
             await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'Rynek', 'market_notification', 'Twoja oferta wygasła', $2)`,

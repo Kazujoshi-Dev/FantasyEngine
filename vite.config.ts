@@ -1,10 +1,9 @@
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-// FIX: Add __dirname shim for ES modules to resolve 'Cannot find name __dirname' error.
-import { fileURLToPath } from 'url';
 
-// FIX: Add __dirname shim for ES modules to resolve 'Cannot find name __dirname' error.
+// __dirname shim for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

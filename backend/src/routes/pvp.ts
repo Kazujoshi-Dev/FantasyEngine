@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Response, Request } from 'express';
+import { Response, Request } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';

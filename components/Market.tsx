@@ -9,8 +9,8 @@ import { ClockIcon } from './icons/ClockIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ScaleIcon } from './icons/ScaleIcon';
 
-// TODO: Move to a shared component
-const CountdownTimer: React.FC<{ until: string }> = ({ until }) => {
+const CountdownTimer: React.FC<{ until: string, onFinish?: () => void }> = ({ until, onFinish }) => {
+    const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState('');
 
     useEffect(() => {
@@ -23,16 +23,17 @@ const CountdownTimer: React.FC<{ until: string }> = ({ until }) => {
                  setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
             } else {
                 setTimeLeft('00:00:00');
+                if (onFinish) onFinish();
                 clearInterval(interval);
             }
         }, 1000);
         return () => clearInterval(interval);
-    }, [until]);
+    }, [until, onFinish]);
 
     return (
         <span className="flex items-center text-xs text-gray-400">
             <ClockIcon className="h-3 w-3 mr-1" />
-            {timeLeft}
+            {timeLeft || '...'}
         </span>
     );
 };
@@ -119,25 +120,29 @@ const BrowseListings: React.FC<{
 
     const filteredListings = useMemo(() => {
         const hasAllPrimaryStats = (item: ItemInstance, template: ItemTemplate, stats: string[]): boolean => {
-            const sources = [template.statsBonus, item.rolledPrefix?.statsBonus, item.rolledSuffix?.statsBonus].filter(Boolean);
-            return stats.every(stat => sources.some(source => (source as any)?.[stat] > 0));
+            const allBonuses: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>> = {
+                ...(item.rolledBaseStats?.statsBonus || {}),
+                ...(item.rolledPrefix?.statsBonus || {}),
+                ...(item.rolledSuffix?.statsBonus || {})
+            };
+            return stats.every(stat => (allBonuses as any)?.[stat] > 0);
         };
     
         const hasAllSecondaryStats = (item: ItemInstance, template: ItemTemplate, stats: string[]): boolean => {
-             const sources = [template, item.rolledPrefix, item.rolledSuffix].filter(Boolean);
+             const allBonuses: RolledAffixStats = { ...item.rolledBaseStats, ...item.rolledPrefix, ...item.rolledSuffix };
              return stats.every(stat => {
                  switch (stat) {
-                     case 'physicalDamage': return sources.some(s => (s as any).damageMin > 0 || (s as any).damageMax > 0);
-                     case 'magicDamage': return sources.some(s => (s as any).magicDamageMin > 0 || (s as any).magicDamageMax > 0);
-                     case 'attacksPerRound': return sources.some(s => (s as any).attacksPerRound > 0 || (s as any).attacksPerRoundBonus > 0);
-                     case 'armor': return sources.some(s => (s as any).armorBonus > 0);
-                     case 'critChance': return sources.some(s => (s as any).critChanceBonus > 0);
-                     case 'maxHealth': return sources.some(s => (s as any).maxHealthBonus > 0);
-                     case 'critDamageModifier': return sources.some(s => (s as any).critDamageModifierBonus > 0);
-                     case 'armorPenetration': return sources.some(s => (s as any).armorPenetrationPercent > 0 || (s as any).armorPenetrationFlat > 0);
-                     case 'lifeSteal': return sources.some(s => (s as any).lifeStealPercent > 0 || (s as any).lifeStealFlat > 0);
-                     case 'manaSteal': return sources.some(s => (s as any).manaStealPercent > 0 || (s as any).manaStealFlat > 0);
-                     case 'dodgeChance': return sources.some(s => (s as any).dodgeChanceBonus > 0);
+                     case 'physicalDamage': return allBonuses.damageMin || allBonuses.damageMax;
+                     case 'magicDamage': return allBonuses.magicDamageMin || allBonuses.magicDamageMax;
+                     case 'attacksPerRound': return allBonuses.attacksPerRoundBonus;
+                     case 'armor': return allBonuses.armorBonus;
+                     case 'critChance': return allBonuses.critChanceBonus;
+                     case 'maxHealth': return allBonuses.maxHealthBonus;
+                     case 'critDamageModifier': return allBonuses.critDamageModifierBonus;
+                     case 'armorPenetration': return allBonuses.armorPenetrationPercent || allBonuses.armorPenetrationFlat;
+                     case 'lifeSteal': return allBonuses.lifeStealPercent || allBonuses.lifeStealFlat;
+                     case 'manaSteal': return allBonuses.manaStealPercent || allBonuses.manaStealFlat;
+                     case 'dodgeChance': return allBonuses.dodgeChanceBonus;
                      default: return false;
                  }
              });
@@ -210,8 +215,9 @@ const BrowseListings: React.FC<{
             const updatedListing = await api.bidOnMarketListing(listing.id, bid);
             setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
             setSelectedListing(updatedListing);
-            const updatedChar = await api.getCharacter(); // Refresh character data to show reserved currency
+            const updatedChar = await api.getCharacter();
             onCharacterUpdate(updatedChar);
+            setBidAmount('');
         } catch (err: any) {
             alert(err.message);
         }
@@ -315,7 +321,7 @@ const BrowseListings: React.FC<{
                                         </>
                                     )}
                                 </div>
-                                 <div className="col-span-2 text-gray-400"><CountdownTimer until={listing.expires_at} /></div>
+                                 <div className="col-span-2 text-gray-400"><CountdownTimer until={listing.expires_at} onFinish={fetchListings} /></div>
                                 <div className="col-span-1 text-center text-gray-400">{listing.bid_count}</div>
                              </div>
                         )
@@ -560,13 +566,13 @@ const MyListings: React.FC<{
                                     listing.status === 'CLAIMED' ? 'bg-slate-700 text-slate-400' :
                                     'bg-slate-700 text-slate-300'
                                 }`}>
-                                    {t(`market.myListings.status${listing.status}`)}
+                                    {t(`market.myListings.status.${listing.status}` as any)}
                                 </span>
                             </div>
                             <div className="col-span-3 font-mono">
                                 <CurrencyDisplay currency={listing.currency} amount={listing.current_bid_price || listing.buy_now_price || listing.start_bid_price!} />
                             </div>
-                            <div className="col-span-2">{listing.status === 'ACTIVE' && <CountdownTimer until={listing.expires_at}/>}</div>
+                            <div className="col-span-2">{listing.status === 'ACTIVE' && <CountdownTimer until={listing.expires_at} onFinish={fetchMyListings} />}</div>
                             <div className="col-span-1">{renderAction(listing)}</div>
                         </div>
                     )
