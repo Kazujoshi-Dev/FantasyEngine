@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -251,10 +249,15 @@ const App: React.FC = () => {
 
   const handleCheckExpeditionCompletion = useCallback(async () => {
     if (isCompletingExpeditionRef.current) return;
-
     isCompletingExpeditionRef.current = true;
     try {
         const charData = await api.getCharacter();
+
+        if (expeditionReport) {
+            isCompletingExpeditionRef.current = false;
+            return;
+        }
+
         if (charData.expeditionSummary) {
             setExpeditionReport(charData.expeditionSummary);
             delete charData.expeditionSummary;
@@ -262,14 +265,16 @@ const App: React.FC = () => {
         } else {
             setBaseCharacter(charData);
         }
+        
         const freshMessages = await api.getMessages();
         setMessages(freshMessages);
+
     } catch (err: any) {
         setError(err.message);
     } finally {
         isCompletingExpeditionRef.current = false;
     }
-  }, []);
+  }, [expeditionReport]);
 
   // Derived Stat Calculation for UI Previews
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
