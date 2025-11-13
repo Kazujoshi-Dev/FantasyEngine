@@ -275,10 +275,10 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
         manaGained: manaGained > 0 ? manaGained : undefined,
         magicAttackType,
         weaponName,
-        playerHealth: attackerType === 'player' ? attacker.currentHealth : defender.currentHealth,
-        playerMana: attackerType === 'player' ? attacker.currentMana : defender.currentMana,
-        enemyHealth: attackerType === 'enemy' ? attacker.currentHealth : defender.currentHealth,
-        enemyMana: attackerType === 'enemy' ? attacker.currentMana : defender.currentMana,
+        playerHealth: state.player.currentHealth,
+        playerMana: state.player.currentMana,
+        enemyHealth: state.enemy.currentHealth,
+        enemyMana: state.enemy.currentMana,
     };
     
     state.log.push(logEntry);
