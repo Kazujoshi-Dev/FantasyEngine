@@ -211,12 +211,15 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
 
         if (Math.random() * 100 < attacker.stats.critChance) {
             isCrit = true;
-            const critModifier = (attacker.stats as CharacterStats).critDamageModifier || 200;
+            let critModifier = 200; // Default for enemies
+            if (isPlayerAttacking) {
+                critModifier = (attacker.stats as CharacterStats).critDamageModifier;
+            }
             damage = Math.floor(damage * (critModifier / 100));
         }
 
-        const armorPenPercent = (attacker.stats as CharacterStats).armorPenetrationPercent || 0;
-        const armorPenFlat = (attacker.stats as CharacterStats).armorPenetrationFlat || 0;
+        const armorPenPercent = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationPercent : 0;
+        const armorPenFlat = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationFlat : 0;
         const effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
         damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
         damage -= damageReduced;
