@@ -1,4 +1,4 @@
-// Replaced named express type imports with default import to resolve type conflicts.
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -7,7 +7,6 @@ import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInst
 const router = express.Router();
 
 // Middleware to check for admin privileges
-// FIX: Use express.Request, express.Response, and express.NextFunction to resolve type conflicts.
 const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -24,7 +23,6 @@ const isAdmin = async (req: express.Request, res: express.Response, next: expres
 // All routes in this file are protected by admin middleware
 router.use(isAdmin);
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.get('/users', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
@@ -34,7 +32,6 @@ router.get('/users', async (req: express.Request, res: express.Response) => {
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.delete('/users/:id', async (req: express.Request, res: express.Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
@@ -44,7 +41,6 @@ router.delete('/users/:id', async (req: express.Request, res: express.Response) 
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.get('/characters/all', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`
@@ -65,7 +61,6 @@ router.get('/characters/all', async (req: express.Request, res: express.Response
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.delete('/characters/:userId', async (req: express.Request, res: express.Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
@@ -75,7 +70,6 @@ router.delete('/characters/:userId', async (req: express.Request, res: express.R
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.post('/characters/:userId/reset-stats', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
@@ -105,7 +99,6 @@ router.post('/characters/:userId/reset-stats', async (req: express.Request, res:
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.post('/characters/:userId/heal', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
      try {
@@ -128,7 +121,6 @@ router.post('/characters/:userId/heal', async (req: express.Request, res: expres
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.post('/character/:userId/update-gold', async (req: express.Request, res: express.Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
@@ -153,7 +145,6 @@ router.post('/character/:userId/update-gold', async (req: express.Request, res: 
 });
 
 // Duplication Audit
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.get('/audit/duplicates', async (req: express.Request, res: express.Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
@@ -173,24 +164,20 @@ router.get('/audit/duplicates', async (req: express.Request, res: express.Respon
     }
 });
 
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.post('/resolve-duplicates', async (req: express.Request, res: express.Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.get('/audit/orphans', async (req: express.Request, res: express.Response) => {
      res.json([]); // Placeholder
 });
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.post('/resolve-orphans', async (req: express.Request, res: express.Response) => {
     res.json({ charactersAffected: 0, itemsRemoved: 0 }); // Placeholder
 });
 
 // Item Inspector
-// FIX: Use express.Request and express.Response to resolve type conflicts.
 router.get('/find-item/:uniqueId', async (req: express.Request, res: express.Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });

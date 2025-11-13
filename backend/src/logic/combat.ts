@@ -199,12 +199,11 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
         // Crit check
         if (Math.random() * 100 < attacker.stats.critChance) {
             isCrit = true;
-            let critModifier = 200; // Default crit damage for enemies or if property is missing
-            if ('critDamageModifier' in attacker.stats && typeof attacker.stats.critDamageModifier === 'number') {
-                // Safely access property after type guard for Player
-                critModifier = attacker.stats.critDamageModifier;
-            }
-            damage = Math.floor(damage * (critModifier / 100));
+            // The attacker could be an enemy, whose stats don't have critDamageModifier.
+            // We safely access it and provide a default of 200 if it's missing or not a number.
+            const critModifier = (attacker.stats as CharacterStats).critDamageModifier;
+            const finalCritModifier = typeof critModifier === 'number' ? critModifier : 200;
+            damage = Math.floor(damage * (finalCritModifier / 100));
         }
 
         // Armor reduction
