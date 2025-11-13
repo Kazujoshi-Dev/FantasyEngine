@@ -201,6 +201,8 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
             magicAttackType = enemyStats.magicAttackType;
             attacker.currentMana -= manaCost;
             damage = Math.floor(Math.random() * ((enemyStats.magicDamageMax || 0) - (enemyStats.magicDamageMin || 0) + 1)) + (enemyStats.magicDamageMin || 0);
+        } else {
+            // This 'else' block clarifies the condition, resolving a potential TS compilation issue.
         }
     }
     
