@@ -1,5 +1,5 @@
 // FIX: Use Request, Response, and NextFunction types directly from express to resolve type conflicts.
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
 // FIX: Use Request, Response, and NextFunction to resolve type conflicts.

@@ -1,4 +1,5 @@
-import { Router, Response, Request } from 'express';
+import { Router } from 'express';
+import type { Response, Request } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';

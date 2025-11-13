@@ -985,7 +985,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         }
     }, [baseCharacter, gameData, handleCharacterUpdate, t]);
 
-    const handleCloseExpeditionReport = async () => {
+  const handleCloseExpeditionReport = async () => {
         setExpeditionReport(null);
         if (postExpeditionCharacter) {
             setBaseCharacter(postExpeditionCharacter);
@@ -1117,6 +1117,22 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             }
         }
     }, [activeTab, tavernMessages]);
+
+    // Heartbeat to keep session active
+    useEffect(() => {
+        let heartbeatInterval: number | null = null;
+        if (token) {
+            api.sendHeartbeat(); // Initial heartbeat
+            heartbeatInterval = window.setInterval(() => {
+                api.sendHeartbeat();
+            }, 60 * 1000); // Send heartbeat every 60 seconds
+        }
+        return () => {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+        };
+    }, [token]);
     
 
     // Update derived character state whenever base character or game data changes
