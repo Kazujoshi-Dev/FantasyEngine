@@ -4,18 +4,6 @@ import { RankingPlayer } from '../types.js';
 
 const router = Router();
 
-// Helper function to calculate the total XP required to reach a certain level.
-const calculatePreviousLevelsExperience = (level: number): number => {
-    let total = 0;
-    // Sums up the XP required for all levels *before* the current one.
-    // e.g., for level 3, it sums XP for level 1 and level 2.
-    for (let i = 1; i < level; i++) {
-        total += Math.floor(100 * Math.pow(i, 1.3));
-    }
-    return total;
-};
-
-
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
@@ -38,24 +26,11 @@ router.get('/', async (req: Request, res: Response) => {
             ) as active_sessions ON c.user_id = active_sessions.user_id
         `);
 
-        const ranking: RankingPlayer[] = result.rows.map(row => {
-            // Assume the 'experience' from DB is the TOTAL accumulated experience.
-            const totalExperience = row.experience;
-            
-            // Calculate the experience for all previous levels.
-            const previousLevelsExperience = calculatePreviousLevelsExperience(row.level);
-            
-            // Calculate the experience gained within the current level.
-            const currentLevelExperience = totalExperience - previousLevelsExperience;
+        // The 'experience' from DB is the TOTAL accumulated experience.
+        const ranking: RankingPlayer[] = result.rows;
 
-            return { 
-                ...row,
-                experience: currentLevelExperience, // This is now progress in the current level
-                totalExperience: totalExperience    // This is the true total for sorting
-            };
-        });
-
-        ranking.sort((a, b) => b.totalExperience - a.totalExperience);
+        // Sort by total experience.
+        ranking.sort((a, b) => b.experience - a.experience);
 
         res.json(ranking);
     } catch (err) {

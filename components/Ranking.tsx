@@ -145,7 +145,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                         {player.pvpLosses || 0}
                     </td>
                     <td className="p-4 text-lg font-mono text-right text-sky-400">
-                      {player.totalExperience.toLocaleString()}
+                      {player.experience.toLocaleString()}
                     </td>
                     <td className="p-4 text-center">
                         <button

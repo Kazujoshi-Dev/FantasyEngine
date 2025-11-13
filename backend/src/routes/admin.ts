@@ -20,7 +20,7 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
 };
 
 // All routes in this file are protected by admin middleware
-router.use(isAdmin);
+router.use(authenticateToken, isAdmin);
 
 router.get('/users', async (req: Request, res: Response) => {
     try {

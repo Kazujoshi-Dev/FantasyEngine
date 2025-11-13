@@ -4,6 +4,8 @@
 
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -557,7 +559,6 @@ export interface RankingPlayer {
     characterClass?: CharacterClass | null;
     level: number;
     experience: number;
-    totalExperience: number;
     pvpWins: number;
     pvpLosses: number;
     pvpProtectionUntil: number;

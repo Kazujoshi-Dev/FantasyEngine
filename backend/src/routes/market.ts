@@ -83,7 +83,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // POST to bid on an item
-router.post('/bid', async (req: Request, res: Response) => {
+router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for bidding
     res.status(501).json({ message: "Not implemented" });
 });
