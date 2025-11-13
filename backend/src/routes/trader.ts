@@ -1,14 +1,11 @@
-
-
-
-import express from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
 import { generateTraderInventory } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
-const router = express.Router();
+const router = Router();
 
 let traderInventory: ItemInstance[] = [];
 let lastTraderRefresh = 0;
@@ -26,7 +23,7 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
         lastTraderRefresh = 0; // Force refresh on next check
@@ -35,7 +32,7 @@ router.get('/inventory', authenticateToken, async (req: express.Request, res: ex
     res.json(traderInventory);
 });
 
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -80,7 +77,7 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
     }
 });
 
-router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: 'No items to sell' });

@@ -1,16 +1,13 @@
-
-
-
-import express from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulateCombat } from '../logic/combat.js';
 
-const router = express.Router();
+const router = Router();
 
-router.post('/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 

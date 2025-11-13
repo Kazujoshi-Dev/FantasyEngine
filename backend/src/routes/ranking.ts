@@ -1,13 +1,22 @@
-
-
-
-import express from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', async (req: express.Request, res: express.Response) => {
+// Helper function to calculate the total XP required to reach a certain level.
+const calculatePreviousLevelsExperience = (level: number): number => {
+    let total = 0;
+    // Sums up the XP required for all levels *before* the current one.
+    // e.g., for level 3, it sums XP for level 1 and level 2.
+    for (let i = 1; i < level; i++) {
+        total += Math.floor(100 * Math.pow(i, 1.3));
+    }
+    return total;
+};
+
+
+router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -30,8 +39,20 @@ router.get('/', async (req: express.Request, res: express.Response) => {
         `);
 
         const ranking: RankingPlayer[] = result.rows.map(row => {
-            const totalExperience = calculateTotalExperience(row.level, row.experience);
-            return { ...row, totalExperience };
+            // Assume the 'experience' from DB is the TOTAL accumulated experience.
+            const totalExperience = row.experience;
+            
+            // Calculate the experience for all previous levels.
+            const previousLevelsExperience = calculatePreviousLevelsExperience(row.level);
+            
+            // Calculate the experience gained within the current level.
+            const currentLevelExperience = totalExperience - previousLevelsExperience;
+
+            return { 
+                ...row,
+                experience: currentLevelExperience, // This is now progress in the current level
+                totalExperience: totalExperience    // This is the true total for sorting
+            };
         });
 
         ranking.sort((a, b) => b.totalExperience - a.totalExperience);
@@ -42,14 +63,5 @@ router.get('/', async (req: express.Request, res: express.Response) => {
         res.status(500).json({ message: 'Failed to fetch ranking data.' });
     }
 });
-
-const calculateTotalExperience = (level: number, currentExperience: number): number => {
-    let total = 0;
-    for (let i = 1; i < level; i++) {
-        total += Math.floor(100 * Math.pow(i, 1.3));
-    }
-    total += currentExperience;
-    return total;
-};
 
 export default router;
