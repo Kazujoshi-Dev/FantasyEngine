@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -179,6 +180,7 @@ const App: React.FC = () => {
   const [baseCharacter, setBaseCharacter] = useState<PlayerCharacter | null>(null);
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
+  const [postExpeditionCharacter, setPostExpeditionCharacter] = useState<PlayerCharacter | null>(null);
   const [pvpReport, setPvpReport] = useState<PvpRewardSummary | null>(null);
   
   // UI State
@@ -256,8 +258,10 @@ const App: React.FC = () => {
         if (charData.expeditionSummary) {
             setExpeditionReport(charData.expeditionSummary);
             delete charData.expeditionSummary;
+            setPostExpeditionCharacter(charData);
+        } else {
+            setBaseCharacter(charData);
         }
-        setBaseCharacter(charData);
         const freshMessages = await api.getMessages();
         setMessages(freshMessages);
     } catch (err: any) {
@@ -980,6 +984,14 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             alert(t('quests.questCompleted'));
         }
     }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+
+    const handleCloseExpeditionReport = () => {
+        setExpeditionReport(null);
+        if (postExpeditionCharacter) {
+            setBaseCharacter(postExpeditionCharacter);
+            setPostExpeditionCharacter(null);
+        }
+    };
     
     // Initial data load and periodic fetching
     useEffect(() => {
@@ -1248,10 +1260,10 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
 
   return (
     <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
-      {playerCharacter && gameData && expeditionReport && !playerCharacter.activeExpedition && (
+      {playerCharacter && gameData && expeditionReport && (
         <ExpeditionSummaryModal
           reward={expeditionReport}
-          onClose={() => setExpeditionReport(null)}
+          onClose={handleCloseExpeditionReport}
           characterName={playerCharacter.name}
           itemTemplates={gameData.itemTemplates}
           affixes={gameData.affixes}
