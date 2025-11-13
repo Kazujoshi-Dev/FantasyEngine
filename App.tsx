@@ -477,8 +477,9 @@ const App: React.FC = () => {
     
     const updatedCharacter: PlayerCharacter = {
       ...baseCharacter,
-      resources: { ...baseCharacter.resources, gold: baseCharacter.resources.gold - expedition.goldCost, },
-      stats: { ...baseCharacter.stats, currentEnergy: baseCharacter.stats.currentEnergy - expedition.energyCost, },
+      resources: { ...baseCharacter.resources, gold: baseCharacter.resources.gold - expedition.goldCost },
+      stats: { ...baseCharacter.stats, currentEnergy: baseCharacter.stats.currentEnergy - expedition.energyCost },
+      lastEnergyUpdateTime: Date.now(), // This prevents immediate regeneration on next fetch
       activeExpedition: {
         expeditionId: expedition.id,
         finishTime: Date.now() + expedition.duration * 1000,
