@@ -278,7 +278,8 @@ const UpgradePanel: React.FC<{
         
         if (result.messageKey !== 'error.title') { // Check if it's not a generic error
             setNotification({
-                message: t(result.messageKey, { level: result.level }),
+                // FIX: Use nullish coalescing operator to provide a default value for level to avoid passing undefined.
+                message: t(result.messageKey, { level: result.level ?? 0 }),
                 type: result.success ? 'success' : 'error'
             });
         }
@@ -342,8 +343,8 @@ const UpgradePanel: React.FC<{
                             className="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                         >
                             <option value="all">{t('equipment.showAll')}</option>
-                            {equipmentSlotOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            {Object.values(EquipmentSlot).map(slot => (
+                                <option key={slot} value={slot}>{t(`equipment.slot.${slot}`)}</option>
                             ))}
                             <option value="consumable">{t('item.slot.consumable')}</option>
                         </select>

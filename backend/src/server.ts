@@ -1,10 +1,6 @@
 
 
-
-
-
-
-import express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -60,6 +56,7 @@ app.use('/api/tavern', tavernRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/admin', adminRoutes);
 // This must be the last API route because it's a broad catch-all for /character, /characters/* etc.
+// FIX: No overload matches this call.
 app.use('/api', characterRoutes);
 
 
@@ -68,14 +65,14 @@ app.use('/api', characterRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// FIX: Use inferred Request and Response types from express to resolve type conflicts.
-app.get('*', (req, res) => {
+// FIX: No overload matches this call. Property 'sendFile' does not exist on type 'Response<any, Record<string, any>>'.
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// FIX: Use express.Request, express.Response, and express.NextFunction types from express to resolve type conflicts.
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// FIX: Property 'status' does not exist on type 'Response<any, Record<string, any>>'.
+app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

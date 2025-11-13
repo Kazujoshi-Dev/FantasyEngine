@@ -1,3 +1,5 @@
+
+
 // FIX: Import `EssenceType` to resolve a type error in the `disenchantItem` function signature.
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult } from './types';
 
@@ -134,7 +136,6 @@ export const api = {
             activeTravel: null,
             camp: { level: 1 },
             chest: { level: 1, gold: 0 },
-            // FIX: Added missing 'backpack' property to conform to the PlayerCharacter type.
             backpack: { level: 1 },
             isResting: false,
             restStartHealth: 0,
@@ -198,79 +199,47 @@ export const api = {
     },
 
     async resetCharacterStats(userId: number): Promise<void> {
-        return fetchApi(`/characters/${userId}/reset-stats`, {
-            method: 'POST',
-        });
+        return fetchApi(`/admin/characters/${userId}/reset-stats`, { method: 'POST' });
     },
 
     async healCharacter(userId: number): Promise<void> {
-        return fetchApi(`/characters/${userId}/heal`, {
-            method: 'POST',
-        });
+        return fetchApi(`/admin/characters/${userId}/heal`, { method: 'POST' });
     },
 
     async updateCharacterGold(userId: number, gold: number): Promise<void> {
-        return fetchApi(`/admin/character/${userId}/update-gold`, {
+        return fetchApi(`/admin/character/${userId}/update-gold`, { 
             method: 'POST',
-            body: JSON.stringify({ gold }),
+            body: JSON.stringify({ gold }) 
+        });
+    },
+    
+    // --- Game Data ---
+    async getGameData(): Promise<GameData> {
+        return fetchApi('/game-data');
+    },
+    
+    async updateGameData(key: keyof GameData, data: any): Promise<void> {
+        return fetchApi(`/game-data`, {
+            method: 'PUT',
+            body: JSON.stringify({ key, data })
         });
     },
 
-    async getFullCharacterForAdmin(userId: number): Promise<PlayerCharacter> {
-        return fetchApi(`/admin/character/${userId}`);
-    },
-    
-    async deleteItemFromCharacter(userId: number, itemUniqueId: string): Promise<PlayerCharacter> {
-        return fetchApi(`/admin/character/${userId}/item/${itemUniqueId}`, {
-            method: 'DELETE',
+    async updateGameSettings(settings: GameSettings): Promise<void> {
+        return fetchApi(`/game-data`, {
+            method: 'PUT',
+            body: JSON.stringify({ key: 'settings', data: settings })
         });
-    },
-    
-    // --- User Management (Admin) ---
-    async getUsers(): Promise<User[]> {
-        return fetchApi('/users');
     },
 
-    async deleteUser(userId: number): Promise<void> {
-        return fetchApi(`/users/${userId}`, {
-            method: 'DELETE',
-        });
-    },
-    
     // --- Ranking ---
     async getRanking(): Promise<RankingPlayer[]> {
         return fetchApi('/ranking');
     },
-
-    // --- Game Data Management ---
-    async getGameData(): Promise<GameData> {
-        // This endpoint is public, so we call fetch directly without auth
-        const response = await fetch(`${API_BASE_URL}/game-data`);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred fetching game data.' }));
-            throw new Error(errorData.message);
-        }
-        return response.json();
-    },
-
-    async updateGameData(key: keyof Omit<GameData, 'settings'>, data: any): Promise<void> {
-       return fetchApi('/game-data', {
-            method: 'PUT',
-            body: JSON.stringify({ key, data }),
-       });
-    },
-
-    async updateGameSettings(settings: GameSettings): Promise<void> {
-        return fetchApi('/game-data', {
-            method: 'PUT',
-            body: JSON.stringify({ key: 'settings', data: settings }),
-        });
-    },
-
+    
     // --- Trader ---
     async getTraderInventory(forceRefresh = false): Promise<ItemInstance[]> {
-        const endpoint = forceRefresh ? '/trader/inventory?force=true' : '/trader/inventory';
-        return fetchApi(endpoint);
+        return fetchApi(`/trader/inventory${forceRefresh ? '?force=true' : ''}`);
     },
     
     async buyItem(itemId: string): Promise<PlayerCharacter> {
@@ -279,7 +248,7 @@ export const api = {
             body: JSON.stringify({ itemId }),
         });
     },
-    
+
     async sellItems(itemIds: string[]): Promise<PlayerCharacter> {
         return fetchApi('/trader/sell', {
             method: 'POST',
@@ -288,20 +257,19 @@ export const api = {
     },
 
     // --- Blacksmith ---
-    async upgradeItem(itemId: string): Promise<{ updatedCharacter: PlayerCharacter; result: { success: boolean; messageKey: string; level?: number } }> {
-        return fetchApi('/blacksmith/upgrade', {
-            method: 'POST',
-            body: JSON.stringify({ itemId }),
-        });
-    },
-
-    async disenchantItem(itemId: string): Promise<{ updatedCharacter: PlayerCharacter; result: { success: boolean; amount?: number; essenceType?: EssenceType } }> {
+    async disenchantItem(itemId: string): Promise<{ updatedCharacter: PlayerCharacter, result: { success: boolean; amount?: number; essenceType?: EssenceType } }> {
         return fetchApi('/blacksmith/disenchant', {
             method: 'POST',
             body: JSON.stringify({ itemId }),
         });
     },
 
+    async upgradeItem(itemId: string): Promise<{ updatedCharacter: PlayerCharacter, result: { success: boolean; messageKey: string; level?: number } }> {
+        return fetchApi('/blacksmith/upgrade', {
+            method: 'POST',
+            body: JSON.stringify({ itemId }),
+        });
+    },
 
     // --- PvP ---
     async attackPlayer(defenderId: number): Promise<{ summary: PvpRewardSummary, updatedAttacker: PlayerCharacter }> {
@@ -310,26 +278,13 @@ export const api = {
         });
     },
 
-    async resetAllPvpCooldowns(): Promise<void> {
-        return fetchApi('/admin/pvp/reset-cooldowns', {
-            method: 'POST',
-        });
-    },
-
     // --- Messages ---
     async getMessages(): Promise<Message[]> {
         return fetchApi('/messages');
     },
-    
+
     async sendMessage(data: { recipientName: string; subject: string; content: string }): Promise<Message> {
         return fetchApi('/messages', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-
-    async sendGlobalMessage(data: { subject: string; content: string }): Promise<void> {
-        return fetchApi('/admin/global-message', {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -338,7 +293,6 @@ export const api = {
     async markMessageAsRead(messageId: number): Promise<void> {
         return fetchApi(`/messages/${messageId}`, {
             method: 'PUT',
-            body: JSON.stringify({ is_read: true }),
         });
     },
 
@@ -347,7 +301,13 @@ export const api = {
             method: 'DELETE',
         });
     },
-
+    
+    async claimMarketReturn(messageId: number): Promise<PlayerCharacter> {
+        return fetchApi(`/messages/claim-return/${messageId}`, {
+            method: 'POST',
+        });
+    },
+    
     async deleteBulkMessages(type: 'read' | 'all' | 'expedition_reports'): Promise<{ deletedCount: number }> {
         return fetchApi('/messages/bulk-delete', {
             method: 'POST',
@@ -355,13 +315,7 @@ export const api = {
         });
     },
 
-    async claimMarketReturn(messageId: number): Promise<PlayerCharacter> {
-        return fetchApi(`/messages/claim-return/${messageId}`, {
-            method: 'POST',
-        });
-    },
-
-    // --- Tavern (Chat) ---
+    // --- Tavern ---
     async getTavernMessages(): Promise<TavernMessage[]> {
         return fetchApi('/tavern/messages');
     },
@@ -372,7 +326,7 @@ export const api = {
             body: JSON.stringify({ content }),
         });
     },
-
+    
     // --- Market ---
     async getMarketListings(): Promise<MarketListing[]> {
         return fetchApi('/market/listings');
@@ -381,8 +335,14 @@ export const api = {
     async getMyMarketListings(): Promise<MarketListing[]> {
         return fetchApi('/market/my-listings');
     },
-
-    async createMarketListing(data: { itemId: string; listingType: ListingType; currency: CurrencyType; price: number; durationHours: number }): Promise<PlayerCharacter> {
+    
+    async createMarketListing(data: {
+        itemId: string;
+        listingType: ListingType;
+        currency: CurrencyType;
+        price: number;
+        durationHours: number;
+    }): Promise<PlayerCharacter> {
         return fetchApi('/market/listings', {
             method: 'POST',
             body: JSON.stringify(data),
@@ -390,55 +350,71 @@ export const api = {
     },
 
     async buyMarketListing(listingId: number): Promise<PlayerCharacter> {
-        return fetchApi('/market/buy', {
+        return fetchApi(`/market/buy`, {
             method: 'POST',
             body: JSON.stringify({ listingId }),
         });
     },
 
     async bidOnMarketListing(listingId: number, amount: number): Promise<MarketListing> {
-        return fetchApi('/market/bid', {
+        return fetchApi(`/market/bid`, {
             method: 'POST',
             body: JSON.stringify({ listingId, amount }),
         });
     },
-
+    
     async cancelMarketListing(listingId: number): Promise<PlayerCharacter> {
         return fetchApi(`/market/listings/${listingId}/cancel`, {
             method: 'POST',
         });
     },
-
-// FIX: Add missing claimMarketListing function
+    
     async claimMarketListing(listingId: number): Promise<PlayerCharacter> {
         return fetchApi(`/market/listings/${listingId}/claim`, {
             method: 'POST',
         });
     },
 
-// FIX: Add missing admin audit functions
+    // --- Admin ---
+    async getUsers(): Promise<User[]> {
+        return fetchApi('/admin/users');
+    },
+    
+    async deleteUser(userId: number): Promise<void> {
+        return fetchApi(`/admin/users/${userId}`, {
+            method: 'DELETE',
+        });
+    },
+    
+    async resetAllPvpCooldowns(): Promise<void> {
+        return fetchApi('/admin/pvp/reset-cooldowns', {
+            method: 'POST',
+        });
+    },
+
+    async sendGlobalMessage(data: { subject: string; content: string }): Promise<void> {
+        return fetchApi('/admin/messages/global', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+    
     async runDuplicationAudit(): Promise<DuplicationAuditResult[]> {
         return fetchApi('/admin/audit/duplicates');
     },
 
     async resolveDuplications(): Promise<{ resolvedSets: number, itemsDeleted: number }> {
-        return fetchApi('/admin/resolve-duplicates', {
-            method: 'POST',
-        });
+        return fetchApi('/admin/resolve-duplicates', { method: 'POST' });
     },
 
-    // Admin orphan audit
     async runOrphanAudit(): Promise<OrphanAuditResult[]> {
         return fetchApi('/admin/audit/orphans');
     },
 
     async resolveOrphans(): Promise<{ charactersAffected: number, itemsRemoved: number }> {
-        return fetchApi('/admin/resolve-orphans', {
-            method: 'POST',
-        });
+        return fetchApi('/admin/resolve-orphans', { method: 'POST' });
     },
     
-    // Admin item inspector
     async findItemById(uniqueId: string): Promise<ItemSearchResult> {
         return fetchApi(`/admin/find-item/${uniqueId}`);
     },

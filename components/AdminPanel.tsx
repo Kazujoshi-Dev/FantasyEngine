@@ -977,7 +977,7 @@ const AffixEditor: React.FC<{
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('admin.affix.spawnChances')}</legend>
                 {Object.values(ItemCategory).map(cat => (
-                    <div key={cat}><label>{t(`item.category${cat}`)}:<input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                    <div key={cat}><label>{t(`item.categories.${cat}`)}:<input type="number" value={formData.spawnChances?.[cat] || ''} onChange={e => handleSpawnChanceChange(cat, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 ))}
             </fieldset>
             
@@ -1501,7 +1501,7 @@ const handleFindItem = async (e: React.FormEvent) => {
                 <div className="border-t border-slate-700/50 pt-6">
                     <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.traderSettings')}</h3>
                     <div className="grid grid-cols-3 gap-4">
-                       {Object.values(ItemRarity).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
+                       {(Object.values(ItemRarity) as ItemRarity[]).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
                             <div key={rarity}>
                                 <label htmlFor={`traderRarity-${rarity}`} className="block text-sm font-medium text-gray-300 mb-1">{t(`rarity.${rarity}`)}</label>
                                 <input type="number" id={`traderRarity-${rarity}`} name={`traderRarity-${rarity}`} value={settings.traderSettings?.rarityChances[rarity] || 0} onChange={handleSettingsChange} className="w-full bg-slate-700 p-2 rounded-md"/>

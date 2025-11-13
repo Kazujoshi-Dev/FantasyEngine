@@ -173,6 +173,11 @@ export default {
         description: 'Opis',
         slotLabel: 'Slot Ekwipunku',
         category: 'Kategoria',
+        categories: {
+            Weapon: 'Broń',
+            Armor: 'Pancerz',
+            Jewelry: 'Biżuteria'
+        },
         categoryWeapon: 'Broń',
         categoryArmor: 'Pancerz',
         categoryJewelry: 'Biżuteria',
@@ -434,6 +439,7 @@ export default {
         classChoiceSubject: 'Czas wybrać klasę!',
         classChoiceBody: 'Gratulacje! Osiągnąłeś 10 poziom. Możesz teraz wybrać klasę dla swojej postaci w zakładce Statystyki -> Ścieżka rozwoju. Wybierz mądrze, ponieważ ten wybór jest ostateczny!',
         bulkDelete: {
+            title: 'Akcje masowe',
             deleteRead: 'Usuń przeczytane',
             deleteAll: 'Usuń wszystkie',
             deleteReports: 'Usuń raporty z wypraw',

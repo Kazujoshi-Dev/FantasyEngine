@@ -82,52 +82,20 @@ export const ComposeMessageModal: React.FC<ComposeMessageModalProps> = ({ allCha
                         <label htmlFor="subject" className="block text-sm font-medium text-gray-300 mb-1">{t('messages.compose.subject')}</label>
                         <input type="text" id="subject" value={subject} onChange={e => setSubject(e.target.value)} placeholder={t('messages.compose.subjectPlaceholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                     </div>
-                    <div>
+                     <div>
                         <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-1">{t('messages.compose.content')}</label>
-                        <textarea id="content" value={content} onChange={e => setContent(e.target.value)} rows={6} className="w-full bg-slate-700 p-2 rounded-md" />
+                        <textarea id="content" value={content} onChange={e => setContent(e.target.value)} rows={6} className="w-full bg-slate-700 p-2 rounded-md"></textarea>
                     </div>
-                    <div className="flex justify-end gap-4 pt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:bg-slate-500">{isLoading ? t('messages.compose.sending') : t('messages.compose.send')}</button>
+                    <div className="flex justify-end">
+                        <button type="submit" disabled={isLoading} className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600">
+                            {isLoading ? t('messages.compose.sending') : t('messages.compose.send')}
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     );
 };
-
-interface ViewMessageModalProps {
-    message: Message;
-    onClose: () => void;
-    onReply: (message: Message) => void;
-    onDelete: (messageId: number) => void;
-}
-
-const ViewMessageModal: React.FC<ViewMessageModalProps> = ({ message, onClose, onReply, onDelete }) => {
-    const { t } = useTranslation();
-    const content = (message.body as PlayerMessageBody).content;
-
-    return (
-         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold mb-2 text-indigo-400">{message.subject}</h2>
-                <div className="flex justify-between items-baseline text-sm text-gray-400 mb-4 border-b border-slate-700 pb-2">
-                    <span>{t('messages.from')}: <span className="font-semibold text-gray-300">{message.sender_name || t('messages.system')}</span></span>
-                    <span>{new Date(message.created_at).toLocaleString()}</span>
-                </div>
-                <div className="bg-slate-900/50 p-4 rounded-lg max-h-80 overflow-y-auto">
-                    <p className="whitespace-pre-wrap">{content}</p>
-                </div>
-                <div className="flex justify-end gap-4 pt-6">
-                    <button type="button" onClick={() => { onDelete(message.id); onClose(); }} className="px-4 py-2 rounded-md bg-red-800 hover:bg-red-700 text-white font-semibold">{t('messages.delete')}</button>
-                    {message.message_type === 'player_message' && (
-                        <button type="button" onClick={() => { onReply(message); onClose(); }} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{t('messages.reply')}</button>
-                    )}
-                </div>
-            </div>
-        </div>
-    )
-}
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -140,220 +108,262 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
 const CurrencyDisplay: React.FC<{ currency: CurrencyType, amount: number }> = ({ currency, amount }) => {
     const { t } = useTranslation();
     if (currency === 'gold') {
-        return <span className="text-amber-400 flex items-center gap-1">{amount.toLocaleString()} <CoinsIcon className="h-4 w-4"/></span>;
+        return <span className="text-amber-400 flex items-center">{amount.toLocaleString()} <CoinsIcon className="h-4 w-4 ml-1"/></span>;
     }
     const rarity = essenceToRarityMap[currency];
     const colorClass = rarityStyles[rarity]?.text || 'text-gray-300';
 
-    return <span className={`${colorClass} flex items-center gap-1`}>{amount.toLocaleString()} <span className="font-sans">{t(`resources.${currency}`)}</span></span>
-}
+    return <span className={`${colorClass} flex items-center`}>{amount.toLocaleString()} <StarIcon className="h-4 w-4 ml-1"/></span>
+};
+
+
+const MarketNotification: React.FC<{
+    body: MarketNotificationBody;
+    messageId: number;
+    onClaimReturn: (messageId: number) => Promise<boolean>;
+    itemTemplates: ItemTemplate[];
+    affixes: Affix[];
+}> = ({ body, messageId, onClaimReturn, itemTemplates, affixes }) => {
+    const { t } = useTranslation();
+    const [isClaiming, setIsClaiming] = useState(false);
+
+    const handleClaim = async () => {
+        setIsClaiming(true);
+        await onClaimReturn(messageId);
+    };
+
+    const renderText = () => {
+        switch (body.type) {
+            case 'SOLD':
+                return (
+                    <p>{t('messages.market.soldBodyPart1')} <span className="font-semibold text-white">{body.itemName}</span> {t('messages.market.soldBodyPart2')} <CurrencyDisplay currency={body.currency!} amount={body.price!} /></p>
+                );
+            case 'BOUGHT':
+                 return (
+                    <p>{t('messages.market.boughtBodyPart1')} <span className="font-semibold text-white">{body.itemName}</span> {t('messages.market.boughtBodyPart2')} <CurrencyDisplay currency={body.currency!} amount={body.price!} /></p>
+                );
+            case 'EXPIRED':
+                 return (
+                    <p>{t('messages.market.expiredSubject')}.</p>
+                );
+            case 'ITEM_RETURNED':
+                return (
+                    <p>{t('messages.market.returnedBodyPart1')}: <span className="font-semibold text-white">{body.itemName}</span>.</p>
+                );
+            default:
+                return <p>{body.itemName}</p>;
+        }
+    };
+    
+    return (
+        <div>
+            {renderText()}
+            {body.type === 'ITEM_RETURNED' && body.item && (
+                <div className="mt-4">
+                    <button onClick={handleClaim} disabled={isClaiming} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 font-semibold disabled:bg-slate-600">
+                        {isClaiming ? t('messages.claimingItem') : t('messages.claimItem')}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 
 interface MessagesProps {
     messages: Message[];
-    onDeleteMessage: (messageId: number) => void;
-    onMarkAsRead: (messageId: number) => void;
-    onCompose: (recipientName?: string, subject?: string) => void;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     currentPlayer: PlayerCharacter;
+    onDeleteMessage: (messageId: number) => void;
+    onMarkAsRead: (messageId: number) => void;
+    onCompose: (recipient?: string, subject?: string) => void;
     onClaimReturn: (messageId: number) => Promise<boolean>;
     onDeleteBulk: (type: 'read' | 'all' | 'expedition_reports') => void;
 }
 
-export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, onMarkAsRead, onCompose, itemTemplates, affixes, currentPlayer, onClaimReturn, onDeleteBulk }) => {
+export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, affixes, currentPlayer, onDeleteMessage, onMarkAsRead, onCompose, onClaimReturn, onDeleteBulk }) => {
     const { t } = useTranslation();
-    const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
-    const [viewingPvpReport, setViewingPvpReport] = useState<{ report: PvpRewardSummary, isDefenderView: boolean } | null>(null);
-    const [viewingExpeditionReport, setViewingExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
-    const [claimingId, setClaimingId] = useState<number | null>(null);
+    const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
+    const [selectedReport, setSelectedReport] = useState<ExpeditionRewardSummary | null>(null);
+    const [selectedPvpReport, setSelectedPvpReport] = useState<PvpRewardSummary | null>(null);
 
-    const sortedMessages = useMemo(() => {
-        return [...messages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }, [messages]);
+    const selectedMessage = useMemo(() => {
+        return messages.find(msg => msg.id === selectedMessageId) || (messages.length > 0 ? messages[0] : null);
+    }, [selectedMessageId, messages]);
 
-    const handleMessageClick = (msg: Message) => {
-        if (!msg.is_read) {
-            onMarkAsRead(msg.id);
+     useEffect(() => {
+        if (!selectedMessageId && messages.length > 0) {
+            handleMessageSelect(messages[0].id);
+        } else if (messages.length === 0) {
+            setSelectedMessageId(null);
         }
-        if (msg.message_type === 'pvp_report') {
-            const isDefender = (msg.body as PvpRewardSummary).defender.id === currentPlayer.id;
-            setViewingPvpReport({ report: msg.body as PvpRewardSummary, isDefenderView: isDefender });
-        } else if (msg.message_type === 'expedition_report') {
-            try {
-                // FIX: Ensure that if msg.body is a string, it is parsed into an object.
-                const reportData = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
-                setViewingExpeditionReport(reportData as ExpeditionRewardSummary);
-            } catch (e) {
-                console.error("Failed to parse expedition report:", e);
-                alert("Could not open expedition report, data may be corrupted.");
-            }
-        } else if (msg.message_type === 'player_message' || msg.message_type === 'system') {
-            setViewingMessage(msg);
+    }, [messages, selectedMessageId]);
+
+    const handleMessageSelect = (id: number) => {
+        setSelectedMessageId(id);
+        const msg = messages.find(m => m.id === id);
+        if (msg && !msg.is_read) {
+            onMarkAsRead(id);
+        }
+    };
+
+    const handleReply = (msg: Message) => {
+        if (msg.sender_name) {
+            const subject = msg.subject.startsWith('Re: ') ? msg.subject : `Re: ${msg.subject}`;
+            onCompose(msg.sender_name, subject);
+        }
+    };
+
+    const handleDelete = (id: number) => {
+        onDeleteMessage(id);
+        if (selectedMessageId === id) {
+             const currentIndex = messages.findIndex(m => m.id === id);
+             const nextMessage = messages[currentIndex + 1] || messages[currentIndex - 1] || null;
+             setSelectedMessageId(nextMessage ? nextMessage.id : null);
         }
     };
     
-    const handleReply = (message: Message) => {
-        if (!message.sender_name) return;
-        const subject = message.subject.startsWith("Re: ") ? message.subject : `Re: ${message.subject}`;
-        onCompose(message.sender_name, subject);
-    };
-
-    const handleClaim = async (e: React.MouseEvent, messageId: number) => {
-        e.stopPropagation();
-        setClaimingId(messageId);
-        const success = await onClaimReturn(messageId);
-        if (!success) {
-            setClaimingId(null);
-        }
-    };
-
     const handleBulkDelete = (type: 'read' | 'all' | 'expedition_reports') => {
-        let confirmMessage = '';
-        switch (type) {
-            case 'read':
-                confirmMessage = t('messages.bulkDelete.confirmRead');
-                break;
-            case 'all':
-                confirmMessage = t('messages.bulkDelete.confirmAll');
-                break;
-            case 'expedition_reports':
-                confirmMessage = t('messages.bulkDelete.confirmReports');
-                break;
+        let confirmText = '';
+        switch(type) {
+            case 'read': confirmText = t('messages.bulkDelete.confirmRead'); break;
+            case 'all': confirmText = t('messages.bulkDelete.confirmAll'); break;
+            case 'expedition_reports': confirmText = t('messages.bulkDelete.confirmReports'); break;
         }
-        if (window.confirm(confirmMessage)) {
+        if (window.confirm(confirmText)) {
             onDeleteBulk(type);
         }
     };
+    
+    const renderMessageBody = (msg: Message) => {
+        try {
+            switch (msg.message_type) {
+                case 'pvp_report':
+                    const pvpBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                    return (
+                        <div className="mt-4">
+                            <button onClick={() => { setSelectedPvpReport(pvpBody as PvpRewardSummary); onMarkAsRead(msg.id); }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                        </div>
+                    );
+                case 'expedition_report':
+                    const expBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                    return (
+                        <div className="mt-4">
+                            <button onClick={() => { setSelectedReport(expBody as ExpeditionRewardSummary); onMarkAsRead(msg.id); }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                        </div>
+                    );
+                case 'player_message':
+                    return <p className="mt-4 whitespace-pre-wrap">{(msg.body as PlayerMessageBody).content}</p>;
+                case 'market_notification':
+                     const marketBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                     return <MarketNotification body={marketBody} messageId={msg.id} onClaimReturn={onClaimReturn} itemTemplates={itemTemplates} affixes={affixes} />;
+                case 'system':
+                     const systemBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                     return <p className="mt-4 whitespace-pre-wrap">{(systemBody as PlayerMessageBody).content}</p>;
+                default:
+                    return <p className="text-gray-500">Unsupported message type.</p>;
+            }
+        } catch (e) {
+            console.error("Failed to parse message body:", e);
+            return <p className="text-red-400">Error displaying message body.</p>;
+        }
+    };
+
+    const isDefenderView = selectedPvpReport ? selectedPvpReport.defender.id === currentPlayer.id : false;
 
     return (
-        <>
-            <ContentPanel title={t('messages.title')}>
-                <div className="bg-slate-900/40 p-6 rounded-xl">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-indigo-400 flex items-center">
-                            <MailIcon className="h-5 w-5 mr-2" /> {t('messages.inbox')}
-                        </h3>
-                        <button onClick={() => onCompose()} className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
-                            {t('messages.compose.title')}
-                        </button>
-                    </div>
-
-                    <div className="flex justify-end gap-2 mb-4 border-b border-slate-700/50 pb-4">
-                        <button onClick={() => handleBulkDelete('expedition_reports')} className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-red-800/80">{t('messages.bulkDelete.deleteReports')}</button>
-                        <button onClick={() => handleBulkDelete('read')} className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-red-800/80">{t('messages.bulkDelete.deleteRead')}</button>
-                        <button onClick={() => handleBulkDelete('all')} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('messages.bulkDelete.deleteAll')}</button>
-                    </div>
-
-                    <div className="space-y-2">
-                        {sortedMessages.length > 0 ? (
-                            sortedMessages.map(msg => {
-                                const isReport = msg.message_type === 'pvp_report' || msg.message_type === 'expedition_report';
-                                const sender = msg.sender_name || t('messages.system');
-                                
-                                const body = msg.body as MarketNotificationBody | PvpRewardSummary | ExpeditionRewardSummary | PlayerMessageBody;
-                                
-                                const isMarketMessage = msg.message_type === 'market_notification';
-                                const marketBody = isMarketMessage ? body as MarketNotificationBody : null;
-                                const isReturnMessage = isMarketMessage && marketBody?.type === 'ITEM_RETURNED';
-
-                                const item = marketBody?.item;
-                                const template = item ? itemTemplates.find(t => t.id === item.templateId) : null;
-                                let itemSpan: React.ReactNode = null;
-                                if (template && item) {
-                                    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-                                    itemSpan = <span className={`font-semibold ${rarityStyles[template.rarity].text}`}>{fullName}</span>;
-                                }
-
-                                return (
-                                    <div
-                                        key={msg.id}
-                                        onClick={() => !isReturnMessage && handleMessageClick(msg)}
-                                        className={`p-4 rounded-lg flex justify-between items-center transition-colors duration-200 ${
-                                            !isReturnMessage ? 'cursor-pointer' : ''
-                                        } ${
-                                            msg.is_read ? 'bg-slate-800/50 hover:bg-slate-800/80' : 'bg-indigo-900/40 hover:bg-indigo-900/60'
-                                        }`}
-                                    >
-                                        <div>
-                                            <p className="font-semibold text-white">{msg.subject}</p>
-                                             {marketBody?.type === 'SOLD' && itemSpan && (
-                                                <p className="text-sm text-gray-300">
-                                                    {t('messages.market.soldBodyPart1')}{' '}
-                                                    {itemSpan}{' '}
-                                                    {t('messages.market.soldBodyPart2')}{' '}
-                                                    <CurrencyDisplay currency={marketBody.currency!} amount={marketBody.price!} />
-                                                    .
-                                                </p>
-                                            )}
-                                            {marketBody?.type === 'BOUGHT' && itemSpan && (
-                                                <p className="text-sm text-gray-300">
-                                                    {t('messages.market.boughtBodyPart1')}{' '}
-                                                    {itemSpan}{' '}
-                                                    {t('messages.market.boughtBodyPart2')}{' '}
-                                                    <CurrencyDisplay currency={marketBody.currency!} amount={marketBody.price!} />
-                                                    .
-                                                </p>
-                                            )}
-                                            {marketBody?.type === 'ITEM_RETURNED' && itemSpan && (
-                                                <p className="text-sm text-gray-300">
-                                                    {t('messages.market.returnedBodyPart1')}{' '}
-                                                    {itemSpan}.
-                                                </p>
-                                            )}
-                                            <p className="text-sm text-gray-400 mt-1">
-                                                {t('messages.from')}: {sender} - {new Date(msg.created_at).toLocaleString()}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            {isReturnMessage ? (
-                                                <button
-                                                    onClick={(e) => handleClaim(e, msg.id)}
-                                                    disabled={claimingId === msg.id}
-                                                    className="text-xs bg-sky-700 hover:bg-sky-600 text-white font-semibold px-3 py-1 rounded transition-colors disabled:bg-slate-600"
-                                                >
-                                                    {claimingId === msg.id ? t('messages.claimingItem') : t('messages.claimItem')}
-                                                </button>
-                                            ) : (
-                                                <button onClick={(e) => { e.stopPropagation(); handleMessageClick(msg); }} className="text-xs bg-slate-700 hover:bg-slate-600 text-white font-semibold px-3 py-1 rounded transition-colors">
-                                                    {isReport ? t('messages.viewReport') : t('messages.view')}
-                                                </button>
-                                            )}
-                                            {msg.message_type === 'player_message' && msg.sender_name &&
-                                                <button onClick={(e) => { e.stopPropagation(); handleReply(msg); }} className="text-xs bg-sky-700 hover:bg-sky-600 text-white font-semibold px-3 py-1 rounded transition-colors">{t('messages.reply')}</button>
-                                            }
-                                            <button onClick={(e) => { e.stopPropagation(); onDeleteMessage(msg.id); }} className="text-xs bg-red-800/60 hover:bg-red-700 text-white font-semibold px-3 py-1 rounded transition-colors">{t('messages.delete')}</button>
-                                        </div>
-                                    </div>
-                                )
-                            })
-                        ) : (
-                            <p className="text-center text-gray-500 py-8">{t('messages.noMessages')}</p>
-                        )}
-                    </div>
-                </div>
-            </ContentPanel>
-
-            {viewingMessage && (
-                <ViewMessageModal
-                    message={viewingMessage}
-                    onClose={() => setViewingMessage(null)}
-                    onReply={handleReply}
-                    onDelete={onDeleteMessage}
+        <ContentPanel title={t('messages.title')}>
+            {selectedReport && (
+                <ExpeditionSummaryModal
+                  reward={selectedReport}
+                  onClose={() => setSelectedReport(null)}
+                  characterName={currentPlayer.name}
+                  itemTemplates={itemTemplates}
+                  affixes={affixes}
                 />
             )}
-
-            {viewingPvpReport && (
-                 <ExpeditionSummaryModal
+             {selectedPvpReport && (
+                <ExpeditionSummaryModal
                     reward={{
-                        combatLog: viewingPvpReport.report.combatLog,
-                        isVictory: viewingPvpReport.report.isVictory,
-                        totalGold: viewingPvpReport.report.gold,
-                        totalExperience: viewingPvpReport.report.experience,
+                        combatLog: selectedPvpReport.combatLog,
+                        isVictory: selectedPvpReport.isVictory,
+                        totalGold: selectedPvpReport.gold,
+                        totalExperience: selectedPvpReport.experience,
                         rewardBreakdown: [],
                         itemsFound: [],
                         essencesFound: {}
                     }}
-                    onClose={() => setViewingPvpReport(null)}
-                    characterName={viewingPvpReport.report.attacker.name}
-                    item
+                    onClose={() => setSelectedPvpReport(null)}
+                    characterName={selectedPvpReport.attacker.name}
+                    itemTemplates={itemTemplates}
+                    affixes={affixes}
+                    isPvp={true}
+                    pvpData={{ attacker: selectedPvpReport.attacker, defender: selectedPvpReport.defender }}
+                    isDefenderView={isDefenderView}
+                />
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[75vh]">
+                <div className="md:col-span-1 bg-slate-900/40 p-4 rounded-xl flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-indigo-400">{t('messages.inbox')}</h3>
+                        <button onClick={() => onCompose()} className="px-3 py-1.5 text-sm rounded bg-indigo-600 hover:bg-indigo-700 font-semibold">
+                            {t('messages.compose.title')}
+                        </button>
+                    </div>
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-2">
+                        {messages.map(msg => (
+                            <div key={msg.id} onClick={() => handleMessageSelect(msg.id)}
+                                className={`p-3 rounded-lg cursor-pointer border-l-4 ${selectedMessage?.id === msg.id ? 'bg-slate-700/50 border-indigo-500' : 'bg-slate-800/50 border-transparent hover:bg-slate-700/30'}`}>
+                                <div className="flex justify-between items-start">
+                                    <p className={`font-semibold truncate ${!msg.is_read ? 'text-white' : 'text-gray-300'}`}>{msg.subject}</p>
+                                    {!msg.is_read && <span className="h-2 w-2 bg-sky-400 rounded-full flex-shrink-0 mt-1.5 ml-2"></span>}
+                                </div>
+                                <p className="text-sm text-gray-400">
+                                    {t('messages.from')}: {msg.sender_name || t('messages.system')}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">{new Date(msg.created_at).toLocaleString()}</p>
+                            </div>
+                        ))}
+                        {messages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
+                    </div>
+                    <div className="border-t border-slate-700/50 pt-3 mt-3">
+                        <details className="text-sm">
+                            <summary className="cursor-pointer text-gray-400 hover:text-white">{t('messages.bulkDelete.title') || 'Bulk Actions'}</summary>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <button onClick={() => handleBulkDelete('read')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteRead')}</button>
+                                <button onClick={() => handleBulkDelete('expedition_reports')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteReports')}</button>
+                                <button onClick={() => handleBulkDelete('all')} className="w-full text-left px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800 text-red-300">{t('messages.bulkDelete.deleteAll')}</button>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div className="md:col-span-2 bg-slate-900/40 p-6 rounded-xl overflow-y-auto">
+                    {selectedMessage ? (
+                        <div>
+                            <h2 className="text-2xl font-bold text-white mb-2">{selectedMessage.subject}</h2>
+                            <div className="flex justify-between items-center text-sm text-gray-400 mb-4 pb-4 border-b border-slate-700/50">
+                                <div>
+                                    <p>{t('messages.from')}: <span className="font-semibold text-gray-300">{selectedMessage.sender_name || t('messages.system')}</span></p>
+                                    <p>{new Date(selectedMessage.created_at).toLocaleString()}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    {selectedMessage.message_type === 'player_message' && selectedMessage.sender_id && (
+                                        <button onClick={() => handleReply(selectedMessage)} className="px-3 py-1 text-xs rounded bg-slate-600 hover:bg-slate-500">{t('messages.reply')}</button>
+                                    )}
+                                    <button onClick={() => handleDelete(selectedMessage.id)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('messages.delete')}</button>
+                                </div>
+                            </div>
+                            {renderMessageBody(selectedMessage)}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                            <MailIcon className="h-12 w-12 mb-4" />
+                            <p>{t('messages.noMessages')}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </ContentPanel>
+    );
+};

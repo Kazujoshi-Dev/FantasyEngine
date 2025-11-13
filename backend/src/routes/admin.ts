@@ -1,3 +1,4 @@
+
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -179,6 +180,42 @@ router.post('/resolve-orphans', async (req: Request, res: Response) => {
 // Item Inspector
 router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
+});
+
+router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
+    try {
+        await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
+        res.sendStatus(200);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to reset PvP cooldowns' });
+    }
+});
+
+router.post('/messages/global', async (req: Request, res: Response) => {
+    const { subject, content } = req.body;
+    if (!subject || !content) {
+        return res.status(400).json({ message: "Subject and content are required." });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const userIdsRes = await client.query('SELECT id FROM users');
+        const body = { content };
+        for (const row of userIdsRes.rows) {
+            await client.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
+                VALUES ($1, 'System', 'system', $2, $3)`,
+                [row.id, subject, JSON.stringify(body)]
+            );
+        }
+        await client.query('COMMIT');
+        res.sendStatus(200);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: "Failed to send global message." });
+    } finally {
+        client.release();
+    }
 });
 
 export default router;
