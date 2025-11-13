@@ -130,13 +130,16 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
 
 
 const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gameData: GameData, playerData: PlayerCharacter, weaponName?: string) => {
-    // 1. Explicitly define attacker and defender references
+    // 1. Explicitly define attacker and defender roles
     const isPlayerAttacking = attackerType === 'player';
     const attacker = isPlayerAttacking ? state.player : state.enemy;
     const defender = isPlayerAttacking ? state.enemy : state.player;
+    
+    const attackerStats = attacker.stats;
+    const defenderStats = defender.stats;
 
-    // 2. Dodge check
-    const dodgeChance = !isPlayerAttacking ? (defender.stats as CharacterStats).dodgeChance : 0; // Enemies don't dodge
+    // 2. Dodge Check
+    const dodgeChance = 'dodgeChance' in defenderStats ? defenderStats.dodgeChance : 0;
     if (Math.random() * 100 < dodgeChance) {
         state.log.push({
             turn: state.turn,
@@ -160,7 +163,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
     let magicAttackType: MagicAttackType | undefined = undefined;
     let useMagicAttack = false;
 
-    // 3. Magic Attack Logic
+    // 3. Determine Attack Type (Magic vs. Physical)
     if (isPlayerAttacking) {
         const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
@@ -170,19 +173,8 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
                 useMagicAttack = true;
                 magicAttackType = template.magicAttackType;
                 attacker.currentMana -= manaCost;
-
-                const magicDmgMin = (attacker.stats as CharacterStats).magicDamageMin || 0;
-                const magicDmgMax = (attacker.stats as CharacterStats).magicDamageMax || 0;
-                damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
-
-                if (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) {
-                    if (Math.random() * 100 < attacker.stats.critChance) {
-                        isCrit = true;
-                        damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier / 100));
-                    }
-                }
             } else {
-                state.log.push({
+                 state.log.push({
                     turn: state.turn,
                     attacker: attacker.name,
                     defender: defender.name,
@@ -194,38 +186,49 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
                 });
             }
         }
-    } else { // Enemy is attacking
-        const enemyStats = attacker.stats as EnemyStats;
+    } else { // Enemy attack
+        const enemyStats = attackerStats as EnemyStats;
         const manaCost = enemyStats.magicAttackManaCost || 0;
-        if (Math.random() * 100 < (enemyStats.magicAttackChance || 0) && attacker.currentMana >= manaCost) {
+        const willUseMagic = Math.random() * 100 < (enemyStats.magicAttackChance || 0);
+        if (willUseMagic && attacker.currentMana >= manaCost) {
             useMagicAttack = true;
             magicAttackType = enemyStats.magicAttackType;
             attacker.currentMana -= manaCost;
-            damage = Math.floor(Math.random() * ((enemyStats.magicDamageMax || 0) - (enemyStats.magicDamageMin || 0) + 1)) + (enemyStats.magicDamageMin || 0);
         }
     }
+    
+    // 4. Calculate Damage
+    if (useMagicAttack) {
+        const magicDmgMin = attackerStats.magicDamageMin || 0;
+        const magicDmgMax = attackerStats.magicDamageMax || 0;
+        damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
 
-    // 4. Physical Attack Logic
-    if (!useMagicAttack) {
-        damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
-
-        if (Math.random() * 100 < attacker.stats.critChance) {
-            isCrit = true;
-            let critModifier = 200; // Default for enemies
-            if (isPlayerAttacking) {
-                critModifier = (attacker.stats as CharacterStats).critDamageModifier;
+        // Mage/Wizard crit logic
+        if (isPlayerAttacking && (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard)) {
+            if (Math.random() * 100 < attackerStats.critChance) {
+                isCrit = true;
+                damage = Math.floor(damage * ((attackerStats as CharacterStats).critDamageModifier / 100));
             }
+        }
+    } else { // Physical attack
+        damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
+
+        // Crit logic
+        if (Math.random() * 100 < attackerStats.critChance) {
+            isCrit = true;
+            const critModifier = 'critDamageModifier' in attackerStats ? attackerStats.critDamageModifier : 200;
             damage = Math.floor(damage * (critModifier / 100));
         }
 
-        const armorPenPercent = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationPercent : 0;
-        const armorPenFlat = isPlayerAttacking ? (attacker.stats as CharacterStats).armorPenetrationFlat : 0;
-        const effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
+        // Armor reduction
+        const armorPenPercent = 'armorPenetrationPercent' in attackerStats ? attackerStats.armorPenetrationPercent : 0;
+        const armorPenFlat = 'armorPenetrationFlat' in attackerStats ? attackerStats.armorPenetrationFlat : 0;
+        const effectiveArmor = Math.max(0, defenderStats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
         damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
         damage -= damageReduced;
     }
-
-    // 5. Special Bonuses
+    
+    // 5. Apply Race/Class specific damage modifiers
     if (isPlayerAttacking && playerData.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
         damage = Math.floor(damage * 1.25);
     }
@@ -235,29 +238,39 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         damageReduced += reduction;
     }
 
-    // 6. Lifesteal / Manasteal
+    // 6. Apply Lifesteal/Manasteal (only for players for now)
     if (isPlayerAttacking) {
-        const playerStats = attacker.stats as CharacterStats;
+        const playerStats = attackerStats as CharacterStats;
         const lifeStealAmount = Math.floor(damage * (playerStats.lifeStealPercent / 100)) + playerStats.lifeStealFlat;
         if (lifeStealAmount > 0) {
-            const newHealth = Math.min(attacker.stats.maxHealth, attacker.currentHealth + lifeStealAmount);
+            const newHealth = Math.min(playerStats.maxHealth, attacker.currentHealth + lifeStealAmount);
             healthGained = newHealth - attacker.currentHealth;
             attacker.currentHealth = newHealth;
         }
+
         const manaStealAmount = Math.floor(damage * (playerStats.manaStealPercent / 100)) + playerStats.manaStealFlat;
         if (manaStealAmount > 0) {
-            const newMana = Math.min(attacker.stats.maxMana, attacker.currentMana + manaStealAmount);
+            const newMana = Math.min(playerStats.maxMana, attacker.currentMana + manaStealAmount);
             manaGained = newMana - attacker.currentMana;
             attacker.currentMana = newMana;
         }
     }
     
-    // 7. Apply damage
-    defender.currentHealth -= damage;
-    if (defender.currentHealth < 0) defender.currentHealth = 0;
-    
-    // 8. Log Entry (reading directly from state)
-    const logEntry: CombatLogEntry = {
+    // 7. Apply damage and update state
+    defender.currentHealth = Math.max(0, defender.currentHealth - damage);
+
+    if (isPlayerAttacking) {
+        state.player.currentHealth = attacker.currentHealth;
+        state.player.currentMana = attacker.currentMana;
+        state.enemy.currentHealth = defender.currentHealth;
+    } else {
+        state.enemy.currentHealth = attacker.currentHealth;
+        state.enemy.currentMana = attacker.currentMana;
+        state.player.currentHealth = defender.currentHealth;
+    }
+
+    // 8. Create Log Entry (reading directly from main state)
+    state.log.push({
         turn: state.turn,
         attacker: attacker.name,
         defender: defender.name,
@@ -268,12 +281,10 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         healthGained: healthGained > 0 ? healthGained : undefined,
         manaGained: manaGained > 0 ? manaGained : undefined,
         magicAttackType,
-        weaponName,
+        weaponName: isPlayerAttacking ? weaponName : undefined,
         playerHealth: state.player.currentHealth,
         playerMana: state.player.currentMana,
         enemyHealth: state.enemy.currentHealth,
-        enemyMana: state.enemy.currentMana || 0,
-    };
-    
-    state.log.push(logEntry);
+        enemyMana: state.enemy.currentMana,
+    });
 };
