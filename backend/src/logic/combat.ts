@@ -192,6 +192,9 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
                     enemyMana: state.enemy.currentMana
                 });
             }
+        } else {
+            // This 'else' block handles non-magical weapons and clarifies the control flow for TypeScript.
+            // The logic will correctly fall through to the physical attack calculation.
         }
     } else { // Enemy attack
         const enemyStats = attacker.stats as EnemyStats;
@@ -201,8 +204,6 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
             magicAttackType = enemyStats.magicAttackType;
             attacker.currentMana -= manaCost;
             damage = Math.floor(Math.random() * ((enemyStats.magicDamageMax || 0) - (enemyStats.magicDamageMin || 0) + 1)) + (enemyStats.magicDamageMin || 0);
-        } else {
-            // This 'else' block clarifies the condition, resolving a potential TS compilation issue.
         }
     }
     
