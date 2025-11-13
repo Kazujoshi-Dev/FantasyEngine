@@ -1,8 +1,5 @@
 
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// FIX: Import NewsModal component.
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
@@ -21,7 +18,7 @@ import { Quests } from './components/Quests';
 import { Tavern } from './components/Tavern';
 import { Market } from './components/Market';
 import { Options } from './components/Options';
-import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass } from './types';
+import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass, AffixType } from './types';
 import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
@@ -44,6 +41,134 @@ const getBackpackUpgradeCost = (level: number): { gold: number; essences: { type
     return { gold, essences };
 };
 
+export const rollAffixStats = (affix: Affix): RolledAffixStats => {
+    const rolled: RolledAffixStats = {};
+
+    const rollValue = (minMax: { min: number; max: number } | undefined): number | undefined => {
+        if (minMax === undefined || minMax === null) return undefined;
+        const min = Math.min(minMax.min, minMax.max);
+        const max = Math.max(minMax.min, minMax.max);
+        if (min === max) return min;
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+
+    if (affix.statsBonus) {
+        rolled.statsBonus = {};
+        for (const key in affix.statsBonus) {
+            const statKey = key as keyof typeof affix.statsBonus;
+            const rolledStat = rollValue(affix.statsBonus[statKey]);
+            if (rolledStat !== undefined) {
+                (rolled.statsBonus as any)[statKey] = rolledStat;
+            }
+        }
+        if(Object.keys(rolled.statsBonus).length === 0) {
+            delete rolled.statsBonus;
+        }
+    }
+    
+    const otherStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'|'value'>)[] = [
+        'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
+        'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
+        'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
+        'manaStealFlat', 'magicDamageMin', 'magicDamageMax'
+    ];
+    
+    for (const key of otherStatKeys) {
+        const value = rollValue((affix as any)[key]);
+        if (value !== undefined) {
+            (rolled as any)[key] = value;
+        }
+    }
+
+    return rolled;
+};
+
+export const rollTemplateStats = (template: ItemTemplate): RolledAffixStats => {
+    const rolled: RolledAffixStats = {};
+
+    const rollValue = (minMax: { min: number; max: number } | undefined): number | undefined => {
+        if (minMax === undefined || minMax === null) return undefined;
+        const min = Math.min(minMax.min, minMax.max);
+        const max = Math.max(minMax.min, minMax.max);
+        if (min === max) return min;
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+
+    if (template.statsBonus) {
+        rolled.statsBonus = {};
+        for (const key in template.statsBonus) {
+            const statKey = key as keyof typeof template.statsBonus;
+            const rolledStat = rollValue(template.statsBonus[statKey]);
+            if (rolledStat !== undefined) {
+                (rolled.statsBonus as any)[statKey] = rolledStat;
+            }
+        }
+        if(Object.keys(rolled.statsBonus).length === 0) {
+            delete rolled.statsBonus;
+        }
+    }
+    
+    const otherStatKeys: (keyof Omit<RolledAffixStats, 'statsBonus' | 'attacksPerRoundBonus' | 'dodgeChanceBonus'>)[] = [
+        'damageMin', 'damageMax', 'armorBonus',
+        'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
+        'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
+        'manaStealFlat', 'magicDamageMin', 'magicDamageMax'
+    ];
+    
+    for (const key of otherStatKeys) {
+        const value = rollValue((template as any)[key]);
+        if (value !== undefined) {
+            (rolled as any)[key] = value;
+        }
+    }
+
+    return rolled;
+};
+
+export const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[], allAffixes: Affix[], allowAffixes = true): ItemInstance => {
+    const template = allItemTemplates.find(t => t.id === templateId);
+    if (!template) {
+        return { uniqueId: crypto.randomUUID(), templateId };
+    }
+
+    const instance: ItemInstance = {
+        uniqueId: crypto.randomUUID(),
+        templateId,
+        rolledBaseStats: rollTemplateStats(template),
+    };
+
+    if (allowAffixes) {
+        const itemCategory = template.category;
+    
+        const possiblePrefixes = allAffixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+        const possibleSuffixes = allAffixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+    
+        if (possiblePrefixes.length > 0) {
+            for (const prefix of possiblePrefixes) {
+                const chance = prefix.spawnChances[itemCategory] || 0;
+                if (Math.random() * 100 < chance) {
+                    instance.prefixId = prefix.id;
+                    instance.rolledPrefix = rollAffixStats(prefix);
+                    break; 
+                }
+            }
+        }
+    
+        if (possibleSuffixes.length > 0) {
+             for (const suffix of possibleSuffixes) {
+                const chance = suffix.spawnChances[itemCategory] || 0;
+                if (Math.random() * 100 < chance) {
+                    instance.suffixId = suffix.id;
+                    instance.rolledSuffix = rollAffixStats(suffix);
+                    break;
+                }
+            }
+        }
+    }
+
+    return instance;
+};
+
 const App: React.FC = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +183,6 @@ const App: React.FC = () => {
   
   // UI State
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
-  // FIX: Added state for news modal.
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   
   // Admin & Social State
@@ -92,7 +216,6 @@ const App: React.FC = () => {
   const currentLocation = useMemo(() => gameData?.locations.find(loc => loc.id === playerCharacter?.currentLocationId), [gameData, playerCharacter]);
   const hasUnreadMessages = useMemo(() => messages.some(m => !m.is_read), [messages]);
   const lastReadTavernMessageIdRef = useRef<number | null>(null);
-  // FIX: Added derived state for new news notification.
   const hasNewNews = useMemo(() => {
     if (!gameData?.settings.newsLastUpdatedAt || !playerCharacter) {
         return false;
@@ -317,7 +440,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // FIX: Added handlers for opening and closing the news modal.
   const handleOpenNews = useCallback(() => {
     setIsNewsModalOpen(true);
   }, []);
@@ -781,8 +903,399 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         const progress = baseCharacter.questProgress.find(p => p.questId === questId);
         
         if (!quest || !progress) return;
-
+    
         const updatedChar = JSON.parse(JSON.stringify(baseCharacter));
         let canComplete = false;
         
-        switch (quest.objective.
+        switch (quest.objective.type) {
+            case QuestType.Kill:
+                canComplete = progress.progress >= quest.objective.amount;
+                break;
+            case QuestType.Gather:
+                canComplete = updatedChar.inventory.filter((i: ItemInstance) => i.templateId === quest.objective.targetId).length >= quest.objective.amount;
+                break;
+            case QuestType.GatherResource:
+                canComplete = (updatedChar.resources[quest.objective.targetId as EssenceType] || 0) >= quest.objective.amount;
+                break;
+            case QuestType.PayGold:
+                canComplete = updatedChar.resources.gold >= quest.objective.amount;
+                break;
+        }
+    
+        if (canComplete) {
+            // Deduct items/gold
+            if (quest.objective.type === QuestType.Gather) {
+                let itemsToRemove = quest.objective.amount;
+                updatedChar.inventory = updatedChar.inventory.filter((i: ItemInstance) => {
+                    if (i.templateId === quest.objective.targetId && itemsToRemove > 0) {
+                        itemsToRemove--;
+                        return false;
+                    }
+                    return true;
+                });
+            } else if (quest.objective.type === QuestType.PayGold) {
+                updatedChar.resources.gold -= quest.objective.amount;
+            } else if (quest.objective.type === QuestType.GatherResource) {
+                updatedChar.resources[quest.objective.targetId as EssenceType] -= quest.objective.amount;
+            }
+    
+            // Add rewards
+            updatedChar.resources.gold += quest.rewards.gold;
+            updatedChar.experience += quest.rewards.experience;
+    
+            if (quest.rewards.itemRewards) {
+                for (const reward of quest.rewards.itemRewards) {
+                    for (let i = 0; i < reward.quantity; i++) {
+                        const newItem = createItemInstance(reward.templateId, gameData.itemTemplates, gameData.affixes);
+                        if (updatedChar.inventory.length < getBackpackCapacity(updatedChar)) {
+                            updatedChar.inventory.push(newItem);
+                        }
+                    }
+                }
+            }
+            if (quest.rewards.resourceRewards) {
+                for (const reward of quest.rewards.resourceRewards) {
+                    updatedChar.resources[reward.resource] = (updatedChar.resources[reward.resource] || 0) + reward.quantity;
+                }
+            }
+    
+            // Update quest progress
+            const questProgressToUpdate = updatedChar.questProgress.find((p: PlayerQuestProgress) => p.questId === questId)!;
+            questProgressToUpdate.completions += 1;
+            
+            if (quest.repeatable === 0 || questProgressToUpdate.completions < quest.repeatable) {
+                questProgressToUpdate.progress = 0;
+            } else {
+                updatedChar.acceptedQuests = updatedChar.acceptedQuests.filter((id: string) => id !== questId);
+            }
+            
+            while (updatedChar.experience >= updatedChar.experienceToNextLevel) {
+                updatedChar.experience -= updatedChar.experienceToNextLevel;
+                updatedChar.level += 1;
+                updatedChar.stats.statPoints += 1;
+                updatedChar.experienceToNextLevel = Math.floor(100 * Math.pow(updatedChar.level, 1.3));
+            }
+    
+            await handleCharacterUpdate(updatedChar, true);
+            alert(t('quests.questCompleted'));
+        }
+    }, [baseCharacter, gameData, handleCharacterUpdate, t]);
+    
+    // Initial data load and periodic fetching
+    useEffect(() => {
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        const eventListeners: [string, () => void][] = [
+            ['mousemove', resetInactivityTimer],
+            ['keydown', resetInactivityTimer],
+            ['scroll', resetInactivityTimer],
+            ['click', resetInactivityTimer],
+        ];
+
+        eventListeners.forEach(([event, listener]) => window.addEventListener(event, listener));
+        resetInactivityTimer();
+    
+        const fetchData = async () => {
+          try {
+            const [gameData, charData] = await Promise.all([
+              api.getGameData(),
+              api.getCharacter(),
+            ]);
+            setGameData(gameData);
+    
+            if (charData) {
+              if (charData.expeditionSummary) {
+                setExpeditionReport(charData.expeditionSummary);
+                delete charData.expeditionSummary;
+              }
+              setBaseCharacter(charData);
+              const [messages, tavernMessages] = await Promise.all([api.getMessages(), api.getTavernMessages()]);
+              setMessages(messages);
+              setTavernMessages(tavernMessages);
+
+              if (tavernMessages.length > 0) {
+                  const lastMessageId = tavernMessages[tavernMessages.length - 1].id;
+                  if (lastReadTavernMessageIdRef.current === null) {
+                      lastReadTavernMessageIdRef.current = lastMessageId;
+                  } else if (lastMessageId > lastReadTavernMessageIdRef.current && activeTabRef.current !== Tab.Tavern) {
+                      setHasNewTavernMessages(true);
+                  }
+              }
+
+              if (charData.username === 'Kazujoshi') {
+                 const [users, allChars, allCharNames] = await Promise.all([
+                    api.getUsers(),
+                    api.getAllCharacters(),
+                    api.getCharacterNames(),
+                 ]);
+                 setUsers(users);
+                 setAllCharacters(allChars);
+                 setAllCharacterNames(allCharNames);
+              } else {
+                 const allCharNames = await api.getCharacterNames();
+                 setAllCharacterNames(allCharNames);
+              }
+
+            } else {
+              // No character exists, could be first login
+            }
+          } catch (err: any) {
+            if (err.message === 'Invalid token') {
+              handleLogout();
+            } else {
+              setError(err.message);
+            }
+          } finally {
+            setIsLoading(false);
+          }
+        };
+    
+        fetchData();
+
+        const intervalId = setInterval(handleCheckExpeditionCompletion, 2000);
+
+        return () => {
+            clearInterval(intervalId);
+            eventListeners.forEach(([event, listener]) => window.removeEventListener(event, listener));
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        };
+    }, [token, handleLogout, handleCheckExpeditionCompletion, resetInactivityTimer]);
+    
+     // Periodic tavern message fetch
+    useEffect(() => {
+        const fetchTavern = async () => {
+            try {
+                const latestMessages = await api.getTavernMessages();
+                setTavernMessages(latestMessages);
+                 if (latestMessages.length > 0) {
+                    const lastMessageId = latestMessages[latestMessages.length - 1].id;
+                    if (lastReadTavernMessageIdRef.current !== null && lastMessageId > lastReadTavernMessageIdRef.current && activeTabRef.current !== Tab.Tavern) {
+                        setHasNewTavernMessages(true);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch tavern messages:", error);
+            }
+        };
+
+        if (token && playerCharacter) {
+            tavernIntervalRef.current = window.setInterval(fetchTavern, 5000);
+        }
+
+        return () => {
+            if (tavernIntervalRef.current) {
+                clearInterval(tavernIntervalRef.current);
+            }
+        };
+    }, [token, playerCharacter]);
+
+    useEffect(() => {
+        if (activeTab === Tab.Tavern) {
+            setHasNewTavernMessages(false);
+             if (tavernMessages.length > 0) {
+                lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
+            }
+        }
+    }, [activeTab, tavernMessages]);
+    
+
+    // Update derived character state whenever base character or game data changes
+    useEffect(() => {
+        if (baseCharacter && gameData) {
+            const derived = calculateDerivedStats(baseCharacter, gameData);
+            setPlayerCharacter(derived);
+        } else {
+            setPlayerCharacter(baseCharacter);
+        }
+    }, [baseCharacter, gameData, calculateDerivedStats]);
+
+
+    const renderContent = () => {
+      if (isLoading) return <div className="text-center p-8">{t('loading')}</div>;
+      if (error) return <div className="text-center p-8 text-red-400">{t('error.title')}: {error}</div>;
+      
+      if (!token) return <Auth onLoginSuccess={(newToken) => { setToken(newToken); localStorage.setItem('token', newToken); setIsLoading(true); }} settings={gameData?.settings} />;
+      if (!playerCharacter || !gameData) {
+          const startLocation = gameData?.locations.find(l => l.isStartLocation);
+          if (startLocation) {
+              return <CharacterCreation onCharacterCreate={async ({ name, race }) => {
+                  const newChar = await api.createCharacter(name, race, startLocation.id);
+                  setBaseCharacter(newChar);
+              }} />;
+          } else {
+               return <div className="text-center p-8 text-red-400">Critical Error: No starting location found in game data.</div>;
+          }
+      }
+
+    let activeComponent = null;
+    switch (activeTab) {
+      case Tab.Statistics:
+        activeComponent = <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
+        break;
+      case Tab.Equipment:
+        activeComponent = <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
+        break;
+      case Tab.Expedition:
+        activeComponent = <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />;
+        break;
+      case Tab.Camp:
+        activeComponent = <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;
+        break;
+      case Tab.Location:
+        activeComponent = <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
+        break;
+      case Tab.Resources:
+        activeComponent = <Resources character={playerCharacter} />;
+        break;
+       case Tab.Ranking:
+        activeComponent = <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
+        break;
+       case Tab.Messages:
+        activeComponent = <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} onClaimReturn={handleClaimMessageItem} onDeleteBulk={handleBulkDeleteMessages}/>;
+        break;
+      case Tab.Trader:
+        activeComponent = <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
+        break;
+       case Tab.Blacksmith:
+        activeComponent = <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
+        break;
+      case Tab.Quests:
+        activeComponent = <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />;
+        break;
+       case Tab.Tavern:
+        activeComponent = <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage} />;
+        break;
+       case Tab.Market:
+        activeComponent = <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={(char) => setBaseCharacter(char)} />;
+        break;
+       case Tab.Options:
+        activeComponent = <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
+        break;
+      case Tab.Admin:
+        if (playerCharacter.username === 'Kazujoshi') {
+            activeComponent = <AdminPanel 
+              gameData={gameData} 
+              onGameDataUpdate={async (key, data) => { await api.updateGameData(key, data); const gd = await api.getGameData(); setGameData(gd); }} 
+              onSettingsUpdate={async (settings) => { await api.updateGameSettings(settings); const gd = await api.getGameData(); setGameData(gd); }}
+              users={users}
+              onDeleteUser={async (userId) => { await api.deleteUser(userId); const u = await api.getUsers(); setUsers(u); }}
+              allCharacters={allCharacters}
+              onDeleteCharacter={async (userId) => { await api.deleteCharacter(userId); const c = await api.getAllCharacters(); setAllCharacters(c); }}
+              onResetCharacterStats={async (userId) => { await api.resetCharacterStats(userId); alert('Stats reset!'); }}
+              onHealCharacter={async (userId) => { await api.healCharacter(userId); alert('Healed!'); }}
+              onUpdateCharacterGold={async (userId, gold) => { await api.updateCharacterGold(userId, gold); const c = await api.getAllCharacters(); setAllCharacters(c); alert('Gold updated!'); }}
+              onForceTraderRefresh={async () => { await api.getTraderInventory(true); alert('Trader inventory will be refreshed on next visit.'); }}
+              onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); alert('All PvP cooldowns have been reset.'); }}
+              onSendGlobalMessage={api.sendGlobalMessage}
+            />;
+        }
+        break;
+      default:
+        activeComponent = <div>Coming Soon...</div>;
+    }
+    
+    return (
+        <div 
+            className="flex h-screen bg-cover bg-center bg-fixed font-sans" 
+            style={{ backgroundImage: gameData?.settings.gameBackground ? `url(${gameData.settings.gameBackground})` : "url('background.png')" }}
+        >
+            <Sidebar 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                playerCharacter={playerCharacter} 
+                currentLocation={currentLocation}
+                onLogout={handleLogout}
+                hasUnreadMessages={hasUnreadMessages}
+                hasNewTavernMessages={hasNewTavernMessages}
+                onOpenNews={handleOpenNews}
+                hasNewNews={hasNewNews}
+            />
+            <main className="flex-1 overflow-y-auto p-8">
+                {activeComponent}
+            </main>
+        </div>
+    );
+  };
+
+  useEffect(() => {
+    if (activeTab === Tab.Ranking && ranking.length === 0) {
+      fetchRanking();
+    }
+    if (activeTab === Tab.Trader && traderInventory.length === 0) {
+      fetchTraderInventory();
+    }
+  }, [activeTab, ranking, traderInventory, fetchRanking, fetchTraderInventory]);
+
+  if (isLoading && !gameData) {
+      return <div className="flex h-screen items-center justify-center">{t('loading')}</div>;
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center text-center p-8">
+        <h2 className="text-2xl font-bold text-red-400 mb-4">{t('error.title')}</h2>
+        <p className="mb-6">{error}</p>
+        <div className="flex gap-4">
+            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded-md">{t('error.refresh')}</button>
+            <button onClick={handleLogout} className="px-4 py-2 bg-slate-600 rounded-md">{t('error.logout')}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
+      {playerCharacter && gameData && expeditionReport && (
+        <ExpeditionSummaryModal
+          reward={expeditionReport}
+          onClose={() => setExpeditionReport(null)}
+          characterName={playerCharacter.name}
+          itemTemplates={gameData.itemTemplates}
+          affixes={gameData.affixes}
+        />
+      )}
+      {playerCharacter && gameData && pvpReport && (
+        <ExpeditionSummaryModal
+            reward={{
+                combatLog: pvpReport.combatLog,
+                isVictory: pvpReport.isVictory,
+                totalGold: pvpReport.gold,
+                totalExperience: pvpReport.experience,
+                rewardBreakdown: [],
+                itemsFound: [],
+                essencesFound: {}
+            }}
+            onClose={() => setPvpReport(null)}
+            characterName={pvpReport.attacker.name}
+            itemTemplates={gameData.itemTemplates}
+            affixes={gameData.affixes}
+            isPvp={true}
+            pvpData={{
+                attacker: pvpReport.attacker,
+                defender: pvpReport.defender,
+            }}
+        />
+      )}
+      {isComposingMessage && (
+          <ComposeMessageModal
+              allCharacterNames={allCharacterNames}
+              onClose={() => setIsComposingMessage(false)}
+              onSendMessage={handleSendMessage}
+              initialRecipient={composeInitialData?.recipient}
+              initialSubject={composeInitialData?.subject}
+          />
+      )}
+      <NewsModal 
+        isOpen={isNewsModalOpen}
+        onClose={handleCloseNews}
+        content={gameData?.settings.newsContent || ''}
+      />
+      {renderContent()}
+    </LanguageContext.Provider>
+  );
+};
+
+export default App;
