@@ -247,34 +247,29 @@ const App: React.FC = () => {
     }, 30 * 60 * 1000); // 30 minutes
   }, [handleLogout]);
 
-  const handleCheckExpeditionCompletion = useCallback(async () => {
+  const handleTriggerExpeditionCompletion = useCallback(async () => {
     if (isCompletingExpeditionRef.current) return;
     isCompletingExpeditionRef.current = true;
     try {
-        const charData = await api.getCharacter();
-
-        if (expeditionReport) {
-            isCompletingExpeditionRef.current = false;
-            return;
-        }
-
-        if (charData.expeditionSummary) {
-            setExpeditionReport(charData.expeditionSummary);
-            delete charData.expeditionSummary;
-            setPostExpeditionCharacter(charData);
-        } else {
-            setBaseCharacter(charData);
-        }
-        
-        const freshMessages = await api.getMessages();
-        setMessages(freshMessages);
-
+        const { updatedCharacter, summary } = await api.completeExpedition();
+        setExpeditionReport(summary);
+        setPostExpeditionCharacter(updatedCharacter);
     } catch (err: any) {
-        setError(err.message);
+        // If expedition is already complete on the server (e.g. from another tab), fetch fresh character data
+        if (err.message === 'No expedition to complete.') {
+             try {
+                const charData = await api.getCharacter();
+                setBaseCharacter(charData);
+             } catch (fetchErr: any) {
+                setError(fetchErr.message);
+             }
+        } else {
+            setError(err.message);
+        }
     } finally {
         isCompletingExpeditionRef.current = false;
     }
-  }, [expeditionReport]);
+  }, []);
 
   // Derived Stat Calculation for UI Previews
   const calculateDerivedStats = useCallback((character: PlayerCharacter, gameDataForCalc: GameData | null): PlayerCharacter => {
@@ -990,15 +985,22 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         }
     }, [baseCharacter, gameData, handleCharacterUpdate, t]);
 
-    const handleCloseExpeditionReport = () => {
+    const handleCloseExpeditionReport = async () => {
         setExpeditionReport(null);
         if (postExpeditionCharacter) {
             setBaseCharacter(postExpeditionCharacter);
             setPostExpeditionCharacter(null);
         }
+        // Refetch messages after expedition is done, to get potential reports
+        try {
+            const freshMessages = await api.getMessages();
+            setMessages(freshMessages);
+        } catch (err: any) {
+            console.error("Failed to refetch messages after expedition:", err);
+        }
     };
     
-    // Initial data load and periodic fetching
+    // Initial data load
     useEffect(() => {
         if (!token) {
           setIsLoading(false);
@@ -1024,10 +1026,6 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             setGameData(gameData);
     
             if (charData) {
-              if (charData.expeditionSummary) {
-                setExpeditionReport(charData.expeditionSummary);
-                delete charData.expeditionSummary;
-              }
               setBaseCharacter(charData);
               const [messages, tavernMessages] = await Promise.all([api.getMessages(), api.getTavernMessages()]);
               setMessages(messages);
@@ -1072,14 +1070,11 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     
         fetchData();
 
-        const intervalId = setInterval(handleCheckExpeditionCompletion, 2000);
-
         return () => {
-            clearInterval(intervalId);
             eventListeners.forEach(([event, listener]) => window.removeEventListener(event, listener));
             if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         };
-    }, [token, handleLogout, handleCheckExpeditionCompletion, resetInactivityTimer]);
+    }, [token, handleLogout, resetInactivityTimer]);
     
      // Periodic tavern message fetch
     useEffect(() => {
@@ -1156,7 +1151,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         activeComponent = <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
         break;
       case Tab.Expedition:
-        activeComponent = <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />;
+        activeComponent = <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onCompletion={handleTriggerExpeditionCompletion} />;
         break;
       case Tab.Camp:
         activeComponent = <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;

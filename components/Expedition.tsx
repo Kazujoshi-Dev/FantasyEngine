@@ -17,6 +17,7 @@ interface ExpeditionProps {
     onStartExpedition: (expeditionId: string) => void;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
+    onCompletion: () => void;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -482,23 +483,31 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 const ActiveExpeditionPanel: React.FC<{
     character: PlayerCharacter;
     expeditions: ExpeditionType[];
-}> = ({ character, expeditions }) => {
+    onCompletion: () => void;
+}> = ({ character, expeditions, onCompletion }) => {
     const { t } = useTranslation();
     const activeExpeditionDetails = expeditions.find(e => e.id === character.activeExpedition?.expeditionId);
     const [timeLeft, setTimeLeft] = useState(0);
+    const completionCalledRef = useRef(false);
 
     useEffect(() => {
         if (character.activeExpedition) {
+            completionCalledRef.current = false; // Reset on new expedition
             const updateTimer = () => {
                 const remaining = Math.max(0, Math.floor((character.activeExpedition!.finishTime - Date.now()) / 1000));
                 setTimeLeft(remaining);
+
+                if (remaining <= 0 && !completionCalledRef.current) {
+                    completionCalledRef.current = true;
+                    onCompletion();
+                }
             };
 
             updateTimer();
             const intervalId = setInterval(updateTimer, 1000);
             return () => clearInterval(intervalId);
         }
-    }, [character.activeExpedition]);
+    }, [character.activeExpedition, onCompletion]);
 
     if (!activeExpeditionDetails) return null;
 
@@ -522,7 +531,7 @@ const ActiveExpeditionPanel: React.FC<{
     );
 };
 
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates }) => {
+export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion }) => {
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
@@ -531,6 +540,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
           <ActiveExpeditionPanel 
             character={character}
             expeditions={expeditions}
+            onCompletion={onCompletion}
           />
       </ContentPanel>
   ) : (

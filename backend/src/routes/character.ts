@@ -9,46 +9,63 @@ const router = express.Router();
 
 // GET /api/character - Get the current user's character data
 router.get('/character', authenticateToken, async (req: Request, res: Response) => {
+    try {
+        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(200).json(null);
+        }
+        
+        const character: PlayerCharacter = result.rows[0].data;
+
+        // Check if expedition is finished and update character state in memory if needed, but don't finalize here
+        if (character.activeExpedition && Date.now() >= character.activeExpedition.finishTime) {
+            // The client will call /complete-expedition to finalize
+        }
+
+        res.json(character);
+
+    } catch (err) {
+        console.error('Error fetching character:', err);
+        res.status(500).json({ message: 'Failed to fetch character data.' });
+    }
+});
+
+router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const result = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         
         if (result.rows.length === 0) {
-            await client.query('COMMIT');
-            return res.status(200).json(null);
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
         }
         
         let character: PlayerCharacter = result.rows[0].data;
-        let expeditionSummary = null;
 
-        if (character.activeExpedition && Date.now() >= character.activeExpedition.finishTime) {
-            const gameDataRes = await client.query("SELECT key, data FROM game_data");
-            const gameData: Partial<GameData> = gameDataRes.rows.reduce((acc, row) => {
-                acc[row.key as keyof GameData] = row.data;
-                return acc;
-            }, {});
-
-            const outcome = processCompletedExpedition(character, gameData as GameData);
-            character = outcome.updatedCharacter;
-            expeditionSummary = outcome.summary;
-
-            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        if (!character.activeExpedition || Date.now() < character.activeExpedition.finishTime) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'No expedition to complete.' });
         }
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data");
+        const gameData: GameData = gameDataRes.rows.reduce((acc, row) => {
+            acc[row.key as keyof GameData] = row.data;
+            return acc;
+        }, {} as GameData);
+
+        const { updatedCharacter, summary } = processCompletedExpedition(character, gameData);
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
         await client.query('COMMIT');
+        res.json({ updatedCharacter, summary });
 
-        const response: any = character;
-        if (expeditionSummary) {
-            response.expeditionSummary = expeditionSummary;
-        }
-
-        res.json(response);
-
-    } catch (err) {
+    } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error('Error fetching character:', err);
-        res.status(500).json({ message: 'Failed to fetch character data.' });
+        console.error('Error completing expedition:', err);
+        res.status(500).json({ message: err.message || 'Failed to complete expedition.' });
     } finally {
         client.release();
     }

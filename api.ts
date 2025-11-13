@@ -78,8 +78,14 @@ export const api = {
     },
 
     // --- Character Management ---
-    async getCharacter(): Promise<PlayerCharacter & { expeditionSummary?: ExpeditionRewardSummary }> {
+    async getCharacter(): Promise<PlayerCharacter> {
         return fetchApi('/character');
+    },
+
+    async completeExpedition(): Promise<{ updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary }> {
+        return fetchApi('/character/complete-expedition', {
+            method: 'POST',
+        });
     },
     
     async createCharacter(name: string, race: Race, startLocationId: string): Promise<PlayerCharacter> {
