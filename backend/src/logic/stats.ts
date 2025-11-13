@@ -183,4 +183,4 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
             dodgeChance,
         }
     };
-};
+}

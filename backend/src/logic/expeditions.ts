@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
@@ -115,27 +114,29 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             ...encounteredEnemies.flatMap(e => e.lootTable)
         ];
 
-        let potentialItemsFound = 0;
-        if(character.characterClass === CharacterClass.DungeonHunter) {
-            if (Math.random() < 0.3) potentialItemsFound += 1;
-            if (Math.random() < 0.15) potentialItemsFound += 1;
-        }
-
         const backpackCapacity = getBackpackCapacity(finalCharacter);
-        for (const drop of allLootTables) {
-            if (Math.random() * 100 < drop.chance) {
-                potentialItemsFound++;
+        
+        // Class Bonus: Dungeon Hunter
+        if(character.characterClass === CharacterClass.DungeonHunter) {
+            if (Math.random() < 0.3) {
+                 const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
+                 if(extraDrop) allLootTables.push(extraDrop);
+            }
+             if (Math.random() < 0.15) {
+                 const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
+                 if(extraDrop) allLootTables.push(extraDrop);
             }
         }
-
-        for (let i = 0; i < potentialItemsFound; i++) {
-             if (finalCharacter.inventory.length < backpackCapacity) {
-                const drop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
-                const newItem = createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes);
-                finalCharacter.inventory.push(newItem);
-                itemsFound.push(newItem);
-            } else {
-                itemsLostCount++;
+        
+        for (const drop of allLootTables) {
+            if (Math.random() * 100 < drop.chance) {
+                if (finalCharacter.inventory.length < backpackCapacity) {
+                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes);
+                    finalCharacter.inventory.push(newItem);
+                    itemsFound.push(newItem);
+                } else {
+                    itemsLostCount++;
+                }
             }
         }
         

@@ -356,26 +356,4 @@ export const Messages: React.FC<MessagesProps> = ({ messages, onDeleteMessage, o
                     }}
                     onClose={() => setViewingPvpReport(null)}
                     characterName={viewingPvpReport.report.attacker.name}
-                    itemTemplates={itemTemplates}
-                    affixes={affixes}
-                    isPvp={true}
-                    pvpData={{
-                        attacker: viewingPvpReport.report.attacker,
-                        defender: viewingPvpReport.report.defender,
-                    }}
-                    isDefenderView={viewingPvpReport.isDefenderView}
-                />
-            )}
-
-            {viewingExpeditionReport && (
-                <ExpeditionSummaryModal
-                    reward={viewingExpeditionReport}
-                    onClose={() => setViewingExpeditionReport(null)}
-                    characterName={currentPlayer.name}
-                    itemTemplates={itemTemplates}
-                    affixes={affixes}
-                />
-            )}
-        </>
-    );
-};
+                    item

@@ -79,34 +79,27 @@ export const ItemDetailsPanel: React.FC<{
         return value;
     }, [template, prefix, suffix]);
 
-    const StatSection: React.FC<{title?: string, source: ItemTemplate | RolledAffixStats, isItem?: boolean, isUpgrade?: boolean}> = ({title, source, isItem, isUpgrade}) => {
+    const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, isUpgrade: boolean}> = ({title, source, isUpgrade}) => {
         const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
         const calculateStat = (base?: number) => base !== undefined ? base + Math.round(base * bonusFactor) : undefined;
         const calculateFloatStat = (base?: number) => base !== undefined ? base + base * bonusFactor : undefined;
         
-        const getMaxValue = (value: any): number => {
-            if (value === undefined || value === null) return 0;
-            if (typeof value === 'number') return value; // Handles old format
-            if (typeof value === 'object' && 'max' in value) return value.max; // Handles new format
-            return 0; // Fallback for any other case
-        };
-        
         const s = source as any; // To access properties dynamically
         
         const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isItem ? calculateStat(getMaxValue(v)) : getMaxValue(v)}`, color: 'text-green-300'})) : []),
-            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${isItem ? calculateStat(getMaxValue(s.damageMin)) : s.damageMin}-${isItem ? calculateStat(getMaxValue(s.damageMax)) : s.damageMax}`},
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isUpgrade ? calculateStat(v as number) : v}`, color: 'text-green-300'})) : []),
+            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`},
             (s.attacksPerRound !== undefined) && {label: t('statistics.attacksPerTurn'), value: s.attacksPerRound},
-            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${isItem ? calculateStat(getMaxValue(s.armorBonus)) : s.armorBonus}`},
-            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(isItem ? calculateFloatStat(getMaxValue(s.critChanceBonus)) : s.critChanceBonus)?.toFixed(1)}%`},
-            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${isItem ? calculateStat(getMaxValue(s.maxHealthBonus)) : s.maxHealthBonus}`},
-            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${getMaxValue(s.critDamageModifierBonus)}%`},
-            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${getMaxValue(s.armorPenetrationPercent) || 0}% / ${getMaxValue(s.armorPenetrationFlat) || 0}`},
-            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${getMaxValue(s.lifeStealPercent) || 0}% / ${getMaxValue(s.lifeStealFlat) || 0}`},
-            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${getMaxValue(s.manaStealPercent) || 0}% / ${getMaxValue(s.manaStealFlat) || 0}`},
-            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${isItem ? calculateStat(getMaxValue(s.magicDamageMin)) : s.magicDamageMin}-${isItem ? calculateStat(getMaxValue(s.magicDamageMax)) : s.magicDamageMax}`, color: 'text-purple-300'},
-            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${getMaxValue(s.attacksPerRoundBonus)}`},
-            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${getMaxValue(s.dodgeChanceBonus).toFixed(1)}%`},
+            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`},
+            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`},
+            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`},
+            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${s.critDamageModifierBonus}%`},
+            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent || 0}% / ${s.armorPenetrationFlat || 0}`},
+            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${s.lifeStealFlat || 0}`},
+            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
+            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
+            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${s.attacksPerRoundBonus}`},
+            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
         ].filter(Boolean);
 
         if (entries.length === 0) return null;
@@ -140,9 +133,9 @@ export const ItemDetailsPanel: React.FC<{
                     </p>
                 </div>
 
-                <StatSection source={template} isItem isUpgrade />
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} />}
+                <StatSection source={item.rolledBaseStats || {}} isUpgrade={true} />
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isUpgrade={false} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isUpgrade={false} />}
 
                 {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && (
                     <div className={`border-t border-slate-700/50 pt-2 mt-2 ${isSmall ? 'text-xs' : 'text-sm'}`}>
