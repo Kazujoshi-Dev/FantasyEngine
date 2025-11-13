@@ -23,6 +23,7 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
+// FIX: Added explicit types for req and res.
 router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
@@ -32,6 +33,7 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json(traderInventory);
 });
 
+// FIX: Added explicit types for req and res.
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
@@ -53,6 +55,12 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
         const template = itemTemplates.find((t: any) => t.id === itemToBuy.templateId);
         
+        if (!template) {
+            console.error(`Inconsistent data: Item template ${itemToBuy.templateId} not found for item ${itemToBuy.uniqueId}.`);
+            await client.query('ROLLBACK');
+            return res.status(500).json({ message: 'Item data is inconsistent. Please contact an administrator.' });
+        }
+
         let cost = template.value * 2;
 
         if (character.resources.gold < cost) {
@@ -71,12 +79,14 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("Error during trader purchase:", err);
         res.status(500).json({ message: 'Server error during purchase' });
     } finally {
         client.release();
     }
 });
 
+// FIX: Added explicit types for req and res.
 router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {

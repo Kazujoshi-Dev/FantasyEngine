@@ -1,7 +1,8 @@
+
 import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// FIX: Add explicit types for req, res, and next
+// FIX: Add explicit types for req, res, and next to resolve property does not exist errors.
 export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
