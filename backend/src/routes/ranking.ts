@@ -1,10 +1,20 @@
-import { Router, Request, Response } from 'express';
+import express, { Router, Response } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
 const router = Router();
 
-router.get('/', async (req: Request, res: Response) => {
+const calculateTotalExperience = (level: number, currentExperience: number): number => {
+    let totalXp = currentExperience;
+    // Sum up the experience required for all previous levels
+    for (let i = 1; i < level; i++) {
+        const xpForPrevLevel = Math.floor(100 * Math.pow(i, 1.3));
+        totalXp += xpForPrevLevel;
+    }
+    return totalXp;
+};
+
+router.get('/', async (req: express.Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
@@ -26,13 +36,20 @@ router.get('/', async (req: Request, res: Response) => {
             ) as active_sessions ON c.user_id = active_sessions.user_id
         `);
 
-        // The 'experience' from DB is the TOTAL accumulated experience.
-        const ranking: RankingPlayer[] = result.rows;
+        const rankingData: RankingPlayer[] = result.rows;
 
-        // Sort by total experience.
-        ranking.sort((a, b) => b.experience - a.experience);
+        const rankingWithTotalXp = rankingData.map(player => {
+            const totalExperience = calculateTotalExperience(player.level, player.experience);
+            return {
+                ...player,
+                experience: totalExperience, // Overwrite with total experience
+            };
+        });
 
-        res.json(ranking);
+        // Sort by the new total experience.
+        rankingWithTotalXp.sort((a, b) => b.experience - a.experience);
+
+        res.json(rankingWithTotalXp);
     } catch (err) {
         console.error('Error fetching ranking:', err);
         res.status(500).json({ message: 'Failed to fetch ranking data.' });

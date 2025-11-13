@@ -231,7 +231,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [currentPlayerStats, setCurrentPlayerStats] = useState<CharacterStats | null>(null);
     const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(null);
     // FIX: Changed type of animationTimerRef to `any` to avoid Node/browser type conflicts with `setTimeout`.
-    const animationTimerRef = useRef<number | null>(null);
+    const animationTimerRef = useRef<any | null>(null);
     
     // In PvP, isVictory from backend is always from attacker's perspective.
     // For defender view (from messages), we need to flip it.
