@@ -34,7 +34,7 @@ router.get('/', async (req: Request, res: Response) => {
                     SELECT 1 
                     FROM sessions s 
                     WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes'
-                ) as is_online
+                ) as "isOnline"
             FROM characters c
         `);
 

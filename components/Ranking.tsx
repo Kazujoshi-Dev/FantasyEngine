@@ -110,7 +110,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
                     </td>
                     <td className="p-4 font-medium text-white">
                         <div className="flex items-center">
-                            <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.is_online ? 'bg-green-500' : 'bg-red-500'}`} title={player.is_online ? 'Online' : 'Offline'}></span>
+                            <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={player.isOnline ? 'Online' : 'Offline'}></span>
                             <span>{player.name}</span>
                             {isAdmin && (
                                 <span className="ml-2 text-xs font-bold text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full">

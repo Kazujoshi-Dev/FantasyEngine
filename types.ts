@@ -554,7 +554,7 @@ export interface RankingPlayer {
     pvpWins: number;
     pvpLosses: number;
     pvpProtectionUntil: number;
-    is_online: boolean;
+    isOnline: boolean;
 }
 
 export interface AdminCharacterInfo {

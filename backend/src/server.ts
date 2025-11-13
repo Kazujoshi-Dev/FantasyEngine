@@ -1,6 +1,7 @@
 
 
 
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -57,7 +58,7 @@ app.use('/api/tavern', tavernRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/admin', adminRoutes);
 // This must be the last API route because it's a broad catch-all for /character, /characters/* etc.
-// FIX: No overload matches this call.
+// FIX: No overload matches this call. Adding explicit types to route handlers in other files should resolve type inference issues.
 app.use('/api', characterRoutes);
 
 
