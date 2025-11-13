@@ -50,7 +50,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Item not available from trader' });
         }
 
-        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
         const template = itemTemplates.find((t: any) => t.id === itemToBuy.templateId);
@@ -102,7 +102,7 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
         }
         let character: PlayerCharacter = charRes.rows[0].data;
 
-        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
         
