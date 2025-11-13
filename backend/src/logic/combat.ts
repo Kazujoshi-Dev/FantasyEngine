@@ -272,7 +272,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         playerHealth: state.player.currentHealth,
         playerMana: state.player.currentMana,
         enemyHealth: state.enemy.currentHealth,
-        enemyMana: state.enemy.currentMana,
+        enemyMana: state.enemy.currentMana || 0,
     };
     
     state.log.push(logEntry);
