@@ -180,6 +180,17 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', def
                        damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier / 100));
                    }
                 }
+            } else {
+                state.log.push({
+                    turn: state.turn,
+                    attacker: attacker.name,
+                    defender: defender.name,
+                    action: 'notEnoughMana',
+                    playerHealth: state.player.currentHealth,
+                    playerMana: state.player.currentMana,
+                    enemyHealth: state.enemy.currentHealth,
+                    enemyMana: state.enemy.currentMana
+                });
             }
         }
     } else { // Enemy attack
