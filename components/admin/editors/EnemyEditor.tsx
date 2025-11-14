@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -15,6 +13,8 @@ interface EnemyEditorProps {
 export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCancel, isEditing, allItemTemplates }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<Enemy>>({
+        lootTable: [],
+        resourceLootTable: [],
         ...enemy,
         rewards: enemy.rewards || { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
         stats: enemy.stats || { maxHealth: 0, minDamage: 0, maxDamage: 0, armor: 0, critChance: 0, agility: 0 },

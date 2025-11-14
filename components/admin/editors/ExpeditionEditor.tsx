@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Expedition, Location, Enemy, ItemTemplate, ExpeditionEnemy, LootDrop, ResourceDrop, EssenceType } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -16,6 +17,9 @@ interface ExpeditionEditorProps {
 export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, onSave, onCancel, isEditing, allLocations, allEnemies, allItemTemplates }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<Expedition>>({
+        enemies: [],
+        lootTable: [],
+        resourceLootTable: [],
         ...expedition,
         minBaseGoldReward: expedition.minBaseGoldReward ?? 0,
         maxBaseGoldReward: expedition.maxBaseGoldReward ?? 0,

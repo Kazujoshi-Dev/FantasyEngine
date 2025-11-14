@@ -21,10 +21,10 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     
     // 1. Determine enemies for this expedition
     const encounteredEnemies: Enemy[] = [];
-    const maxEnemies = expedition.maxEnemies || expedition.enemies.length;
+    const maxEnemies = expedition.maxEnemies || (expedition.enemies || []).length;
     let enemiesFoughtCount = 0;
     
-    for (const expEnemy of expedition.enemies) {
+    for (const expEnemy of (expedition.enemies || [])) {
         if (enemiesFoughtCount >= maxEnemies) break;
         if (Math.random() * 100 < expEnemy.spawnChance) {
             const enemyTemplate = gameData.enemies.find(e => e.id === expEnemy.enemyId);
@@ -115,8 +115,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         
         // Handle loot drops (from enemies and expedition)
         const allLootTables = [
-            ...expedition.lootTable,
-            ...encounteredEnemies.flatMap(e => e.lootTable)
+            ...(expedition.lootTable || []),
+            ...encounteredEnemies.flatMap(e => e.lootTable || [])
         ];
 
         const backpackCapacity = getBackpackCapacity(finalCharacter);
