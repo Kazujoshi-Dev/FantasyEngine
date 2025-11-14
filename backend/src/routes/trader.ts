@@ -1,7 +1,6 @@
-
-
 // FIX: Use explicit express types to resolve type conflicts.
-import express from 'express';
+// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
@@ -27,17 +26,17 @@ const refreshTraderInventoryIfNeeded = async () => {
 };
 
 // FIX: Use explicit express types for req, res.
-router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
         lastTraderRefresh = 0; // Force refresh on next check
     }
     await refreshTraderInventoryIfNeeded();
-    res.json(traderInventory);
+    res.json({ regularItems: traderInventory, specialOfferItem: null });
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -90,7 +89,7 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: 'No items to sell' });

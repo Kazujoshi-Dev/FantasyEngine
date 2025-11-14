@@ -466,7 +466,15 @@ export default {
         sellAllJunk: 'Sprzedaj rupiecie',
         sellAllRarity: 'Sprzedaj wszystkie {rarity}',
         bulkSellConfirm: 'Czy na pewno chcesz sprzedać {count} przedmiotów za {value} złota?',
-        noItemsToSellOfRarity: 'Nie masz żadnych przedmiotów o wybranej rzadkości do sprzedania.'
+        noItemsToSellOfRarity: 'Nie masz żadnych przedmiotów o wybranej rzadkości do sprzedania.',
+        mysteriousItem: {
+            title: "Tajemniczy przedmiot",
+            description: "Kup ten przedmiot, aby otrzymać losowy, magiczny przedmiot (do Rzadkiej jakości) z gwarantowanym prefiksem i sufiksem.",
+            buy: "Kup za 5000"
+        },
+        specialOffer: {
+            title: "Oferta specjalna"
+        },
     },
     blacksmith: {
         title: 'Kowal',

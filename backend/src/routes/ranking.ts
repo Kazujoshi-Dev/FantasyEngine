@@ -1,7 +1,6 @@
-
-
 // FIX: Use explicit express types to resolve type conflicts.
-import express from 'express';
+// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
@@ -21,7 +20,7 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
 };
 
 // FIX: Use explicit express types for req, res.
-router.get('/', async (req: express.Request, res: express.Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 

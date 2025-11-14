@@ -1,7 +1,6 @@
-
-
 // FIX: Use explicit express types to resolve type conflicts.
-import express from 'express';
+// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
+import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -10,7 +9,7 @@ const router = express.Router();
 
 // Public endpoint to get all game data
 // FIX: Use explicit express types for req, res.
-router.get('/', async (req: express.Request, res: express.Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: Partial<GameData> = {};
@@ -26,7 +25,7 @@ router.get('/', async (req: express.Request, res: express.Response) => {
 
 // Admin-only endpoint to update game data
 // FIX: Use explicit express types for req, res.
-router.put('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.put('/', authenticateToken, async (req: Request, res: Response) => {
     // A simple admin check could be based on username
     const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
     if (userRes.rows[0]?.username !== 'Kazujoshi') {

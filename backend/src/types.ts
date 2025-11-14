@@ -521,6 +521,11 @@ export interface TraderSettings {
     };
 }
 
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItem: ItemInstance | null;
+}
+
 export interface GameSettings {
     language: Language;
     traderSettings?: TraderSettings;

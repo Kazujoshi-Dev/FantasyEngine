@@ -625,7 +625,8 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
   const fetchTraderInventory = useCallback(async () => {
     try {
       const inventoryData = await api.getTraderInventory();
-      setTraderInventory(inventoryData);
+      // FIX: The API returns an object with `regularItems`, not an array directly.
+      setTraderInventory(inventoryData.regularItems);
     } catch (err: any) {
       setError(err.message);
     }

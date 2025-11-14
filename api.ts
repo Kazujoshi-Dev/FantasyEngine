@@ -1,4 +1,4 @@
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult } from './types';
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData } from './types';
 
 const API_BASE_URL = '/api';
 
@@ -235,7 +235,7 @@ export const api = {
     },
     
     // --- Trader ---
-    async getTraderInventory(forceRefresh = false): Promise<ItemInstance[]> {
+    async getTraderInventory(forceRefresh = false): Promise<TraderInventoryData> {
         return fetchApi(`/trader/inventory${forceRefresh ? '?force=true' : ''}`);
     },
     
@@ -243,6 +243,12 @@ export const api = {
         return fetchApi('/trader/buy', {
             method: 'POST',
             body: JSON.stringify({ itemId }),
+        });
+    },
+
+    async buyMysteriousItem(): Promise<PlayerCharacter> {
+        return fetchApi('/trader/buy-mysterious', {
+            method: 'POST',
         });
     },
 
