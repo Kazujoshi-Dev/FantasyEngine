@@ -47,7 +47,7 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
         await processExpiredListings(client);
         const result = await client.query(
             "SELECT * FROM market_listings WHERE seller_id = $1 AND status != 'CLAIMED' ORDER BY created_at DESC",
-            [req.user!.id]
+            [(req as any).user!.id]
         );
         await client.query('COMMIT');
         res.json(result.rows);
@@ -65,7 +65,7 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
 
         const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
@@ -80,8 +80,8 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
             ? 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, buy_now_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)'
             : 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, start_bid_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)';
 
-        await client.query(query, [req.user!.id, itemData, listingType, currency, price, expires_at]);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query(query, [(req as any).user!.id, itemData, listingType, currency, price, expires_at]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
 
         await client.query('COMMIT');
         res.status(201).json(character);
@@ -95,7 +95,7 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
 
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { listingId } = req.body;
-    const buyerId = req.user!.id;
+    const buyerId = (req as any).user!.id;
     const client = await pool.connect();
 
     try {
@@ -147,7 +147,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 
 router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     const { listingId, amount } = req.body;
-    const bidderId = req.user!.id;
+    const bidderId = (req as any).user!.id;
     const client = await pool.connect();
 
     try {
@@ -204,7 +204,7 @@ router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
 
 router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
-    const sellerId = req.user!.id;
+    const sellerId = (req as any).user!.id;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -235,7 +235,7 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
 
 router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
-    const sellerId = req.user!.id;
+    const sellerId = (req as any).user!.id;
     const client = await pool.connect();
 
     try {

@@ -10,7 +10,7 @@ const router = Router();
 // Middleware to check for admin privileges
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
+        const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [(req as any).user!.id]);
         if (userRes.rows.length > 0 && userRes.rows[0].username === 'Kazujoshi') {
             next();
         } else {

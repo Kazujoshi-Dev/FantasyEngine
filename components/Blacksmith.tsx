@@ -64,8 +64,10 @@ const DisenchantPanel: React.FC<{
         const result = await onDisenchantItem(selectedItem);
         
         if (result.success && result.amount && result.essenceType) {
+            // fix: Use correct arguments for translation function - refactored to avoid nested `t` calls
+            const essenceName = t(`resources.${result.essenceType}`);
             setNotification({
-                message: t('blacksmith.disenchantSuccess', { amount: result.amount, essenceName: t(`resources.${result.essenceType}`) }),
+                message: t('blacksmith.disenchantSuccess', { amount: result.amount, essenceName: essenceName }),
                 type: 'success'
             });
         } else if (!result.success && result.amount === undefined) {

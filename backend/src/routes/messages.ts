@@ -10,7 +10,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
-            [req.user!.id]
+            [(req as any).user!.id]
         );
         res.json(result.rows);
     } catch (err) {
@@ -22,7 +22,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { recipientName, subject, content } = req.body;
     try {
-        const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
+        const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [(req as any).user!.id]);
         if (senderRes.rows.length === 0) {
             return res.status(404).json({ message: "Sender character not found." });
         }
@@ -38,7 +38,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         const result = await pool.query(
             `INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body)
              VALUES ($1, $2, $3, 'player_message', $4, $5) RETURNING *`,
-            [recipientId, req.user!.id, senderName, subject, JSON.stringify(body)]
+            [recipientId, (req as any).user!.id, senderName, subject, JSON.stringify(body)]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -51,7 +51,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
-            [req.params.id, req.user!.id]
+            [req.params.id, (req as any).user!.id]
         );
         res.sendStatus(204);
     } catch (err) {
@@ -64,7 +64,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
-            [req.params.id, req.user!.id]
+            [req.params.id, (req as any).user!.id]
         );
         res.sendStatus(204);
     } catch (err) {
@@ -77,7 +77,7 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const msgRes = await client.query("SELECT * FROM messages WHERE id = $1 AND recipient_id = $2 FOR UPDATE", [req.params.id, req.user!.id]);
+        const msgRes = await client.query("SELECT * FROM messages WHERE id = $1 AND recipient_id = $2 FOR UPDATE", [req.params.id, (req as any).user!.id]);
         if (msgRes.rows.length === 0) {
             return res.status(404).json({ message: 'Message not found.' });
         }
@@ -88,12 +88,12 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
             return res.status(400).json({ message: 'This message does not contain a claimable item.' });
         }
 
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         let character = charRes.rows[0].data;
 
         character.inventory.push(body.item);
         
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
         await client.query('DELETE FROM messages WHERE id = $1', [req.params.id]);
 
         await client.query('COMMIT');
@@ -110,7 +110,7 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
 router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
     const { type } = req.body;
     let query;
-    const params = [req.user!.id];
+    const params = [(req as any).user!.id];
 
     switch (type) {
         case 'read':

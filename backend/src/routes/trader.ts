@@ -37,7 +37,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -72,7 +72,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         character.inventory.push(itemToBuy);
         traderInventory = traderInventory.filter(i => i.uniqueId !== itemId);
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -93,7 +93,7 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -122,7 +122,7 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
             throw new Error("Mismatch selling items, rolling back.");
         }
         
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ContentPanelProps {
@@ -14,9 +13,3 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({ title, children }) =
     </div>
   );
 };
-
-// Add fade-in animation to tailwind config or a global style if possible.
-// For this setup, we can add it in index.html, but it's not ideal.
-// A simple way without config is to use CSS within a style tag, though this is an exception to the rules for demonstration.
-// Better would be to have a tailwind.config.js with animation keyframes.
-// Let's add the animation to index.html for simplicity in this constrained environment.

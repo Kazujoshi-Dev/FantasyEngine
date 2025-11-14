@@ -23,7 +23,7 @@ router.post('/messages', authenticateToken, async (req: Request, res: Response) 
     }
 
     try {
-        const charRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
+        const charRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [(req as any).user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: "Character not found." });
         }
@@ -31,7 +31,7 @@ router.post('/messages', authenticateToken, async (req: Request, res: Response) 
 
         const result = await pool.query(
             'INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *',
-            [req.user!.id, characterName, content.trim()]
+            [(req as any).user!.id, characterName, content.trim()]
         );
 
         res.status(201).json(result.rows[0]);

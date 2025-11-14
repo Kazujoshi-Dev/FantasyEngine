@@ -10,7 +10,7 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -51,7 +51,7 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
             character.resources[essenceType] = (character.resources[essenceType] || 0) + amount;
         }
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
         await client.query('COMMIT');
         
         res.json({ updatedCharacter: character, result: { success, amount, essenceType } });
@@ -69,7 +69,7 @@ router.post('/upgrade', authenticateToken, async (req: Request, res: Response) =
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
         if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found' });
         
         let character: PlayerCharacter = charRes.rows[0].data;
@@ -121,7 +121,7 @@ router.post('/upgrade', authenticateToken, async (req: Request, res: Response) =
              else (character.equipment as any)[itemLocation] = null;
         }
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
         await client.query('COMMIT');
         
         res.json({ 
