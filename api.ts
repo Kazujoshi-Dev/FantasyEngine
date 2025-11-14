@@ -181,6 +181,26 @@ export const api = {
         });
     },
 
+    async healToFull(): Promise<PlayerCharacter> {
+        return fetchApi('/character/heal-to-full', {
+            method: 'POST',
+        });
+    },
+
+    async upgradeBuilding(building: 'camp' | 'chest' | 'backpack'): Promise<PlayerCharacter> {
+        return fetchApi('/character/upgrade-building', {
+            method: 'POST',
+            body: JSON.stringify({ building }),
+        });
+    },
+
+    async completeQuest(questId: string): Promise<PlayerCharacter> {
+        return fetchApi('/character/complete-quest', {
+            method: 'POST',
+            body: JSON.stringify({ questId }),
+        });
+    },
+
     async getAllCharacters(): Promise<AdminCharacterInfo[]> {
         return fetchApi('/admin/characters/all');
     },

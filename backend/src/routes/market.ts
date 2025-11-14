@@ -1,13 +1,14 @@
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+import * as express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
 import { processExpiredListings } from '../logic/tasks.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
-const router = Router();
+const router = express.Router();
 
 const getItemName = async (client: any, templateId: string): Promise<string> => {
     const res = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -16,8 +17,8 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.get('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.get('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -43,8 +44,8 @@ router.get('/listings', authenticateToken, async (req: ExpressRequest, res: Expr
 });
 
 // GET user's listings
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.get('/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -65,8 +66,8 @@ router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: E
 });
 
 // POST a new listing
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -102,8 +103,8 @@ router.post('/listings', authenticateToken, async (req: ExpressRequest, res: Exp
     }
 });
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId } = req.body;
     // fix: Use req.user directly, as its type is extended globally.
     const buyerId = req.user!.id;
@@ -156,8 +157,8 @@ router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressR
 });
 
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/bid', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId, amount } = req.body;
     // fix: Use req.user directly, as its type is extended globally.
     const bidderId = req.user!.id;
@@ -215,8 +216,8 @@ router.post('/bid', authenticateToken, async (req: ExpressRequest, res: ExpressR
     }
 });
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/listings/:id/cancel', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;
@@ -248,8 +249,8 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: ExpressReques
     }
 });
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/listings/:id/claim', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;

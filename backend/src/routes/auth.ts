@@ -1,15 +1,16 @@
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+import * as express from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';
 
-const router = Router();
+const router = express.Router();
 
 // POST /api/auth/register
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/register', async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/register', async (req: express.Request, res: express.Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -32,8 +33,8 @@ router.post('/register', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // POST /api/auth/login
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/login', async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/login', async (req: express.Request, res: express.Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -66,8 +67,8 @@ router.post('/login', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // POST /api/auth/logout
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/logout', async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/logout', async (req: express.Request, res: express.Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -82,8 +83,8 @@ router.post('/logout', async (req: ExpressRequest, res: ExpressResponse) => {
     res.sendStatus(204);
 });
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/session/heartbeat', async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/session/heartbeat', async (req: express.Request, res: express.Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (token) {

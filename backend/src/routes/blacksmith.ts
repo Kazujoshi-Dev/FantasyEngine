@@ -1,14 +1,15 @@
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+import * as express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
-const router = Router();
+const router = express.Router();
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -69,8 +70,8 @@ router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: E
     }
 });
 
-// fix: Use aliased Express types to avoid conflict with DOM types.
-router.post('/upgrade', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+// fix: Use fully qualified express types to avoid conflict with DOM types.
+router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
