@@ -3,8 +3,9 @@
 
 
 
-// fix: Use named imports for Express types to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+
+// fix: Use aliased Express types to avoid conflict with DOM types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -68,14 +69,14 @@ app.use('/api', characterRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// fix: Use Request and Response types from express.
-app.get('*', (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// fix: Use Request, Response, and NextFunction types from express.
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

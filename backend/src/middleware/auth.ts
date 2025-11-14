@@ -1,10 +1,11 @@
 
-// fix: Use named imports for Express types to resolve type conflicts.
-import { Request, Response, NextFunction } from 'express';
+
+// fix: Use aliased Express types to avoid conflict with DOM types.
+import { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// fix: Use Request, Response, and NextFunction types from express.
-export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+export async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

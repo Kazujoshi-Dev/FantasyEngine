@@ -1,6 +1,6 @@
 
-// fix: Use named imports for Express types to resolve type conflicts.
-import { Router, Request, Response } from 'express';
+// fix: Use aliased Express types to avoid conflict with DOM types.
+import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
@@ -25,8 +25,8 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-// fix: Use Request and Response types from express.
-router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.get('/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
         lastTraderRefresh = 0; // Force refresh on next check
@@ -35,8 +35,8 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json(traderInventory);
 });
 
-// fix: Use Request and Response types from express.
-router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -90,8 +90,8 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types from express.
-router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.post('/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: 'No items to sell' });

@@ -49,7 +49,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
               // fix: Look up item name from template
               const item = equipment[slot];
               const template = item ? itemTemplates.find(t => t.id === item.templateId) : null;
-              const itemName = item && template ? getGrammaticallyCorrectFullName(item, template, affixes) : null;
+              const itemName = item && template ? getGrammaticallyCorrectFullName(item, template, affixes || []) : null;
               return (
                 <EquipmentSlotDisplay
                   key={slot}
@@ -69,7 +69,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, itemTemplates, 
               {inventory.map(item => {
                 // fix: Look up item name from template
                 const template = itemTemplates.find(t => t.id === item.templateId);
-                const name = template ? getGrammaticallyCorrectFullName(item, template, affixes) : t('item.unknown');
+                const name = template ? getGrammaticallyCorrectFullName(item, template, affixes || []) : t('item.unknown');
                 return (
                   <li key={item.uniqueId} className="bg-slate-800/50 p-3 rounded-lg text-white">
                     {name}

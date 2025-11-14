@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
@@ -25,7 +20,7 @@ import { CharacterCreation } from './components/CharacterCreation';
 import { 
     Tab, PlayerCharacter, Race, Language, GameData, 
     RankingPlayer, ExpeditionRewardSummary, Message, TavernMessage, ItemInstance,
-    AdminCharacterInfo, PvpRewardSummary, CharacterClass, User
+    AdminCharacterInfo, PvpRewardSummary, CharacterClass, User, GameSettings
 } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
@@ -57,7 +52,7 @@ export const App: React.FC = () => {
   const characterUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const tavernIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const lang = playerCharacter?.settings?.language || Language.PL;
+  const lang = playerCharacter?.settings?.language || gameData?.settings.language || Language.PL;
   const t = useMemo(() => getT(lang), [lang]);
 
   const showAlert = (err: any) => {
@@ -71,22 +66,19 @@ export const App: React.FC = () => {
         setBaseCharacter(char);
     }
   }, []);
-
+  
   const loadInitialData = useCallback(async () => {
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     try {
-      const [gData, charData] = await Promise.all([
-        api.getGameData(),
-        api.getCharacter()
-      ]);
+      const gData = await api.getGameData();
       setGameData(gData);
-      if (charData) {
-        setPlayerCharacter(charData);
-        setBaseCharacter(charData);
+
+      if (token) {
+        const charData = await api.getCharacter();
+        if (charData) {
+          setPlayerCharacter(charData);
+          setBaseCharacter(charData);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -100,6 +92,7 @@ export const App: React.FC = () => {
     }
   }, [token]);
 
+
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
@@ -109,6 +102,8 @@ export const App: React.FC = () => {
     localStorage.removeItem('token');
     setToken(null);
     setPlayerCharacter(null);
+    setBaseCharacter(null);
+    setGameData(null);
   };
   
   const handleLoginSuccess = (newToken: string) => {
@@ -134,20 +129,32 @@ export const App: React.FC = () => {
   };
   
   const renderContent = () => {
-    if (!playerCharacter || !gameData) return null;
+    if (!playerCharacter || !gameData || !baseCharacter) return null;
     const currentLocation = gameData.locations.find(loc => loc.id === playerCharacter.currentLocationId);
     if (!currentLocation) return <p>Error: Current location not found.</p>;
 
     switch (activeTab) {
       case Tab.Statistics: return <Statistics character={playerCharacter} />;
       case Tab.Equipment: return <Equipment character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />;
-      // ... A lot more tabs will be rendered here
+      case Tab.Expedition: return <Expedition character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation} onStartExpedition={() => {}} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onCompletion={() => {}} />;
+      case Tab.Camp: return <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={() => {}} onUpgradeCamp={() => {}} getCampUpgradeCost={() => 0} onCharacterUpdate={handleCharacterUpdate} onHealToFull={() => {}} onUpgradeChest={() => {}} onUpgradeBackpack={() => {}} getChestUpgradeCost={() => ({gold: 0, essences: []})} getBackpackUpgradeCost={() => ({gold: 0, essences: []})} />;
+      case Tab.Location: return <Location playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
+      case Tab.Resources: return <Resources character={playerCharacter} />;
+      case Tab.Ranking: return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={() => {}} isLoading={isRankingLoading} onAttack={() => {}} onComposeMessage={() => {}}/>;
+      case Tab.Options: return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
+      case Tab.Trader: return <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={() => {}} onSellItems={() => {}} />;
+      case Tab.Blacksmith: return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={async () => ({success: false})} onUpgradeItem={async () => ({success: false, messageKey: ''})} />;
+      case Tab.Messages: return <Messages messages={messages} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} onDeleteMessage={() => {}} onMarkAsRead={() => {}} onCompose={() => {}} onClaimReturn={async () => false} onDeleteBulk={() => {}} />;
+      case Tab.Quests: return <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={() => {}} onCompleteQuest={() => {}} />;
+      case Tab.Tavern: return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={() => {}} />;
+      case Tab.Market: return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={handleCharacterUpdate} />;
+      case Tab.Admin: return <AdminPanel gameData={gameData} onGameDataUpdate={() => {}} onSettingsUpdate={() => {}} users={[]} onDeleteUser={() => {}} allCharacters={allCharacters} onDeleteCharacter={() => {}} onResetCharacterStats={() => {}} onHealCharacter={() => {}} onUpdateCharacterGold={async () => {}} onForceTraderRefresh={() => {}} onResetAllPvpCooldowns={() => {}} onSendGlobalMessage={async () => {}} onRegenerateCharacterEnergy={async () => {}} onChangeUserPassword={async () => {}} onInspectCharacter={async () => ({} as PlayerCharacter)} onDeleteCharacterItem={async () => ({} as PlayerCharacter)} />;
       default: return null;
     }
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen text-white">{t('loading')}</div>;
+    return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">{t('loading')}</div>;
   }
   
   if (!token) {
@@ -157,12 +164,19 @@ export const App: React.FC = () => {
   if (!playerCharacter) {
     return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
   }
+  
+  const currentLocation = gameData?.locations.find(loc => loc.id === playerCharacter.currentLocationId);
 
   return (
     <LanguageContext.Provider value={{ lang, t }}>
-      {/* fix: Access gameBackground from gameData.settings */}
       <div className="flex h-screen bg-cover bg-center" style={{ backgroundImage: `url(${gameData?.settings?.gameBackground || 'game_background.png'})` }}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} playerCharacter={playerCharacter} />
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          playerCharacter={playerCharacter}
+          availableTabs={currentLocation?.availableTabs || []}
+          onLogout={handleLogout}
+        />
         <main className="flex-1 p-6 overflow-y-auto">
           {renderContent()}
         </main>

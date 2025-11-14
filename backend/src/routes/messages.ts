@@ -1,6 +1,6 @@
 
-// fix: Use named imports for Express types to resolve type conflicts.
-import { Router, Request, Response } from 'express';
+// fix: Use aliased Express types to avoid conflict with DOM types.
+import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -8,8 +8,8 @@ import { Message, MarketNotificationBody } from '../types.js';
 const router = Router();
 
 // GET all messages for the user
-// fix: Use Request and Response types from express.
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.get('/', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
@@ -23,8 +23,8 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // POST a new message
-// fix: Use Request and Response types from express.
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.post('/', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { recipientName, subject, content } = req.body;
     try {
         // fix: Use req.user directly, as its type is extended globally.
@@ -54,8 +54,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // PUT to mark as read
-// fix: Use Request and Response types from express.
-router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.put('/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
@@ -69,8 +69,8 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // DELETE a message
-// fix: Use Request and Response types from express.
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.delete('/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
@@ -84,8 +84,8 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // POST to claim item from market return message
-// fix: Use Request and Response types from express.
-router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.post('/claim-return/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -122,8 +122,8 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
 });
 
 // POST for bulk delete
-// fix: Use Request and Response types from express.
-router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.post('/bulk-delete', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { type } = req.body;
     let query;
     // fix: Use req.user directly, as its type is extended globally.

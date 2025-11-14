@@ -3,8 +3,9 @@
 
 
 
-// fix: Use named imports for Express types to resolve type conflicts.
-import { Router, Request, Response } from 'express';
+
+// fix: Use aliased Express types to avoid conflict with DOM types.
+import { Router, Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { GameData, ItemInstance, ItemTemplate, PlayerCharacter } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -12,8 +13,8 @@ import { authenticateToken } from '../middleware/auth.js';
 const router = Router();
 
 // Public endpoint to get all game data
-// fix: Use Request and Response types from express.
-router.get('/', async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.get('/', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: Partial<GameData> = {};
@@ -28,8 +29,8 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Admin-only endpoint to update game data
-// fix: Use Request and Response types from express.
-router.put('/', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use aliased Express types to avoid conflict with DOM types.
+router.put('/', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     // fix: Use req.user directly, as its type is extended globally.
     const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
     if (userRes.rows[0]?.username !== 'Kazujoshi') {
