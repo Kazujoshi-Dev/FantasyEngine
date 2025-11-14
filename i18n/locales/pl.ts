@@ -597,12 +597,13 @@ export default {
         myListings: {
             title: 'Moje Oferty',
             noListings: 'Nie masz żadnych aktywnych ofert.',
-            status: 'Status',
-            statusACTIVE: 'Aktywna',
-            statusSOLD: 'Sprzedana',
-            statusEXPIRED: 'Wygasła',
-            statusCANCELLED: 'Anulowana',
-            statusCLAIMED: 'Odebrana',
+            status: {
+                'ACTIVE': 'Aktywna',
+                'SOLD': 'Sprzedana',
+                'EXPIRED': 'Wygasła',
+                'CANCELLED': 'Anulowana',
+                'CLAIMED': 'Odebrana'
+            },
             price: 'Cena',
             expiresIn: 'Wygasa za',
             actions: 'Akcje',
