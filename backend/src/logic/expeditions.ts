@@ -58,8 +58,13 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
 
         // Add enemy rewards to breakdown
-        const goldReward = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
-        const experienceReward = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
+        const minGold = enemy.rewards?.minGold ?? 0;
+        const maxGold = enemy.rewards?.maxGold ?? 0;
+        const goldReward = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
+        
+        const minExp = enemy.rewards?.minExperience ?? 0;
+        const maxExp = enemy.rewards?.maxExperience ?? 0;
+        const experienceReward = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
         
         rewardBreakdown.push({
             source: `Pokonano: ${enemy.name}`,
