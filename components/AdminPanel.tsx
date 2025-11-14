@@ -65,7 +65,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
       case 'users':
         return <UsersTab 
                   allCharacters={props.allCharacters}
-                  onUpdateCharacterGold={props.onUpdateCharacterGold}
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
                   onDeleteCharacter={props.onDeleteCharacter}
