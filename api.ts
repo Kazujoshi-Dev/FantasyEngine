@@ -71,7 +71,7 @@ export const api = {
     },
 
     async sendHeartbeat(): Promise<void> {
-        return fetchApi('/session/heartbeat', {
+        return fetchApi('/auth/session/heartbeat', {
             method: 'POST',
         });
     },

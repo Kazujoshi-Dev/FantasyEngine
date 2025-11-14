@@ -1,5 +1,5 @@
 // FIX: Changed import to use default export and explicit types to resolve type conflicts.
-import express, { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 // FIX: Added missing LootDrop type import.
@@ -12,7 +12,7 @@ const router = Router();
 
 // GET /api/character - Get the current user's character data
 // FIX: Use explicit express types for req, res.
-router.get('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
         
@@ -71,7 +71,7 @@ router.get('/character', authenticateToken, async (req: express.Request, res: ex
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/character/complete-expedition', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -120,7 +120,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: exp
 
 // POST /api/character - Create a new character
 // FIX: Use explicit express types for req, res.
-router.post('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const newCharacterData: PlayerCharacter = req.body;
         if (!newCharacterData.name || !newCharacterData.race) {
@@ -157,7 +157,7 @@ router.post('/character', authenticateToken, async (req: express.Request, res: e
 
 // PUT /api/character - Update character data
 // FIX: Use explicit express types for req, res.
-router.put('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.put('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
 
@@ -189,7 +189,7 @@ router.put('/character', authenticateToken, async (req: express.Request, res: ex
 
 // POST /api/character/select-class
 // FIX: Use explicit express types for req, res.
-router.post('/character/select-class', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const { characterClass } = req.body as { characterClass: CharacterClass };
      if (!Object.values(CharacterClass).includes(characterClass)) {
         return res.status(400).json({ message: 'Invalid character class.' });
@@ -217,20 +217,20 @@ router.post('/character/select-class', authenticateToken, async (req: express.Re
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/character/upgrade-building', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character/upgrade-building', authenticateToken, async (req: Request, res: Response) => {
     const { building } = req.body;
     // Implementation for upgrading buildings like camp, chest, backpack
     res.status(501).json({ message: 'Not implemented' });
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/character/heal', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character/heal', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for instant healing
     res.status(501).json({ message: 'Not implemented' });
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/character/complete-quest', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/character/complete-quest', authenticateToken, async (req: Request, res: Response) => {
     const { questId } = req.body;
     const client = await pool.connect();
     try {
@@ -344,7 +344,7 @@ router.post('/character/complete-quest', authenticateToken, async (req: express.
 
 // GET /api/characters/names - Get all character names
 // FIX: Use explicit express types for req, res.
-router.get('/characters/names', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");
         res.json(result.rows.map(r => r.name));
