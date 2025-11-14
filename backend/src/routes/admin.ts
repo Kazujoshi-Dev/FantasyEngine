@@ -1,7 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter } from '../types.js';
+import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData } from '../types.js';
+import { calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { hashPassword } from '../logic/helpers.js';
 
 const router = Router();
 
@@ -45,6 +47,22 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to delete user' });
     }
 });
+
+router.post('/users/:id/password', async (req: Request, res: Response) => {
+    const { newPassword } = req.body;
+    if (!newPassword) {
+        return res.status(400).json({ message: 'New password is required.' });
+    }
+    try {
+        const { salt, hash } = hashPassword(newPassword);
+        await pool.query('UPDATE users SET password_hash = $1, salt = $2 WHERE id = $3', [hash, salt, req.params.id]);
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        console.error('Failed to change password:', err);
+        res.status(500).json({ message: 'Failed to change password.' });
+    }
+});
+
 
 // FIX: Added explicit types for req and res.
 // Add explicit types for req and res.
@@ -134,6 +152,34 @@ router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     }
 });
 
+router.post('/characters/:userId/regenerate-energy', async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data");
+        const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.params.userId]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+        
+        const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates, gameData.affixes);
+        character.stats.currentEnergy = characterWithStats.stats.maxEnergy;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.params.userId]);
+        await client.query('COMMIT');
+        res.sendStatus(200);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to regenerate energy' });
+    } finally {
+        client.release();
+    }
+});
+
 // FIX: Added explicit types for req and res.
 // Add explicit types for req and res.
 router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
@@ -154,6 +200,62 @@ router.post('/character/:userId/update-gold', async (req: Request, res: Response
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to update gold' });
+    } finally {
+        client.release();
+    }
+});
+
+router.get('/characters/:userId/inspect', async (req: Request, res: Response) => {
+    try {
+        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        res.json(result.rows[0].data);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch character data' });
+    }
+});
+
+router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, res: Response) => {
+    const { userId, itemUniqueId } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        let itemFoundAndRemoved = false;
+        
+        const initialInventoryLength = character.inventory.length;
+        character.inventory = character.inventory.filter(item => item.uniqueId !== itemUniqueId);
+        if (character.inventory.length < initialInventoryLength) {
+            itemFoundAndRemoved = true;
+        }
+
+        if (!itemFoundAndRemoved) {
+            for (const slot in character.equipment) {
+                if (character.equipment[slot as keyof typeof character.equipment]?.uniqueId === itemUniqueId) {
+                    character.equipment[slot as keyof typeof character.equipment] = null;
+                    itemFoundAndRemoved = true;
+                    break;
+                }
+            }
+        }
+
+        if (!itemFoundAndRemoved) {
+             return res.status(404).json({ message: 'Item not found on character.' });
+        }
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, userId]);
+        await client.query('COMMIT');
+        res.json(character); // Return updated character
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to delete item' });
     } finally {
         client.release();
     }

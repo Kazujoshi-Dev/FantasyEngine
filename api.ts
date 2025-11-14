@@ -383,6 +383,25 @@ export const api = {
         });
     },
     
+    async changeUserPassword(userId: number, newPassword: string): Promise<void> {
+        return fetchApi(`/admin/users/${userId}/password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword }),
+        });
+    },
+
+    async regenerateCharacterEnergy(userId: number): Promise<void> {
+        return fetchApi(`/admin/characters/${userId}/regenerate-energy`, { method: 'POST' });
+    },
+
+    async inspectCharacter(userId: number): Promise<PlayerCharacter> {
+        return fetchApi(`/admin/characters/${userId}/inspect`);
+    },
+
+    async deleteCharacterItem(userId: number, itemUniqueId: string): Promise<PlayerCharacter> {
+        return fetchApi(`/admin/characters/${userId}/items/${itemUniqueId}`, { method: 'DELETE' });
+    },
+
     async resetAllPvpCooldowns(): Promise<void> {
         return fetchApi('/admin/pvp/reset-cooldowns', {
             method: 'POST',

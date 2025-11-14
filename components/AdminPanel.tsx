@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { GameSettings, User, AdminCharacterInfo, GameData } from '../types';
+import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 
 import { GeneralTab } from './admin/tabs/GeneralTab';
@@ -30,6 +30,11 @@ interface AdminPanelProps {
   onForceTraderRefresh: () => void;
   onResetAllPvpCooldowns: () => void;
   onSendGlobalMessage: (data: { subject: string; content: string }) => Promise<void>;
+  // New handlers
+  onRegenerateCharacterEnergy: (userId: number) => Promise<void>;
+  onChangeUserPassword: (userId: number, newPassword: string) => Promise<void>;
+  onInspectCharacter: (userId: number) => Promise<PlayerCharacter>;
+  onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
 type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit';
@@ -65,10 +70,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
       case 'users':
         return <UsersTab 
                   allCharacters={props.allCharacters}
+                  gameData={props.gameData}
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
                   onDeleteCharacter={props.onDeleteCharacter}
                   onUpdateCharacterGold={props.onUpdateCharacterGold}
+                  onRegenerateCharacterEnergy={props.onRegenerateCharacterEnergy}
+                  onChangeUserPassword={props.onChangeUserPassword}
+                  onInspectCharacter={props.onInspectCharacter}
+                  onDeleteCharacterItem={props.onDeleteCharacterItem}
                 />;
       case 'locations':
         return <LocationsTab
