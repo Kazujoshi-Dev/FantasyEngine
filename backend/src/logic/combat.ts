@@ -227,7 +227,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         const armorPenPercent = 'armorPenetrationPercent' in attackerStats ? attackerStats.armorPenetrationPercent : 0;
         const armorPenFlat = 'armorPenetrationFlat' in attackerStats ? attackerStats.armorPenetrationFlat : 0;
         const effectiveArmor = Math.max(0, defenderStats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
-        damageReduced = Math.min(damage, Math.floor(effectiveArmor * 0.5));
+        damageReduced = Math.min(damage, Math.floor(effectiveArmor));
         damage -= damageReduced;
     }
     
