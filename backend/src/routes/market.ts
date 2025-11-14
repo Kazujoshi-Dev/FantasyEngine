@@ -1,12 +1,12 @@
-// FIX: Changed import to use default export and explicit types to resolve type conflicts.
-import { Router, Request, Response } from 'express';
+// FIX: Use explicit express types to resolve type conflicts.
+import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
 import { processExpiredListings } from '../logic/tasks.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
-const router = Router();
+const router = express.Router();
 
 const getItemName = async (client: any, templateId: string): Promise<string> => {
     const res = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -16,7 +16,7 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 
 // GET all active listings
 // FIX: Use explicit express types for req, res.
-router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
+router.get('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -43,7 +43,7 @@ router.get('/listings', authenticateToken, async (req: Request, res: Response) =
 
 // GET user's listings
 // FIX: Use explicit express types for req, res.
-router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
+router.get('/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -64,7 +64,7 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
 
 // POST a new listing
 // FIX: Use explicit express types for req, res.
-router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
+router.post('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -98,7 +98,7 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
+router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId } = req.body;
     const buyerId = req.user!.id;
     const client = await pool.connect();
@@ -151,7 +151,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 
 
 // FIX: Use explicit express types for req, res.
-router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
+router.post('/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId, amount } = req.body;
     const bidderId = req.user!.id;
     const client = await pool.connect();
@@ -209,7 +209,7 @@ router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
+router.post('/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();
@@ -241,7 +241,7 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
+router.post('/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();

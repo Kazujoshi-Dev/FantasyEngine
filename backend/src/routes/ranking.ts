@@ -1,9 +1,9 @@
-// FIX: Changed import to use default export and explicit types to resolve type conflicts.
-import { Router, Request, Response } from 'express';
+// FIX: Use explicit express types to resolve type conflicts.
+import express from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
-const router = Router();
+const router = express.Router();
 
 const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     // The pg driver returns bigint as a string, so we must cast to Number
@@ -19,7 +19,7 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
 };
 
 // FIX: Use explicit express types for req, res.
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`
             SELECT 
