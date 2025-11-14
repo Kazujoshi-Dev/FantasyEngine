@@ -68,6 +68,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
                   onDeleteCharacter={props.onDeleteCharacter}
+                  onUpdateCharacterGold={props.onUpdateCharacterGold}
                 />;
       case 'locations':
         return <LocationsTab
