@@ -15,6 +15,7 @@ import { PvpTab } from './admin/tabs/PvpTab';
 import { ItemInspectorTab } from './admin/tabs/ItemInspectorTab';
 import { DuplicationAuditTab } from './admin/tabs/DuplicationAuditTab';
 import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
+import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 
 interface AdminPanelProps {
   gameData: GameData;
@@ -37,7 +38,7 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'databaseEditor';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
@@ -46,6 +47,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
     { id: 'users', label: 'Użytkownicy i Postacie' },
+    { id: 'databaseEditor', label: 'Edytor Bazy Danych' },
     { id: 'locations', label: 'Lokacje' },
     { id: 'expeditions', label: 'Ekspedycje' },
     { id: 'enemies', label: 'Wrogowie' },
@@ -80,6 +82,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onInspectCharacter={props.onInspectCharacter}
                   onDeleteCharacterItem={props.onDeleteCharacterItem}
                 />;
+      case 'databaseEditor':
+        return <DatabaseEditorTab />;
       case 'locations':
         return <LocationsTab
                   locations={props.gameData.locations}

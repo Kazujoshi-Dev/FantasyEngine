@@ -434,4 +434,27 @@ export const api = {
     async findItemById(uniqueId: string): Promise<ItemSearchResult> {
         return fetchApi(`/admin/find-item/${uniqueId}`);
     },
+
+    // DB Editor
+    async getDbTables(): Promise<string[]> {
+        return fetchApi('/admin/db/tables');
+    },
+
+    async getDbTableData(tableName: string, page: number, limit: number): Promise<{ rows: any[], total: number }> {
+        return fetchApi(`/admin/db/table/${tableName}?page=${page}&limit=${limit}`);
+    },
+
+    async updateDbRow(tableName: string, rowData: any): Promise<void> {
+        return fetchApi(`/admin/db/table/${tableName}`, {
+            method: 'PUT',
+            body: JSON.stringify(rowData),
+        });
+    },
+
+    async deleteDbRow(tableName: string, primaryKeyValue: any): Promise<void> {
+        return fetchApi(`/admin/db/table/${tableName}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ primaryKeyValue }),
+        });
+    },
 };

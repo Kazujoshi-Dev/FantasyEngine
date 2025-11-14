@@ -1,8 +1,9 @@
 
 
 
+
 // FIX: Use explicit express types to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -67,13 +68,13 @@ app.use('/api', characterRoutes);
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // FIX: Use explicit express types for req and res.
-app.get('*', (req: Request, res: Response) => {
+app.get('*', (req: express.Request, res: express.Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
 // FIX: Use explicit express types for req, res, and next.
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
