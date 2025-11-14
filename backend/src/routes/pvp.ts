@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+// fix: Changed import to use express namespace for types, resolving conflicts.
+import express, { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -7,8 +8,10 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = Router();
 
-router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
-    const attackerId = (req as any).user!.id;
+// fix: Use express.Request and express.Response types.
+router.post('/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
+    // fix: Use req.user directly, as its type is extended globally.
+    const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 
     if (attackerId === defenderId) {

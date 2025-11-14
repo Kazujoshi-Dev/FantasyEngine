@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+// fix: Changed import to use express namespace for types, resolving conflicts.
+import express, { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
@@ -23,7 +24,8 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
         lastTraderRefresh = 0; // Force refresh on next check
@@ -32,12 +34,14 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json(traderInventory);
 });
 
-router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -72,7 +76,8 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         character.inventory.push(itemToBuy);
         traderInventory = traderInventory.filter(i => i.uniqueId !== itemId);
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -84,7 +89,8 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: 'No items to sell' });
@@ -93,7 +99,8 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -122,7 +129,8 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
             throw new Error("Mismatch selling items, rolling back.");
         }
         
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {

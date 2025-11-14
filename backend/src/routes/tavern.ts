@@ -1,11 +1,13 @@
-import { Router, Request, Response } from 'express';
+// fix: Changed import to use express namespace for types, resolving conflicts.
+import express, { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
 
 const router = Router();
 
-router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.get('/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100"
@@ -16,14 +18,16 @@ router.get('/messages', authenticateToken, async (req: Request, res: Response) =
     }
 });
 
-router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.post('/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {
         return res.status(400).json({ message: 'Invalid message content.' });
     }
 
     try {
-        const charRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [(req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        const charRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: "Character not found." });
         }
@@ -31,7 +35,8 @@ router.post('/messages', authenticateToken, async (req: Request, res: Response) 
 
         const result = await pool.query(
             'INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *',
-            [(req as any).user!.id, characterName, content.trim()]
+            // fix: Use req.user directly, as its type is extended globally.
+            [req.user!.id, characterName, content.trim()]
         );
 
         res.status(201).json(result.rows[0]);

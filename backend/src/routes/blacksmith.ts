@@ -1,16 +1,19 @@
-import { Router, Request, Response } from 'express';
+// fix: Changed import to use express namespace for types, resolving conflicts.
+import express, { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = Router();
 
-router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
         }
@@ -51,7 +54,8 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
             character.resources[essenceType] = (character.resources[essenceType] || 0) + amount;
         }
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
         res.json({ updatedCharacter: character, result: { success, amount, essenceType } });
@@ -64,12 +68,14 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
     }
 });
 
-router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
+// fix: Use express.Request and express.Response types.
+router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [(req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found' });
         
         let character: PlayerCharacter = charRes.rows[0].data;
@@ -121,7 +127,8 @@ router.post('/upgrade', authenticateToken, async (req: Request, res: Response) =
              else (character.equipment as any)[itemLocation] = null;
         }
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, (req as any).user!.id]);
+        // fix: Use req.user directly, as its type is extended globally.
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
         res.json({ 
