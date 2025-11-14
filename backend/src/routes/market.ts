@@ -1,5 +1,6 @@
-// fix: Changed import to use express namespace for types, resolving conflicts.
-import express, { Router } from 'express';
+
+// fix: Use named imports for Express types to resolve type conflicts.
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
@@ -15,8 +16,8 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-// fix: Use express.Request and express.Response types.
-router.get('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -42,8 +43,8 @@ router.get('/listings', authenticateToken, async (req: express.Request, res: exp
 });
 
 // GET user's listings
-// fix: Use express.Request and express.Response types.
-router.get('/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -64,8 +65,8 @@ router.get('/my-listings', authenticateToken, async (req: express.Request, res: 
 });
 
 // POST a new listing
-// fix: Use express.Request and express.Response types.
-router.post('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -101,8 +102,8 @@ router.post('/listings', authenticateToken, async (req: express.Request, res: ex
     }
 });
 
-// fix: Use express.Request and express.Response types.
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { listingId } = req.body;
     // fix: Use req.user directly, as its type is extended globally.
     const buyerId = req.user!.id;
@@ -155,8 +156,8 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
 });
 
 
-// fix: Use express.Request and express.Response types.
-router.post('/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     const { listingId, amount } = req.body;
     // fix: Use req.user directly, as its type is extended globally.
     const bidderId = req.user!.id;
@@ -214,8 +215,8 @@ router.post('/bid', authenticateToken, async (req: express.Request, res: express
     }
 });
 
-// fix: Use express.Request and express.Response types.
-router.post('/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;
@@ -247,8 +248,8 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: express.Reque
     }
 });
 
-// fix: Use express.Request and express.Response types.
-router.post('/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;

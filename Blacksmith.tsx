@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot, Affix } from '../types';
@@ -42,7 +42,7 @@ const DisenchantPanel: React.FC<{
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
 
     const validInventory = useMemo(() => 
-        character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
+        character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
         [character.inventory, itemTemplates]
     );
     const backpackCapacity = 30 + ((character.backpack?.level || 1) - 1) * 10;
@@ -54,15 +54,20 @@ const DisenchantPanel: React.FC<{
         [EssenceType.Epic]: ItemRarity.Epic,
         [EssenceType.Legendary]: ItemRarity.Legendary,
     };
+    
+    const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;
+    const disenchantCost = selectedTemplate ? Math.round(selectedTemplate.value * 0.1) : 0;
 
-    const handleDisenchantClick = async () => {
+    const handleDisenchantClick = useCallback(async () => {
         if (!selectedItem) return;
         
         const result = await onDisenchantItem(selectedItem);
         
         if (result.success && result.amount && result.essenceType) {
+            // fix: Use correct arguments for translation function - refactored to avoid nested `t` calls
+            const essenceName = t(`resources.${result.essenceType}`);
             setNotification({
-                message: t('blacksmith.disenchantSuccess', { amount: result.amount, essenceName: t(`resources.${result.essenceType}`) }),
+                message: t('blacksmith.disenchantSuccess', { amount: result.amount, essenceName: essenceName }),
                 type: 'success'
             });
         } else if (!result.success && result.amount === undefined) {
@@ -76,10 +81,28 @@ const DisenchantPanel: React.FC<{
             });
         }
         setSelectedItem(null);
-    };
+    }, [selectedItem, onDisenchantItem, setNotification, t]);
+
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            const activeElement = document.activeElement;
+            if (activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName)) {
+                return;
+            }
+
+            if (event.key === 'Enter' && selectedItem && character.resources.gold >= disenchantCost) {
+                event.preventDefault(); 
+                handleDisenchantClick();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyPress);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [selectedItem, character.resources.gold, disenchantCost, handleDisenchantClick]);
     
-    const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;
-    const disenchantCost = selectedTemplate ? Math.round(selectedTemplate.value * 0.1) : 0;
     const [yieldAmount, yieldEssenceType] = selectedTemplate ? getPotentialYield(selectedTemplate.rarity) : ['', null];
     
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
@@ -190,6 +213,7 @@ const DisenchantPanel: React.FC<{
                          <button onClick={handleDisenchantClick} disabled={character.resources.gold < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                             {t('blacksmith.disenchant')}
                          </button>
+                         <p className="text-xs text-gray-500 mt-2">{t('blacksmith.pressEnter')}</p>
                     </div>
                  ) : (
                     <div className="flex-grow flex flex-col items-center justify-center">
@@ -216,9 +240,14 @@ const UpgradePanel: React.FC<{
     const allItems = useMemo(() => [
         ...Object.values(character.equipment)
             .filter((i): i is ItemInstance => i !== null)
-            .filter(item => itemTemplates.find(t => t.id === item.templateId)),
-        ...character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId))
+            .filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
+        ...character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId))
     ], [character.equipment, character.inventory, itemTemplates]);
+
+    const validInventoryCount = useMemo(() => 
+        character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId)).length,
+        [character.inventory, itemTemplates]
+    );
 
     const equippedItemIds = useMemo(() => 
         new Set(Object.values(character.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
@@ -278,7 +307,7 @@ const UpgradePanel: React.FC<{
         
         if (result.messageKey !== 'error.title') { // Check if it's not a generic error
             setNotification({
-// FIX: Use nullish coalescing operator to provide a default value for level to avoid passing undefined.
+// fix: Use nullish coalescing operator to provide a default value for level to avoid passing undefined.
                 message: t(result.messageKey, { level: result.level ?? 0 }),
                 type: result.success ? 'success' : 'error'
             });
@@ -328,7 +357,7 @@ const UpgradePanel: React.FC<{
                      <div className="flex items-center gap-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.title')} / {t('equipment.backpack')}</h3>
                         <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                            {character.inventory.length} / {30 + ((character.backpack?.level || 1) - 1) * 10}
+                            {validInventoryCount} / {30 + ((character.backpack?.level || 1) - 1) * 10}
                         </div>
                      </div>
                      <div className="flex items-center space-x-2">

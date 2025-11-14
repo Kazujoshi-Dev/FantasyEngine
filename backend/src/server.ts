@@ -1,8 +1,10 @@
 
 
 
-// fix: Changed import to use express namespace for types, resolving conflicts.
-import express from 'express';
+
+
+// fix: Use named imports for Express types to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -66,14 +68,14 @@ app.use('/api', characterRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// fix: Use express.Request and express.Response types to fix overload and property errors.
-app.get('*', (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// fix: Use express.Request, express.Response, and express.NextFunction types.
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// fix: Use Request, Response, and NextFunction types from express.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

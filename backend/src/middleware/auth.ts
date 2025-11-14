@@ -1,9 +1,10 @@
-// fix: Changed import to use express namespace for types, resolving conflicts.
-import express from 'express';
+
+// fix: Use named imports for Express types to resolve type conflicts.
+import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// fix: Use express.Request, express.Response, and express.NextFunction types.
-export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+// fix: Use Request, Response, and NextFunction types from express.
+export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

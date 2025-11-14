@@ -1,13 +1,14 @@
-// fix: Changed import to use express namespace for types, resolving conflicts.
-import express, { Router } from 'express';
+
+// fix: Use named imports for Express types to resolve type conflicts.
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = Router();
 
-// fix: Use express.Request and express.Response types.
-router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -68,8 +69,8 @@ router.post('/disenchant', authenticateToken, async (req: express.Request, res: 
     }
 });
 
-// fix: Use express.Request and express.Response types.
-router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types from express.
+router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {

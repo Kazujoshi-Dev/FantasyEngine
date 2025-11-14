@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "esbuild index.tsx --bundle --outfile=index.js --loader:.tsx=tsx --servedir=.",
-    "build": "esbuild index.tsx --bundle --outfile=index.js --loader:.tsx=tsx --minify"
+    "build": "npm run build --prefix backend && esbuild index.tsx --bundle --outfile=dist/index.js --loader:.tsx=tsx --minify && cp index.html dist/index.html"
   },
   "dependencies": {
     "react": "^18.2.0",
