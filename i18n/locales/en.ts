@@ -1,54 +1,22 @@
+
 export default {
-    sidebar: {
-        title: 'Fantastic Expedition',
-        statistics: 'Statistics',
-        equipment: 'Equipment',
-        expedition: 'Expedition',
-        camp: 'Camp',
-        location: 'Location',
-        resources: 'Resources',
-        ranking: 'Ranking',
-        options: 'Options',
-        logout: 'Logout',
+    loading: 'Loading adventure...',
+    error: {
+        title: 'An error occurred',
+        refresh: 'Try refreshing the page.',
+        logout: 'Logout'
     },
-     race: {
-        Human: 'Human',
-        Elf: 'Elf',
-        Orc: 'Orc',
-        Gnome: 'Gnome',
-        Dwarf: 'Dwarf',
+    auth: {
+        welcomeBack: 'Welcome Back',
+        joinAdventure: 'Join the Adventure',
+        loginPrompt: 'Log in to continue your expedition.',
+        registerPrompt: 'Create an account to start a new saga.',
+        username: 'Username',
+        password: 'Password',
+        processing: 'Processing...',
+        login: 'Log In',
+        register: 'Register',
+        toggleToRegister: "Don't have an account? Create one!",
+        toggleToLogin: "Already have an account? Log in!"
     },
-    statistics: {
-        title: 'Character Statistics',
-        level: 'Level',
-        baseAttributes: 'Base Attributes',
-        strength: 'Strength',
-        agility: 'Agility',
-        accuracy: 'Accuracy',
-        stamina: 'Stamina',
-        intelligence: 'Intelligence',
-        energy: 'Energy',
-        derivedStats: 'Derived Stats',
-        health: 'Health Points',
-        energyLabel: 'Energy',
-    },
-    equipment: {
-        title: 'Equipment',
-        equipped: 'Equipped Items',
-        backpack: 'Backpack',
-        slot: {
-            head: 'Head',
-            chest: 'Chest',
-            legs: 'Legs',
-            feet: 'Feet',
-            hands: 'Hands',
-            waist: 'Waist',
-            neck: 'Neck',
-            ring1: 'Ring 1',
-            ring2: 'Ring 2',
-            mainHand: 'Main Hand',
-            offHand: 'Off-Hand',
-            twoHand: 'Two-Handed'
-        }
-    }
 };

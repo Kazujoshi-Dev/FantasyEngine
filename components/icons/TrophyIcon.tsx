@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const TrophyIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (

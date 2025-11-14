@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fantastyczna Bezczynna Wyprawa</title>
+    <title>Fantastic Idle Expedition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       @keyframes fade-in {
@@ -13,30 +13,53 @@
       .animate-fade-in {
         animation: fade-in 0.5s ease-out forwards;
       }
+      
+      /* New Slider Styles */
+      .slider-viewport {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .slider-track {
+        display: flex;
+        height: 100%;
+        transition: transform 0.7s ease-in-out;
+      }
+      .slider-image {
+        flex-shrink: 0;
+        /* width is now set dynamically in JS */
+        height: 100%;
+        object-fit: contain; /* Fit image inside without cropping */
+        cursor: pointer;
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.3",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "express": "https://aistudiocdn.com/express@^5.1.0",
     "cors": "https://aistudiocdn.com/cors@^2.8.5",
-    "url": "https://aistudiocdn.com/url@^0.11.4",
-    "path": "https://aistudiocdn.com/path@^0.12.7",
-    "vite": "https://aistudiocdn.com/vite@^7.2.2",
-    "crypto": "https://aistudiocdn.com/crypto@^1.0.1",
-    "process": "https://aistudiocdn.com/process@^0.11.10",
-    "buffer": "https://aistudiocdn.com/buffer@^6.0.3",
     "pg": "https://aistudiocdn.com/pg@^8.16.3",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
+    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.3",
+    "crypto": "https://aistudiocdn.com/crypto@^1.0.1",
+    "buffer": "https://aistudiocdn.com/buffer@^6.0.3",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "process": "https://aistudiocdn.com/process@^0.11.10",
+    "vite": "https://aistudiocdn.com/vite@^7.2.2",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0"
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-900 text-gray-200 antialiased">
     <div id="root"></div>
     <script type="module" src="/index.js"></script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

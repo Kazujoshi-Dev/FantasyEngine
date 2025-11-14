@@ -1,17 +1,11 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';
 
-const router = express.Router();
+const router = Router();
 
 // POST /api/auth/register
-// fix: Use Request and Response types directly.
 router.post('/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -35,7 +29,6 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-// fix: Use Request and Response types directly.
 router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -69,7 +62,6 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/logout
-// fix: Use Request and Response types directly.
 router.post('/logout', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -85,7 +77,6 @@ router.post('/logout', async (req: Request, res: Response) => {
     res.sendStatus(204);
 });
 
-// fix: Use Request and Response types directly.
 router.post('/session/heartbeat', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];

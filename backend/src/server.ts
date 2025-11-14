@@ -2,9 +2,6 @@
 
 
 
-
-
-// fix: Correctly import express and its types to resolve errors with Request, Response, and application initialization.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -42,7 +39,6 @@ declare global {
   }
 }
 
-// fix: Use express() to create an application instance. The 'default' property does not exist.
 const app = express();
 
 app.use(cors());
@@ -70,13 +66,11 @@ app.use('/api', characterRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// fix: Use Request and Response types directly from express import.
 app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// fix: Use Request, Response and NextFunction types directly from express import.
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');

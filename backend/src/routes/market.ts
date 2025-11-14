@@ -1,16 +1,11 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
 import { processExpiredListings } from '../logic/tasks.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
-const router = express.Router();
+const router = Router();
 
 const getItemName = async (client: any, templateId: string): Promise<string> => {
     const res = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -19,7 +14,6 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-// fix: Use Request and Response types directly.
 router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -46,7 +40,6 @@ router.get('/listings', authenticateToken, async (req: Request, res: Response) =
 });
 
 // GET user's listings
-// fix: Use Request and Response types directly.
 router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -54,7 +47,6 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
         await processExpiredListings(client);
         const result = await client.query(
             "SELECT * FROM market_listings WHERE seller_id = $1 AND status != 'CLAIMED' ORDER BY created_at DESC",
-            // fix: Use req.user directly, as its type is extended globally.
             [req.user!.id]
         );
         await client.query('COMMIT');
@@ -68,13 +60,11 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
 });
 
 // POST a new listing
-// fix: Use Request and Response types directly.
 router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
 
@@ -90,9 +80,7 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
             ? 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, buy_now_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)'
             : 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, start_bid_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)';
 
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query(query, [req.user!.id, itemData, listingType, currency, price, expires_at]);
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
 
         await client.query('COMMIT');
@@ -105,10 +93,8 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { listingId } = req.body;
-    // fix: Use req.user directly, as its type is extended globally.
     const buyerId = req.user!.id;
     const client = await pool.connect();
 
@@ -159,10 +145,8 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 });
 
 
-// fix: Use Request and Response types directly.
 router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     const { listingId, amount } = req.body;
-    // fix: Use req.user directly, as its type is extended globally.
     const bidderId = req.user!.id;
     const client = await pool.connect();
 
@@ -218,10 +202,8 @@ router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
-    // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;
     const client = await pool.connect();
     try {
@@ -251,10 +233,8 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
-    // fix: Use req.user directly, as its type is extended globally.
     const sellerId = req.user!.id;
     const client = await pool.connect();
 

@@ -1,13 +1,8 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
-const router = express.Router();
+const router = Router();
 
 const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     // The pg driver returns bigint as a string, so we must cast to Number
@@ -22,7 +17,6 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
     return totalXp;
 };
 
-// fix: Use Request and Response types directly.
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`

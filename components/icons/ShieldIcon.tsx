@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const ShieldIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (

@@ -1,20 +1,13 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulateCombat } from '../logic/combat.js';
 
-const router = express.Router();
+const router = Router();
 
-// fix: Use Request and Response types directly.
 router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
-    // fix: Use req.user directly, as its type is extended globally.
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 

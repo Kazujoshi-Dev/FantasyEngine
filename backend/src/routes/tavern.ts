@@ -1,16 +1,10 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
 
-const router = express.Router();
+const router = Router();
 
-// fix: Use Request and Response types directly.
 router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -22,7 +16,6 @@ router.get('/messages', authenticateToken, async (req: Request, res: Response) =
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {
@@ -30,7 +23,6 @@ router.post('/messages', authenticateToken, async (req: Request, res: Response) 
     }
 
     try {
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: "Character not found." });
@@ -39,7 +31,6 @@ router.post('/messages', authenticateToken, async (req: Request, res: Response) 
 
         const result = await pool.query(
             'INSERT INTO tavern_messages (user_id, character_name, content) VALUES ($1, $2, $3) RETURNING *',
-            // fix: Use req.user directly, as its type is extended globally.
             [req.user!.id, characterName, content.trim()]
         );
 

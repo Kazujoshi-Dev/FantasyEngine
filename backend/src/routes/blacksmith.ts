@@ -1,22 +1,15 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
-const router = express.Router();
+const router = Router();
 
-// fix: Use Request and Response types directly.
 router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
@@ -58,7 +51,6 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
             character.resources[essenceType] = (character.resources[essenceType] || 0) + amount;
         }
 
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
@@ -72,13 +64,11 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found' });
         
@@ -131,7 +121,6 @@ router.post('/upgrade', authenticateToken, async (req: Request, res: Response) =
              else (character.equipment as any)[itemLocation] = null;
         }
 
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         

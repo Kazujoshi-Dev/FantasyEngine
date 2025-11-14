@@ -4,7 +4,7 @@ import { getT } from '../i18n';
 
 interface LanguageContextType {
     lang: Language;
-    t: (key: string, options?: { [key: string]: string | number }) => string;
+    t: (key: string, options?: { [key: string]: string | number; }) => string;
 }
 
 export const LanguageContext = createContext<LanguageContextType>({

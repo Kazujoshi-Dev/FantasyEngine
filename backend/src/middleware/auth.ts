@@ -1,12 +1,6 @@
-
-
-
-
-// fix: Correctly import Request, Response, and NextFunction types from express.
 import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// fix: Use Request, Response, and NextFunction types directly.
 export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -18,7 +12,6 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
         if (result.rows.length === 0) {
             return res.status(403).json({ message: "Invalid token" });
         }
-        // fix: Use req.user directly, as its type is extended globally.
         req.user = { id: result.rows[0].user_id };
         next();
     } catch (err) {

@@ -1,16 +1,11 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
 import { generateTraderInventory } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
-const router = express.Router();
+const router = Router();
 
 let traderInventory: ItemInstance[] = [];
 let lastTraderRefresh = 0;
@@ -28,7 +23,6 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-// fix: Use Request and Response types directly.
 router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
@@ -38,13 +32,11 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json(traderInventory);
 });
 
-// fix: Use Request and Response types directly.
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
@@ -80,7 +72,6 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         character.inventory.push(itemToBuy);
         traderInventory = traderInventory.filter(i => i.uniqueId !== itemId);
 
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
@@ -93,7 +84,6 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
@@ -103,7 +93,6 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found' });
@@ -133,7 +122,6 @@ router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
             throw new Error("Mismatch selling items, rolling back.");
         }
         
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);

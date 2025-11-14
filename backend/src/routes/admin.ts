@@ -1,22 +1,15 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData, ItemTemplate, OrphanInfo } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { hashPassword } from '../logic/helpers.js';
 
-const router = express.Router();
+const router = Router();
 
 // Middleware to check for admin privileges
-// fix: Use Request, Response, and NextFunction types directly.
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // fix: Use req.user directly, as its type is extended globally.
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows.length > 0 && userRes.rows[0].username === 'Kazujoshi') {
             next();
@@ -31,7 +24,6 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
 // All routes in this file are protected by admin middleware
 router.use(authenticateToken, isAdmin);
 
-// fix: Use Request and Response types directly.
 router.get('/users', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
@@ -41,7 +33,6 @@ router.get('/users', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.delete('/users/:id', async (req: Request, res: Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
@@ -51,7 +42,6 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/users/:id/password', async (req: Request, res: Response) => {
     const { newPassword } = req.body;
     if (!newPassword) {
@@ -68,7 +58,6 @@ router.post('/users/:id/password', async (req: Request, res: Response) => {
 });
 
 
-// fix: Use Request and Response types directly.
 router.get('/characters/all', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
@@ -89,7 +78,6 @@ router.get('/characters/all', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.delete('/characters/:userId', async (req: Request, res: Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
@@ -99,7 +87,6 @@ router.delete('/characters/:userId', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/characters/:userId/reset-stats', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -129,7 +116,6 @@ router.post('/characters/:userId/reset-stats', async (req: Request, res: Respons
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     const client = await pool.connect();
      try {
@@ -152,7 +138,6 @@ router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/characters/:userId/regenerate-energy', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -181,7 +166,6 @@ router.post('/characters/:userId/regenerate-energy', async (req: Request, res: R
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
@@ -205,7 +189,6 @@ router.post('/character/:userId/update-gold', async (req: Request, res: Response
     }
 });
 
-// fix: Use Request and Response types directly.
 router.get('/characters/:userId/inspect', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.userId]);
@@ -218,7 +201,6 @@ router.get('/characters/:userId/inspect', async (req: Request, res: Response) =>
     }
 });
 
-// fix: Use Request and Response types directly.
 router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, res: Response) => {
     const { userId: userIdStr, itemUniqueId } = req.params;
     const userId = parseInt(userIdStr, 10);
@@ -265,7 +247,6 @@ router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, re
 });
 
 // Duplication Audit
-// fix: Use Request and Response types directly.
 router.get('/audit/duplicates', async (req: Request, res: Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
@@ -285,14 +266,12 @@ router.get('/audit/duplicates', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/resolve-duplicates', async (req: Request, res: Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
-// fix: Use Request and Response types directly.
 router.get('/audit/orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -348,7 +327,6 @@ router.get('/audit/orphans', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/resolve-orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -409,12 +387,10 @@ router.post('/resolve-orphans', async (req: Request, res: Response) => {
 });
 
 // Item Inspector
-// fix: Use Request and Response types directly.
 router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 
-// fix: Use Request and Response types directly.
 router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     try {
         await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
@@ -424,7 +400,6 @@ router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     }
 });
 
-// fix: Use Request and Response types directly.
 router.post('/messages/global', async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     if (!subject || !content) {

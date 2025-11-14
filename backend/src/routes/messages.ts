@@ -1,22 +1,15 @@
-
-
-
-
-// fix: Correctly import express and its types.
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
 
-const router = express.Router();
+const router = Router();
 
 // GET all messages for the user
-// fix: Use Request and Response types directly.
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
-            // fix: Use req.user directly, as its type is extended globally.
             [req.user!.id]
         );
         res.json(result.rows);
@@ -26,11 +19,9 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // POST a new message
-// fix: Use Request and Response types directly.
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { recipientName, subject, content } = req.body;
     try {
-        // fix: Use req.user directly, as its type is extended globally.
         const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
         if (senderRes.rows.length === 0) {
             return res.status(404).json({ message: "Sender character not found." });
@@ -47,7 +38,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         const result = await pool.query(
             `INSERT INTO messages (recipient_id, sender_id, sender_name, message_type, subject, body)
              VALUES ($1, $2, $3, 'player_message', $4, $5) RETURNING *`,
-            // fix: Use req.user directly, as its type is extended globally.
             [recipientId, req.user!.id, senderName, subject, JSON.stringify(body)]
         );
         res.status(201).json(result.rows[0]);
@@ -57,12 +47,10 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // PUT to mark as read
-// fix: Use Request and Response types directly.
 router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
-            // fix: Use req.user directly, as its type is extended globally.
             [req.params.id, req.user!.id]
         );
         res.sendStatus(204);
@@ -72,12 +60,10 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // DELETE a message
-// fix: Use Request and Response types directly.
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
-            // fix: Use req.user directly, as its type is extended globally.
             [req.params.id, req.user!.id]
         );
         res.sendStatus(204);
@@ -87,12 +73,10 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // POST to claim item from market return message
-// fix: Use Request and Response types directly.
 router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // fix: Use req.user directly, as its type is extended globally.
         const msgRes = await client.query("SELECT * FROM messages WHERE id = $1 AND recipient_id = $2 FOR UPDATE", [req.params.id, req.user!.id]);
         if (msgRes.rows.length === 0) {
             return res.status(404).json({ message: 'Message not found.' });
@@ -104,13 +88,11 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
             return res.status(400).json({ message: 'This message does not contain a claimable item.' });
         }
 
-        // fix: Use req.user directly, as its type is extended globally.
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character = charRes.rows[0].data;
 
         character.inventory.push(body.item);
         
-        // fix: Use req.user directly, as its type is extended globally.
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('DELETE FROM messages WHERE id = $1', [req.params.id]);
 
@@ -125,11 +107,9 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
 });
 
 // POST for bulk delete
-// fix: Use Request and Response types directly.
 router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
     const { type } = req.body;
     let query;
-    // fix: Use req.user directly, as its type is extended globally.
     const params = [req.user!.id];
 
     switch (type) {
