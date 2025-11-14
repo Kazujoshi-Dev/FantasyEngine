@@ -67,7 +67,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ allCharacters, onUpdateChara
                 <td className="p-3">{char.username}</td>
                 <td className="p-3 font-semibold">{char.name}</td>
                 <td className="p-3">{char.level}</td>
-                <td className="p-3 font-mono">{char.gold.toLocaleString()}</td>
+                <td className="p-3 font-mono">{(char.gold ?? 0).toLocaleString()}</td>
                 <td className="p-2">
                   <div className="flex items-center gap-2">
                     <input
