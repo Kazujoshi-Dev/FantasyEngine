@@ -603,6 +603,24 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
       setIsRankingLoading(false);
     }
   }, []);
+  
+  const fetchMessages = useCallback(async () => {
+    try {
+      const messagesData = await api.getMessages();
+      setMessages(messagesData);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+  
+  const fetchTavernMessages = useCallback(async () => {
+    try {
+      const tavernData = await api.getTavernMessages();
+      setTavernMessages(tavernData);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
 
   const fetchTraderInventory = useCallback(async () => {
     try {
@@ -610,6 +628,15 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
       setTraderInventory(inventoryData);
     } catch (err: any) {
       setError(err.message);
+    }
+  }, []);
+  
+  const refreshCharacter = useCallback(async () => {
+    try {
+        const charData = await api.getCharacter();
+        setBaseCharacter(charData);
+    } catch (err: any) {
+        setError(err.message);
     }
   }, []);
 
@@ -1016,6 +1043,41 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             throw err;
         }
     };
+
+    const handleSetTab = useCallback((tab: Tab) => {
+        setActiveTab(tab);
+        // Trigger data refresh based on the new tab
+        switch(tab) {
+            case Tab.Ranking:
+                fetchRanking();
+                break;
+            case Tab.Messages:
+                fetchMessages();
+                break;
+            case Tab.Tavern:
+                fetchTavernMessages();
+                break;
+            case Tab.Trader:
+                fetchTraderInventory();
+                break;
+            case Tab.Market:
+                // For Market, we might need to fetch multiple sets of data.
+                // For now, let's assume one primary fetch.
+                // This could be expanded later.
+                break;
+            // For most other tabs, a character refresh is the most useful.
+            case Tab.Statistics:
+            case Tab.Equipment:
+            case Tab.Camp:
+            case Tab.Resources:
+                refreshCharacter();
+                break;
+            default:
+                // No specific refresh needed for tabs like Expedition, Location, Admin, etc.
+                // as their state is either managed differently or doesn't need constant refreshing.
+                break;
+        }
+    }, [fetchRanking, fetchMessages, fetchTavernMessages, fetchTraderInventory, refreshCharacter]);
     
     // Initial data load
     useEffect(() => {
@@ -1258,7 +1320,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         >
             <Sidebar 
                 activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
+                setActiveTab={handleSetTab} 
                 playerCharacter={playerCharacter} 
                 currentLocation={currentLocation}
                 onLogout={handleLogout}
@@ -1275,13 +1337,12 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
   };
 
   useEffect(() => {
-    if (activeTab === Tab.Ranking && ranking.length === 0) {
-      fetchRanking();
+    if (token && playerCharacter) { // Ensure user is logged in
+        handleSetTab(activeTab);
     }
-    if (activeTab === Tab.Trader && traderInventory.length === 0) {
-      fetchTraderInventory();
-    }
-  }, [activeTab, ranking, traderInventory, fetchRanking, fetchTraderInventory]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on initial mount
+
 
   if (isLoading && !gameData) {
       return <div className="flex h-screen items-center justify-center">{t('loading')}</div>;
