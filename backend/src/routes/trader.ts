@@ -23,8 +23,6 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
@@ -34,8 +32,6 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json(traderInventory);
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
@@ -88,8 +84,6 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {

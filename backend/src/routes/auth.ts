@@ -6,8 +6,6 @@ import { hashPassword, verifyPassword } from '../logic/helpers.js';
 const router = Router();
 
 // POST /api/auth/register
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -31,8 +29,6 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -66,8 +62,6 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/logout
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/logout', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -83,8 +77,6 @@ router.post('/logout', async (req: Request, res: Response) => {
     res.sendStatus(204);
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/session/heartbeat', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];

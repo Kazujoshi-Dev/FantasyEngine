@@ -27,7 +27,6 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
 
     const handleStatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        // FIX: The type '(prev: Partial<Enemy>) => { stats: { ... } }' is not assignable to 'SetStateAction<Partial<Enemy>>' because `stats` properties are required. Provide default values for required properties.
         setFormData(prev => ({ ...prev, stats: {
             maxHealth: 0,
             minDamage: 0,
@@ -42,7 +41,6 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
 
     const handleRewardsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        // FIX: The type '(prev: Partial<Enemy>) => { rewards: { ... } }' is not assignable to 'SetStateAction<Partial<Enemy>>' because `rewards` properties are required. Provide default values for required properties.
         setFormData(prev => ({ ...prev, rewards: {
             minGold: 0,
             maxGold: 0,

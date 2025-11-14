@@ -7,8 +7,6 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = Router();
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);

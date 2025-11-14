@@ -1,15 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData } from '../types.js';
+import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData, ItemTemplate, OrphanInfo } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { hashPassword } from '../logic/helpers.js';
 
 const router = Router();
 
 // Middleware to check for admin privileges
-// FIX: Added explicit types for req, res, and next.
-// Add explicit types for req, res, and next.
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -26,8 +24,6 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
 // All routes in this file are protected by admin middleware
 router.use(authenticateToken, isAdmin);
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/users', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
@@ -37,8 +33,6 @@ router.get('/users', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.delete('/users/:id', async (req: Request, res: Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
@@ -64,8 +58,6 @@ router.post('/users/:id/password', async (req: Request, res: Response) => {
 });
 
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/characters/all', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
@@ -86,8 +78,6 @@ router.get('/characters/all', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.delete('/characters/:userId', async (req: Request, res: Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
@@ -97,8 +87,6 @@ router.delete('/characters/:userId', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/characters/:userId/reset-stats', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -128,8 +116,6 @@ router.post('/characters/:userId/reset-stats', async (req: Request, res: Respons
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     const client = await pool.connect();
      try {
@@ -180,8 +166,6 @@ router.post('/characters/:userId/regenerate-energy', async (req: Request, res: R
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
@@ -263,8 +247,6 @@ router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, re
 });
 
 // Duplication Audit
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/audit/duplicates', async (req: Request, res: Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
@@ -284,34 +266,131 @@ router.get('/audit/duplicates', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/resolve-duplicates', async (req: Request, res: Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/audit/orphans', async (req: Request, res: Response) => {
-     res.json([]); // Placeholder
+    const client = await pool.connect();
+    try {
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows[0]?.data || [];
+        const templateIds = new Set(allItemTemplates.map(t => t.id));
+
+        const charactersRes = await client.query("SELECT user_id, data FROM characters");
+
+        const results: OrphanAuditResult[] = [];
+
+        for (const row of charactersRes.rows) {
+            const character: PlayerCharacter = row.data;
+            const orphans: OrphanInfo[] = [];
+
+            // Check inventory for null/undefined items and items with missing templates
+            (character.inventory || []).forEach((item, index) => {
+                if (!item || !templateIds.has(item.templateId)) {
+                    orphans.push({
+                        uniqueId: item?.uniqueId || `invalid-item-${index}`,
+                        templateId: item?.templateId || 'UNKNOWN',
+                        location: `inventory[${index}]`
+                    });
+                }
+            });
+
+            // Check equipment
+            for (const slot in character.equipment) {
+                const item = character.equipment[slot as keyof typeof character.equipment];
+                if (item && !templateIds.has(item.templateId)) {
+                    orphans.push({
+                        uniqueId: item.uniqueId,
+                        templateId: item.templateId,
+                        location: `equipment.${slot}`
+                    });
+                }
+            }
+
+            if (orphans.length > 0) {
+                results.push({
+                    characterName: character.name,
+                    userId: row.user_id,
+                    orphans: orphans
+                });
+            }
+        }
+        res.json(results);
+    } catch (err) {
+        console.error("Orphan audit error:", err);
+        res.status(500).json({ message: 'Orphan audit failed.' });
+    } finally {
+        client.release();
+    }
 });
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
+
 router.post('/resolve-orphans', async (req: Request, res: Response) => {
-    res.json({ charactersAffected: 0, itemsRemoved: 0 }); // Placeholder
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const allItemTemplates: ItemTemplate[] = gameDataRes.rows[0]?.data || [];
+        const templateIds = new Set(allItemTemplates.map(t => t.id));
+
+        const charactersRes = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+
+        let itemsRemoved = 0;
+        let charactersAffected = 0;
+
+        for (const row of charactersRes.rows) {
+            const character: PlayerCharacter = row.data;
+            let wasModified = false;
+
+            const originalInventoryCount = (character.inventory || []).length;
+            character.inventory = (character.inventory || []).filter(item => item && templateIds.has(item.templateId));
+            const removedFromInventory = originalInventoryCount - character.inventory.length;
+            
+            if (removedFromInventory > 0) {
+                itemsRemoved += removedFromInventory;
+                wasModified = true;
+            }
+            
+            let removedFromEquipment = 0;
+            for (const slot in character.equipment) {
+                const item = character.equipment[slot as keyof typeof character.equipment];
+                if (item && !templateIds.has(item.templateId)) {
+                    character.equipment[slot as keyof typeof character.equipment] = null;
+                    removedFromEquipment++;
+                    wasModified = true;
+                }
+            }
+            
+            if(removedFromEquipment > 0) {
+                itemsRemoved += removedFromEquipment;
+            }
+
+            if (wasModified) {
+                charactersAffected++;
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, row.user_id]);
+            }
+        }
+        
+        await client.query('COMMIT');
+        res.json({ charactersAffected, itemsRemoved });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Orphan resolution error:", err);
+        res.status(500).json({ message: 'Orphan resolution failed.' });
+    } finally {
+        client.release();
+    }
 });
 
 // Item Inspector
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     try {
         await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
@@ -321,8 +400,6 @@ router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/messages/global', async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     if (!subject || !content) {

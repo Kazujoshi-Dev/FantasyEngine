@@ -14,8 +14,6 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -42,8 +40,6 @@ router.get('/listings', authenticateToken, async (req: Request, res: Response) =
 });
 
 // GET user's listings
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -64,8 +60,6 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
 });
 
 // POST a new listing
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
@@ -99,8 +93,6 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { listingId } = req.body;
     const buyerId = req.user!.id;
@@ -153,8 +145,6 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 });
 
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     const { listingId, amount } = req.body;
     const bidderId = req.user!.id;
@@ -212,8 +202,6 @@ router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
@@ -245,8 +233,6 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;

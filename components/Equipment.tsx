@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
-// FIX: Import `ItemTooltip` to resolve 'Cannot find name' error.
 import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
 
@@ -171,6 +170,11 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
     const backpackCapacity = getBackpackCapacity(character);
 
+    const validInventoryCount = useMemo(() => 
+        character.inventory.filter(item => item && gameData.itemTemplates.find(t => t.id === item.templateId)).length,
+        [character.inventory, gameData.itemTemplates]
+    );
+
     const equipmentSlotOptions = useMemo(() => {
         const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
@@ -201,6 +205,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
     const filteredInventory = useMemo(() => {
         return character.inventory.filter(item => {
+            if (!item) return false;
             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
             if (!template) return false;
 
@@ -346,7 +351,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     <div className="flex justify-between items-center mb-4 px-2">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.backpack')}</h3>
                         <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                            {character.inventory.length} / {backpackCapacity}
+                            {validInventoryCount} / {backpackCapacity}
                         </div>
                     </div>
                     <div className="px-2 mb-4 space-y-2">

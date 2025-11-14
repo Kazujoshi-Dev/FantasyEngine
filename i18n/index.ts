@@ -10,7 +10,6 @@ const getNestedValue = (obj: any, path: string): string => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj) || path;
 };
 
-// FIX: Changed signature to accept an options object for interpolation.
 export const getT = (lang: Language) => (key: string, options?: { [key: string]: string | number }): string => {
     const langFile = translations[Language.PL]; // For now, only PL is supported
     let value = getNestedValue(langFile, key);

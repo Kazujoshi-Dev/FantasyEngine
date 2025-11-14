@@ -7,8 +7,6 @@ import { processCompletedExpedition } from '../logic/expeditions.js';
 const router = Router();
 
 // GET /api/character - Get the current user's character data
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
@@ -59,8 +57,6 @@ router.get('/character', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -109,8 +105,6 @@ router.post('/character/complete-expedition', authenticateToken, async (req: Req
 });
 
 // POST /api/character - Create a new character
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const newCharacterData: PlayerCharacter = req.body;
@@ -135,8 +129,6 @@ router.post('/character', authenticateToken, async (req: Request, res: Response)
 });
 
 // PUT /api/character - Update character data
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.put('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
@@ -156,8 +148,6 @@ router.put('/character', authenticateToken, async (req: Request, res: Response) 
 });
 
 // POST /api/character/select-class
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.post('/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const { characterClass } = req.body as { characterClass: CharacterClass };
      if (!Object.values(CharacterClass).includes(characterClass)) {
@@ -186,8 +176,6 @@ router.post('/character/select-class', authenticateToken, async (req: Request, r
 });
 
 // GET /api/characters/names - Get all character names
-// FIX: Added explicit types for req and res.
-// Add explicit types for req and res.
 router.get('/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");
