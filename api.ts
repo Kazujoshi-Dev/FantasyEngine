@@ -182,7 +182,7 @@ export const api = {
     },
 
     async getAllCharacters(): Promise<AdminCharacterInfo[]> {
-        return fetchApi('/characters/all');
+        return fetchApi('/admin/characters/all');
     },
 
     async getCharacterNames(): Promise<string[]> {
@@ -190,7 +190,7 @@ export const api = {
     },
 
     async deleteCharacter(userId: number): Promise<void> {
-        return fetchApi(`/characters/${userId}`, {
+        return fetchApi(`/admin/characters/${userId}`, {
             method: 'DELETE',
         });
     },
