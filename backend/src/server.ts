@@ -4,8 +4,8 @@
 
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+// fix: Correctly import express and its types to resolve errors with Request, Response, and application initialization.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -42,7 +42,8 @@ declare global {
   }
 }
 
-const app = express.default();
+// fix: Use express() to create an application instance. The 'default' property does not exist.
+const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -69,14 +70,14 @@ app.use('/api', characterRoutes);
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-app.get('*', (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly from express import.
+app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// fix: Use Request, Response and NextFunction types directly from express import.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });

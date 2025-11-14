@@ -1,7 +1,9 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import express and its types.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
@@ -26,8 +28,8 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const forceRefresh = req.query.force === 'true';
     if (forceRefresh) {
         lastTraderRefresh = 0; // Force refresh on next check
@@ -36,8 +38,8 @@ router.get('/inventory', authenticateToken, async (req: express.Request, res: ex
     res.json(traderInventory);
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -91,8 +93,8 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: 'No items to sell' });

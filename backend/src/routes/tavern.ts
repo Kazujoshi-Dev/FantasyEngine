@@ -1,15 +1,17 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import express and its types.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
 
 const router = express.Router();
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100"
@@ -20,8 +22,8 @@ router.get('/messages', authenticateToken, async (req: express.Request, res: exp
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/messages', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {
         return res.status(400).json({ message: 'Invalid message content.' });

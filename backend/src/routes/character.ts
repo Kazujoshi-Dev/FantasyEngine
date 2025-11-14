@@ -1,8 +1,8 @@
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+// fix: Correctly import express and its types.
+import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, EssenceType, QuestType } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, EssenceType, QuestType, ResourceReward, ItemReward } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -10,8 +10,8 @@ import { getBackpackCapacity } from '../logic/helpers.js';
 const router = express.Router();
 
 // GET /api/character - Get the current user's character data
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         // fix: Use req.user directly, as its type is extended globally.
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
@@ -63,8 +63,8 @@ router.get('/character', authenticateToken, async (req: express.Request, res: ex
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/character/complete-expedition', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -115,8 +115,8 @@ router.post('/character/complete-expedition', authenticateToken, async (req: exp
 });
 
 // POST /api/character - Create a new character
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const newCharacterData: PlayerCharacter = req.body;
         if (!newCharacterData.name || !newCharacterData.race) {
@@ -142,8 +142,8 @@ router.post('/character', authenticateToken, async (req: express.Request, res: e
 });
 
 // PUT /api/character - Update character data
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.put('/character', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.put('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
         
@@ -163,8 +163,8 @@ router.put('/character', authenticateToken, async (req: express.Request, res: ex
 });
 
 // POST /api/character/select-class
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/character/select-class', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const { characterClass } = req.body as { characterClass: CharacterClass };
      if (!Object.values(CharacterClass).includes(characterClass)) {
         return res.status(400).json({ message: 'Invalid character class.' });
@@ -194,8 +194,8 @@ router.post('/character/select-class', authenticateToken, async (req: express.Re
 });
 
 // GET /api/characters/names - Get all character names
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/characters/names', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");
         res.json(result.rows.map(r => r.name));
@@ -206,8 +206,8 @@ router.get('/characters/names', authenticateToken, async (req: express.Request, 
 });
 
 // POST /api/character/heal-to-full
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/heal-to-full', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/heal-to-full', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -245,8 +245,8 @@ router.post('/heal-to-full', authenticateToken, async (req: express.Request, res
 });
 
 // POST /api/character/upgrade-building
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/upgrade-building', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/upgrade-building', authenticateToken, async (req: Request, res: Response) => {
     const { building } = req.body as { building: 'camp' | 'chest' | 'backpack' };
     const client = await pool.connect();
     try {
@@ -313,8 +313,8 @@ router.post('/upgrade-building', authenticateToken, async (req: express.Request,
 });
 
 // POST /api/character/complete-quest
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/complete-quest', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/complete-quest', authenticateToken, async (req: Request, res: Response) => {
     const { questId } = req.body;
     const client = await pool.connect();
     try {
@@ -358,7 +358,12 @@ router.post('/complete-quest', authenticateToken, async (req: express.Request, r
                     if (itemIndex > -1) character.inventory.splice(itemIndex, 1);
                 }
                 break;
-            case QuestType.GatherResource: character.resources[objective.targetId as EssenceType] -= objective.amount; break;
+            case QuestType.GatherResource:
+                if (objective.targetId && objective.targetId in character.resources) {
+                    const resourceKey = objective.targetId as keyof Omit<PlayerCharacter['resources'], 'gold'>;
+                    character.resources[resourceKey] -= objective.amount;
+                }
+                break;
             case QuestType.PayGold: character.resources.gold -= objective.amount; break;
         }
 
@@ -367,13 +372,13 @@ router.post('/complete-quest', authenticateToken, async (req: express.Request, r
         character.experience += quest.rewards.experience;
 
         const backpackCapacity = getBackpackCapacity(character);
-        (quest.rewards.itemRewards || []).forEach((r: any) => {
+        (quest.rewards.itemRewards || []).forEach((r: ItemReward) => {
              for(let i=0; i<r.quantity; i++) {
                 if(character.inventory.length < backpackCapacity)
                     character.inventory.push(createItemInstance(r.templateId, itemTemplates, affixes));
             }
         });
-        (quest.rewards.resourceRewards || []).forEach((r: any) => {
+        (quest.rewards.resourceRewards || []).forEach((r: ResourceReward) => {
             character.resources[r.resource] = (character.resources[r.resource] || 0) + r.quantity;
         });
 

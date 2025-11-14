@@ -1,7 +1,9 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import express and its types.
+import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData, ItemTemplate, OrphanInfo } from '../types.js';
@@ -11,8 +13,8 @@ import { hashPassword } from '../logic/helpers.js';
 const router = express.Router();
 
 // Middleware to check for admin privileges
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+// fix: Use Request, Response, and NextFunction types directly.
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // fix: Use req.user directly, as its type is extended globally.
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -29,8 +31,8 @@ const isAdmin = async (req: express.Request, res: express.Response, next: expres
 // All routes in this file are protected by admin middleware
 router.use(authenticateToken, isAdmin);
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/users', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/users', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
         res.json(result.rows);
@@ -39,8 +41,8 @@ router.get('/users', async (req: express.Request, res: express.Response) => {
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.delete('/users/:id', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.delete('/users/:id', async (req: Request, res: Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.sendStatus(204);
@@ -49,8 +51,8 @@ router.delete('/users/:id', async (req: express.Request, res: express.Response) 
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/users/:id/password', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/users/:id/password', async (req: Request, res: Response) => {
     const { newPassword } = req.body;
     if (!newPassword) {
         return res.status(400).json({ message: 'New password is required.' });
@@ -66,8 +68,8 @@ router.post('/users/:id/password', async (req: express.Request, res: express.Res
 });
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/characters/all', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/characters/all', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -87,8 +89,8 @@ router.get('/characters/all', async (req: express.Request, res: express.Response
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.delete('/characters/:userId', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.delete('/characters/:userId', async (req: Request, res: Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
         res.sendStatus(204);
@@ -97,8 +99,8 @@ router.delete('/characters/:userId', async (req: express.Request, res: express.R
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/characters/:userId/reset-stats', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/characters/:userId/reset-stats', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -127,8 +129,8 @@ router.post('/characters/:userId/reset-stats', async (req: express.Request, res:
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/characters/:userId/heal', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     const client = await pool.connect();
      try {
         await client.query('BEGIN');
@@ -150,8 +152,8 @@ router.post('/characters/:userId/heal', async (req: express.Request, res: expres
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/characters/:userId/regenerate-energy', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/characters/:userId/regenerate-energy', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -179,8 +181,8 @@ router.post('/characters/:userId/regenerate-energy', async (req: express.Request
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/character/:userId/update-gold', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
      try {
@@ -203,8 +205,8 @@ router.post('/character/:userId/update-gold', async (req: express.Request, res: 
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/characters/:userId/inspect', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/characters/:userId/inspect', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.userId]);
         if (result.rows.length === 0) {
@@ -216,8 +218,8 @@ router.get('/characters/:userId/inspect', async (req: express.Request, res: expr
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.delete('/characters/:userId/items/:itemUniqueId', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, res: Response) => {
     const { userId: userIdStr, itemUniqueId } = req.params;
     const userId = parseInt(userIdStr, 10);
     const client = await pool.connect();
@@ -263,8 +265,8 @@ router.delete('/characters/:userId/items/:itemUniqueId', async (req: express.Req
 });
 
 // Duplication Audit
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/audit/duplicates', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/audit/duplicates', async (req: Request, res: Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
         const result = await pool.query(`
@@ -283,15 +285,15 @@ router.get('/audit/duplicates', async (req: express.Request, res: express.Respon
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/resolve-duplicates', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/resolve-duplicates', async (req: Request, res: Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/audit/orphans', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/audit/orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -346,8 +348,8 @@ router.get('/audit/orphans', async (req: express.Request, res: express.Response)
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/resolve-orphans', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/resolve-orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -407,13 +409,13 @@ router.post('/resolve-orphans', async (req: express.Request, res: express.Respon
 });
 
 // Item Inspector
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.get('/find-item/:uniqueId', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/pvp/reset-cooldowns', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     try {
         await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
         res.sendStatus(200);
@@ -422,8 +424,8 @@ router.post('/pvp/reset-cooldowns', async (req: express.Request, res: express.Re
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/messages/global', async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/messages/global', async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     if (!subject || !content) {
         return res.status(400).json({ message: "Subject and content are required." });

@@ -1,11 +1,13 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import Request, Response, and NextFunction types from express.
+import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+// fix: Use Request, Response, and NextFunction types directly.
+export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

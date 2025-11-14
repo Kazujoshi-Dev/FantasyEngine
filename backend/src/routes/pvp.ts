@@ -1,7 +1,9 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import express and its types.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -10,8 +12,8 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = express.Router();
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     // fix: Use req.user directly, as its type is extended globally.
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);

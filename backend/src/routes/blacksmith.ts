@@ -1,15 +1,17 @@
 
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-import * as express from 'express';
+
+
+// fix: Correctly import express and its types.
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = express.Router();
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -70,8 +72,8 @@ router.post('/disenchant', authenticateToken, async (req: express.Request, res: 
     }
 });
 
-// fix: Use fully qualified express types to avoid conflict with DOM types.
-router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
+// fix: Use Request and Response types directly.
+router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
