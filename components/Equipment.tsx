@@ -93,7 +93,7 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
     );
 };
 
-const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
+const getBackpackCapacity = (character: PlayerCharacter): number => 30 + ((character.backpack?.level || 1) - 1) * 10;
 
 const ItemComparisonTooltip: React.FC<{
     hoveredItem: ItemInstance;

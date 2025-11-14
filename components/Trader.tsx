@@ -93,7 +93,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
     
     const [detailsItem, setDetailsItem] = useState<{ item: ItemInstance; source: 'trader' } | null>(null);
     const [itemsToSellIds, setItemsToSellIds] = useState<Set<string>>(new Set());
-    const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
+    const backpackCapacity = 30 + ((character.backpack?.level || 1) - 1) * 10;
 
     const validInventory = useMemo(() => 
         character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),

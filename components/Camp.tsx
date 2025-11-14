@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterChest, EssenceType, ItemRarity } from '../types';
@@ -36,7 +28,7 @@ const REGEN_INTERVAL_SECONDS = 5;
 const getChestCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
 // --- Backpack Calculation Helpers ---
-const getBackpackCapacity = (level: number) => 40 + (level - 1) * 10;
+const getBackpackCapacity = (level: number) => 30 + (level - 1) * 10;
 
 
 const ChestPanel: React.FC<{ 

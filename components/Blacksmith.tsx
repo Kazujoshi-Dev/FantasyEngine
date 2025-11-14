@@ -45,7 +45,7 @@ const DisenchantPanel: React.FC<{
         character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
         [character.inventory, itemTemplates]
     );
-    const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
+    const backpackCapacity = 30 + ((character.backpack?.level || 1) - 1) * 10;
 
     const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
         [EssenceType.Common]: ItemRarity.Common,
@@ -350,7 +350,7 @@ const UpgradePanel: React.FC<{
                      <div className="flex items-center gap-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('equipment.title')} / {t('equipment.backpack')}</h3>
                         <div className="font-mono text-base text-gray-400 bg-slate-800/50 px-3 py-1 rounded-full">
-                            {character.inventory.length} / {40 + ((character.backpack?.level || 1) - 1) * 10}
+                            {character.inventory.length} / {30 + ((character.backpack?.level || 1) - 1) * 10}
                         </div>
                      </div>
                      <div className="flex items-center space-x-2">

@@ -22,7 +22,7 @@ import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
-const getBackpackCapacity = (character: PlayerCharacter) => 40 + ((character.backpack?.level || 1) - 1) * 10;
+const getBackpackCapacity = (character: PlayerCharacter) => 30 + ((character.backpack?.level || 1) - 1) * 10;
 
 const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
     const gold = Math.floor(250 * Math.pow(1.8, level - 1));
