@@ -14,7 +14,11 @@ interface EnemyEditorProps {
 
 export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCancel, isEditing, allItemTemplates }) => {
     const { t } = useTranslation();
-    const [formData, setFormData] = useState<Partial<Enemy>>(enemy);
+    const [formData, setFormData] = useState<Partial<Enemy>>({
+        ...enemy,
+        rewards: enemy.rewards || { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
+        stats: enemy.stats || { maxHealth: 0, minDamage: 0, maxDamage: 0, armor: 0, critChance: 0, agility: 0 },
+    });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;

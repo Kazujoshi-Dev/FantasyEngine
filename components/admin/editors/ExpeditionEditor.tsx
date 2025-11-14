@@ -15,7 +15,13 @@ interface ExpeditionEditorProps {
 
 export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, onSave, onCancel, isEditing, allLocations, allEnemies, allItemTemplates }) => {
     const { t } = useTranslation();
-    const [formData, setFormData] = useState<Partial<Expedition>>(expedition);
+    const [formData, setFormData] = useState<Partial<Expedition>>({
+        ...expedition,
+        minBaseGoldReward: expedition.minBaseGoldReward ?? 0,
+        maxBaseGoldReward: expedition.maxBaseGoldReward ?? 0,
+        minBaseExperienceReward: expedition.minBaseExperienceReward ?? 0,
+        maxBaseExperienceReward: expedition.maxBaseExperienceReward ?? 0,
+    });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
