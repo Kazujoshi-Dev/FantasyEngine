@@ -1227,11 +1227,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
               onRegenerateCharacterEnergy={async (userId) => { await api.regenerateCharacterEnergy(userId); alert('Energy regenerated!'); }}
               onChangeUserPassword={async (userId, newPassword) => { await api.changeUserPassword(userId, newPassword); alert('Password changed!'); }}
               onInspectCharacter={api.inspectCharacter}
-              onDeleteCharacterItem={async (userId, itemUniqueId) => { 
-                  const updatedChar = await api.deleteCharacterItem(userId, itemUniqueId); 
-                  alert('Item deleted!'); 
-                  return updatedChar; 
-              }}
+              onDeleteCharacterItem={api.deleteCharacterItem}
             />;
         }
         break;

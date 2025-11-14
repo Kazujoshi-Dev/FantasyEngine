@@ -218,7 +218,8 @@ router.get('/characters/:userId/inspect', async (req: Request, res: Response) =>
 });
 
 router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, res: Response) => {
-    const { userId, itemUniqueId } = req.params;
+    const { userId: userIdStr, itemUniqueId } = req.params;
+    const userId = parseInt(userIdStr, 10);
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
