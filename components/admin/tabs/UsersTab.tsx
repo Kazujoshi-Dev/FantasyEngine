@@ -12,9 +12,20 @@ interface UsersTabProps {
 export const UsersTab: React.FC<UsersTabProps> = ({ allCharacters, onHealCharacter, onResetCharacterStats, onDeleteCharacter }) => {
   const { t } = useTranslation();
   
+  // Filter out any invalid character entries to prevent crashes from bad data
+  const validCharacters = Array.isArray(allCharacters)
+    ? allCharacters.filter(char => char && typeof char === 'object' && char.user_id != null)
+    : [];
+
   return (
     <div className="animate-fade-in">
       <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.manageCharacters')}</h3>
+      {validCharacters.length === 0 && !allCharacters && (
+        <p className="text-gray-500">{t('loading')}</p>
+      )}
+       {validCharacters.length === 0 && allCharacters && (
+        <p className="text-gray-500">{t('admin.noCharacters')}</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider">
@@ -28,18 +39,18 @@ export const UsersTab: React.FC<UsersTabProps> = ({ allCharacters, onHealCharact
             </tr>
           </thead>
           <tbody>
-            {allCharacters.map(char => (
+            {validCharacters.map(char => (
               <tr key={char.user_id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
                 <td className="p-3">{char.user_id}</td>
-                <td className="p-3">{char.username}</td>
-                <td className="p-3 font-semibold">{char.name}</td>
-                <td className="p-3">{char.level}</td>
+                <td className="p-3">{char.username ?? 'N/A'}</td>
+                <td className="p-3 font-semibold">{char.name ?? 'N/A'}</td>
+                <td className="p-3">{char.level ?? 0}</td>
                 <td className="p-3 font-mono">{Number(char.gold ?? 0).toLocaleString()}</td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2">
-                      <button onClick={() => onHealCharacter(char.user_id)} className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600">Ulecz</button>
-                      <button onClick={() => onResetCharacterStats(char.user_id)} className="px-2 py-1 text-xs rounded bg-amber-700 hover:bg-amber-600">Resetuj Staty</button>
-                      <button onClick={() => onDeleteCharacter(char.user_id)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">Usuń</button>
+                      <button onClick={() => onHealCharacter(char.user_id)} className="px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600">{t('admin.heal')}</button>
+                      <button onClick={() => onResetCharacterStats(char.user_id)} className="px-2 py-1 text-xs rounded bg-amber-700 hover:bg-amber-600">{t('admin.resetStats')}</button>
+                      <button onClick={() => onDeleteCharacter(char.user_id)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>
                   </div>
                 </td>
               </tr>
