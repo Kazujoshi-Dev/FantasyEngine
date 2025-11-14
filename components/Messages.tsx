@@ -311,6 +311,16 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                             {t('messages.compose.title')}
                         </button>
                     </div>
+                    <div className="pb-3 mb-3 border-b border-slate-700/50">
+                        <details className="text-sm">
+                            <summary className="cursor-pointer text-gray-400 hover:text-white">{t('messages.bulkDelete.title') || 'Bulk Actions'}</summary>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <button onClick={() => handleBulkDelete('read')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteRead')}</button>
+                                <button onClick={() => handleBulkDelete('expedition_reports')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteReports')}</button>
+                                <button onClick={() => handleBulkDelete('all')} className="w-full text-left px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800 text-red-300">{t('messages.bulkDelete.deleteAll')}</button>
+                            </div>
+                        </details>
+                    </div>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                         {messages.map(msg => (
                             <div key={msg.id} onClick={() => handleMessageSelect(msg.id)}
@@ -326,16 +336,6 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                             </div>
                         ))}
                         {messages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
-                    </div>
-                    <div className="border-t border-slate-700/50 pt-3 mt-3">
-                        <details className="text-sm">
-                            <summary className="cursor-pointer text-gray-400 hover:text-white">{t('messages.bulkDelete.title') || 'Bulk Actions'}</summary>
-                            <div className="flex flex-col gap-2 mt-2">
-                                <button onClick={() => handleBulkDelete('read')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteRead')}</button>
-                                <button onClick={() => handleBulkDelete('expedition_reports')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteReports')}</button>
-                                <button onClick={() => handleBulkDelete('all')} className="w-full text-left px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800 text-red-300">{t('messages.bulkDelete.deleteAll')}</button>
-                            </div>
-                        </details>
                     </div>
                 </div>
                 <div className="md:col-span-2 bg-slate-900/40 p-6 rounded-xl overflow-y-auto">
