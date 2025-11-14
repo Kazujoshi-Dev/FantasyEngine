@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot, Affix } from '../types';
@@ -54,8 +54,11 @@ const DisenchantPanel: React.FC<{
         [EssenceType.Epic]: ItemRarity.Epic,
         [EssenceType.Legendary]: ItemRarity.Legendary,
     };
+    
+    const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;
+    const disenchantCost = selectedTemplate ? Math.round(selectedTemplate.value * 0.1) : 0;
 
-    const handleDisenchantClick = async () => {
+    const handleDisenchantClick = useCallback(async () => {
         if (!selectedItem) return;
         
         const result = await onDisenchantItem(selectedItem);
@@ -76,10 +79,28 @@ const DisenchantPanel: React.FC<{
             });
         }
         setSelectedItem(null);
-    };
+    }, [selectedItem, onDisenchantItem, setNotification, t]);
+
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            const activeElement = document.activeElement;
+            if (activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName)) {
+                return;
+            }
+
+            if (event.key === 'Enter' && selectedItem && character.resources.gold >= disenchantCost) {
+                event.preventDefault(); 
+                handleDisenchantClick();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyPress);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [selectedItem, character.resources.gold, disenchantCost, handleDisenchantClick]);
     
-    const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;
-    const disenchantCost = selectedTemplate ? Math.round(selectedTemplate.value * 0.1) : 0;
     const [yieldAmount, yieldEssenceType] = selectedTemplate ? getPotentialYield(selectedTemplate.rarity) : ['', null];
     
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
@@ -190,6 +211,7 @@ const DisenchantPanel: React.FC<{
                          <button onClick={handleDisenchantClick} disabled={character.resources.gold < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                             {t('blacksmith.disenchant')}
                          </button>
+                         <p className="text-xs text-gray-500 mt-2">{t('blacksmith.pressEnter')}</p>
                     </div>
                  ) : (
                     <div className="flex-grow flex flex-col items-center justify-center">

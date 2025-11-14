@@ -480,6 +480,7 @@ export default {
         notEnoughEssence: "Nie masz wystarczająco esencji na tę akcję.",
         disenchantSuccess: 'Pomyślnie odczarowano! Otrzymano {amount}x {essenceName}.',
         disenchantFailure: 'Odczarowanie nie powiodło się, nie uzyskano żadnej esencji.',
+        pressEnter: 'Naciśnij enter',
         upgrade: {
             upgrade: 'Ulepsz',
             upgradeItem: 'Ulepsz Przedmiot',
