@@ -1000,6 +1000,22 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
             console.error("Failed to refetch messages after expedition:", err);
         }
     };
+
+    const handleDeleteCharacterItem = async (userId: number, itemUniqueId: string): Promise<PlayerCharacter> => {
+        try {
+            const updatedChar = await api.deleteCharacterItem(userId, itemUniqueId);
+            alert('Przedmiot został usunięty.');
+            // If the admin is editing their own character, update the main state
+            if (baseCharacter && userId === baseCharacter.id) {
+                setBaseCharacter(updatedChar);
+            }
+            return updatedChar;
+        } catch (err) {
+            alert((err as Error).message);
+            // Re-throw to allow the modal to handle the error if needed, or return the original character
+            throw err;
+        }
+    };
     
     // Initial data load
     useEffect(() => {
@@ -1227,7 +1243,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
               onRegenerateCharacterEnergy={async (userId) => { await api.regenerateCharacterEnergy(userId); alert('Energy regenerated!'); }}
               onChangeUserPassword={async (userId, newPassword) => { await api.changeUserPassword(userId, newPassword); alert('Password changed!'); }}
               onInspectCharacter={api.inspectCharacter}
-              onDeleteCharacterItem={api.deleteCharacterItem}
+              onDeleteCharacterItem={handleDeleteCharacterItem}
             />;
         }
         break;

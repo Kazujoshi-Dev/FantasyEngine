@@ -63,9 +63,8 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
           try {
               const updatedChar = await props.onDeleteCharacterItem(props.characterInfo.user_id, item.uniqueId);
               setFullCharacter(updatedChar);
-              alert('Przedmiot został usunięty.');
           } catch(err) {
-              alert((err as Error).message);
+              // The error alert is already shown in the App.tsx handler
           }
       }
   };
