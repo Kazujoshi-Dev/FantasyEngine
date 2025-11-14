@@ -1224,6 +1224,14 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
               onForceTraderRefresh={async () => { await api.getTraderInventory(true); alert('Trader inventory will be refreshed on next visit.'); }}
               onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); alert('All PvP cooldowns have been reset.'); }}
               onSendGlobalMessage={api.sendGlobalMessage}
+              onRegenerateCharacterEnergy={async (userId) => { await api.regenerateCharacterEnergy(userId); alert('Energy regenerated!'); }}
+              onChangeUserPassword={async (userId, newPassword) => { await api.changeUserPassword(userId, newPassword); alert('Password changed!'); }}
+              onInspectCharacter={api.inspectCharacter}
+              onDeleteCharacterItem={async (userId, itemUniqueId) => { 
+                  const updatedChar = await api.deleteCharacterItem(userId, itemUniqueId); 
+                  alert('Item deleted!'); 
+                  return updatedChar; 
+              }}
             />;
         }
         break;
