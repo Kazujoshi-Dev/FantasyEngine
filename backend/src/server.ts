@@ -8,9 +8,11 @@
 
 
 
+
+
 // FIX: Import Request, Response, and NextFunction types from express
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+// FIX: Consolidated express imports to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
