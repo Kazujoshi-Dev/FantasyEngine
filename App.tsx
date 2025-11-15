@@ -17,6 +17,7 @@ import { Quests } from './components/Quests';
 import { Tavern } from './components/Tavern';
 import { Market } from './components/Market';
 import { Options } from './components/Options';
+import { University } from './components/University';
 import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass, AffixType, TraderInventoryData } from './types';
 import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
@@ -1143,6 +1144,8 @@ const renderContent = () => {
             return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={handleCharacterUpdate} />;
         case Tab.Options:
             return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
+        case Tab.University:
+            return <University />;
         case Tab.Admin:
             return <AdminPanel gameData={gameData} users={users} allCharacters={allCharacters} onGameDataUpdate={(key, data) => api.updateGameData(key, data).then(() => api.getGameData()).then(setGameData)} onSettingsUpdate={(settings) => api.updateGameSettings(settings).then(() => api.getGameData()).then(setGameData)} onDeleteUser={(id) => api.deleteUser(id).then(() => setUsers(u => u.filter(user => user.id !== id)))} onDeleteCharacter={(id) => api.deleteCharacter(id).then(() => setAllCharacters(c => c.filter(char => char.user_id !== id)))} onResetCharacterStats={(id) => api.resetCharacterStats(id)} onHealCharacter={(id) => api.healCharacter(id)} onUpdateCharacterGold={(id, gold) => api.updateCharacterGold(id, gold)} onForceTraderRefresh={() => fetchTraderInventory(true)} onResetAllPvpCooldowns={() => api.resetAllPvpCooldowns().then(() => alert('Cooldowns reset'))} onSendGlobalMessage={api.sendGlobalMessage} onRegenerateCharacterEnergy={api.regenerateCharacterEnergy} onChangeUserPassword={api.changeUserPassword} onInspectCharacter={api.inspectCharacter} onDeleteCharacterItem={api.deleteCharacterItem} />;
         default:

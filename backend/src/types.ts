@@ -14,6 +14,7 @@ export enum Tab {
   Tavern,
   Market,
   Options,
+  University,
 }
 
 export enum Race {

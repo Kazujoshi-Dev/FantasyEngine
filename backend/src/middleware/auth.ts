@@ -1,7 +1,6 @@
 
 
 
-// fix: Use named imports for Express types
 import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 

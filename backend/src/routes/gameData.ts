@@ -1,7 +1,6 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';

@@ -155,13 +155,14 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     const lifeStealFlat = bonusLifeStealFlat;
     const manaStealPercent = bonusManaStealPercent;
     const manaStealFlat = bonusManaStealFlat;
-    const dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
+    let dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
 
     let armor = bonusArmor;
     let manaRegen = totalPrimaryStats.intelligence * 2;
 
     if (character.race === Race.Dwarf) armor += 5;
     if (character.race === Race.Elf) manaRegen += 10;
+    if (character.race === Race.Gnome) dodgeChance += 10;
     
     const intelligenceDamageBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
     const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;

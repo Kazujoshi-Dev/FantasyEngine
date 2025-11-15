@@ -63,6 +63,7 @@ export default {
         actionBlockedExpeditionWarning: 'Ta akcja jest niedostępna podczas wyprawy.',
         buyCoffee: 'Postaw kawę twórcy',
         news: 'Nowości',
+        university: 'Uniwersytet',
     },
     statistics: {
         tabs: {
@@ -676,6 +677,16 @@ export default {
         pl: 'Polski',
         en: 'English',
     },
+    university: {
+        title: 'Uniwersytet',
+        universal: 'Uniwersalne',
+        passive: 'Pasywne',
+        active: 'Aktywne',
+        racial: 'Rasowe',
+        races: 'Rasy',
+        classes: 'Klasy',
+        underConstruction: 'Ta sekcja jest w budowie.',
+    },
     admin: {
         title: 'Panel Admina',
         tabs: {
@@ -879,7 +890,6 @@ export default {
             run: 'Uruchom audyt',
             running: 'Skanowanie...',
             noDuplicates: 'Nie znaleziono żadnych zduplikowanych przedmiotów.',
-            found: 'Znaleziono {count} zduplikowanych zestawów przedmiotów.',
             resolve: 'Rozwiąż automatycznie (zachowaj 1, usuń resztę)',
             resolving: 'Rozwiązywanie...',
             resolveSuccess: 'Rozwiązano {resolvedSets} zestawów, usunięto {itemsDeleted} zduplikowanych przedmiotów.',

@@ -38,6 +38,8 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
         turn: 0
     };
     
+    let mageManaRestored = false;
+
     // Log the start of the fight
     state.log.push({
         turn: state.turn,
@@ -55,6 +57,13 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
     
     const weaponName = getFullWeaponName(playerData, gameData);
 
+    // Hunter Class Bonus: Extra attack at turn 0
+    const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
+    const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
+    if (playerData.characterClass === CharacterClass.Hunter && template?.isRanged) {
+        performAttack(state, 'player', gameData, playerData, weaponName, { isHunterInitialAttack: true });
+    }
+
     let playerAttacksFirst = state.player.stats.agility >= state.enemy.stats.agility;
     if (playerData.race === Race.Elf) {
         playerAttacksFirst = true; // Elves always attack first in round 1
@@ -62,6 +71,25 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
 
     while (state.player.currentHealth > 0 && state.enemy.currentHealth > 0 && state.turn < 100) {
         state.turn++;
+
+        // Shaman Class Bonus
+        if (playerData.characterClass === CharacterClass.Shaman && state.player.currentMana > 0) {
+            const shamanDamage = state.player.currentMana;
+            state.enemy.currentHealth = Math.max(0, state.enemy.currentHealth - shamanDamage);
+            state.log.push({
+                turn: state.turn,
+                attacker: state.player.name,
+                defender: state.enemy.name,
+                action: 'magicAttack',
+                damage: shamanDamage,
+                magicAttackType: MagicAttackType.ShadowBolt, // Visual representation
+                playerHealth: state.player.currentHealth,
+                playerMana: state.player.currentMana,
+                enemyHealth: state.enemy.currentHealth,
+                enemyMana: state.enemy.currentMana
+            });
+            if (state.enemy.currentHealth <= 0) break;
+        }
         
         const attackers = playerAttacksFirst ? ['player', 'enemy'] : ['enemy', 'player'];
 
@@ -92,7 +120,13 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 // Player attacks
                 for (let i = 0; i < state.player.stats.attacksPerRound; i++) {
                      if (state.enemy.currentHealth <= 0) break;
-                     performAttack(state, 'player', gameData, playerData, weaponName);
+                     const isWarriorFirstAttack = i === 0 && playerData.characterClass === CharacterClass.Warrior;
+                     performAttack(state, 'player', gameData, playerData, weaponName, { isGuaranteedCrit: isWarriorFirstAttack, mageManaRestored: mageManaRestored, onManaRestore: () => mageManaRestored = true });
+                }
+
+                // Berserker Class Bonus
+                if (playerData.characterClass === CharacterClass.Berserker && state.player.currentHealth < state.player.stats.maxHealth * 0.3 && state.enemy.currentHealth > 0) {
+                    performAttack(state, 'player', gameData, playerData, weaponName);
                 }
 
             } else {
@@ -132,7 +166,19 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
 };
 
 
-const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gameData: GameData, playerData: PlayerCharacter, weaponName?: string) => {
+const performAttack = (
+    state: CombatState, 
+    attackerType: 'player' | 'enemy', 
+    gameData: GameData, 
+    playerData: PlayerCharacter, 
+    weaponName?: string,
+    options: { 
+        isGuaranteedCrit?: boolean, 
+        isHunterInitialAttack?: boolean,
+        mageManaRestored?: boolean,
+        onManaRestore?: () => void
+    } = {}
+) => {
     // 1. Explicitly define attacker and defender roles
     const isPlayerAttacking = attackerType === 'player';
     const attacker = isPlayerAttacking ? state.player : state.enemy;
@@ -143,7 +189,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
 
     // 2. Dodge Check
     const dodgeChance = 'dodgeChance' in defenderStats ? defenderStats.dodgeChance : 0;
-    if (Math.random() * 100 < dodgeChance) {
+    if (Math.random() * 100 < dodgeChance && !options.isGuaranteedCrit /* Warrior cannot be dodged */) {
         state.log.push({
             turn: state.turn,
             attacker: attacker.name,
@@ -159,7 +205,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
     }
 
     let damage = 0;
-    let isCrit = false;
+    let isCrit = options.isGuaranteedCrit || false;
     let damageReduced = 0;
     let healthGained = 0;
     let manaGained = 0;
@@ -177,6 +223,12 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
                 magicAttackType = template.magicAttackType;
                 attacker.currentMana -= manaCost;
             } else {
+                // Mage/Wizard mana restore bonus
+                if ((playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) && !options.mageManaRestored) {
+                    attacker.currentMana = attacker.stats.maxMana;
+                    if(options.onManaRestore) options.onManaRestore();
+                }
+
                  state.log.push({
                     turn: state.turn,
                     attacker: attacker.name,
@@ -217,10 +269,13 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         damage = Math.floor(Math.random() * (attackerStats.maxDamage - attackerStats.minDamage + 1)) + attackerStats.minDamage;
 
         // Crit logic
-        if (Math.random() * 100 < attackerStats.critChance) {
+        if (!isCrit && Math.random() * 100 < attackerStats.critChance) {
             isCrit = true;
-            const critModifier = 'critDamageModifier' in attackerStats && attackerStats.critDamageModifier ? attackerStats.critDamageModifier : 200;
-            damage = Math.floor(damage * (critModifier / 100));
+        }
+        
+        if (isCrit) {
+             const critModifier = 'critDamageModifier' in attackerStats && attackerStats.critDamageModifier ? attackerStats.critDamageModifier : 200;
+             damage = Math.floor(damage * (critModifier / 100));
         }
 
         // Armor reduction
@@ -239,6 +294,10 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         const reduction = Math.floor(damage * 0.20);
         damage -= reduction;
         damageReduced += reduction;
+    }
+    // Hunter's initial attack has 50% damage
+    if (options.isHunterInitialAttack) {
+        damage = Math.floor(damage * 0.5);
     }
 
     // 6. Apply Lifesteal/Manasteal (only for players for now)

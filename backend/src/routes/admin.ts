@@ -1,7 +1,6 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';

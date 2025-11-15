@@ -1,11 +1,10 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
+import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate, CharacterClass } from '../types.js';
 
 const router = express.Router();
 
@@ -49,6 +48,11 @@ router.post('/disenchant', authenticateToken, async (req: Request, res: Response
             case ItemRarity.Rare: essenceType = EssenceType.Rare; amount = Math.floor(Math.random() * 2) + 1; break;
             case ItemRarity.Epic: essenceType = EssenceType.Epic; amount = 1; break;
             case ItemRarity.Legendary: essenceType = EssenceType.Legendary; if(Math.random() < 0.5) amount = 1; else success = false; break;
+        }
+
+        // Engineer Class Bonus
+        if (character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) {
+            amount *= 2;
         }
 
         if (essenceType && amount > 0) {
@@ -116,7 +120,12 @@ router.post('/upgrade', authenticateToken, async (req: Request, res: Response) =
         if(essenceType) character.resources[essenceType] -= 1;
 
         const successChance = Math.max(10, 100 - (currentLevel * 10));
-        const isSuccess = Math.random() * 100 < successChance;
+        let isSuccess = Math.random() * 100 < successChance;
+
+        // Blacksmith Class Bonus (Advantage on roll)
+        if (character.characterClass === CharacterClass.Blacksmith && !isSuccess) {
+            isSuccess = Math.random() * 100 < successChance;
+        }
 
         if(isSuccess) {
             item.upgradeLevel = nextLevel;

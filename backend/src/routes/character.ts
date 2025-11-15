@@ -1,7 +1,6 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -214,7 +213,6 @@ router.post('/character/select-class', authenticateToken, async (req: Request, r
 });
 
 router.post('/character/upgrade-building', authenticateToken, async (req: Request, res: Response) => {
-    const { building } = req.body;
     // Implementation for upgrading buildings like camp, chest, backpack
     res.status(501).json({ message: 'Not implemented' });
 });

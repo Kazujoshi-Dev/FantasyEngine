@@ -1,7 +1,6 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';

@@ -1,11 +1,10 @@
 
 
 
-// fix: Use named imports for Express types
 import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
+import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulateCombat } from '../logic/combat.js';
 
@@ -78,6 +77,15 @@ router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: 
         if (isVictory) {
             goldStolen = Math.min(defender.resources.gold, Math.floor(defender.resources.gold * 0.1));
             expGained = Math.floor(defender.experienceToNextLevel * 0.1);
+
+            // Rogue Class Bonus (+100% XP)
+            if (attacker.characterClass === CharacterClass.Rogue) {
+                expGained *= 2;
+            }
+            // Human Race Bonus (+10% XP)
+            if (attacker.race === Race.Human) {
+                expGained = Math.floor(expGained * 1.10);
+            }
 
             attacker.resources.gold += goldStolen;
             attacker.experience += expGained;

@@ -19,6 +19,7 @@ import { CoffeeIcon } from './icons/CoffeeIcon';
 import { MessageSquareIcon } from './icons/MessageSquareIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { ScaleIcon } from './icons/ScaleIcon';
+import { BookOpenIcon } from './icons/BookOpenIcon';
 
 interface SidebarProps {
   activeTab: Tab;
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
     { id: Tab.Location, label: t('sidebar.location'), icon: <GlobeIcon className="h-5 w-5" /> },
     { id: Tab.Resources, label: t('sidebar.resources'), icon: <CoinsIcon className="h-5 w-5" /> },
     { id: Tab.Ranking, label: t('sidebar.ranking'), icon: <TrophyIcon className="h-5 w-5" />, alwaysVisible: true },
+    { id: Tab.University, label: t('sidebar.university'), icon: <BookOpenIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Messages, label: t('sidebar.messages'), icon: <MailIcon className="h-5 w-5" />, alwaysVisible: true, notification: hasUnreadMessages },
     { id: Tab.Options, label: t('sidebar.options'), icon: <SettingsIcon className="h-5 w-5" />, alwaysVisible: true },
     { id: Tab.Admin, label: t('sidebar.admin'), icon: <SettingsIcon className="h-5 w-5" /> },
