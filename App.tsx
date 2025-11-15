@@ -650,10 +650,13 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
       const inventoryData: TraderInventoryData = await api.getTraderInventory(force);
       setTraderInventory(inventoryData.regularItems);
       setTraderSpecialOffer(inventoryData.specialOfferItem || null);
+      if (force) {
+        alert(t('admin.traderRefreshSuccess'));
+      }
     } catch (err: any) {
       setError(err.message);
     }
-  }, []);
+  }, [t]);
   
   const refreshCharacter = useCallback(async () => {
     try {

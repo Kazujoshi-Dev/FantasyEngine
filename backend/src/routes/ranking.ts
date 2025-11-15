@@ -1,5 +1,6 @@
 
-import express, { Request, Response } from 'express';
+
+import express from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
@@ -18,7 +19,8 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
     return totalXp;
 };
 
-router.get('/', async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.get('/', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`
             SELECT 

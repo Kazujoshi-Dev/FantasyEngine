@@ -1,5 +1,6 @@
 
-import express, { Request, Response } from 'express';
+
+import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -8,7 +9,8 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = express.Router();
 
-router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 

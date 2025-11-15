@@ -50,6 +50,12 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
     }
     onSettingsUpdate(updatedSettings);
   };
+
+  const handleTraderRefresh = () => {
+    if (window.confirm(t('admin.traderRefreshConfirm'))) {
+      onForceTraderRefresh();
+    }
+  };
   
   const handleSendGlobalMessage = async () => {
     if (!globalMessage.subject || !globalMessage.content) {
@@ -101,7 +107,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
 
          <div className="border-t border-slate-700/50 pt-6">
             <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.traderActions')}</h3>
-            <button onClick={onForceTraderRefresh} className="px-4 py-2 rounded-md bg-amber-700 hover:bg-amber-600 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
+            <button onClick={handleTraderRefresh} className="px-4 py-2 rounded-md bg-amber-700 hover:bg-amber-600 text-white font-semibold">{t('admin.forceTraderRefresh')}</button>
         </div>
         
          <div className="border-t border-slate-700/50 pt-6">

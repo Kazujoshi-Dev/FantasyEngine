@@ -1,5 +1,6 @@
 
-import express, { Request, Response } from 'express';
+
+import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
@@ -15,7 +16,8 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.get('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -41,7 +43,8 @@ router.get('/listings', authenticateToken, async (req: Request, res: Response) =
 });
 
 // GET user's listings
-router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.get('/my-listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -61,7 +64,8 @@ router.get('/my-listings', authenticateToken, async (req: Request, res: Response
 });
 
 // POST a new listing
-router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/listings', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -94,7 +98,8 @@ router.post('/listings', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId } = req.body;
     const buyerId = req.user!.id;
     const client = await pool.connect();
@@ -146,7 +151,8 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 });
 
 
-router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/bid', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { listingId, amount } = req.body;
     const bidderId = req.user!.id;
     const client = await pool.connect();
@@ -203,7 +209,8 @@ router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/listings/:id/cancel', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();
@@ -234,7 +241,8 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res:
     }
 });
 
-router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
+// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
+router.post('/listings/:id/claim', authenticateToken, async (req: express.Request, res: express.Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();
