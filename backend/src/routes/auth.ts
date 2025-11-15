@@ -2,6 +2,7 @@
 // FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
 // FIX: Separated value and type imports for express to resolve type conflicts.
 import express from 'express';
+import type { Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';
@@ -10,7 +11,7 @@ const router = express.Router();
 
 // POST /api/auth/register
 // FIX: Use explicit express types for req, res.
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -34,7 +35,7 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
 
 // POST /api/auth/login
 // FIX: Use explicit express types for req, res.
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required.' });
@@ -68,7 +69,7 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
 
 // POST /api/auth/logout
 // FIX: Use explicit express types for req, res.
-router.post('/logout', async (req: express.Request, res: express.Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -84,7 +85,7 @@ router.post('/logout', async (req: express.Request, res: express.Response) => {
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/session/heartbeat', async (req: express.Request, res: express.Response) => {
+router.post('/session/heartbeat', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (token) {

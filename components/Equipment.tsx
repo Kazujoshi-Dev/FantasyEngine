@@ -92,7 +92,6 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
     );
 };
 
-// FIX: Increased backpack base capacity to 40 for consistency.
 const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
 const ItemComparisonTooltip: React.FC<{

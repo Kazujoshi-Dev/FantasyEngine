@@ -17,12 +17,11 @@ import { Quests } from './components/Quests';
 import { Tavern } from './components/Tavern';
 import { Market } from './components/Market';
 import { Options } from './components/Options';
-import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass, AffixType } from './types';
+import { Tab, PlayerCharacter, Location, Expedition, Enemy, ExpeditionRewardSummary, CombatLogEntry, Race, RankingPlayer, Language, GameSettings, User, AdminCharacterInfo, RewardSource, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, ItemRarity, EssenceType, MagicAttackType, Message, PvpRewardSummary, Quest, QuestType, PlayerQuestProgress, LootDrop, TavernMessage, GameData, Affix, RolledAffixStats, GrammaticalGender, CharacterClass, AffixType, TraderInventoryData } from './types';
 import { api } from './api';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
-// FIX: Increased backpack base capacity to 40 for consistency.
 const getBackpackCapacity = (character: PlayerCharacter) => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
 const getChestUpgradeCost = (level: number): { gold: number; essences: { type: EssenceType; amount: number }[] } => {
@@ -199,6 +198,7 @@ const App: React.FC = () => {
   
   // Trader State
   const [traderInventory, setTraderInventory] = useState<ItemInstance[]>([]);
+  const [traderSpecialOffer, setTraderSpecialOffer] = useState<ItemInstance | null>(null);
 
   // Tavern State
   const [tavernMessages, setTavernMessages] = useState<TavernMessage[]>([]);
@@ -576,11 +576,33 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     try {
         const updatedCharacter = await api.buyItem(item.uniqueId);
         setBaseCharacter(updatedCharacter);
-        setTraderInventory(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
+        if (item.uniqueId === traderSpecialOffer?.uniqueId) {
+            setTraderSpecialOffer(null);
+        } else {
+            setTraderInventory(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
+        }
     } catch (err: any) {
         alert(err.message);
     }
-  }, [baseCharacter, gameData]);
+  }, [baseCharacter, gameData, traderSpecialOffer]);
+
+  const handleBuyMysteriousItem = useCallback(async () => {
+    if (!baseCharacter) return;
+    if (baseCharacter.resources.gold < 5000) {
+        alert(t('trader.notEnoughGold'));
+        return;
+    }
+    if (baseCharacter.inventory.length >= getBackpackCapacity(baseCharacter)) {
+        alert(t('trader.inventoryFull'));
+        return;
+    }
+    try {
+        const updatedCharacter = await api.buyMysteriousItem();
+        setBaseCharacter(updatedCharacter);
+    } catch (err: any) {
+        alert(err.message);
+    }
+  }, [baseCharacter, t]);
 
   const handleSellItems = useCallback(async (items: ItemInstance[]) => {
     if (!baseCharacter || items.length === 0) return;
@@ -623,11 +645,11 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     }
   }, []);
 
-  const fetchTraderInventory = useCallback(async () => {
+  const fetchTraderInventory = useCallback(async (force = false) => {
     try {
-      const inventoryData = await api.getTraderInventory();
-      // FIX: The API returns an object with `regularItems`, not an array directly.
+      const inventoryData: TraderInventoryData = await api.getTraderInventory(force);
       setTraderInventory(inventoryData.regularItems);
+      setTraderSpecialOffer(inventoryData.specialOfferItem || null);
     } catch (err: any) {
       setError(err.message);
     }
@@ -726,118 +748,195 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         alert(t('equipment.levelTooLow'));
         return;
     }
-    if (template.requiredStats) {
-        for (const stat in template.requiredStats) {
-            const key = stat as keyof CharacterStats;
-            if (derivedForCheck.stats[key] < (template.requiredStats[key] || 0)) {
-                alert(t('equipment.attributeRequirementNotMet', { stat: t(`statistics.${key}`), value: template.requiredStats[key]! }));
-                return;
-            }
+    
+    const requiredStats = template.requiredStats || {};
+    for (const stat in requiredStats) {
+        const key = stat as keyof CharacterStats;
+        if (derivedForCheck.stats[key] < (requiredStats[key]!)) {
+            alert(t('equipment.attributeRequirementNotMet', { stat: t(`statistics.${key}`), value: requiredStats[key]! }));
+            return;
         }
     }
 
-    // --- Simulation-based Backpack Capacity Check ---
-    
-    // 1. Determine the target slot
-    let targetSlot = template.slot as EquipmentSlot;
+    const newEquipment = { ...baseCharacter.equipment };
+    const newInventory = baseCharacter.inventory.filter(i => i.uniqueId !== itemToEquip.uniqueId);
+
+    let finalSlot = template.slot as EquipmentSlot;
+
+    // Handle ring equipping
     if (template.slot === 'ring') {
-        if (!baseCharacter.equipment.ring1) targetSlot = EquipmentSlot.Ring1;
-        else if (!baseCharacter.equipment.ring2) targetSlot = EquipmentSlot.Ring2;
-        else targetSlot = EquipmentSlot.Ring1; // Default to replacing ring1 if both are full
-    }
-
-    // 2. Simulate the new equipment state in a temporary object
-    const futureEquipment = { ...baseCharacter.equipment };
-    
-    // Clear conflicting slots *before* equipping the new item
-    if (targetSlot === EquipmentSlot.TwoHand) {
-        futureEquipment.mainHand = null;
-        futureEquipment.offHand = null;
-    } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
-        futureEquipment.twoHand = null;
-    }
-    
-    // Equip the new item
-    futureEquipment[targetSlot] = itemToEquip;
-    
-    // 3. Find which items were unequipped by comparing the original and simulated states
-    const originalEquippedIds = new Set(Object.values(baseCharacter.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId));
-    const futureEquippedIds = new Set(Object.values(futureEquipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId));
-    
-    const unequippedItems: ItemInstance[] = [];
-    originalEquippedIds.forEach(id => {
-        if (!futureEquippedIds.has(id)) {
-            // Find the full item object from the original equipment to add to the inventory
-            const unequippedItem = (Object.values(baseCharacter.equipment) as (ItemInstance | null)[]).find(i => i?.uniqueId === id);
-            if (unequippedItem) {
-                unequippedItems.push(unequippedItem);
-            }
+        if (!newEquipment.ring1) {
+            finalSlot = EquipmentSlot.Ring1;
+        } else if (!newEquipment.ring2) {
+            finalSlot = EquipmentSlot.Ring2;
+        } else {
+             alert(t('equipment.ringSlotsFull'));
+             return; // Don't proceed
         }
-    });
-
-    // 4. Calculate future inventory size
-    const netInventoryChange = unequippedItems.length - 1; // -1 for the item leaving inventory to be equipped
-    const futureInventorySize = baseCharacter.inventory.length + netInventoryChange;
-    const backpackCapacity = getBackpackCapacity(baseCharacter);
-
-    // 5. Perform the final check
-    if (futureInventorySize > backpackCapacity) {
-      alert(t('equipment.backpackFull'));
-      return;
     }
     
-    // --- If check passes, apply the changes for real ---
-    const newInventory = baseCharacter.inventory
-        .filter(i => i.uniqueId !== itemToEquip.uniqueId) // Remove the equipped item
-        .concat(unequippedItems); // Add all the unequipped items
+    if (newEquipment[finalSlot]) {
+        newInventory.push(newEquipment[finalSlot]!);
+    }
+    
+    // Handle two-handed vs one-handed weapons
+    if (finalSlot === EquipmentSlot.TwoHand) {
+        if (newEquipment.mainHand) newInventory.push(newEquipment.mainHand);
+        if (newEquipment.offHand) newInventory.push(newEquipment.offHand);
+        newEquipment.mainHand = null;
+        newEquipment.offHand = null;
+    } else if (finalSlot === EquipmentSlot.MainHand || finalSlot === EquipmentSlot.OffHand) {
+        if (newEquipment.twoHand) newInventory.push(newEquipment.twoHand);
+        newEquipment.twoHand = null;
+    }
 
-    const updatedChar = { ...baseCharacter, equipment: futureEquipment, inventory: newInventory };
-    handleCharacterUpdate(updatedChar, true);
-  }, [baseCharacter, gameData, handleCharacterUpdate, t, calculateDerivedStats]);
+    newEquipment[finalSlot] = itemToEquip;
 
-  const handleUnequipItem = useCallback(async (item: ItemInstance, fromSlot: EquipmentSlot) => {
-    if (!baseCharacter) return;
-    const backpackCapacity = getBackpackCapacity(baseCharacter);
-    if (baseCharacter.inventory.length >= backpackCapacity) {
+    const updatedCharacter: PlayerCharacter = {
+        ...baseCharacter,
+        equipment: newEquipment,
+        inventory: newInventory
+    };
+    
+    handleCharacterUpdate(updatedCharacter, true);
+
+}, [baseCharacter, gameData, handleCharacterUpdate, calculateDerivedStats, t]);
+
+const handleUnequipItem = useCallback(async (item: ItemInstance, fromSlot: EquipmentSlot) => {
+    if (!baseCharacter || !gameData) return;
+
+    if (baseCharacter.inventory.length >= getBackpackCapacity(baseCharacter)) {
         alert(t('equipment.backpackFull'));
         return;
     }
 
-    let newEquipment = { ...baseCharacter.equipment };
-    let newInventory = [...baseCharacter.inventory];
+    let tempCharacter: PlayerCharacter = {
+        ...baseCharacter,
+        equipment: { ...baseCharacter.equipment, [fromSlot]: null },
+    };
 
-    newEquipment[fromSlot] = null;
-    newInventory.push(item);
+    const itemsToUnequip = [item];
+    const itemNamesToUnequip = [];
 
-    const updatedChar = { ...baseCharacter, equipment: newEquipment, inventory: newInventory };
-    handleCharacterUpdate(updatedChar, true);
-  }, [baseCharacter, handleCharacterUpdate, t]);
+    let recheck = true;
+    while(recheck) {
+        recheck = false;
+        const tempDerivedStats = calculateDerivedStats(tempCharacter, gameData);
 
-  const handleSendTavernMessage = useCallback(async (content: string) => {
-    try {
-        const newMessage = await api.sendTavernMessage(content);
-        setTavernMessages(prev => [...prev, newMessage]);
-    } catch (err: any) {
-        console.error("Failed to send tavern message:", err.message);
+        for (const slot in tempCharacter.equipment) {
+            const equippedItem = tempCharacter.equipment[slot as EquipmentSlot];
+            if (!equippedItem) continue;
+
+            const template = gameData.itemTemplates.find(t => t.id === equippedItem.templateId);
+            if (!template) continue;
+
+            let meetsRequirements = true;
+            if (tempDerivedStats.level < template.requiredLevel) {
+                meetsRequirements = false;
+            } else {
+                const requiredStats = template.requiredStats || {};
+                for (const stat in requiredStats) {
+                    const key = stat as keyof CharacterStats;
+                    if (tempDerivedStats.stats[key] < (requiredStats[key]!)) {
+                        meetsRequirements = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!meetsRequirements) {
+                itemsToUnequip.push(equippedItem);
+                itemNamesToUnequip.push(template.name);
+                (tempCharacter.equipment as any)[slot] = null;
+                recheck = true; // Need to re-run checks
+                break;
+            }
+        }
     }
-  }, []);
+    
+    if (baseCharacter.inventory.length + itemsToUnequip.length > getBackpackCapacity(baseCharacter)) {
+        alert(t('equipment.cascadeUnequipNoSpace', { count: itemsToUnequip.length -1 }));
+        return;
+    }
 
-  const handleDisenchantItem = useCallback(async (item: ItemInstance) => {
+    if(itemNamesToUnequip.length > 0) {
+         alert(t('equipment.autoUnequipped', { itemsList: itemNamesToUnequip.join(', ') }));
+    }
+
+    const finalCharacter = {
+        ...tempCharacter,
+        inventory: [...baseCharacter.inventory, ...itemsToUnequip]
+    };
+
+    handleCharacterUpdate(finalCharacter, true);
+
+}, [baseCharacter, gameData, calculateDerivedStats, handleCharacterUpdate, t]);
+
+const handlePostExpeditionClose = useCallback(() => {
+    if (postExpeditionCharacter) {
+      setBaseCharacter(postExpeditionCharacter);
+    }
+    setExpeditionReport(null);
+    setPostExpeditionCharacter(null);
+}, [postExpeditionCharacter]);
+
+const handleUpgradeCamp = useCallback(async () => {
+    if (!baseCharacter) return;
+    const cost = 100 * Math.pow(baseCharacter.camp.level, 2);
+    if (baseCharacter.resources.gold < cost) {
+        alert(t('camp.notEnoughGold'));
+        return;
+    }
+    const updatedChar = {
+        ...baseCharacter,
+        camp: { ...baseCharacter.camp, level: baseCharacter.camp.level + 1 },
+        resources: { ...baseCharacter.resources, gold: baseCharacter.resources.gold - cost }
+    };
+    handleCharacterUpdate(updatedChar, true);
+}, [baseCharacter, handleCharacterUpdate, t]);
+
+const handleUpgradeChest = useCallback(async () => {
+    if (!baseCharacter) return;
+    const cost = getChestUpgradeCost(baseCharacter.chest.level);
+    if (baseCharacter.resources.gold < cost.gold || cost.essences.some(e => (baseCharacter.resources[e.type] || 0) < e.amount)) {
+        alert("Not enough resources."); return;
+    }
+    const newResources = { ...baseCharacter.resources, gold: baseCharacter.resources.gold - cost.gold };
+    cost.essences.forEach(e => { (newResources[e.type] as number) -= e.amount; });
+
+    const updatedChar = { ...baseCharacter, chest: { ...baseCharacter.chest, level: baseCharacter.chest.level + 1 }, resources: newResources };
+    handleCharacterUpdate(updatedChar, true);
+}, [baseCharacter, handleCharacterUpdate]);
+
+const handleUpgradeBackpack = useCallback(async () => {
+    if (!baseCharacter) return;
+    const level = baseCharacter.backpack?.level || 1;
+    if (level >= 10) return;
+    const cost = getBackpackUpgradeCost(level);
+     if (baseCharacter.resources.gold < cost.gold || cost.essences.some(e => (baseCharacter.resources[e.type] || 0) < e.amount)) {
+        alert("Not enough resources."); return;
+    }
+    const newResources = { ...baseCharacter.resources, gold: baseCharacter.resources.gold - cost.gold };
+    cost.essences.forEach(e => { (newResources[e.type] as number) -= e.amount; });
+
+    const updatedChar = { ...baseCharacter, backpack: { ...baseCharacter.backpack, level: level + 1 }, resources: newResources };
+    handleCharacterUpdate(updatedChar, true);
+}, [baseCharacter, handleCharacterUpdate]);
+
+const handleDisenchantItem = useCallback(async (item: ItemInstance) => {
     if (!baseCharacter) return { success: false };
-
     try {
         const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
         setBaseCharacter(updatedCharacter);
         return result;
-    } catch (err: any) {
+    } catch(err: any) {
         alert(err.message);
         return { success: false };
     }
-  }, [baseCharacter]);
-  
-  const handleUpgradeItem = useCallback(async (item: ItemInstance) => {
-    if (!baseCharacter) return { success: false, messageKey: 'error.title' };
+}, [baseCharacter]);
 
+const handleUpgradeItem = useCallback(async (item: ItemInstance) => {
+    if (!baseCharacter) return { success: false, messageKey: 'error.title' };
     try {
         const { updatedCharacter, result } = await api.upgradeItem(item.uniqueId);
         setBaseCharacter(updatedCharacter);
@@ -846,518 +945,202 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
         alert(err.message);
         return { success: false, messageKey: 'error.title' };
     }
-  }, [baseCharacter]);
+}, [baseCharacter]);
 
-    const getCampUpgradeCost = (level: number): number => {
-        return Math.floor(100 * Math.pow(1.5, level - 1));
-    };
+const handleAcceptQuest = useCallback(async (questId: string) => {
+    if (!baseCharacter) return;
+    if (!baseCharacter.acceptedQuests.includes(questId)) {
+        const questProgressExists = baseCharacter.questProgress.some(p => p.questId === questId);
+        const updatedChar: PlayerCharacter = {
+            ...baseCharacter,
+            acceptedQuests: [...baseCharacter.acceptedQuests, questId],
+            questProgress: questProgressExists 
+                ? baseCharacter.questProgress 
+                : [...baseCharacter.questProgress, { questId, progress: 0, completions: 0 }]
+        };
+        handleCharacterUpdate(updatedChar, true);
+    }
+}, [baseCharacter, handleCharacterUpdate]);
 
-    const handleUpgradeCamp = useCallback(async () => {
-        if (!baseCharacter) return;
-        const cost = getCampUpgradeCost(baseCharacter.camp.level);
-        if (baseCharacter.resources.gold < cost) {
-            alert(t('camp.notEnoughGold'));
-            return;
-        }
-        const updatedChar = JSON.parse(JSON.stringify(baseCharacter));
-        updatedChar.resources.gold -= cost;
-        updatedChar.camp.level += 1;
-        await handleCharacterUpdate(updatedChar, true);
-    }, [baseCharacter, handleCharacterUpdate, t]);
+const handleCompleteQuest = useCallback(async (questId: string) => {
+    if (!baseCharacter) return;
+    try {
+        const updatedChar = await api.completeQuest(questId);
+        setBaseCharacter(updatedChar);
+        alert(t('quests.questCompleted'));
+    } catch (err: any) {
+        alert(err.message);
+    }
+}, [baseCharacter, t]);
 
-    const handleUpgradeChest = useCallback(async () => {
-        if (!baseCharacter) return;
-        const level = baseCharacter.chest.level;
-        const upgradeCost = getChestUpgradeCost(level);
+const handleSendTavernMessage = useCallback(async (content: string) => {
+    try {
+        const newMessage = await api.sendTavernMessage(content);
+        setTavernMessages(prev => [...prev, newMessage]);
+    } catch (err: any) {
+        alert(err.message);
+    }
+}, []);
 
-        const canAfford = baseCharacter.resources.gold >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
-        if (!canAfford) {
-            alert(t('camp.notEnoughGold')); // Generic message for simplicity
-            return;
-        }
-
-        const newChar = JSON.parse(JSON.stringify(baseCharacter));
-        newChar.resources.gold -= upgradeCost.gold;
-        upgradeCost.essences.forEach(e => {
-            newChar.resources[e.type] -= e.amount;
-        });
-        newChar.chest.level += 1;
-        await handleCharacterUpdate(newChar, true);
-    }, [baseCharacter, handleCharacterUpdate, t]);
-
-    const handleUpgradeBackpack = useCallback(async () => {
-        if (!baseCharacter) return;
-        const level = baseCharacter.backpack?.level || 1;
-        const upgradeCost = getBackpackUpgradeCost(level);
-        const isMaxLevel = level >= 10;
-
-        if (isMaxLevel) return;
-
-        const canAfford = baseCharacter.resources.gold >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
-
-        if (!canAfford) {
-            alert(t('camp.notEnoughGold')); // Generic message for simplicity
-            return;
-        }
-
-        const newChar = JSON.parse(JSON.stringify(baseCharacter));
-        newChar.resources.gold -= upgradeCost.gold;
-        upgradeCost.essences.forEach(e => {
-            newChar.resources[e.type] -= e.amount;
-        });
-        if (newChar.backpack) {
-            newChar.backpack.level += 1;
-        } else {
-            newChar.backpack = { level: 2 };
-        }
-        await handleCharacterUpdate(newChar, true);
-    }, [baseCharacter, handleCharacterUpdate, t]);
-
-  const handleAcceptQuest = useCallback(async (questId: string) => {
-        if (!baseCharacter) return;
-
-        const updatedChar = JSON.parse(JSON.stringify(baseCharacter));
-
-        if (!updatedChar.acceptedQuests.includes(questId)) {
-            updatedChar.acceptedQuests.push(questId);
-        }
-
-        const progressExists = updatedChar.questProgress.some((p: PlayerQuestProgress) => p.questId === questId);
-        if (!progressExists) {
-            updatedChar.questProgress.push({ questId, progress: 0, completions: 0 });
-        }
-
-        await handleCharacterUpdate(updatedChar, true);
-    }, [baseCharacter, handleCharacterUpdate]);
-
-    const handleCompleteQuest = useCallback(async (questId: string) => {
-        if (!baseCharacter || !gameData) return;
-        
-        const quest = gameData.quests.find(q => q.id === questId);
-        const progress = baseCharacter.questProgress.find(p => p.questId === questId);
-        
-        if (!quest || !progress) return;
-    
-        const updatedChar = JSON.parse(JSON.stringify(baseCharacter));
-        let canComplete = false;
-        
-        switch (quest.objective.type) {
-            case QuestType.Kill:
-                canComplete = progress.progress >= quest.objective.amount;
-                break;
-            case QuestType.Gather:
-                canComplete = updatedChar.inventory.filter((i: ItemInstance) => i.templateId === quest.objective.targetId).length >= quest.objective.amount;
-                break;
-            case QuestType.GatherResource:
-                canComplete = (updatedChar.resources[quest.objective.targetId as EssenceType] || 0) >= quest.objective.amount;
-                break;
-            case QuestType.PayGold:
-                canComplete = updatedChar.resources.gold >= quest.objective.amount;
-                break;
-        }
-    
-        if (canComplete) {
-            // Deduct items/gold
-            if (quest.objective.type === QuestType.Gather) {
-                let itemsToRemove = quest.objective.amount;
-                updatedChar.inventory = updatedChar.inventory.filter((i: ItemInstance) => {
-                    if (i.templateId === quest.objective.targetId && itemsToRemove > 0) {
-                        itemsToRemove--;
-                        return false;
-                    }
-                    return true;
-                });
-            } else if (quest.objective.type === QuestType.PayGold) {
-                updatedChar.resources.gold -= quest.objective.amount;
-            } else if (quest.objective.type === QuestType.GatherResource) {
-                updatedChar.resources[quest.objective.targetId as EssenceType] -= quest.objective.amount;
-            }
-    
-            // Add rewards
-            updatedChar.resources.gold += quest.rewards.gold;
-            updatedChar.experience += quest.rewards.experience;
-    
-            if (quest.rewards.itemRewards) {
-                for (const reward of quest.rewards.itemRewards) {
-                    for (let i = 0; i < reward.quantity; i++) {
-                        const newItem = createItemInstance(reward.templateId, gameData.itemTemplates, gameData.affixes);
-                        if (updatedChar.inventory.length < getBackpackCapacity(updatedChar)) {
-                            updatedChar.inventory.push(newItem);
-                        }
-                    }
-                }
-            }
-            if (quest.rewards.resourceRewards) {
-                for (const reward of quest.rewards.resourceRewards) {
-                    updatedChar.resources[reward.resource] = (updatedChar.resources[reward.resource] || 0) + reward.quantity;
-                }
-            }
-    
-            // Update quest progress
-            const questProgressToUpdate = updatedChar.questProgress.find((p: PlayerQuestProgress) => p.questId === questId)!;
-            questProgressToUpdate.completions += 1;
-            
-            if (quest.repeatable === 0 || questProgressToUpdate.completions < quest.repeatable) {
-                questProgressToUpdate.progress = 0;
-            } else {
-                updatedChar.acceptedQuests = updatedChar.acceptedQuests.filter((id: string) => id !== questId);
-            }
-            
-            while (updatedChar.experience >= updatedChar.experienceToNextLevel) {
-                updatedChar.experience -= updatedChar.experienceToNextLevel;
-                updatedChar.level += 1;
-                updatedChar.stats.statPoints += 1;
-                updatedChar.experienceToNextLevel = Math.floor(100 * Math.pow(updatedChar.level, 1.3));
-            }
-    
-            await handleCharacterUpdate(updatedChar, true);
-            alert(t('quests.questCompleted'));
-        }
-    }, [baseCharacter, gameData, handleCharacterUpdate, t]);
-
-  const handleCloseExpeditionReport = async () => {
-        setExpeditionReport(null);
-        if (postExpeditionCharacter) {
-            setBaseCharacter(postExpeditionCharacter);
-            setPostExpeditionCharacter(null);
-        }
-        // Refetch messages after expedition is done, to get potential reports
-        try {
-            const freshMessages = await api.getMessages();
-            setMessages(freshMessages);
-        } catch (err: any) {
-            console.error("Failed to refetch messages after expedition:", err);
-        }
-    };
-
-    const handleDeleteCharacterItem = async (userId: number, itemUniqueId: string): Promise<PlayerCharacter> => {
-        try {
-            const updatedChar = await api.deleteCharacterItem(userId, itemUniqueId);
-            alert('Przedmiot został usunięty.');
-            // If the admin is editing their own character, update the main state
-            if (baseCharacter && userId === baseCharacter.id) {
-                setBaseCharacter(updatedChar);
-            }
-            return updatedChar;
-        } catch (err) {
-            alert((err as Error).message);
-            // Re-throw to allow the modal to handle the error if needed, or return the original character
-            throw err;
-        }
-    };
-
-    const handleSetTab = useCallback((tab: Tab) => {
-        setActiveTab(tab);
-        // Trigger data refresh based on the new tab
-        switch(tab) {
-            case Tab.Ranking:
-                fetchRanking();
-                break;
-            case Tab.Messages:
-                fetchMessages();
-                break;
-            case Tab.Tavern:
-                fetchTavernMessages();
-                break;
-            case Tab.Trader:
-                fetchTraderInventory();
-                break;
-            case Tab.Market:
-                // For Market, we might need to fetch multiple sets of data.
-                // For now, let's assume one primary fetch.
-                // This could be expanded later.
-                break;
-            // For most other tabs, a character refresh is the most useful.
-            case Tab.Statistics:
-            case Tab.Equipment:
-            case Tab.Camp:
-            case Tab.Resources:
-                refreshCharacter();
-                break;
-            default:
-                // No specific refresh needed for tabs like Expedition, Location, Admin, etc.
-                // as their state is either managed differently or doesn't need constant refreshing.
-                break;
-        }
-    }, [fetchRanking, fetchMessages, fetchTavernMessages, fetchTraderInventory, refreshCharacter]);
-    
-    // Initial data load
-    useEffect(() => {
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
-
-        const eventListeners: [string, () => void][] = [
-            ['mousemove', resetInactivityTimer],
-            ['keydown', resetInactivityTimer],
-            ['scroll', resetInactivityTimer],
-            ['click', resetInactivityTimer],
-        ];
-
-        eventListeners.forEach(([event, listener]) => window.addEventListener(event, listener));
-        resetInactivityTimer();
-    
-        const fetchData = async () => {
-          try {
-            const [gameData, charData] = await Promise.all([
-              api.getGameData(),
-              api.getCharacter(),
-            ]);
-            setGameData(gameData);
-    
-            if (charData) {
-              // Check for completed expedition on load
-              if (charData.activeExpedition && Date.now() >= charData.activeExpedition.finishTime) {
-                  handleTriggerExpeditionCompletion();
-              }
-
-              setBaseCharacter(charData);
-              const [messages, tavernMessages] = await Promise.all([api.getMessages(), api.getTavernMessages()]);
-              setMessages(messages);
-              setTavernMessages(tavernMessages);
-
-              if (tavernMessages.length > 0) {
-                  const lastMessageId = tavernMessages[tavernMessages.length - 1].id;
-                  if (lastReadTavernMessageIdRef.current === null) {
-                      lastReadTavernMessageIdRef.current = lastMessageId;
-                  } else if (lastMessageId > lastReadTavernMessageIdRef.current && activeTabRef.current !== Tab.Tavern) {
-                      setHasNewTavernMessages(true);
-                  }
-              }
-
-              if (charData.username === 'Kazujoshi') {
-                 const [users, allChars, allCharNames] = await Promise.all([
-                    api.getUsers(),
-                    api.getAllCharacters(),
-                    api.getCharacterNames(),
-                 ]);
-                 setUsers(users);
-                 setAllCharacters(allChars);
-                 setAllCharacterNames(allCharNames);
-              } else {
-                 const allCharNames = await api.getCharacterNames();
-                 setAllCharacterNames(allCharNames);
-              }
-
-            } else {
-              // No character exists, could be first login
-            }
-          } catch (err: any) {
-            if (err.message === 'Invalid token') {
-              handleLogout();
-            } else {
-              setError(err.message);
-            }
-          } finally {
-            setIsLoading(false);
+// Main data loading and game loop effects
+useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (token) {
+          const [charData, gameData] = await Promise.all([
+            api.getCharacter(),
+            api.getGameData()
+          ]);
+          setGameData(gameData);
+          if (charData) {
+            setBaseCharacter(charData);
           }
-        };
-    
-        fetchData();
+        }
+      } catch (err: any) {
+        if (err.message === 'Invalid token') {
+            handleLogout();
+        } else {
+            setError(err.message);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
+}, [token, handleLogout]);
 
-        return () => {
-            eventListeners.forEach(([event, listener]) => window.removeEventListener(event, listener));
-            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-        };
-    }, [token, handleLogout, resetInactivityTimer, handleTriggerExpeditionCompletion]);
-    
-     // Periodic tavern message fetch
-    useEffect(() => {
-        const fetchTavern = async () => {
-            try {
-                const latestMessages = await api.getTavernMessages();
-                setTavernMessages(latestMessages);
-                 if (latestMessages.length > 0) {
-                    const lastMessageId = latestMessages[latestMessages.length - 1].id;
-                    if (lastReadTavernMessageIdRef.current !== null && lastMessageId > lastReadTavernMessageIdRef.current && activeTabRef.current !== Tab.Tavern) {
+useEffect(() => {
+    if (baseCharacter && gameData) {
+        const derived = calculateDerivedStats(baseCharacter, gameData);
+        setPlayerCharacter(derived);
+
+        if (derived.activeExpedition && Date.now() >= derived.activeExpedition.finishTime) {
+            handleTriggerExpeditionCompletion();
+        }
+    } else {
+        setPlayerCharacter(null);
+    }
+}, [baseCharacter, gameData, calculateDerivedStats, handleTriggerExpeditionCompletion]);
+
+useEffect(() => {
+    if (!token || !playerCharacter) return;
+
+    // Periodic fetches
+    const fetchData = () => {
+        if (activeTabRef.current === Tab.Ranking) fetchRanking();
+        if (activeTabRef.current === Tab.Messages) fetchMessages();
+        if (activeTabRef.current === Tab.Trader) fetchTraderInventory();
+        if (activeTabRef.current === Tab.Admin) { /* fetch admin data if needed */ }
+    };
+    fetchData(); // Initial fetch on load
+    const interval = setInterval(fetchData, 30000); // Fetch every 30 seconds
+
+    // Heartbeat
+    const sendHeartbeat = () => api.sendHeartbeat();
+    const heartbeatInterval = setInterval(sendHeartbeat, 60000);
+
+    return () => {
+        clearInterval(interval);
+        clearInterval(heartbeatInterval);
+    };
+}, [token, playerCharacter, fetchRanking, fetchMessages, fetchTraderInventory]);
+
+useEffect(() => {
+    if (token && playerCharacter) {
+        if (tavernIntervalRef.current) clearInterval(tavernIntervalRef.current);
+        
+        const fetchAndCheckTavern = async () => {
+            const newMessages = await api.getTavernMessages();
+            setTavernMessages(newMessages);
+            const latestMessage = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+
+            if (latestMessage) {
+                if (activeTabRef.current === Tab.Tavern) {
+                    lastReadTavernMessageIdRef.current = latestMessage.id;
+                    setHasNewTavernMessages(false);
+                } else {
+                    if (lastReadTavernMessageIdRef.current === null) {
+                        lastReadTavernMessageIdRef.current = latestMessage.id;
+                    } else if (latestMessage.id > lastReadTavernMessageIdRef.current) {
                         setHasNewTavernMessages(true);
                     }
                 }
-            } catch (error) {
-                console.error("Failed to fetch tavern messages:", error);
             }
         };
 
-        if (token && playerCharacter) {
-            tavernIntervalRef.current = window.setInterval(fetchTavern, 5000);
-        }
-
-        return () => {
-            if (tavernIntervalRef.current) {
-                clearInterval(tavernIntervalRef.current);
-            }
-        };
-    }, [token, playerCharacter]);
-
-    useEffect(() => {
-        if (activeTab === Tab.Tavern) {
-            setHasNewTavernMessages(false);
-             if (tavernMessages.length > 0) {
-                lastReadTavernMessageIdRef.current = tavernMessages[tavernMessages.length - 1].id;
-            }
-        }
-    }, [activeTab, tavernMessages]);
-
-    // Heartbeat to keep session active
-    useEffect(() => {
-        let heartbeatInterval: number | null = null;
-        if (token) {
-            api.sendHeartbeat(); // Initial heartbeat
-            heartbeatInterval = window.setInterval(() => {
-                api.sendHeartbeat();
-            }, 60 * 1000); // Send heartbeat every 60 seconds
-        }
-        return () => {
-            if (heartbeatInterval) {
-                clearInterval(heartbeatInterval);
-            }
-        };
-    }, [token]);
-    
-
-    // Update derived character state whenever base character or game data changes
-    useEffect(() => {
-        if (baseCharacter && gameData) {
-            const derived = calculateDerivedStats(baseCharacter, gameData);
-            setPlayerCharacter(derived);
-        } else {
-            setPlayerCharacter(baseCharacter);
-        }
-    }, [baseCharacter, gameData, calculateDerivedStats]);
-
-
-    const renderContent = () => {
-      if (isLoading) return <div className="text-center p-8">{t('loading')}</div>;
-      if (error) return <div className="text-center p-8 text-red-400">{t('error.title')}: {error}</div>;
-      
-      if (!token) return <Auth onLoginSuccess={(newToken) => { setToken(newToken); localStorage.setItem('token', newToken); setIsLoading(true); }} settings={gameData?.settings} />;
-      if (!playerCharacter || !gameData) {
-          const startLocation = gameData?.locations.find(l => l.isStartLocation);
-          if (startLocation) {
-              return <CharacterCreation onCharacterCreate={async ({ name, race }) => {
-                  const newChar = await api.createCharacter(name, race, startLocation.id);
-                  setBaseCharacter(newChar);
-              }} />;
-          } else {
-               return <div className="text-center p-8 text-red-400">Critical Error: No starting location found in game data.</div>;
-          }
-      }
-
-    let activeComponent = null;
-    switch (activeTab) {
-      case Tab.Statistics:
-        activeComponent = <Statistics character={playerCharacter} baseCharacter={baseCharacter} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
-        break;
-      case Tab.Equipment:
-        activeComponent = <Equipment character={playerCharacter} baseCharacter={baseCharacter} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
-        break;
-      case Tab.Expedition:
-        activeComponent = <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onCompletion={handleTriggerExpeditionCompletion} />;
-        break;
-      case Tab.Camp:
-        activeComponent = <Camp character={playerCharacter} baseCharacter={baseCharacter} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={getCampUpgradeCost} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;
-        break;
-      case Tab.Location:
-        activeComponent = <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
-        break;
-      case Tab.Resources:
-        activeComponent = <Resources character={playerCharacter} />;
-        break;
-       case Tab.Ranking:
-        activeComponent = <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
-        break;
-       case Tab.Messages:
-        activeComponent = <Messages messages={messages} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} onClaimReturn={handleClaimMessageItem} onDeleteBulk={handleBulkDeleteMessages}/>;
-        break;
-      case Tab.Trader:
-        activeComponent = <Trader character={playerCharacter} baseCharacter={baseCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
-        break;
-       case Tab.Blacksmith:
-        activeComponent = <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
-        break;
-      case Tab.Quests:
-        activeComponent = <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />;
-        break;
-       case Tab.Tavern:
-        activeComponent = <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage} />;
-        break;
-       case Tab.Market:
-        activeComponent = <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={(char) => setBaseCharacter(char)} />;
-        break;
-       case Tab.Options:
-        activeComponent = <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
-        break;
-      case Tab.Admin:
-        if (playerCharacter.username === 'Kazujoshi') {
-            activeComponent = <AdminPanel 
-              gameData={gameData} 
-              onGameDataUpdate={async (key, data) => { await api.updateGameData(key, data); const gd = await api.getGameData(); setGameData(gd); }} 
-              onSettingsUpdate={async (settings) => { await api.updateGameSettings(settings); const gd = await api.getGameData(); setGameData(gd); }}
-              users={users}
-              onDeleteUser={async (userId) => { await api.deleteUser(userId); const u = await api.getUsers(); setUsers(u); }}
-              allCharacters={allCharacters}
-              onDeleteCharacter={async (userId) => { await api.deleteCharacter(userId); const c = await api.getAllCharacters(); setAllCharacters(c); }}
-              onResetCharacterStats={async (userId) => { await api.resetCharacterStats(userId); alert('Stats reset!'); }}
-              onHealCharacter={async (userId) => { await api.healCharacter(userId); alert('Healed!'); }}
-              onUpdateCharacterGold={async (userId, gold) => { await api.updateCharacterGold(userId, gold); const c = await api.getAllCharacters(); setAllCharacters(c); alert('Gold updated!'); }}
-              onForceTraderRefresh={async () => { await api.getTraderInventory(true); alert('Trader inventory will be refreshed on next visit.'); }}
-              onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); alert('All PvP cooldowns have been reset.'); }}
-              onSendGlobalMessage={api.sendGlobalMessage}
-              onRegenerateCharacterEnergy={async (userId) => { await api.regenerateCharacterEnergy(userId); alert('Energy regenerated!'); }}
-              onChangeUserPassword={async (userId, newPassword) => { await api.changeUserPassword(userId, newPassword); alert('Password changed!'); }}
-              onInspectCharacter={api.inspectCharacter}
-              onDeleteCharacterItem={handleDeleteCharacterItem}
-            />;
-        }
-        break;
-      default:
-        activeComponent = <div>Coming Soon...</div>;
+        fetchAndCheckTavern();
+        tavernIntervalRef.current = window.setInterval(fetchAndCheckTavern, 5000); // check tavern every 5 seconds
     }
-    
-    return (
-        <div 
-            className="flex h-screen bg-cover bg-center bg-fixed font-sans" 
-            style={{ backgroundImage: gameData?.settings.gameBackground ? `url(${gameData.settings.gameBackground})` : "url('background.png')" }}
-        >
-            <Sidebar 
-                activeTab={activeTab} 
-                setActiveTab={handleSetTab} 
-                playerCharacter={playerCharacter} 
-                currentLocation={currentLocation}
-                onLogout={handleLogout}
-                hasUnreadMessages={hasUnreadMessages}
-                hasNewTavernMessages={hasNewTavernMessages}
-                onOpenNews={handleOpenNews}
-                hasNewNews={hasNewNews}
-            />
-            <main className="flex-1 overflow-y-auto p-8">
-                {activeComponent}
-            </main>
-        </div>
-    );
+    return () => { if (tavernIntervalRef.current) clearInterval(tavernIntervalRef.current); };
+}, [token, playerCharacter]);
+
+
+useEffect(() => {
+    resetInactivityTimer();
+    window.addEventListener('mousemove', resetInactivityTimer);
+    window.addEventListener('keypress', resetInactivityTimer);
+    return () => {
+      window.removeEventListener('mousemove', resetInactivityTimer);
+      window.removeEventListener('keypress', resetInactivityTimer);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    };
+}, [resetInactivityTimer]);
+
+
+// Content Rendering
+const renderContent = () => {
+    if (!playerCharacter || !gameData) return <div className="p-6 text-center">{t('loading')}</div>;
+
+    switch (activeTab) {
+        case Tab.Statistics:
+            return <Statistics character={playerCharacter} baseCharacter={baseCharacter!} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
+        case Tab.Equipment:
+            return <Equipment character={playerCharacter} baseCharacter={baseCharacter!} gameData={gameData} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} />;
+        case Tab.Expedition:
+            return <ExpeditionComponent character={playerCharacter} expeditions={gameData.expeditions} enemies={gameData.enemies} currentLocation={currentLocation!} onStartExpedition={handleStartExpedition} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onCompletion={handleTriggerExpeditionCompletion} />;
+        case Tab.Camp:
+            return <Camp character={playerCharacter} baseCharacter={baseCharacter!} onToggleResting={handleToggleResting} onUpgradeCamp={handleUpgradeCamp} getCampUpgradeCost={(level) => 100 * Math.pow(level, 2)} onCharacterUpdate={handleCharacterUpdate} onHealToFull={handleHealToFull} onUpgradeChest={handleUpgradeChest} onUpgradeBackpack={handleUpgradeBackpack} getChestUpgradeCost={getChestUpgradeCost} getBackpackUpgradeCost={getBackpackUpgradeCost} />;
+        case Tab.Location:
+            return <LocationComponent playerCharacter={playerCharacter} onCharacterUpdate={handleCharacterUpdate} locations={gameData.locations} />;
+        case Tab.Resources:
+            return <Resources character={playerCharacter} />;
+        case Tab.Ranking:
+            return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
+        case Tab.Trader:
+            return <Trader character={playerCharacter} baseCharacter={baseCharacter!} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} traderSpecialOffer={traderSpecialOffer} onBuyItem={handleBuyItem} onSellItems={handleSellItems} onBuyMysteriousItem={handleBuyMysteriousItem} />;
+        case Tab.Blacksmith:
+            return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
+        case Tab.Messages:
+            return <Messages messages={messages} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} currentPlayer={playerCharacter} onDeleteMessage={handleDeleteMessage} onMarkAsRead={handleMarkAsRead} onCompose={handleComposeMessage} onClaimReturn={handleClaimMessageItem} onDeleteBulk={handleBulkDeleteMessages} />;
+        case Tab.Quests:
+            return <Quests character={playerCharacter} quests={gameData.quests} enemies={gameData.enemies} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onAcceptQuest={handleAcceptQuest} onCompleteQuest={handleCompleteQuest} />;
+        case Tab.Tavern:
+            return <Tavern character={playerCharacter} messages={tavernMessages} onSendMessage={handleSendTavernMessage} />;
+        case Tab.Market:
+            return <Market character={playerCharacter} gameData={gameData} onCharacterUpdate={handleCharacterUpdate} />;
+        case Tab.Options:
+            return <Options character={playerCharacter} onCharacterUpdate={handleCharacterUpdate} />;
+        case Tab.Admin:
+            return <AdminPanel gameData={gameData} users={users} allCharacters={allCharacters} onGameDataUpdate={(key, data) => api.updateGameData(key, data).then(() => api.getGameData()).then(setGameData)} onSettingsUpdate={(settings) => api.updateGameSettings(settings).then(() => api.getGameData()).then(setGameData)} onDeleteUser={(id) => api.deleteUser(id).then(() => setUsers(u => u.filter(user => user.id !== id)))} onDeleteCharacter={(id) => api.deleteCharacter(id).then(() => setAllCharacters(c => c.filter(char => char.user_id !== id)))} onResetCharacterStats={(id) => api.resetCharacterStats(id)} onHealCharacter={(id) => api.healCharacter(id)} onUpdateCharacterGold={(id, gold) => api.updateCharacterGold(id, gold)} onForceTraderRefresh={() => fetchTraderInventory(true)} onResetAllPvpCooldowns={() => api.resetAllPvpCooldowns().then(() => alert('Cooldowns reset'))} onSendGlobalMessage={api.sendGlobalMessage} onRegenerateCharacterEnergy={api.regenerateCharacterEnergy} onChangeUserPassword={api.changeUserPassword} onInspectCharacter={api.inspectCharacter} onDeleteCharacterItem={api.deleteCharacterItem} />;
+        default:
+            return <Statistics character={playerCharacter} baseCharacter={baseCharacter!} onCharacterUpdate={handleCharacterUpdate} calculateDerivedStats={calculateDerivedStats} gameData={gameData} onResetAttributes={handleResetAttributes} onSelectClass={handleSelectClass} />;
+    }
   };
 
-  useEffect(() => {
-    if (token && playerCharacter) { // Ensure user is logged in
-        handleSetTab(activeTab);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only on initial mount
-
-
-  if (isLoading && !gameData) {
-      return <div className="flex h-screen items-center justify-center">{t('loading')}</div>;
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">{t('loading')}</div>;
   }
-  
+
   if (error) {
     return (
-      <div className="flex flex-col h-screen items-center justify-center text-center p-8">
-        <h2 className="text-2xl font-bold text-red-400 mb-4">{t('error.title')}</h2>
-        <p className="mb-6">{error}</p>
-        <div className="flex gap-4">
-            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded-md">{t('error.refresh')}</button>
-            <button onClick={handleLogout} className="px-4 py-2 bg-slate-600 rounded-md">{t('error.logout')}</button>
+      <div className="min-h-screen flex items-center justify-center text-center p-4">
+        <div>
+          <h2 className="text-2xl font-bold text-red-400 mb-4">{t('error.title')}</h2>
+          <p className="mb-4">{error}</p>
+          <p className="text-gray-400 mb-6">{t('error.refresh')}</p>
+          <button onClick={handleLogout} className="px-4 py-2 bg-indigo-600 rounded-md">{t('error.logout')}</button>
         </div>
       </div>
     );
@@ -1365,52 +1148,61 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
 
   return (
     <LanguageContext.Provider value={{ lang: currentLanguage, t }}>
-      {playerCharacter && gameData && expeditionReport && (
-        <ExpeditionSummaryModal
-          reward={expeditionReport}
-          onClose={handleCloseExpeditionReport}
-          characterName={playerCharacter.name}
-          itemTemplates={gameData.itemTemplates}
-          affixes={gameData.affixes}
-        />
-      )}
-      {playerCharacter && gameData && pvpReport && (
-        <ExpeditionSummaryModal
+      <div 
+        className="min-h-screen bg-cover bg-center bg-fixed" 
+        style={{ backgroundImage: `url('${gameData?.settings.gameBackground || 'game_background.png'}')` }}
+      >
+        {!token ? (
+          <Auth onLoginSuccess={(newToken) => { localStorage.setItem('token', newToken); setToken(newToken); }} settings={gameData?.settings} />
+        ) : !baseCharacter ? (
+          <CharacterCreation onCharacterCreate={async ({ name, race }) => {
+            if (gameData) {
+              const startLocation = gameData.locations.find(l => l.isStartLocation);
+              if (!startLocation) {
+                alert("Error: No start location found. Contact administrator.");
+                return;
+              }
+              const newChar = await api.createCharacter(name, race, startLocation.id);
+              setBaseCharacter(newChar);
+            }
+          }} />
+        ) : (
+          <div className="flex min-h-screen">
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} playerCharacter={playerCharacter} currentLocation={currentLocation} onLogout={handleLogout} hasUnreadMessages={hasUnreadMessages} hasNewTavernMessages={hasNewTavernMessages} onOpenNews={handleOpenNews} hasNewNews={hasNewNews} />
+            <main className="flex-1 p-6 overflow-y-auto">
+              {renderContent()}
+            </main>
+          </div>
+        )}
+        {expeditionReport && playerCharacter && gameData && (
+          <ExpeditionSummaryModal reward={expeditionReport} onClose={handlePostExpeditionClose} characterName={playerCharacter.name} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} />
+        )}
+         {pvpReport && playerCharacter && gameData && (
+          <ExpeditionSummaryModal
             reward={{
-                combatLog: pvpReport.combatLog,
-                isVictory: pvpReport.isVictory,
-                totalGold: pvpReport.gold,
-                totalExperience: pvpReport.experience,
-                rewardBreakdown: [],
-                itemsFound: [],
-                essencesFound: {}
+              combatLog: pvpReport.combatLog,
+              isVictory: pvpReport.isVictory,
+              totalGold: pvpReport.gold,
+              totalExperience: pvpReport.experience,
+              rewardBreakdown: [],
+              itemsFound: [],
+              essencesFound: {}
             }}
             onClose={() => setPvpReport(null)}
             characterName={pvpReport.attacker.name}
             itemTemplates={gameData.itemTemplates}
             affixes={gameData.affixes}
             isPvp={true}
-            pvpData={{
-                attacker: pvpReport.attacker,
-                defender: pvpReport.defender,
-            }}
-        />
-      )}
-      {isComposingMessage && (
-          <ComposeMessageModal
-              allCharacterNames={allCharacterNames}
-              onClose={() => setIsComposingMessage(false)}
-              onSendMessage={handleSendMessage}
-              initialRecipient={composeInitialData?.recipient}
-              initialSubject={composeInitialData?.subject}
+            pvpData={{ attacker: pvpReport.attacker, defender: pvpReport.defender }}
           />
-      )}
-      <NewsModal 
-        isOpen={isNewsModalOpen}
-        onClose={handleCloseNews}
-        content={gameData?.settings.newsContent || ''}
-      />
-      {renderContent()}
+        )}
+        {isComposingMessage && (
+          <ComposeMessageModal onClose={() => setIsComposingMessage(false)} onSendMessage={handleSendMessage} allCharacterNames={allCharacterNames} initialRecipient={composeInitialData?.recipient} initialSubject={composeInitialData?.subject} />
+        )}
+         {gameData && (
+          <NewsModal isOpen={isNewsModalOpen} onClose={handleCloseNews} content={gameData.settings.newsContent || ''} />
+        )}
+      </div>
     </LanguageContext.Provider>
   );
 };

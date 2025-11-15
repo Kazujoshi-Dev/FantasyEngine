@@ -2,6 +2,7 @@
 // FIX: Replaced default express import with named imports for Request, Response, and NextFunction to resolve type conflicts.
 // FIX: Separated value and type imports for express to resolve type conflicts.
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData, ItemTemplate, OrphanInfo } from '../types.js';
@@ -12,7 +13,7 @@ const router = express.Router();
 
 // Middleware to check for admin privileges
 // FIX: Use explicit express types for req, res, and next.
-const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows.length > 0 && userRes.rows[0].username === 'Kazujoshi') {
@@ -29,7 +30,7 @@ const isAdmin = async (req: express.Request, res: express.Response, next: expres
 router.use(authenticateToken, isAdmin);
 
 // FIX: Use explicit express types for req, res.
-router.get('/users', async (req: express.Request, res: express.Response) => {
+router.get('/users', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
         res.json(result.rows);
@@ -39,7 +40,7 @@ router.get('/users', async (req: express.Request, res: express.Response) => {
 });
 
 // FIX: Use explicit express types for req, res.
-router.delete('/users/:id', async (req: express.Request, res: express.Response) => {
+router.delete('/users/:id', async (req: Request, res: Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.sendStatus(204);
@@ -49,7 +50,7 @@ router.delete('/users/:id', async (req: express.Request, res: express.Response) 
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/users/:id/password', async (req: express.Request, res: express.Response) => {
+router.post('/users/:id/password', async (req: Request, res: Response) => {
     const { newPassword } = req.body;
     if (!newPassword) {
         return res.status(400).json({ message: 'New password is required.' });
@@ -66,7 +67,7 @@ router.post('/users/:id/password', async (req: express.Request, res: express.Res
 
 
 // FIX: Use explicit express types for req, res.
-router.get('/characters/all', async (req: express.Request, res: express.Response) => {
+router.get('/characters/all', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -87,7 +88,7 @@ router.get('/characters/all', async (req: express.Request, res: express.Response
 });
 
 // FIX: Use explicit express types for req, res.
-router.delete('/characters/:userId', async (req: express.Request, res: express.Response) => {
+router.delete('/characters/:userId', async (req: Request, res: Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
         res.sendStatus(204);
@@ -97,7 +98,7 @@ router.delete('/characters/:userId', async (req: express.Request, res: express.R
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/characters/:userId/reset-stats', async (req: express.Request, res: express.Response) => {
+router.post('/characters/:userId/reset-stats', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -127,7 +128,7 @@ router.post('/characters/:userId/reset-stats', async (req: express.Request, res:
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/characters/:userId/heal', async (req: express.Request, res: express.Response) => {
+router.post('/characters/:userId/heal', async (req: Request, res: Response) => {
     const client = await pool.connect();
      try {
         await client.query('BEGIN');
@@ -150,7 +151,7 @@ router.post('/characters/:userId/heal', async (req: express.Request, res: expres
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/characters/:userId/regenerate-energy', async (req: express.Request, res: express.Response) => {
+router.post('/characters/:userId/regenerate-energy', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -179,7 +180,7 @@ router.post('/characters/:userId/regenerate-energy', async (req: express.Request
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/character/:userId/update-gold', async (req: express.Request, res: express.Response) => {
+router.post('/character/:userId/update-gold', async (req: Request, res: Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
      try {
@@ -203,7 +204,7 @@ router.post('/character/:userId/update-gold', async (req: express.Request, res: 
 });
 
 // FIX: Use explicit express types for req, res.
-router.get('/characters/:userId/inspect', async (req: express.Request, res: express.Response) => {
+router.get('/characters/:userId/inspect', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.userId]);
         if (result.rows.length === 0) {
@@ -216,7 +217,7 @@ router.get('/characters/:userId/inspect', async (req: express.Request, res: expr
 });
 
 // FIX: Use explicit express types for req, res.
-router.delete('/characters/:userId/items/:itemUniqueId', async (req: express.Request, res: express.Response) => {
+router.delete('/characters/:userId/items/:itemUniqueId', async (req: Request, res: Response) => {
     const { userId: userIdStr, itemUniqueId } = req.params;
     const userId = parseInt(userIdStr, 10);
     const client = await pool.connect();
@@ -263,7 +264,7 @@ router.delete('/characters/:userId/items/:itemUniqueId', async (req: express.Req
 
 // Duplication Audit
 // FIX: Use explicit express types for req, res.
-router.get('/audit/duplicates', async (req: express.Request, res: express.Response) => {
+router.get('/audit/duplicates', async (req: Request, res: Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
         const result = await pool.query(`
@@ -283,14 +284,14 @@ router.get('/audit/duplicates', async (req: express.Request, res: express.Respon
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/resolve-duplicates', async (req: express.Request, res: express.Response) => {
+router.post('/resolve-duplicates', async (req: Request, res: Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
 // FIX: Use explicit express types for req, res.
-router.get('/audit/orphans', async (req: express.Request, res: express.Response) => {
+router.get('/audit/orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -346,7 +347,7 @@ router.get('/audit/orphans', async (req: express.Request, res: express.Response)
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/resolve-orphans', async (req: express.Request, res: express.Response) => {
+router.post('/resolve-orphans', async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -407,12 +408,12 @@ router.post('/resolve-orphans', async (req: express.Request, res: express.Respon
 
 // Item Inspector
 // FIX: Use explicit express types for req, res.
-router.get('/find-item/:uniqueId', async (req: express.Request, res: express.Response) => {
+router.get('/find-item/:uniqueId', async (req: Request, res: Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/pvp/reset-cooldowns', async (req: express.Request, res: express.Response) => {
+router.post('/pvp/reset-cooldowns', async (req: Request, res: Response) => {
     try {
         await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
         res.sendStatus(200);
@@ -422,7 +423,7 @@ router.post('/pvp/reset-cooldowns', async (req: express.Request, res: express.Re
 });
 
 // FIX: Use explicit express types for req, res.
-router.post('/messages/global', async (req: express.Request, res: express.Response) => {
+router.post('/messages/global', async (req: Request, res: Response) => {
     const { subject, content } = req.body;
     if (!subject || !content) {
         return res.status(400).json({ message: "Subject and content are required." });

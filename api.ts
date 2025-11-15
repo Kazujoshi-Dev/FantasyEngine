@@ -181,6 +181,14 @@ export const api = {
         });
     },
 
+// fix: Add missing completeQuest method to match the backend endpoint and the call in App.tsx.
+    async completeQuest(questId: string): Promise<PlayerCharacter> {
+        return fetchApi('/character/complete-quest', {
+            method: 'POST',
+            body: JSON.stringify({ questId }),
+        });
+    },
+
     async getAllCharacters(): Promise<AdminCharacterInfo[]> {
         return fetchApi('/admin/characters/all');
     },

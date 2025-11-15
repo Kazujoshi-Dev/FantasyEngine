@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats, ItemRarity } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats, ItemRarity, TraderInventoryData } from '../types';
 import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -13,8 +13,10 @@ interface TraderProps {
     affixes: Affix[];
     settings: GameSettings;
     traderInventory: ItemInstance[];
+    traderSpecialOffer: ItemInstance | null;
     onBuyItem: (item: ItemInstance, cost: number) => void;
     onSellItems: (items: ItemInstance[]) => void;
+    onBuyMysteriousItem: () => void;
 }
 
 const BulkSellPanel: React.FC<{
@@ -87,13 +89,13 @@ const BulkSellPanel: React.FC<{
 };
 
 
-export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, affixes, settings, traderInventory, onBuyItem, onSellItems }) => {
+export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, affixes, settings, traderInventory, traderSpecialOffer, onBuyItem, onSellItems, onBuyMysteriousItem }) => {
     const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState('');
     
     const [detailsItem, setDetailsItem] = useState<{ item: ItemInstance; source: 'trader' } | null>(null);
     const [itemsToSellIds, setItemsToSellIds] = useState<Set<string>>(new Set());
-    const backpackCapacity = 30 + ((character.backpack?.level || 1) - 1) * 10;
+    const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
 
     const validInventory = useMemo(() => 
         character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
@@ -155,7 +157,15 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         });
     };
 
-    const handleBuyClick = (item: ItemInstance, cost: number) => {
+    const handleBuyClick = (item: ItemInstance) => {
+        const template = itemTemplates.find(t => t.id === item.templateId)!;
+        let itemValue = template.value;
+        if (item.prefixId) itemValue += affixes.find(a => a.id === item.prefixId)?.value || 0;
+        if (item.suffixId) itemValue += affixes.find(a => a.id === item.suffixId)?.value || 0;
+        
+        const isSpecial = traderSpecialOffer?.uniqueId === item.uniqueId;
+        const cost = isSpecial ? itemValue * 5 : itemValue * 2;
+
         if (character.inventory.length >= backpackCapacity) {
             alert(t('trader.inventoryFull'));
             return;
@@ -214,25 +224,14 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             const template = itemTemplates.find(t => t.id === detailsItem.item.templateId);
             if (!template) return null;
 
-            let itemValue = template.value || 0;
-            if (detailsItem.item.prefixId) {
-                const prefix = affixes.find(a => a.id === detailsItem.item.prefixId);
-                itemValue += prefix?.value || 0;
-            }
-            if (detailsItem.item.suffixId) {
-                const suffix = affixes.find(a => a.id === detailsItem.item.suffixId);
-                itemValue += suffix?.value || 0;
-            }
-            const cost = itemValue * 2;
-
             return (
                 <ItemDetailsPanel item={detailsItem.item} template={template} affixes={affixes} character={character}>
                     <div className="mt-4">
                         <button
-                            onClick={() => handleBuyClick(detailsItem.item, cost)}
+                            onClick={() => handleBuyClick(detailsItem.item)}
                             className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-green-700 transition-colors"
                         >
-                            {t('trader.buy')} ({cost} <CoinsIcon className="inline h-4 w-4 mb-1"/>)
+                            {t('trader.buy')}
                         </button>
                     </div>
                 </ItemDetailsPanel>
@@ -285,7 +284,6 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
     return (
          <ContentPanel title={t('trader.title')}>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
-                {/* Trader's Wares */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4 px-2">
                         <h3 className="text-xl font-bold text-indigo-400">{t('trader.traderWares')}</h3>
@@ -294,23 +292,28 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                            <span className="font-mono font-bold text-white ml-1">{timeLeft}</span>
                         </div>
                     </div>
-                    <ItemList
-                        items={traderInventory}
-                        itemTemplates={itemTemplates}
-                        affixes={affixes}
-                        selectedItem={detailsItem ? detailsItem.item : null}
-                        onSelectItem={handleTraderItemClick}
-                        showPrice="buy"
-                        meetsRequirements={meetsRequirements}
-                    />
+                    <h4 className="font-bold text-lg text-amber-400 mb-2 px-2">{t('trader.specialOffer.title')}</h4>
+                    <div className="space-y-1 mb-4">
+                        {traderSpecialOffer ? (
+                            <ItemList items={[traderSpecialOffer]} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} meetsRequirements={meetsRequirements} />
+                        ) : <p className="text-sm text-gray-500 px-2">Brak ofert specjalnych.</p>}
+                        <div className="bg-slate-800/50 p-3 rounded-lg">
+                            <h5 className="font-semibold text-sky-400">{t('trader.mysteriousItem.title')}</h5>
+                            <p className="text-xs text-gray-400 mt-1">{t('trader.mysteriousItem.description')}</p>
+                            <button onClick={onBuyMysteriousItem} className="w-full mt-2 bg-sky-800 hover:bg-sky-700 text-white font-bold py-2 rounded-lg text-sm transition-colors">
+                                {t('trader.mysteriousItem.buy')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <h4 className="font-bold text-lg text-gray-300 mt-4 pt-4 border-t border-slate-700/50 mb-2 px-2">{t('trader.regularWares')}</h4>
+                    <ItemList items={traderInventory} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} showPrice="buy" meetsRequirements={meetsRequirements} />
                 </div>
 
-                {/* Details Panel */}
                 <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">
                     {renderMiddlePanel()}
                 </div>
 
-                {/* Player's Inventory */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4 px-2">
                          <h3 className="text-xl font-bold text-indigo-400">{t('trader.yourBag')}</h3>

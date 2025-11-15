@@ -523,7 +523,7 @@ export interface TraderSettings {
 
 export interface TraderInventoryData {
     regularItems: ItemInstance[];
-    specialOfferItem: ItemInstance | null;
+    specialOfferItem?: ItemInstance | null;
 }
 
 export interface GameSettings {
