@@ -177,54 +177,43 @@ export const initializeDatabase = async () => {
             console.log("MIGRATION COMPLETE.");
         }
 
-        const gameDataRes = await client.query("SELECT key FROM game_data WHERE key IN ('locations', 'expeditions', 'enemies', 'settings', 'itemTemplates', 'quests', 'affixes')");
-        const existingKeys = gameDataRes.rows.map(r => r.key);
-        
-        if (!existingKeys.includes('locations') || !existingKeys.includes('expeditions') || !existingKeys.includes('enemies')) {
-             const startLocation = {
+        // --- Robust Seeding ---
+        const defaultData = {
+            locations: [{
                 id: randomUUID(),
                 name: 'Starting Village',
                 description: 'A peaceful village, an ideal place to start your adventure...',
                 travelTime: 0,
                 travelCost: 0,
                 travelEnergyCost: 0,
-                availableTabs: [0, 1, 2, 3, 4, 5, 6, 7, 12], // Added Tavern
+                availableTabs: [0, 1, 2, 3, 4, 5, 6, 7, 12],
                 isStartLocation: true,
-            };
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['locations', JSON.stringify([startLocation])]);
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['expeditions', JSON.stringify([])]);
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['enemies', JSON.stringify([])]);
-            console.log('Populated with initial game data (locations, etc).');
-        }
-
-        if (!existingKeys.includes('itemTemplates')) {
-            const defaultItems = [
+            }],
+            expeditions: [],
+            enemies: [],
+            itemTemplates: [
                 { id: 'short_sword', name: 'Krótki Miecz', gender: 'Masculine', description: 'Prosty, ale niezawodny krótki miecz.', slot: 'mainHand', category: 'Weapon', rarity: 'Common', icon: 'https://i.imgur.com/3sS8Z29.png', value: 10, requiredLevel: 1, damageMin: { min: 3, max: 5 }, damageMax: { min: 6, max: 8 } },
                 { id: 'leather_armor', name: 'Skórzana Zbroja', gender: 'Feminine', description: 'Podstawowa zbroja zapewniająca minimalną ochronę.', slot: 'chest', category: 'Armor', rarity: 'Common', icon: 'https://i.imgur.com/m8e0v3K.png', value: 15, requiredLevel: 1, armorBonus: { min: 5, max: 8 } },
                 { id: 'wooden_shield', name: 'Drewniana Tarcza', gender: 'Feminine', description: 'Prosta tarcza z drewna.', slot: 'offHand', category: 'Armor', rarity: 'Common', icon: 'https://i.imgur.com/2JB2t4x.png', value: 8, requiredLevel: 1, armorBonus: { min: 3, max: 5 } },
                 { id: 'long_sword', name: 'Długi Miecz', gender: 'Masculine', description: 'Dobrze wyważony długi miecz, ulubieniec poszukiwaczy przygód.', slot: 'mainHand', category: 'Weapon', rarity: 'Uncommon', icon: 'https://i.imgur.com/mYtE5a3.png', value: 50, requiredLevel: 5, damageMin: { min: 8, max: 12 }, damageMax: { min: 15, max: 20 } }
-            ];
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['itemTemplates', JSON.stringify(defaultItems)]);
-            console.log('Populated with initial item templates.');
-        }
-        
-        if (!existingKeys.includes('quests')) {
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['quests', JSON.stringify([])]);
-        }
-
-        if (!existingKeys.includes('affixes')) {
-            const defaultAffixes = [
+            ],
+            quests: [],
+            affixes: [
                 { id: 'prefix_strength', name: { masculine: 'Mocny', feminine: 'Mocna', neuter: 'Mocne' }, type: 'Prefix', value: 10, statsBonus: { strength: { min: 1, max: 3 } }, spawnChances: { Weapon: 10, Armor: 5 } },
                 { id: 'suffix_stamina', name: { masculine: 'Wytrzymałości', feminine: 'Wytrzymałości', neuter: 'Wytrzymałości' }, type: 'Suffix', value: 10, statsBonus: { stamina: { min: 1, max: 3 } }, spawnChances: { Weapon: 5, Armor: 10, Jewelry: 10 } }
-            ];
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['affixes', JSON.stringify(defaultAffixes)]);
-            console.log('Populated with initial game data (affixes).');
-        }
+            ],
+            settings: { language: 'pl' }
+        };
 
-        if (!existingKeys.includes('settings')) {
-            const defaultSettings = { language: 'pl' };
-            await client.query(`INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, ['settings', JSON.stringify(defaultSettings)]);
-            console.log('Populated with initial game settings.');
+        for (const key of Object.keys(defaultData) as (keyof typeof defaultData)[]) {
+            const res = await client.query('SELECT data FROM game_data WHERE key = $1', [key]);
+            if (res.rowCount === 0) {
+                await client.query('INSERT INTO game_data (key, data) VALUES ($1, $2)', [key, JSON.stringify(defaultData[key])]);
+                console.log(`Initialized game_data for key: ${key}`);
+            } else if (!res.rows[0].data || (Array.isArray(res.rows[0].data) && res.rows[0].data.length === 0)) {
+                await client.query('UPDATE game_data SET data = $1 WHERE key = $2', [JSON.stringify(defaultData[key]), key]);
+                 console.log(`Restored empty game_data for key: ${key}`);
+            }
         }
 
         console.log('Database initialized successfully.');
