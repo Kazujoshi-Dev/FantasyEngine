@@ -1,5 +1,5 @@
 
-import type { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
 export async function authenticateToken(req: Request, res: Response, next: NextFunction) {

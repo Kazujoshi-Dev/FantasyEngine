@@ -1,6 +1,5 @@
 
-import express from 'express';
-import type { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
