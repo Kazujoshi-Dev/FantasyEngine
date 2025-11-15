@@ -4,7 +4,7 @@
 
 
 
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import * as express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix } from '../types.js';
@@ -37,7 +37,7 @@ const refreshTraderInventoryIfNeeded = async () => {
 };
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
     const force = req.query.force === 'true';
     if (force) {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -54,7 +54,7 @@ router.get('/inventory', authenticateToken, async (req: ExpressRequest, res: Exp
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -121,7 +121,7 @@ router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressR
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/buy-mysterious', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/buy-mysterious', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -156,7 +156,7 @@ router.post('/buy-mysterious', authenticateToken, async (req: ExpressRequest, re
 
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { itemIds } = req.body;
     const client = await pool.connect();
     try {

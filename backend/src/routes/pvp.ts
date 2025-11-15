@@ -4,7 +4,7 @@
 
 
 
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import * as express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -14,7 +14,7 @@ import { simulateCombat } from '../logic/combat.js';
 const router = express.Router();
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/attack/:defenderId', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/attack/:defenderId', authenticateToken, async (req: express.Request, res: express.Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);
 

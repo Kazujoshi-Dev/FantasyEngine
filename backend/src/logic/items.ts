@@ -1,4 +1,4 @@
-import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData } from '../types.js';
+import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, EquipmentSlot, ItemCategory } from '../types.js';
 import { randomUUID } from 'crypto';
 
 export const rollAffixStats = (affix: Affix): RolledAffixStats => {
@@ -154,10 +154,26 @@ export const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes
     );
 
     if (eligibleTemplates.length === 0) {
-        console.warn("No Common, Uncommon, or Rare items found for mysterious/special item. Falling back to all items.");
-        eligibleTemplates = itemTemplates;
+        console.warn("No Common, Uncommon, or Rare items found for mysterious/special item. Using a hardcoded fallback item.");
+        const fallbackTemplate: ItemTemplate = {
+            id: 'failsafe_sword',
+            name: 'Prosty Miecz',
+            gender: GrammaticalGender.Masculine,
+            description: 'Prosty, ale niezawodny miecz.',
+            // fix: Use enum members for type safety.
+            slot: EquipmentSlot.MainHand,
+            category: ItemCategory.Weapon,
+            rarity: ItemRarity.Common,
+            icon: 'https://i.imgur.com/3sS8Z29.png',
+            value: 10,
+            requiredLevel: 1,
+            damageMin: { min: 3, max: 5 },
+            damageMax: { min: 6, max: 8 }
+        };
+        eligibleTemplates = [fallbackTemplate];
     }
-
+    
+    // Because of the fallback logic above, this should now be unreachable, but it's good for safety.
     if (eligibleTemplates.length === 0) return null;
 
     const template = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];

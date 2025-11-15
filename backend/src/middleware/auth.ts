@@ -4,11 +4,11 @@
 
 
 
-import { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+import * as express from 'express';
 import { pool } from '../db.js';
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-export async function authenticateToken(req: ExpressRequest, res: ExpressResponse, next: NextFunction) {
+export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

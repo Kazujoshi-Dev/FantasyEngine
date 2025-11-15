@@ -4,7 +4,7 @@
 
 
 
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+import * as express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { AdminCharacterInfo, DuplicationAuditResult, GrammaticalGender, ItemInstance, ItemSearchResult, OrphanAuditResult, PlayerCharacter, GameData, ItemTemplate, OrphanInfo } from '../types.js';
@@ -15,7 +15,7 @@ const router = express.Router();
 
 // Middleware to check for admin privileges
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows.length > 0 && userRes.rows[0].username === 'Kazujoshi') {
@@ -32,7 +32,7 @@ const isAdmin = async (req: ExpressRequest, res: ExpressResponse, next: NextFunc
 router.use(authenticateToken, isAdmin);
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/users', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/users', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT id, username FROM users ORDER BY id ASC');
         res.json(result.rows);
@@ -42,7 +42,7 @@ router.get('/users', async (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.delete('/users/:id', async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/users/:id', async (req: express.Request, res: express.Response) => {
     try {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.sendStatus(204);
@@ -52,7 +52,7 @@ router.delete('/users/:id', async (req: ExpressRequest, res: ExpressResponse) =>
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/users/:id/password', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/users/:id/password', async (req: express.Request, res: express.Response) => {
     const { newPassword } = req.body;
     if (!newPassword) {
         return res.status(400).json({ message: 'New password is required.' });
@@ -69,7 +69,7 @@ router.post('/users/:id/password', async (req: ExpressRequest, res: ExpressRespo
 
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/characters/all', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/characters/all', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -90,7 +90,7 @@ router.get('/characters/all', async (req: ExpressRequest, res: ExpressResponse) 
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.delete('/characters/:userId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/characters/:userId', async (req: express.Request, res: express.Response) => {
      try {
         await pool.query('DELETE FROM characters WHERE user_id = $1', [req.params.userId]);
         res.sendStatus(204);
@@ -100,7 +100,7 @@ router.delete('/characters/:userId', async (req: ExpressRequest, res: ExpressRes
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/characters/:userId/reset-stats', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/characters/:userId/reset-stats', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -130,7 +130,7 @@ router.post('/characters/:userId/reset-stats', async (req: ExpressRequest, res: 
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/characters/:userId/heal', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/characters/:userId/heal', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
      try {
         await client.query('BEGIN');
@@ -153,7 +153,7 @@ router.post('/characters/:userId/heal', async (req: ExpressRequest, res: Express
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/characters/:userId/regenerate-energy', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/characters/:userId/regenerate-energy', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -182,7 +182,7 @@ router.post('/characters/:userId/regenerate-energy', async (req: ExpressRequest,
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/character/:userId/update-gold', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/character/:userId/update-gold', async (req: express.Request, res: express.Response) => {
     const { gold } = req.body;
     const client = await pool.connect();
      try {
@@ -206,7 +206,7 @@ router.post('/character/:userId/update-gold', async (req: ExpressRequest, res: E
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/characters/:userId/inspect', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/characters/:userId/inspect', async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.userId]);
         if (result.rows.length === 0) {
@@ -219,7 +219,7 @@ router.get('/characters/:userId/inspect', async (req: ExpressRequest, res: Expre
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.delete('/characters/:userId/items/:itemUniqueId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/characters/:userId/items/:itemUniqueId', async (req: express.Request, res: express.Response) => {
     const { userId: userIdStr, itemUniqueId } = req.params;
     const userId = parseInt(userIdStr, 10);
     const client = await pool.connect();
@@ -266,7 +266,7 @@ router.delete('/characters/:userId/items/:itemUniqueId', async (req: ExpressRequ
 
 // Duplication Audit
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/audit/duplicates', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/audit/duplicates', async (req: express.Request, res: express.Response) => {
     try {
         // This is a simplified audit. A more robust one might need more complex SQL.
         const result = await pool.query(`
@@ -286,14 +286,14 @@ router.get('/audit/duplicates', async (req: ExpressRequest, res: ExpressResponse
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/resolve-duplicates', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/resolve-duplicates', async (req: express.Request, res: express.Response) => {
     // Placeholder for resolution logic
     res.json({ resolvedSets: 0, itemsDeleted: 0 });
 });
 
 // Orphan Audit
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/audit/orphans', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/audit/orphans', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -349,7 +349,7 @@ router.get('/audit/orphans', async (req: ExpressRequest, res: ExpressResponse) =
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/resolve-orphans', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/resolve-orphans', async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -410,12 +410,12 @@ router.post('/resolve-orphans', async (req: ExpressRequest, res: ExpressResponse
 
 // Item Inspector
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/find-item/:uniqueId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/find-item/:uniqueId', async (req: express.Request, res: express.Response) => {
     res.status(404).json({ message: 'Not implemented' }); // Placeholder
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/pvp/reset-cooldowns', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/pvp/reset-cooldowns', async (req: express.Request, res: express.Response) => {
     try {
         await pool.query("UPDATE characters SET data = data || jsonb_build_object('pvpProtectionUntil', 0)");
         res.sendStatus(200);
@@ -425,7 +425,7 @@ router.post('/pvp/reset-cooldowns', async (req: ExpressRequest, res: ExpressResp
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/messages/global', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/messages/global', async (req: express.Request, res: express.Response) => {
     const { subject, content } = req.body;
     if (!subject || !content) {
         return res.status(400).json({ message: "Subject and content are required." });
@@ -466,12 +466,12 @@ const PRIMARY_KEYS: { [key: string]: string } = {
 };
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/db/tables', (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/db/tables', (req: express.Request, res: express.Response) => {
     res.json(ALLOWED_TABLES);
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/db/table/:tableName', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/db/table/:tableName', async (req: express.Request, res: express.Response) => {
     const { tableName } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
@@ -495,7 +495,7 @@ router.get('/db/table/:tableName', async (req: ExpressRequest, res: ExpressRespo
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.put('/db/table/:tableName', async (req: ExpressRequest, res: ExpressResponse) => {
+router.put('/db/table/:tableName', async (req: express.Request, res: express.Response) => {
     const { tableName } = req.params;
     const rowData = req.body;
 
@@ -526,7 +526,7 @@ router.put('/db/table/:tableName', async (req: ExpressRequest, res: ExpressRespo
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.delete('/db/table/:tableName', async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/db/table/:tableName', async (req: express.Request, res: express.Response) => {
     const { tableName } = req.params;
     const { primaryKeyValue } = req.body;
 
