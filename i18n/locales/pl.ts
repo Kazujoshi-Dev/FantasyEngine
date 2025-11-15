@@ -718,8 +718,8 @@ export default {
             spawnChances: 'Szanse na Pojawienie się (%)',
             primaryBonuses: 'Bonusy Główne',
             secondaryBonuses: 'Bonusy Drugorzędne',
-            prefix: 'Przedrostek',
-            suffix: 'Przyrostek'
+            prefix: 'Prefiks',
+            suffix: 'Sufiks'
         },
         news: {
             title: 'Nowości i Ogłoszenia',
