@@ -4,7 +4,7 @@
 
 
 
-import * as express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
@@ -12,7 +12,7 @@ import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types
 const router = express.Router();
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/disenchant', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -72,7 +72,7 @@ router.post('/disenchant', authenticateToken, async (req: express.Request, res: 
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/upgrade', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {

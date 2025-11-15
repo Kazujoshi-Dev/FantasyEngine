@@ -304,8 +304,8 @@ const UpgradePanel: React.FC<{
         const result = await onUpgradeItem(selectedItem);
         
         if (result.messageKey !== 'error.title') { // Check if it's not a generic error
-            // fix: Use nullish coalescing operator to provide a default value for result.level, which can be undefined on failure, to prevent passing undefined to the translation function.
             setNotification({
+                // fix: Use nullish coalescing operator to provide a default value for result.level, which can be undefined on failure, to prevent passing undefined to the translation function.
                 message: t(result.messageKey, { level: result.level ?? currentLevel + 1 }),
                 type: result.success ? 'success' : 'error'
             });

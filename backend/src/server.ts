@@ -2,9 +2,7 @@
 
 
 
-
-
-import * as express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -41,7 +39,7 @@ declare global {
   }
 }
 
-const app = express.default();
+const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -69,13 +67,13 @@ app.use('/api', characterRoutes);
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-app.get('*', (req: express.Request, res: express.Response) => {
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Error handling middleware
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
