@@ -2,7 +2,6 @@
 // FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
 // FIX: Separated value and type imports for express to resolve type conflicts.
 import express from 'express';
-import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -11,7 +10,7 @@ const router = express.Router();
 
 // GET all messages for the user
 // FIX: Use explicit express types for req, res.
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
@@ -25,7 +24,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 
 // POST a new message
 // FIX: Use explicit express types for req, res.
-router.post('/', authenticateToken, async (req: Request, res: Response) => {
+router.post('/', authenticateToken, async (req: express.Request, res: express.Response) => {
     const { recipientName, subject, content } = req.body;
     try {
         const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
@@ -54,7 +53,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
 // PUT to mark as read
 // FIX: Use explicit express types for req, res.
-router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.put('/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
@@ -68,7 +67,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 
 // DELETE a message
 // FIX: Use explicit express types for req, res.
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.delete('/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
@@ -82,7 +81,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 
 // POST to claim item from market return message
 // FIX: Use explicit express types for req, res.
-router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
+router.post('/claim-return/:id', authenticateToken, async (req: express.Request, res: express.Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -110,4 +109,39 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
     } catch(err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to claim item.' });
-    } finally
+    } finally {
+        client.release();
+    }
+});
+
+// POST for bulk deletion
+router.post('/bulk-delete', authenticateToken, async (req: express.Request, res: express.Response) => {
+    const { type } = req.body;
+    const userId = req.user!.id;
+    let query;
+    const params = [userId];
+
+    switch (type) {
+        case 'read':
+            query = 'DELETE FROM messages WHERE recipient_id = $1 AND is_read = TRUE';
+            break;
+        case 'all':
+            query = 'DELETE FROM messages WHERE recipient_id = $1';
+            break;
+        case 'expedition_reports':
+            query = "DELETE FROM messages WHERE recipient_id = $1 AND message_type = 'expedition_report'";
+            break;
+        default:
+            return res.status(400).json({ message: 'Invalid bulk delete type.' });
+    }
+
+    try {
+        const result = await pool.query(query, params);
+        res.json({ deletedCount: result.rowCount });
+    } catch (err) {
+        console.error('Bulk delete error:', err);
+        res.status(500).json({ message: 'Failed to delete messages.' });
+    }
+});
+
+export default router;
