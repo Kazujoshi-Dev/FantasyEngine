@@ -1,10 +1,9 @@
 
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-// FIX: Replace ambiguous 'Request', 'Response', 'NextFunction' types with explicit 'express.Request', 'express.Response', and 'express.NextFunction' to resolve type conflicts.
-export async function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

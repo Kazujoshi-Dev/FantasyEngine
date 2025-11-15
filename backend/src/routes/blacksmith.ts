@@ -1,14 +1,13 @@
 
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';
 
 const router = express.Router();
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.post('/disenchant', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/disenchant', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -67,8 +66,7 @@ router.post('/disenchant', authenticateToken, async (req: express.Request, res: 
     }
 });
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.post('/upgrade', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/upgrade', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {

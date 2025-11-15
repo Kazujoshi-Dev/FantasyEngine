@@ -1,6 +1,6 @@
 
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -8,8 +8,7 @@ import { authenticateToken } from '../middleware/auth.js';
 const router = express.Router();
 
 // Public endpoint to get all game data
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.get('/', async (req: express.Request, res: express.Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT key, data FROM game_data');
         const gameData: Partial<GameData> = {};
@@ -24,8 +23,7 @@ router.get('/', async (req: express.Request, res: express.Response) => {
 });
 
 // Admin-only endpoint to update game data
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.put('/', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.put('/', authenticateToken, async (req: Request, res: Response) => {
     // A simple admin check could be based on username
     const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
     if (userRes.rows[0]?.username !== 'Kazujoshi') {

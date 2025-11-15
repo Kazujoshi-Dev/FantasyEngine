@@ -1,6 +1,6 @@
 
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix } from '../types.js';
@@ -12,11 +12,12 @@ const router = express.Router();
 let traderInventory: ItemInstance[] = [];
 let specialOfferItem: ItemInstance | null = null;
 let lastTraderRefresh = 0;
+let cachedGameDataForTrader: GameData | null = null;
 
 const refreshTraderInventoryIfNeeded = async () => {
     const now = Date.now();
     const oneHour = 60 * 60 * 1000;
-    if (now - lastTraderRefresh > oneHour || lastTraderRefresh === 0) {
+    if (now - lastTraderRefresh > oneHour || lastTraderRefresh === 0 || !cachedGameDataForTrader) {
         const gameDataRes = await pool.query("SELECT key, data FROM game_data");
         const gameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
         
@@ -25,18 +26,19 @@ const refreshTraderInventoryIfNeeded = async () => {
             traderInventory = newInventory.regularItems;
             specialOfferItem = newInventory.specialOfferItem ?? null;
             lastTraderRefresh = now;
-            console.log('Trader inventory refreshed.');
+            cachedGameDataForTrader = gameData;
+            console.log('Trader inventory and game data cache refreshed.');
         }
     }
 };
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const force = req.query.force === 'true';
     if (force) {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
         if (userRes.rows[0]?.username === 'Kazujoshi') {
              lastTraderRefresh = 0; // Force refresh
+             cachedGameDataForTrader = null;
              console.log('Force refreshing trader inventory by admin.');
         } else {
             return res.status(403).json({ message: 'Forbidden' });
@@ -46,8 +48,7 @@ router.get('/inventory', authenticateToken, async (req: express.Request, res: ex
     res.json({ regularItems: traderInventory, specialOfferItem });
 });
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -64,9 +65,11 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
             throw new Error('Inventory is full.');
         }
         
-        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
-        const itemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
-        const affixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        if (!cachedGameDataForTrader) {
+            throw new Error('Trader data is not available. Please try again in a moment.');
+        }
+        const itemTemplates: ItemTemplate[] = cachedGameDataForTrader.itemTemplates || [];
+        const affixes: Affix[] = cachedGameDataForTrader.affixes || [];
         
         const itemToBuy = traderInventory.find(i => i.uniqueId === itemId) || (specialOfferItem?.uniqueId === itemId ? specialOfferItem : null);
         if (!itemToBuy) {
@@ -74,7 +77,10 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
         }
 
         const template = itemTemplates.find(t => t.id === itemToBuy.templateId);
-        if(!template) throw new Error('Item template not found.');
+        if(!template) {
+            console.error(`CRITICAL: Template not found for item ${itemToBuy.uniqueId} (templateId: ${itemToBuy.templateId}) even with cached game data. This indicates a data corruption issue during item generation.`);
+            throw new Error('Item template not found.');
+        }
         
         let itemValue = template.value;
         if(itemToBuy.prefixId) itemValue += affixes.find(a => a.id === itemToBuy.prefixId)?.value || 0;
@@ -108,8 +114,7 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
     }
 });
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.post('/buy-mysterious', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy-mysterious', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -143,8 +148,7 @@ router.post('/buy-mysterious', authenticateToken, async (req: express.Request, r
 });
 
 
-// FIX: Replace ambiguous 'Request' and 'Response' types with explicit 'express.Request' and 'express.Response' to resolve type conflicts.
-router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     const client = await pool.connect();
     try {
