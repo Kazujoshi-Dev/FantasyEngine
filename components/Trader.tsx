@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats, ItemRarity, TraderInventoryData } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, GameSettings, Affix, CharacterStats, ItemRarity } from '../types';
 import { ItemDetailsPanel, ItemList, ItemListItem, rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -13,10 +13,9 @@ interface TraderProps {
     affixes: Affix[];
     settings: GameSettings;
     traderInventory: ItemInstance[];
-    traderSpecialOffer: ItemInstance | null;
+    traderSpecialOfferItems: ItemInstance[];
     onBuyItem: (item: ItemInstance, cost: number) => void;
     onSellItems: (items: ItemInstance[]) => void;
-    onBuyMysteriousItem: () => void;
 }
 
 const BulkSellPanel: React.FC<{
@@ -89,7 +88,7 @@ const BulkSellPanel: React.FC<{
 };
 
 
-export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, affixes, settings, traderInventory, traderSpecialOffer, onBuyItem, onSellItems, onBuyMysteriousItem }) => {
+export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTemplates, affixes, settings, traderInventory, traderSpecialOfferItems, onBuyItem, onSellItems }) => {
     const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState('');
     
@@ -163,7 +162,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         if (item.prefixId) itemValue += affixes.find(a => a.id === item.prefixId)?.value || 0;
         if (item.suffixId) itemValue += affixes.find(a => a.id === item.suffixId)?.value || 0;
         
-        const isSpecial = traderSpecialOffer?.uniqueId === item.uniqueId;
+        const isSpecial = traderSpecialOfferItems.some(i => i.uniqueId === item.uniqueId);
         const cost = isSpecial ? itemValue * 5 : itemValue * 2;
 
         if (character.inventory.length >= backpackCapacity) {
@@ -294,16 +293,9 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                     </div>
                     <h4 className="font-bold text-lg text-amber-400 mb-2 px-2">{t('trader.specialOffer.title')}</h4>
                     <div className="space-y-1 mb-4">
-                        {traderSpecialOffer ? (
-                            <ItemList items={[traderSpecialOffer]} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} meetsRequirements={meetsRequirements} />
+                        {traderSpecialOfferItems.length > 0 ? (
+                            <ItemList items={traderSpecialOfferItems} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} meetsRequirements={meetsRequirements} />
                         ) : <p className="text-sm text-gray-500 px-2">Brak ofert specjalnych.</p>}
-                        <div className="bg-slate-800/50 p-3 rounded-lg">
-                            <h5 className="font-semibold text-sky-400">{t('trader.mysteriousItem.title')}</h5>
-                            <p className="text-xs text-gray-400 mt-1">{t('trader.mysteriousItem.description')}</p>
-                            <button onClick={onBuyMysteriousItem} className="w-full mt-2 bg-sky-800 hover:bg-sky-700 text-white font-bold py-2 rounded-lg text-sm transition-colors">
-                                {t('trader.mysteriousItem.buy')}
-                            </button>
-                        </div>
                     </div>
 
                     <h4 className="font-bold text-lg text-gray-300 mt-4 pt-4 border-t border-slate-700/50 mb-2 px-2">{t('trader.regularWares')}</h4>

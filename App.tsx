@@ -198,7 +198,7 @@ const App: React.FC = () => {
   
   // Trader State
   const [traderInventory, setTraderInventory] = useState<ItemInstance[]>([]);
-  const [traderSpecialOffer, setTraderSpecialOffer] = useState<ItemInstance | null>(null);
+  const [traderSpecialOfferItems, setTraderSpecialOfferItems] = useState<ItemInstance[]>([]);
 
   // Tavern State
   const [tavernMessages, setTavernMessages] = useState<TavernMessage[]>([]);
@@ -576,33 +576,15 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     try {
         const updatedCharacter = await api.buyItem(item.uniqueId);
         setBaseCharacter(updatedCharacter);
-        if (item.uniqueId === traderSpecialOffer?.uniqueId) {
-            setTraderSpecialOffer(null);
+        if (traderSpecialOfferItems.some(i => i.uniqueId === item.uniqueId)) {
+            setTraderSpecialOfferItems(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
         } else {
             setTraderInventory(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
         }
     } catch (err: any) {
         alert(err.message);
     }
-  }, [baseCharacter, gameData, traderSpecialOffer]);
-
-  const handleBuyMysteriousItem = useCallback(async () => {
-    if (!baseCharacter) return;
-    if (baseCharacter.resources.gold < 5000) {
-        alert(t('trader.notEnoughGold'));
-        return;
-    }
-    if (baseCharacter.inventory.length >= getBackpackCapacity(baseCharacter)) {
-        alert(t('trader.inventoryFull'));
-        return;
-    }
-    try {
-        const updatedCharacter = await api.buyMysteriousItem();
-        setBaseCharacter(updatedCharacter);
-    } catch (err: any) {
-        alert(err.message);
-    }
-  }, [baseCharacter, t]);
+  }, [baseCharacter, gameData, traderSpecialOfferItems]);
 
   const handleSellItems = useCallback(async (items: ItemInstance[]) => {
     if (!baseCharacter || items.length === 0) return;
@@ -649,7 +631,7 @@ const handleSelectClass = useCallback(async (characterClass: CharacterClass) => 
     try {
       const inventoryData: TraderInventoryData = await api.getTraderInventory(force);
       setTraderInventory(inventoryData.regularItems);
-      setTraderSpecialOffer(inventoryData.specialOfferItem || null);
+      setTraderSpecialOfferItems(inventoryData.specialOfferItems || []);
       if (force) {
         alert(t('admin.traderRefreshSuccess'));
       }
@@ -1134,7 +1116,7 @@ const renderContent = () => {
         case Tab.Ranking:
             return <Ranking ranking={ranking} currentPlayer={playerCharacter} onRefresh={fetchRanking} isLoading={isRankingLoading} onAttack={handlePvpAttack} onComposeMessage={handleComposeMessage} />;
         case Tab.Trader:
-            return <Trader character={playerCharacter} baseCharacter={baseCharacter!} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} traderSpecialOffer={traderSpecialOffer} onBuyItem={handleBuyItem} onSellItems={handleSellItems} onBuyMysteriousItem={handleBuyMysteriousItem} />;
+            return <Trader character={playerCharacter} baseCharacter={baseCharacter!} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} settings={gameData.settings} traderInventory={traderInventory} traderSpecialOfferItems={traderSpecialOfferItems} onBuyItem={handleBuyItem} onSellItems={handleSellItems} />;
         case Tab.Blacksmith:
             return <Blacksmith character={playerCharacter} itemTemplates={gameData.itemTemplates} affixes={gameData.affixes} onDisenchantItem={handleDisenchantItem} onUpgradeItem={handleUpgradeItem} />;
         case Tab.Messages:

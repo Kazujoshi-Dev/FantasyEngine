@@ -1,4 +1,4 @@
-import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData } from '../types.js';
+import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, ItemCategory, EquipmentSlot } from '../types.js';
 import { randomUUID } from 'crypto';
 
 export const rollAffixStats = (affix: Affix): RolledAffixStats => {
@@ -146,7 +146,7 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
     return instance;
 };
 
-export const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix[]): ItemInstance | null => {
+const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix[]): ItemInstance | null => {
     let eligibleTemplates = itemTemplates.filter(t => 
         t.rarity === ItemRarity.Common ||
         t.rarity === ItemRarity.Uncommon ||
@@ -154,11 +154,17 @@ export const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes
     );
 
     if (eligibleTemplates.length === 0) {
-        console.warn("No Common, Uncommon, or Rare items found for mysterious/special item. Falling back to all items.");
+        console.warn("No Common, Uncommon, or Rare items found for special item. Falling back to all items.");
         eligibleTemplates = itemTemplates;
     }
+    
+    // Hardcoded fallback to prevent returning null
+    if (eligibleTemplates.length === 0) {
+        console.error("CRITICAL: No item templates found in the database. Using hardcoded fallback item.");
+        const fallbackTemplate: ItemTemplate = { id: 'fallback_sword', name: 'Awaryjny Miecz', gender: GrammaticalGender.Masculine, description: 'Miecz na czarną godzinę.', slot: EquipmentSlot.MainHand, category: ItemCategory.Weapon, rarity: ItemRarity.Common, icon: '', value: 1, requiredLevel: 1, damageMin: { min: 1, max: 1 }, damageMax: { min: 2, max: 2 } };
+        eligibleTemplates.push(fallbackTemplate);
+    }
 
-    if (eligibleTemplates.length === 0) return null;
 
     const template = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
 
@@ -211,7 +217,7 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
         eligibleTemplates = itemTemplates;
     }
 
-    if (eligibleTemplates.length === 0) return { regularItems: [], specialOfferItem: null };
+    if (eligibleTemplates.length === 0) return { regularItems: [], specialOfferItems: [] };
     
     for (let i = 0; i < INVENTORY_SIZE; i++) {
         const rand = Math.random() * 100;
@@ -238,7 +244,11 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
         }
     }
     
-    const specialOfferItem = createGuaranteedAffixItem(itemTemplates, affixes);
+    const specialOfferItems: ItemInstance[] = [];
+    const item1 = createGuaranteedAffixItem(itemTemplates, affixes);
+    if(item1) specialOfferItems.push(item1);
+    const item2 = createGuaranteedAffixItem(itemTemplates, affixes);
+    if(item2) specialOfferItems.push(item2);
     
-    return { regularItems, specialOfferItem };
+    return { regularItems, specialOfferItems };
 };
