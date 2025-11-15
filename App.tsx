@@ -1024,6 +1024,29 @@ useEffect(() => {
     }
 }, [baseCharacter, gameData, calculateDerivedStats, handleTriggerExpeditionCompletion]);
 
+// Fetch data when tab changes
+useEffect(() => {
+  if (!token || !playerCharacter) return;
+
+  switch (activeTab) {
+      case Tab.Ranking:
+          fetchRanking();
+          break;
+      case Tab.Messages:
+          fetchMessages();
+          break;
+      case Tab.Trader:
+          fetchTraderInventory();
+          break;
+      case Tab.Admin:
+          // any admin-specific data fetches can go here
+          break;
+      default:
+          // No specific data fetch needed for other tabs on switch
+          break;
+  }
+}, [activeTab, token, playerCharacter, fetchRanking, fetchMessages, fetchTraderInventory]);
+
 useEffect(() => {
     if (!token || !playerCharacter) return;
 
@@ -1034,7 +1057,6 @@ useEffect(() => {
         if (activeTabRef.current === Tab.Trader) fetchTraderInventory();
         if (activeTabRef.current === Tab.Admin) { /* fetch admin data if needed */ }
     };
-    fetchData(); // Initial fetch on load
     const interval = setInterval(fetchData, 30000); // Fetch every 30 seconds
 
     // Heartbeat

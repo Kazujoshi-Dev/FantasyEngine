@@ -1,13 +1,12 @@
-// FIX: Use explicit express types to resolve type conflicts.
-// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-import express, { Request, Response } from 'express';
+
+import express from 'express';
+import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
 
 const router = express.Router();
 
-// FIX: Use explicit express types for req, res.
 router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -19,7 +18,6 @@ router.get('/messages', authenticateToken, async (req: Request, res: Response) =
     }
 });
 
-// FIX: Use explicit express types for req, res.
 router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {

@@ -1,6 +1,6 @@
-// FIX: Use explicit express types to resolve type conflicts.
-// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-import express, { Request, Response } from 'express';
+
+import express from 'express';
+import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy } from '../types.js';
@@ -9,7 +9,6 @@ import { simulateCombat } from '../logic/combat.js';
 
 const router = express.Router();
 
-// FIX: Use explicit express types for req, res.
 router.post('/attack/:defenderId', authenticateToken, async (req: Request, res: Response) => {
     const attackerId = req.user!.id;
     const defenderId = parseInt(req.params.defenderId, 10);

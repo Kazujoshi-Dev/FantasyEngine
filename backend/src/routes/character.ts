@@ -1,10 +1,8 @@
-// FIX: Use explicit express types to resolve type conflicts.
-// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-// FIX: Separated value and type imports for express to resolve type conflicts.
-import express, { Request, Response } from 'express';
+
+import express from 'express';
+import type { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-// FIX: Added missing LootDrop type import.
 import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
@@ -13,7 +11,6 @@ import { getBackpackCapacity } from '../logic/helpers.js';
 const router = express.Router();
 
 // GET /api/character - Get the current user's character data
-// FIX: Use explicit express types for req, res.
 router.get('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
@@ -72,7 +69,6 @@ router.get('/character', authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-// FIX: Use explicit express types for req, res.
 router.post('/character/complete-expedition', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
@@ -121,7 +117,6 @@ router.post('/character/complete-expedition', authenticateToken, async (req: Req
 });
 
 // POST /api/character - Create a new character
-// FIX: Use explicit express types for req, res.
 router.post('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const newCharacterData: PlayerCharacter = req.body;
@@ -158,7 +153,6 @@ router.post('/character', authenticateToken, async (req: Request, res: Response)
 });
 
 // PUT /api/character - Update character data
-// FIX: Use explicit express types for req, res.
 router.put('/character', authenticateToken, async (req: Request, res: Response) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
@@ -190,7 +184,6 @@ router.put('/character', authenticateToken, async (req: Request, res: Response) 
 });
 
 // POST /api/character/select-class
-// FIX: Use explicit express types for req, res.
 router.post('/character/select-class', authenticateToken, async (req: Request, res: Response) => {
     const { characterClass } = req.body as { characterClass: CharacterClass };
      if (!Object.values(CharacterClass).includes(characterClass)) {
@@ -218,20 +211,17 @@ router.post('/character/select-class', authenticateToken, async (req: Request, r
     }
 });
 
-// FIX: Use explicit express types for req, res.
 router.post('/character/upgrade-building', authenticateToken, async (req: Request, res: Response) => {
     const { building } = req.body;
     // Implementation for upgrading buildings like camp, chest, backpack
     res.status(501).json({ message: 'Not implemented' });
 });
 
-// FIX: Use explicit express types for req, res.
 router.post('/character/heal', authenticateToken, async (req: Request, res: Response) => {
     // Implementation for instant healing
     res.status(501).json({ message: 'Not implemented' });
 });
 
-// FIX: Use explicit express types for req, res.
 router.post('/character/complete-quest', authenticateToken, async (req: Request, res: Response) => {
     const { questId } = req.body;
     const client = await pool.connect();
@@ -345,7 +335,6 @@ router.post('/character/complete-quest', authenticateToken, async (req: Request,
 
 
 // GET /api/characters/names - Get all character names
-// FIX: Use explicit express types for req, res.
 router.get('/characters/names', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");

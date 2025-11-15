@@ -1,7 +1,6 @@
-// FIX: Use explicit express types to resolve type conflicts.
-// FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-// FIX: Separated value and type imports for express to resolve type conflicts.
-import express, { Request, Response } from 'express';
+
+import express from 'express';
+import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -9,7 +8,6 @@ import { Message, MarketNotificationBody } from '../types.js';
 const router = express.Router();
 
 // GET all messages for the user
-// FIX: Use explicit express types for req, res.
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -23,7 +21,6 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // POST a new message
-// FIX: Use explicit express types for req, res.
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { recipientName, subject, content } = req.body;
     try {
@@ -52,7 +49,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // PUT to mark as read
-// FIX: Use explicit express types for req, res.
 router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
@@ -66,7 +62,6 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // DELETE a message
-// FIX: Use explicit express types for req, res.
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
@@ -80,7 +75,6 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // POST to claim item from market return message
-// FIX: Use explicit express types for req, res.
 router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {

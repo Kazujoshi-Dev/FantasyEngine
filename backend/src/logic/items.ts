@@ -147,11 +147,17 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
 };
 
 export const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix[]): ItemInstance | null => {
-    const eligibleTemplates = itemTemplates.filter(t => 
+    let eligibleTemplates = itemTemplates.filter(t => 
         t.rarity === ItemRarity.Common ||
         t.rarity === ItemRarity.Uncommon ||
         t.rarity === ItemRarity.Rare
     );
+
+    if (eligibleTemplates.length === 0) {
+        console.warn("No Common, Uncommon, or Rare items found for mysterious/special item. Falling back to all items.");
+        eligibleTemplates = itemTemplates;
+    }
+
     if (eligibleTemplates.length === 0) return null;
 
     const template = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
@@ -194,11 +200,16 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
     
     const chances = settings.traderSettings?.rarityChances || defaultChances;
     
-    const eligibleTemplates = itemTemplates.filter(t => 
+    let eligibleTemplates = itemTemplates.filter(t => 
         t.rarity === ItemRarity.Common ||
         t.rarity === ItemRarity.Uncommon ||
         t.rarity === ItemRarity.Rare
     );
+
+    if (eligibleTemplates.length === 0) {
+        console.warn("No Common, Uncommon, or Rare items found for trader. Falling back to all items.");
+        eligibleTemplates = itemTemplates;
+    }
 
     if (eligibleTemplates.length === 0) return { regularItems: [], specialOfferItem: null };
     
@@ -214,7 +225,12 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
             selectedRarity = ItemRarity.Rare;
         }
         
-        const templatesOfRarity = eligibleTemplates.filter(t => t.rarity === selectedRarity);
+        let templatesOfRarity = eligibleTemplates.filter(t => t.rarity === selectedRarity);
+
+        if (templatesOfRarity.length === 0) {
+            // Fallback to any eligible template if no items of the selected rarity are found
+            templatesOfRarity = eligibleTemplates;
+        }
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
