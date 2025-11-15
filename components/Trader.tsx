@@ -294,7 +294,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                     <h4 className="font-bold text-lg text-amber-400 mb-2 px-2">{t('trader.specialOffer.title')}</h4>
                     <div className="space-y-1 mb-4">
                         {traderSpecialOfferItems.length > 0 ? (
-                            <ItemList items={traderSpecialOfferItems} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} meetsRequirements={meetsRequirements} />
+                            <ItemList items={traderSpecialOfferItems} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} showPrice="buy-special" meetsRequirements={meetsRequirements} />
                         ) : <p className="text-sm text-gray-500 px-2">Brak ofert specjalnych.</p>}
                     </div>
 

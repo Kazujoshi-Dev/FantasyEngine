@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix } from '../types.js';
@@ -30,7 +30,7 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
+router.get('/inventory', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const force = req.query.force === 'true';
     if (force) {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -46,7 +46,7 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
     res.json({ regularItems: traderInventory, specialOfferItems });
 });
 
-router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
+router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -112,7 +112,7 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
+router.post('/sell', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { itemIds } = req.body;
     const client = await pool.connect();
     try {

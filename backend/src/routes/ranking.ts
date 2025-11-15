@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
 
@@ -18,7 +18,7 @@ const calculateTotalExperience = (level: number, currentExperience: number | str
 };
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(`
             SELECT 

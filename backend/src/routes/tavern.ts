@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { TavernMessage } from '../types.js';
@@ -6,7 +6,7 @@ import { TavernMessage } from '../types.js';
 const router = express.Router();
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/messages', authenticateToken, async (req: Request, res: Response) => {
+router.get('/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await pool.query(
             "SELECT * FROM tavern_messages ORDER BY created_at ASC LIMIT 100"
@@ -18,7 +18,7 @@ router.get('/messages', authenticateToken, async (req: Request, res: Response) =
 });
 
 // fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/messages', authenticateToken, async (req: Request, res: Response) => {
+router.post('/messages', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 500) {
         return res.status(400).json({ message: 'Invalid message content.' });
