@@ -1,6 +1,8 @@
 // FIX: Use explicit express types to resolve type conflicts.
 // FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-import express, { Request, Response } from 'express';
+// FIX: Separated value and type imports for express to resolve type conflicts.
+import express from 'express';
+import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemRarity, EssenceType, ItemTemplate } from '../types.js';

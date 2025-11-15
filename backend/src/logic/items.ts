@@ -1,4 +1,4 @@
-import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity } from '../types.js';
+import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData } from '../types.js';
 import { randomUUID } from 'crypto';
 
 export const rollAffixStats = (affix: Affix): RolledAffixStats => {
@@ -146,9 +146,45 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
     return instance;
 };
 
-export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: Affix[], settings: GameSettings): ItemInstance[] => {
+export const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix[]): ItemInstance | null => {
+    const eligibleTemplates = itemTemplates.filter(t => 
+        t.rarity === ItemRarity.Common ||
+        t.rarity === ItemRarity.Uncommon ||
+        t.rarity === ItemRarity.Rare
+    );
+    if (eligibleTemplates.length === 0) return null;
+
+    const template = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
+
+    const instance: ItemInstance = {
+        uniqueId: randomUUID(),
+        templateId: template.id,
+        rolledBaseStats: rollTemplateStats(template),
+    };
+
+    const itemCategory = template.category;
+    
+    const possiblePrefixes = affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+    const possibleSuffixes = affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+
+    if (possiblePrefixes.length > 0) {
+        const prefix = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+        instance.prefixId = prefix.id;
+        instance.rolledPrefix = rollAffixStats(prefix);
+    }
+
+    if (possibleSuffixes.length > 0) {
+        const suffix = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+        instance.suffixId = suffix.id;
+        instance.rolledSuffix = rollAffixStats(suffix);
+    }
+    
+    return instance;
+};
+
+export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: Affix[], settings: GameSettings): TraderInventoryData => {
     const INVENTORY_SIZE = 12;
-    const inventory: ItemInstance[] = [];
+    const regularItems: ItemInstance[] = [];
     
     const defaultChances = {
         [ItemRarity.Common]: 60,
@@ -164,7 +200,7 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
         t.rarity === ItemRarity.Rare
     );
 
-    if (eligibleTemplates.length === 0) return [];
+    if (eligibleTemplates.length === 0) return { regularItems: [], specialOfferItem: null };
     
     for (let i = 0; i < INVENTORY_SIZE; i++) {
         const rand = Math.random() * 100;
@@ -182,9 +218,11 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
-            inventory.push(createItemInstance(template.id, itemTemplates, affixes, false));
+            regularItems.push(createItemInstance(template.id, itemTemplates, affixes, false));
         }
     }
     
-    return inventory;
+    const specialOfferItem = createGuaranteedAffixItem(itemTemplates, affixes);
+    
+    return { regularItems, specialOfferItem };
 };

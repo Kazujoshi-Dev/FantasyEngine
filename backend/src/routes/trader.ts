@@ -4,12 +4,13 @@ import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance } from '../types.js';
-import { generateTraderInventory } from '../logic/items.js';
+import { generateTraderInventory, createGuaranteedAffixItem } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
 let traderInventory: ItemInstance[] = [];
+let specialOfferItem: ItemInstance | null = null;
 let lastTraderRefresh = 0;
 
 const refreshTraderInventoryIfNeeded = async () => {
@@ -19,7 +20,9 @@ const refreshTraderInventoryIfNeeded = async () => {
         const gameDataRes = await pool.query("SELECT key, data FROM game_data");
         const gameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
         
-        traderInventory = generateTraderInventory(gameData.itemTemplates, gameData.affixes, gameData.settings);
+        const newInventory = generateTraderInventory(gameData.itemTemplates, gameData.affixes, gameData.settings);
+        traderInventory = newInventory.regularItems;
+        specialOfferItem = newInventory.specialOfferItem;
         lastTraderRefresh = now;
         console.log('Trader inventory refreshed.');
     }
@@ -32,7 +35,7 @@ router.get('/inventory', authenticateToken, async (req: Request, res: Response) 
         lastTraderRefresh = 0; // Force refresh on next check
     }
     await refreshTraderInventoryIfNeeded();
-    res.json({ regularItems: traderInventory, specialOfferItem: null });
+    res.json({ regularItems: traderInventory, specialOfferItem: specialOfferItem });
 });
 
 // FIX: Use explicit express types for req, res.
@@ -47,7 +50,13 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
         }
         let character: PlayerCharacter = charRes.rows[0].data;
 
-        const itemToBuy = traderInventory.find(i => i.uniqueId === itemId);
+        let itemToBuy = traderInventory.find(i => i.uniqueId === itemId);
+        let isSpecialOffer = false;
+        if (!itemToBuy && specialOfferItem?.uniqueId === itemId) {
+            itemToBuy = specialOfferItem;
+            isSpecialOffer = true;
+        }
+
         if (!itemToBuy) {
             return res.status(404).json({ message: 'Item not available from trader' });
         }
@@ -63,7 +72,21 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
             return res.status(500).json({ message: 'Item data is inconsistent. Please contact an administrator.' });
         }
 
-        let cost = template.value * 2;
+        let cost: number;
+        if (isSpecialOffer) {
+            let itemValue = template.value;
+            if (itemToBuy.prefixId) {
+                const prefix = affixes.find((a: any) => a.id === itemToBuy.prefixId);
+                if (prefix) itemValue += prefix.value || 0;
+            }
+            if (itemToBuy.suffixId) {
+                const suffix = affixes.find((a: any) => a.id === itemToBuy.suffixId);
+                if (suffix) itemValue += suffix.value || 0;
+            }
+            cost = itemValue * 5;
+        } else {
+            cost = template.value * 2;
+        }
 
         if (character.resources.gold < cost) {
             return res.status(400).json({ message: 'Not enough gold' });
@@ -74,7 +97,13 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
 
         character.resources.gold -= cost;
         character.inventory.push(itemToBuy);
-        traderInventory = traderInventory.filter(i => i.uniqueId !== itemId);
+        
+        if (isSpecialOffer) {
+            specialOfferItem = null;
+        } else {
+            traderInventory = traderInventory.filter(i => i.uniqueId !== itemId);
+        }
+
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
@@ -82,6 +111,50 @@ router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     } catch (err) {
         await client.query('ROLLBACK');
         console.error("Error during trader purchase:", err);
+        res.status(500).json({ message: 'Server error during purchase' });
+    } finally {
+        client.release();
+    }
+});
+
+// FIX: Use explicit express types for req, res.
+router.post('/buy-mysterious', authenticateToken, async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        const cost = 5000;
+
+        if (character.resources.gold < cost) {
+            return res.status(400).json({ message: 'Not enough gold' });
+        }
+        if (character.inventory.length >= getBackpackCapacity(character)) {
+            return res.status(400).json({ message: 'Inventory is full' });
+        }
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const newItem = createGuaranteedAffixItem(itemTemplates, affixes);
+        if (!newItem) {
+            throw new Error("Failed to generate a mysterious item.");
+        }
+
+        character.resources.gold -= cost;
+        character.inventory.push(newItem);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Error buying mysterious item:", err);
         res.status(500).json({ message: 'Server error during purchase' });
     } finally {
         client.release();

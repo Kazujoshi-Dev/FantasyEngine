@@ -1,6 +1,8 @@
 // FIX: Use explicit express types to resolve type conflicts.
 // FIX: Replaced default express import with named imports for Request and Response to resolve type conflicts.
-import express, { Request, Response } from 'express';
+// FIX: Separated value and type imports for express to resolve type conflicts.
+import express from 'express';
+import type { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -108,38 +110,4 @@ router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Re
     } catch(err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to claim item.' });
-    } finally {
-        client.release();
-    }
-});
-
-// POST for bulk delete
-// FIX: Use explicit express types for req, res.
-router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
-    const { type } = req.body;
-    let query;
-    const params = [req.user!.id];
-
-    switch (type) {
-        case 'read':
-            query = "DELETE FROM messages WHERE recipient_id = $1 AND is_read = TRUE";
-            break;
-        case 'all':
-            query = "DELETE FROM messages WHERE recipient_id = $1";
-            break;
-        case 'expedition_reports':
-            query = "DELETE FROM messages WHERE recipient_id = $1 AND message_type = 'expedition_report'";
-            break;
-        default:
-            return res.status(400).json({ message: 'Invalid bulk delete type' });
-    }
-
-    try {
-        const result = await pool.query(query, params);
-        res.json({ deletedCount: result.rowCount });
-    } catch (err) {
-        res.status(500).json({ message: 'Failed to bulk delete messages' });
-    }
-});
-
-export default router;
+    } finally

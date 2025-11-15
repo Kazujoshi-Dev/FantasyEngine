@@ -6,7 +6,9 @@
 
 // FIX: Use explicit express types to resolve type conflicts.
 // FIX: Replaced default express import with named imports for Request, Response, and NextFunction to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Separated value and type imports for express to resolve type conflicts.
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';

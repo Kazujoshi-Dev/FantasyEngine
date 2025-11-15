@@ -28,7 +28,6 @@ const REGEN_INTERVAL_SECONDS = 5;
 const getChestCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
 // --- Backpack Calculation Helpers ---
-// FIX: Increased backpack base capacity to 40 for consistency.
 const getBackpackCapacity = (level: number) => 40 + (level - 1) * 10;
 
 

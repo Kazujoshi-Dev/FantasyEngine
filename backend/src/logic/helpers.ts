@@ -29,4 +29,5 @@ export const verifyPassword = (password: string, salt: string, storedHash: strin
     }
 };
 
-export const getBackpackCapacity = (character: PlayerCharacter): number => 30 + ((character.backpack?.level || 1) - 1) * 10;
+// FIX: Increased backpack base capacity to 40 for consistency.
+export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;

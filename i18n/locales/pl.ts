@@ -451,6 +451,7 @@ export default {
     trader: {
         title: 'Handlarz',
         traderWares: "Towary Handlarza",
+        regularWares: "Zwykłe Towary",
         yourBag: 'Twój Plecak',
         buyPrice: 'Cena Kupna',
         sellPrice: 'Cena Sprzedaży',
@@ -473,7 +474,7 @@ export default {
             buy: "Kup za 5000"
         },
         specialOffer: {
-            title: "Oferta specjalna"
+            title: "Oferty Specjalne"
         },
     },
     blacksmith: {
@@ -689,7 +690,7 @@ export default {
             pvp: 'PvP',
             itemInspector: 'Inspektor Przedmiotów',
             duplicationAudit: 'Audyt Duplikatów',
-            orphanAudit: 'Audyt Sierot',
+            orphanAudit: 'Audyt Osieroconych Przedmiotów',
             databaseEditor: 'Edytor Bazy Danych'
         },
         general: {
