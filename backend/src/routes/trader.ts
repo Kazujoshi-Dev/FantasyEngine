@@ -2,7 +2,9 @@
 
 
 
-import express from 'express';
+
+
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix } from '../types.js';
@@ -34,7 +36,7 @@ const refreshTraderInventoryIfNeeded = async () => {
     }
 };
 
-router.get('/inventory', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.get('/inventory', authenticateToken, async (req: Request, res: Response) => {
     const force = req.query.force === 'true';
     if (force) {
         const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
@@ -50,7 +52,7 @@ router.get('/inventory', authenticateToken, async (req: express.Request, res: ex
     res.json({ regularItems: traderInventory, specialOfferItem });
 });
 
-router.post('/buy', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -116,7 +118,7 @@ router.post('/buy', authenticateToken, async (req: express.Request, res: express
     }
 });
 
-router.post('/buy-mysterious', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/buy-mysterious', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -150,7 +152,7 @@ router.post('/buy-mysterious', authenticateToken, async (req: express.Request, r
 });
 
 
-router.post('/sell', authenticateToken, async (req: express.Request, res: express.Response) => {
+router.post('/sell', authenticateToken, async (req: Request, res: Response) => {
     const { itemIds } = req.body;
     const client = await pool.connect();
     try {
