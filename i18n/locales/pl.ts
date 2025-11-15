@@ -508,7 +508,7 @@ export default {
             howItWorks: {
                 title: 'Jak działa ulepszanie',
                 statIncrease: "Wzrost statystyk: Każdy poziom ulepszenia zwiększa statystyki przedmiotu o 10% ich bazowej wartości.",
-                scope: "Zakres ulepszenia: Zwiększane są tylko bazowe statystyki przedmiotu. Bonusy z afiksów (przedrostków i przyrostków) nie zmieniają się.",
+                scope: "Zakres ulepszenia: Zwiększane są tylko bazowe statystyki przedmiotu. Bonusy z afiksów (prefiks i sufiks) nie zmieniają się.",
                 cost: "Koszt: Każda próba kosztuje złoto oraz jedną esencję o rzadkości ulepszanego przedmiotu.",
                 chance: 'Szansa na powodzenie: Szansa maleje o 10% z każdym poziomem, zaczynając od 100% dla +1. Minimalna szansa to 10%.',
                 failure: 'Porażka: Jeśli ulepszenie się nie powiedzie, przedmiot zostaje bezpowrotnie zniszczony!',
