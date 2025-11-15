@@ -1035,7 +1035,7 @@ useEffect(() => {
 useEffect(() => {
     if (!token || !playerCharacter) return;
 
-    // Periodic fetches
+    // Periodic fetches for tab-specific data
     const fetchData = () => {
         if (activeTabRef.current === Tab.Ranking) fetchRanking();
         if (activeTabRef.current === Tab.Messages) fetchMessages();
@@ -1044,7 +1044,7 @@ useEffect(() => {
     };
     const interval = setInterval(fetchData, 30000); // Fetch every 30 seconds
 
-    // Heartbeat
+    // Heartbeat to keep session alive
     const sendHeartbeat = () => api.sendHeartbeat();
     const heartbeatInterval = setInterval(sendHeartbeat, 60000);
 
@@ -1053,6 +1053,20 @@ useEffect(() => {
         clearInterval(heartbeatInterval);
     };
 }, [token, playerCharacter, fetchRanking, fetchMessages, fetchTraderInventory]);
+
+useEffect(() => {
+    if (!token || !playerCharacter) return;
+
+    const characterRefreshInterval = setInterval(() => {
+        // Don't refresh if a modal is open that depends on character state, to avoid weird state changes
+        if (isCompletingExpeditionRef.current || expeditionReport || pvpReport) {
+            return;
+        }
+        refreshCharacter();
+    }, 5000); // Refresh character data every 5 seconds
+
+    return () => clearInterval(characterRefreshInterval);
+}, [token, playerCharacter, refreshCharacter, expeditionReport, pvpReport]);
 
 useEffect(() => {
     if (token && playerCharacter) {
