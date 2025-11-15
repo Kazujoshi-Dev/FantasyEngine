@@ -1,4 +1,5 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
@@ -6,8 +7,7 @@ import { Message, MarketNotificationBody } from '../types.js';
 const router = express.Router();
 
 // GET all messages for the user
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/', authenticateToken, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
             "SELECT * FROM messages WHERE recipient_id = $1 ORDER BY created_at DESC",
@@ -20,8 +20,7 @@ router.get('/', authenticateToken, async (req: ExpressRequest, res: ExpressRespo
 });
 
 // POST a new message
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { recipientName, subject, content } = req.body;
     try {
         const senderRes = await pool.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [req.user!.id]);
@@ -49,8 +48,7 @@ router.post('/', authenticateToken, async (req: ExpressRequest, res: ExpressResp
 });
 
 // PUT to mark as read
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.put('/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
             "UPDATE messages SET is_read = TRUE WHERE id = $1 AND recipient_id = $2",
@@ -63,8 +61,7 @@ router.put('/:id', authenticateToken, async (req: ExpressRequest, res: ExpressRe
 });
 
 // DELETE a message
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.delete('/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
     try {
         await pool.query(
             "DELETE FROM messages WHERE id = $1 AND recipient_id = $2",
@@ -77,8 +74,7 @@ router.delete('/:id', authenticateToken, async (req: ExpressRequest, res: Expres
 });
 
 // POST to claim item from market return message
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/claim-return/:id', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/claim-return/:id', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -112,8 +108,7 @@ router.post('/claim-return/:id', authenticateToken, async (req: ExpressRequest, 
 });
 
 // POST for bulk deletion
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/bulk-delete', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/bulk-delete', authenticateToken, async (req: Request, res: Response) => {
     const { type } = req.body;
     const userId = req.user!.id;
     let query;

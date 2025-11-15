@@ -703,6 +703,24 @@ export default {
             searchByName: 'Szukaj po nazwie...',
             none: 'Brak'
         },
+        affix: {
+            manage: 'Zarządzaj Afiksami',
+            addPrefix: 'Dodaj Prefiks',
+            addSuffix: 'Dodaj Sufiks',
+            edit: 'Edytuj Afiks',
+            create: 'Stwórz Nowy Afiks',
+            nameRequired: 'Nazwa (męska) jest wymagana.',
+            nameMasculine: 'Nazwa (męska)',
+            nameFeminine: 'Nazwa (żeńska)',
+            nameNeuter: 'Nazwa (nijaka)',
+            prefixes: 'Prefiksy',
+            suffixes: 'Sufiksy',
+            spawnChances: 'Szanse na Pojawienie się (%)',
+            primaryBonuses: 'Bonusy Główne',
+            secondaryBonuses: 'Bonusy Drugorzędne',
+            prefix: 'Przedrostek',
+            suffix: 'Przyrostek'
+        },
         news: {
             title: 'Nowości i Ogłoszenia',
             content: 'Treść ogłoszenia',

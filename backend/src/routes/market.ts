@@ -1,4 +1,5 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
@@ -14,8 +15,7 @@ const getItemName = async (client: any, templateId: string): Promise<string> => 
 }
 
 // GET all active listings
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -41,8 +41,7 @@ router.get('/listings', authenticateToken, async (req: ExpressRequest, res: Expr
 });
 
 // GET user's listings
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/my-listings', authenticateToken, async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -62,8 +61,7 @@ router.get('/my-listings', authenticateToken, async (req: ExpressRequest, res: E
 });
 
 // POST a new listing
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/listings', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings', authenticateToken, async (req: Request, res: Response) => {
     const { itemId, listingType, currency, price, durationHours } = req.body;
     const client = await pool.connect();
     try {
@@ -96,8 +94,7 @@ router.post('/listings', authenticateToken, async (req: ExpressRequest, res: Exp
     }
 });
 
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/buy', authenticateToken, async (req: Request, res: Response) => {
     const { listingId } = req.body;
     const buyerId = req.user!.id;
     const client = await pool.connect();
@@ -149,8 +146,7 @@ router.post('/buy', authenticateToken, async (req: ExpressRequest, res: ExpressR
 });
 
 
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/bid', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/bid', authenticateToken, async (req: Request, res: Response) => {
     const { listingId, amount } = req.body;
     const bidderId = req.user!.id;
     const client = await pool.connect();
@@ -207,8 +203,7 @@ router.post('/bid', authenticateToken, async (req: ExpressRequest, res: ExpressR
     }
 });
 
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/listings/:id/cancel', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();
@@ -239,8 +234,7 @@ router.post('/listings/:id/cancel', authenticateToken, async (req: ExpressReques
     }
 });
 
-// fix: Use aliased ExpressRequest and ExpressResponse types.
-router.post('/listings/:id/claim', authenticateToken, async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/listings/:id/claim', authenticateToken, async (req: Request, res: Response) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
     const client = await pool.connect();
