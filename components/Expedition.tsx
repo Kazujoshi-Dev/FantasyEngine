@@ -701,7 +701,8 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
       {availableExpeditions.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {availableExpeditions.map(exp => {
-              const canAfford = character.resources.gold >= exp.goldCost && character.stats.currentEnergy >= exp.energyCost;
+              // fix: Use Number() to ensure values are treated as numbers
+              const canAfford = (Number(character.resources.gold) || 0) >= exp.goldCost && (Number(character.stats.currentEnergy) || 0) >= exp.energyCost;
               const potentialEnemies = exp.enemies
                 .map(expEnemy => enemies.find(e => e.id === expEnemy.enemyId))
                 .filter((e): e is Enemy => e !== undefined);

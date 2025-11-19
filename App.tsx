@@ -407,7 +407,28 @@ export const App: React.FC = () => {
                     enemies={gameData.enemies} 
                     currentLocation={currentLocation!} 
                     onStartExpedition={async (expId) => {
-                        // Start logic
+                        const expedition = gameData.expeditions.find(e => e.id === expId);
+                        if (!expedition) return;
+
+                        if (character.resources.gold < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost) {
+                            alert(t('expedition.lackResources'));
+                            return;
+                        }
+
+                        const updatedChar = { ...character };
+                        // Deduct cost immediately for UI feedback (will be validated/corrected by backend on sync usually, though sync overwrites local)
+                        // Better: Optimistic update
+                        updatedChar.resources.gold -= expedition.goldCost;
+                        updatedChar.stats.currentEnergy -= expedition.energyCost;
+                        updatedChar.activeExpedition = {
+                            expeditionId: expId,
+                            finishTime: Date.now() + expedition.duration * 1000,
+                            enemies: [], // Populated on completion
+                            combatLog: [],
+                            rewards: { gold: 0, experience: 0 }
+                        };
+                        
+                        await handleCharacterUpdate(updatedChar, true);
                     }}
                     itemTemplates={gameData.itemTemplates}
                     affixes={gameData.affixes}
