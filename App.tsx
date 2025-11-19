@@ -1,12 +1,11 @@
 
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
-import { Expedition } from './components/Expedition';
+import { Expedition, ExpeditionSummaryModal } from './components/Expedition';
 import { Camp } from './components/Camp';
 import { Location } from './components/Location';
 import { Resources } from './components/Resources';
@@ -39,6 +38,9 @@ export const App: React.FC = () => {
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
     const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
 
+    // Ref to prevent double submission of expedition completion
+    const isCompletingExpeditionRef = useRef(false);
+
     const t = getT(character?.settings?.language || Language.PL);
 
     useEffect(() => {
@@ -68,6 +70,51 @@ export const App: React.FC = () => {
             }
         }
     };
+
+    // --- Global Expedition Watcher ---
+    // Monitors active expedition and auto-completes it when time is up, regardless of active tab.
+    const handleExpeditionCompletion = useCallback(async () => {
+        if (isCompletingExpeditionRef.current || !character?.activeExpedition) return;
+        
+        // Double check time client-side to avoid premature calls
+        if (Date.now() < character.activeExpedition.finishTime) return;
+
+        isCompletingExpeditionRef.current = true;
+        try {
+            const result = await api.completeExpedition();
+            setCharacter(result.updatedCharacter);
+            setExpeditionReport(result.summary);
+        } catch (e) {
+            console.error("Failed to complete expedition automatically", e);
+        } finally {
+            isCompletingExpeditionRef.current = false;
+        }
+    }, [character]);
+
+    useEffect(() => {
+        if (!character?.activeExpedition) return;
+        
+        const now = Date.now();
+        const finishTime = character.activeExpedition.finishTime;
+        const timeLeft = finishTime - now;
+
+        let timer: NodeJS.Timeout;
+
+        if (timeLeft <= 0) {
+             // Time already passed (e.g. page refresh), complete immediately
+             handleExpeditionCompletion();
+        } else {
+             // Set timer for remaining duration
+             timer = setTimeout(() => {
+                 handleExpeditionCompletion();
+             }, timeLeft);
+        }
+
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [character?.activeExpedition, handleExpeditionCompletion]);
+    // ---------------------------------
 
     const handleLoginSuccess = (newToken: string) => {
         localStorage.setItem('token', newToken);
@@ -442,8 +489,6 @@ export const App: React.FC = () => {
                     expeditions={gameData.expeditions} 
                     enemies={gameData.enemies} 
                     currentLocation={currentLocation!} 
-                    expeditionReport={expeditionReport}
-                    onCloseReport={() => setExpeditionReport(null)}
                     onStartExpedition={async (expId) => {
                         const expedition = gameData.expeditions.find(e => e.id === expId);
                         if (!expedition) return;
@@ -454,8 +499,6 @@ export const App: React.FC = () => {
                         }
 
                         const updatedChar = { ...character };
-                        // Deduct cost immediately for UI feedback (will be validated/corrected by backend on sync usually, though sync overwrites local)
-                        // Better: Optimistic update
                         updatedChar.resources.gold -= expedition.goldCost;
                         updatedChar.stats.currentEnergy -= expedition.energyCost;
                         updatedChar.activeExpedition = {
@@ -470,11 +513,7 @@ export const App: React.FC = () => {
                     }}
                     itemTemplates={gameData.itemTemplates}
                     affixes={gameData.affixes}
-                    onCompletion={async () => {
-                        const result = await api.completeExpedition();
-                        setCharacter(result.updatedCharacter);
-                        setExpeditionReport(result.summary);
-                    }}
+                    onCompletion={handleExpeditionCompletion}
                 />;
             case Tab.Camp:
                 return <Camp 
@@ -671,6 +710,25 @@ export const App: React.FC = () => {
                     }} 
                     content={gameData.settings.newsContent || ''} 
                 />
+                {/* Global Expedition Report Modal Overlay */}
+                {expeditionReport && (
+                    <ExpeditionSummaryModal
+                        reward={expeditionReport}
+                        onClose={() => setExpeditionReport(null)}
+                        characterName={character.name}
+                        itemTemplates={gameData.itemTemplates}
+                        affixes={gameData.affixes}
+                        initialEnemy={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? {
+                            id: 'unknown', // Placeholder
+                            name: expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender,
+                            description: expeditionReport.combatLog[0].enemyDescription || '',
+                            stats: expeditionReport.combatLog[0].enemyStats,
+                            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
+                            lootTable: []
+                        } : undefined}
+                        bossName={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? (expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender) : undefined}
+                    />
+                )}
             </div>
         </LanguageContext.Provider>
     );

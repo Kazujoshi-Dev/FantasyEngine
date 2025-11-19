@@ -18,9 +18,7 @@ interface ExpeditionProps {
     onStartExpedition: (expeditionId: string) => void;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
-    onCompletion: () => void;
-    expeditionReport?: ExpeditionRewardSummary | null;
-    onCloseReport?: () => void;
+    onCompletion: () => void; // Now purely for visual/immediate UI feedback, but authoritative logic is in App.tsx
 }
 
 const formatDuration = (seconds: number): string => {
@@ -736,7 +734,7 @@ const ActiveExpeditionPanel: React.FC<{
     );
 };
 
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion, affixes, expeditionReport, onCloseReport }) => {
+export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion, affixes }) => {
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
@@ -835,24 +833,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
 
   return (
     <>
-        {expeditionReport && (
-            <ExpeditionSummaryModal
-                reward={expeditionReport}
-                onClose={onCloseReport!}
-                characterName={character.name}
-                itemTemplates={itemTemplates}
-                affixes={affixes}
-                initialEnemy={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? {
-                    id: 'unknown', // Placeholder, summary modal handles it
-                    name: expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender,
-                    description: expeditionReport.combatLog[0].enemyDescription || '',
-                    stats: expeditionReport.combatLog[0].enemyStats,
-                    rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
-                    lootTable: []
-                } : undefined}
-                bossName={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? (expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender) : undefined}
-            />
-        )}
+        {/* ExpeditionSummaryModal is now handled globally in App.tsx */}
         {content}
     </>
   );
