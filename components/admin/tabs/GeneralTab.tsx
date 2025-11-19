@@ -277,7 +277,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
         </div>
 
         <div className="border-t border-slate-700/50 pt-6">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.traderSettings')}</h3>
+            <h3 className="text-2xl font-bold text-indigo-400 mb-4">Ustawienia Handlarza</h3>
             <div className="grid grid-cols-3 gap-4">
                {(Object.values(ItemRarity) as ItemRarity[]).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
                     <div key={rarity}>

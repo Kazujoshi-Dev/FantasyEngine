@@ -58,7 +58,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   // Also ensures settings has critical nested objects to prevent crashes in GeneralTab
   const safeSettings: GameSettings = {
       language: Language.PL,
-      ...props.gameData?.settings,
+      ...(props.gameData?.settings || {}),
       traderSettings: {
           rarityChances: {
               [ItemRarity.Common]: 0,
