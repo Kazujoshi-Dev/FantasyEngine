@@ -1,4 +1,5 @@
 
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
 const API_BASE_URL = '/api';
@@ -215,8 +216,20 @@ export const api = {
         return fetchApi(`/admin/characters/${userId}/reset-stats`, { method: 'POST' });
     },
 
-    async healCharacter(userId: number): Promise<void> {
+    // Use this for Admin actions on other users
+    async adminHealCharacter(userId: number): Promise<void> {
         return fetchApi(`/admin/characters/${userId}/heal`, { method: 'POST' });
+    },
+
+    // Use this for Player self-healing
+    async healCharacter(userId?: number): Promise<void> {
+         if (userId) {
+             // If userId is provided, it might be legacy code or admin panel usage.
+             // For simplicity in this refactor, we route explicit ID calls to the admin endpoint.
+             return fetchApi(`/admin/characters/${userId}/heal`, { method: 'POST' });
+         }
+         // If no ID, it's a self-heal action.
+         return fetchApi('/character/heal', { method: 'POST' });
     },
 
     async updateCharacterGold(userId: number, gold: number): Promise<void> {

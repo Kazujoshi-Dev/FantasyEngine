@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -480,7 +481,13 @@ export const App: React.FC = () => {
                     character={derivedCharacter} 
                     baseCharacter={character} 
                     onToggleResting={() => {
-                        handleCharacterUpdate({ ...character, isResting: !character.isResting, restStartHealth: character.stats.currentHealth }, true);
+                        const now = Date.now();
+                        handleCharacterUpdate({ 
+                            ...character, 
+                            isResting: !character.isResting, 
+                            restStartHealth: character.stats.currentHealth,
+                            lastRestTime: !character.isResting ? now : undefined // Set timestamp if starting rest
+                        }, true);
                     }}
                     onUpgradeCamp={() => {
                         const cost = character.camp.level * 100;
@@ -491,7 +498,7 @@ export const App: React.FC = () => {
                     }}
                     getCampUpgradeCost={(lvl) => lvl * 100}
                     onCharacterUpdate={handleCharacterUpdate}
-                    onHealToFull={async () => { await api.healCharacter(character.id!); fetchCharacter(); }}
+                    onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
                     onUpgradeChest={() => {
                         const currentLevel = character.chest.level;
                         const cost = { gold: currentLevel * 100, essences: [] }; // Simple cost for now
@@ -617,7 +624,7 @@ export const App: React.FC = () => {
                     allCharacters={allCharacters}
                     onDeleteCharacter={async (id) => { await api.deleteCharacter(id); }}
                     onResetCharacterStats={async (id) => { await api.resetCharacterStats(id); }}
-                    onHealCharacter={async (id) => { await api.healCharacter(id); }}
+                    onHealCharacter={async (id) => { await api.adminHealCharacter(id); }}
                     onUpdateCharacterGold={async (id, gold) => { await api.updateCharacterGold(id, gold); }}
                     onForceTraderRefresh={() => {}}
                     onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); }}

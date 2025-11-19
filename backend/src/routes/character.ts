@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -19,13 +20,13 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         }
         
         const character: PlayerCharacter = result.rows[0].data;
-
-        // Energy regeneration logic
         const now = Date.now();
+        let needsDbUpdate = false;
+
+        // --- Energy regeneration logic ---
         const lastUpdate = character.lastEnergyUpdateTime || now;
         const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
 
-        let needsDbUpdate = false;
         if (hoursPassed > 0 && character.stats.currentEnergy < character.stats.maxEnergy) {
             const energyToRegen = Math.min(
                 hoursPassed,
@@ -40,11 +41,44 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
                 needsDbUpdate = true;
             }
         }
+
+        // --- Health Regeneration Logic (Resting) ---
+        if (character.isResting && character.lastRestTime) {
+            const msPassed = now - character.lastRestTime;
+            const minutesPassed = Math.floor(msPassed / (1000 * 60));
+
+            if (minutesPassed >= 1) {
+                // Fetch necessary GameData to calculate Max Health correctly (including item bonuses)
+                const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+                const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+                const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+                const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+                const maxHealth = derivedChar.stats.maxHealth;
+
+                // Camp level % of Max HP per minute
+                const regenPercentagePerMinute = character.camp.level; 
+                const hpToGain = (maxHealth * (regenPercentagePerMinute / 100)) * minutesPassed;
+
+                if (hpToGain > 0 && character.stats.currentHealth < maxHealth) {
+                    character.stats.currentHealth = Math.min(maxHealth, character.stats.currentHealth + hpToGain);
+                    // Advance lastRestTime by the minutes we consumed to avoid double counting, 
+                    // but keep the remainder seconds for next time.
+                    character.lastRestTime = character.lastRestTime + (minutesPassed * 1000 * 60);
+                    needsDbUpdate = true;
+                } else if (character.stats.currentHealth >= maxHealth) {
+                    character.stats.currentHealth = maxHealth;
+                    character.isResting = false; // Auto-stop resting if full
+                    character.lastRestTime = undefined;
+                    needsDbUpdate = true;
+                }
+            }
+        }
         
-        // Asynchronously update the character in the DB if energy changed, without blocking the response.
+        // Asynchronously update the character in the DB if needed, without blocking the response.
         if (needsDbUpdate) {
             pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
-                .catch(err => console.error("Async energy update failed:", err));
+                .catch(err => console.error("Async character update failed:", err));
         }
 
 
@@ -285,9 +319,39 @@ router.post('/character/upgrade-building', authenticateToken, async (req: any, r
     res.status(501).json({ message: 'Not implemented' });
 });
 
+// POST /api/character/heal - Fully heal the character (Free action at camp)
 router.post('/character/heal', authenticateToken, async (req: any, res: any) => {
-    // Implementation for instant healing
-    res.status(501).json({ message: 'Not implemented' });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Fetch game data to calculate correct Max HP
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        character.stats.currentHealth = derivedChar.stats.maxHealth;
+        character.stats.currentMana = derivedChar.stats.maxMana;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error healing character:', err);
+        res.status(500).json({ message: 'Failed to heal character.' });
+    } finally {
+        client.release();
+    }
 });
 
 router.post('/character/complete-quest', authenticateToken, async (req: any, res: any) => {
