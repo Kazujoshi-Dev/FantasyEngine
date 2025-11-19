@@ -14,8 +14,8 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
   const { t } = useTranslation();
   const [editingBoss, setEditingBoss] = useState<Partial<Enemy> | null>(null);
 
-  // Filter only bosses
-  const bosses = enemies.filter(e => e.isBoss);
+  // Filter only bosses, safeguard against undefined/null enemies array
+  const bosses = (enemies || []).filter(e => e.isBoss);
 
   const handleSaveData = (itemFromEditor: Enemy | null) => {
     if (!itemFromEditor) {
@@ -23,13 +23,14 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
         return;
     }
 
-    const itemExists = itemFromEditor.id ? enemies.some(d => d.id === itemFromEditor.id) : false;
+    const safeEnemies = enemies || [];
+    const itemExists = itemFromEditor.id ? safeEnemies.some(d => d.id === itemFromEditor.id) : false;
     let updatedData;
 
     if (itemExists) {
-        updatedData = enemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+        updatedData = safeEnemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...enemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: true }];
+        updatedData = [...safeEnemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: true }];
     }
     onGameDataUpdate('enemies', updatedData);
     setEditingBoss(null);
@@ -37,7 +38,7 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
 
   const handleDeleteData = (id: string) => {
     if (window.confirm('Czy na pewno chcesz usunąć tego Bossa?')) {
-        const updatedData = enemies.filter(item => item.id !== id);
+        const updatedData = (enemies || []).filter(item => item.id !== id);
         onGameDataUpdate('enemies', updatedData);
     }
   };
@@ -52,6 +53,7 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
             <BossEditor boss={editingBoss} onSave={handleSaveData} onCancel={() => setEditingBoss(null)} isEditing={!!editingBoss.id} allItemTemplates={itemTemplates} />
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {bosses.length === 0 && <p className="text-gray-500 col-span-full text-center py-8">Brak zdefiniowanych bossów.</p>}
                 {bosses.map(boss => (
                      <div key={boss.id} className="bg-slate-800/50 p-4 rounded-lg border border-amber-900/30 hover:border-amber-600/50 transition-colors flex flex-col">
                         <div className="flex gap-4 mb-3">
