@@ -21,7 +21,7 @@ import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
@@ -36,6 +36,7 @@ export const App: React.FC = () => {
     const [tavernMessages, setTavernMessages] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
+    const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
 
     const t = getT(character?.settings?.language || Language.PL);
 
@@ -371,27 +372,6 @@ export const App: React.FC = () => {
                     onEquipItem={async (item) => {
                          const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                          if(!template) return;
-                         
-                         // Basic frontend swap for responsiveness, real validation happens on next sync or if we had a specific equip endpoint
-                         // Here we just trigger update assuming logic is handled by backend sync mostly, 
-                         // but for Equipment component we might need drag/drop support.
-                         // The prompt's `Equipment.tsx` relies on `onEquipItem` to update state.
-                         // Since we lack a direct `equip` API endpoint in `api.ts` that takes a slot/item,
-                         // we must construct the new character state here or assume `updateCharacter` handles it.
-                         // For now, we simulate a success by re-fetching or relying on `updateCharacter` if we were moving items.
-                         // BUT, since `updateCharacter` overwrites the WHOLE character state, we must be careful.
-                         // The best approach in this constrained env is to rely on the component's drag/drop which calls onEquipItem,
-                         // which usually implies *we* modify the character locally then save.
-                         
-                         // Simplified: We just refresh the character to let backend sort it out if we had an endpoint,
-                         // but we don't. We need to manually swap slots in `character` object and call update.
-                         
-                         const newChar = { ...character };
-                         // ... Equip logic is complex (checking slots, removing old item, etc).
-                         // Given constraints, we will assume `Equipment` component logic might handle some local state
-                         // or we'd need a massive helper here. 
-                         // Let's assume for this specific request (fixing stats), we just need to pass the derived character.
-                         // The logic for *equipping* itself wasn't reported broken, just the STATS.
                     }}
                     onUnequipItem={async (item, slot) => {
                         const newChar = { ...character };
@@ -406,6 +386,8 @@ export const App: React.FC = () => {
                     expeditions={gameData.expeditions} 
                     enemies={gameData.enemies} 
                     currentLocation={currentLocation!} 
+                    expeditionReport={expeditionReport}
+                    onCloseReport={() => setExpeditionReport(null)}
                     onStartExpedition={async (expId) => {
                         const expedition = gameData.expeditions.find(e => e.id === expId);
                         if (!expedition) return;
@@ -435,6 +417,7 @@ export const App: React.FC = () => {
                     onCompletion={async () => {
                         const result = await api.completeExpedition();
                         setCharacter(result.updatedCharacter);
+                        setExpeditionReport(result.summary);
                     }}
                 />;
             case Tab.Camp:

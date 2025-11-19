@@ -19,6 +19,8 @@ interface ExpeditionProps {
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     onCompletion: () => void;
+    expeditionReport?: ExpeditionRewardSummary | null;
+    onCloseReport?: () => void;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -226,7 +228,7 @@ const CombatantStatsPanel: React.FC<{
 const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: string }> = ({ members, currentTurnActor }) => {
     const { t } = useTranslation();
     return (
-        <div className="bg-slate-900/50 p-4 rounded-lg border border-sky-500/50 h-full overflow-y-auto">
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-sky-500/50 h-full overflow-y-auto overflow-visible">
              <h4 className="font-bold text-xl text-center border-b border-sky-500/50 pb-2 mb-2 text-sky-400">
                 {t('hunting.members')}
             </h4>
@@ -235,7 +237,7 @@ const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: str
                     const isActive = member.characterName === currentTurnActor;
                     const currentHP = member.stats?.currentHealth ?? 0;
                     const maxHP = member.stats?.maxHealth ?? 1;
-                    const hpPercent = (currentHP / maxHP) * 100;
+                    const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
 
                     return (
                         <div key={idx} className={`p-2 rounded bg-slate-800 relative group ${isActive ? 'ring-2 ring-sky-500' : ''}`}>
@@ -243,11 +245,11 @@ const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: str
                                 <span className="font-bold text-sm">{member.characterName}</span>
                                 <span className="text-xs text-gray-400">Lvl {member.level}</span>
                             </div>
-                            <div className="w-full bg-slate-700 h-1.5 rounded-full">
-                                <div className="bg-green-500 h-1.5 rounded-full transition-all" style={{width: `${hpPercent}%`}}></div>
+                            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-green-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
                             </div>
                              {/* Tooltip */}
-                             <div className="absolute left-full top-0 ml-2 z-30 w-64 p-3 bg-slate-900 border border-slate-700 rounded shadow-xl opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-opacity">
+                             <div className="absolute left-full top-0 ml-2 z-[60] w-64 p-3 bg-slate-900 border border-slate-700 rounded shadow-xl opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-opacity">
                                 <p className="font-bold border-b border-slate-700 pb-1 mb-1">{member.characterName}</p>
                                 <div className="text-xs space-y-1 text-gray-300">
                                     <p>HP: {currentHP.toFixed(0)} / {maxHP}</p>
@@ -280,6 +282,7 @@ export interface ExpeditionSummaryModalProps {
     isHunting?: boolean;
     huntingMembers?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number }>;
+    initialEnemy?: Enemy;
 }
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
@@ -293,7 +296,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     isDefenderView = false,
     isHunting = false,
     huntingMembers = [],
-    allRewards
+    allRewards,
+    initialEnemy
 }) => {
     const { t } = useTranslation();
     const [displayedLogs, setDisplayedLogs] = useState<CombatLogEntry[]>([]);
@@ -305,7 +309,19 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     // State for Hunting (Party)
     const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>(huntingMembers);
 
-    const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(null);
+    const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(() => {
+        if (initialEnemy) {
+             return {
+                 name: initialEnemy.name,
+                 description: initialEnemy.description,
+                 stats: initialEnemy.stats,
+                 currentHealth: initialEnemy.stats.maxHealth,
+                 currentMana: initialEnemy.stats.maxMana || 0
+             };
+        }
+        return null;
+    });
+
     const animationTimerRef = useRef<number | null>(null);
     const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const tooltipTimeoutRef = useRef<number | null>(null);
@@ -335,20 +351,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                  }
                  // If member was hit (is defender), we update them too
                  if (m.characterName === log.defender) {
-                     // In logs, 'playerHealth' usually refers to the attacker's health if attacker is player.
-                     // But logic in combat.ts for team might need careful mapping.
-                     // Let's rely on heuristic: if defender is in party list, use enemyHealth/Mana from log?
-                     // No, standard log format is: attacker -> playerHealth, defender -> enemyHealth.
-                     // BUT in team combat, the labels are generic.
-                     // If Boss attacks Player: Attacker=Boss, Defender=Player. log.playerHealth = BossHP, log.enemyHealth = PlayerHP.
-                     
-                     // Let's check the log structure from `performTeamAttack`:
-                     // If Boss Attacking: playerHealth=ActivePlayer(Defender)HP, enemyHealth=Boss(Attacker)HP.
-                     // Wait, the log field names are confusing in generic context.
-                     // Let's re-read `performTeamAttack` log push:
-                     // playerHealth: activePlayer.currentHealth (always the player involved)
-                     // enemyHealth: state.enemy.currentHealth (always the boss)
-                     
                      return { ...m, stats: { ...m.stats!, currentHealth: log.playerHealth, currentMana: log.playerMana } };
                  }
                  return m;
@@ -358,9 +360,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
              if (currentEnemy) {
                  setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
              } else if (log.enemyStats) {
-                 // Initialize boss on first log if not already
+                 // Initialize boss on first log if not already (fallback)
                   setCurrentEnemy({
-                    name: log.defender === 'Team' ? log.attacker : log.defender, // Heuristic, usually boss is defender unless attacking
+                    name: log.defender === 'Team' ? log.attacker : log.defender,
                     description: log.enemyDescription,
                     stats: log.enemyStats,
                     currentHealth: log.enemyHealth,
@@ -403,27 +405,32 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     };
 
     useEffect(() => {
-        // Initialize states on mount
-        if (isHunting && huntingMembers.length > 0) {
-             // Ensure huntingMembers have stats initialized if passed in props, otherwise might need to wait for first log
-             // The `processPartyCombat` logic creates PlayerCharacter objects, but doesn't pass them back fully in `members` array unless we modify `HuntingParty` type deeper.
-             // However, logs contain `playerStats`.
-        }
-        
-        animationTimerRef.current = window.setTimeout(() => {
-            if (displayedLogs.length < reward.combatLog.length) {
+        // Start animation loop
+        const playAnimation = () => {
+             if (displayedLogs.length < reward.combatLog.length) {
                 const nextLog = reward.combatLog[displayedLogs.length];
                 updateCombatantState(nextLog);
                 setDisplayedLogs(prev => [...prev, nextLog]);
+                
+                animationTimerRef.current = window.setTimeout(playAnimation, isHunting ? 400 : 800);
             } else {
                 setIsAnimationComplete(true);
             }
-        }, isHunting ? 400 : 800); // Faster animation for hunting as logs are longer
+        };
+
+        // Only start the timeout if not already completed and if not currently scheduled
+        if (!isAnimationComplete && !animationTimerRef.current) {
+             playAnimation();
+        }
 
         return () => {
-            if(animationTimerRef.current) clearTimeout(animationTimerRef.current);
+            if(animationTimerRef.current) {
+                clearTimeout(animationTimerRef.current);
+                animationTimerRef.current = null;
+            }
         };
-    }, [displayedLogs, reward.combatLog, isPvp, pvpData, isHunting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [displayedLogs.length, reward.combatLog.length, isAnimationComplete]);
 
     useEffect(() => {
         if (logContainerRef.current) {
@@ -677,7 +684,7 @@ const ActiveExpeditionPanel: React.FC<{
     );
 };
 
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion, affixes }) => {
+export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion, affixes, expeditionReport, onCloseReport }) => {
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
@@ -776,6 +783,23 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
 
   return (
     <>
+        {expeditionReport && (
+            <ExpeditionSummaryModal
+                reward={expeditionReport}
+                onClose={onCloseReport!}
+                characterName={character.name}
+                itemTemplates={itemTemplates}
+                affixes={affixes}
+                initialEnemy={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? {
+                    id: 'unknown', // Placeholder, summary modal handles it
+                    name: expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender,
+                    description: expeditionReport.combatLog[0].enemyDescription || '',
+                    stats: expeditionReport.combatLog[0].enemyStats,
+                    rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
+                    lootTable: []
+                } : undefined}
+            />
+        )}
         {content}
     </>
   );

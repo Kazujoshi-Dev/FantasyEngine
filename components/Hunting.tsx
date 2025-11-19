@@ -153,6 +153,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     isHunting={true}
                     huntingMembers={myParty.members}
                     allRewards={myParty.allRewards}
+                    initialEnemy={boss}
                 />
             );
         }

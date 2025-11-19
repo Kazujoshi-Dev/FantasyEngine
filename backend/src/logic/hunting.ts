@@ -1,6 +1,6 @@
 
 import { pool } from '../db.js';
-import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass } from '../types.js';
+import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamCombat } from './combat.js';
 import { createItemInstance } from './items.js';
@@ -56,8 +56,17 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
 
     if (isVictory) {
-        const baseGold = bossTemplate.rewards.maxGold * 2; // Bosses give good gold
-        const baseExp = bossTemplate.rewards.maxExperience * 2;
+        // Randomize rewards within range, then multiply by 2 for Boss bonus
+        const minGold = bossTemplate.rewards.minGold;
+        const maxGold = bossTemplate.rewards.maxGold;
+        const rolledGold = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
+        const baseGold = rolledGold * 2;
+
+        const minExp = bossTemplate.rewards.minExperience;
+        const maxExp = bossTemplate.rewards.maxExperience;
+        const rolledExp = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
+        const baseExp = rolledExp * 2;
+
         const splitGold = Math.floor(baseGold / playerCombatants.length);
         const splitExp = Math.floor(baseExp / playerCombatants.length);
 
@@ -116,6 +125,43 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             }
 
             await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+
+            // Send Message Report
+            const summary: ExpeditionRewardSummary = {
+                isVictory: true,
+                totalGold: finalGold,
+                totalExperience: finalExp,
+                combatLog: combatLog, // Full log might be heavy, but required for replay
+                itemsFound: itemsFound,
+                essencesFound: essencesFound,
+                rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: finalGold, experience: finalExp }]
+            };
+
+            await pool.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
+                 VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+                [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
+            );
+        }
+    } else {
+        // Handle defeat messages (no rewards)
+        for (const userIdStr of Object.keys(rawCharactersMap)) {
+            const userId = parseInt(userIdStr, 10);
+             const summary: ExpeditionRewardSummary = {
+                isVictory: false,
+                totalGold: 0,
+                totalExperience: 0,
+                combatLog: combatLog,
+                itemsFound: [],
+                essencesFound: {},
+                rewardBreakdown: []
+            };
+
+             await pool.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
+                 VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
+            );
         }
     }
 
