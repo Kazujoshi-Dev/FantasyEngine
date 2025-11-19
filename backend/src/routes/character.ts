@@ -43,13 +43,13 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         }
 
         // --- Health Regeneration Logic (Resting) ---
-        if (character.isResting && character.lastRestTime) {
-            // Ensure lastRestTime is a number
-            const lastRestTime = Number(character.lastRestTime);
+        if (character.isResting) {
+            // Fallback to 'now' if lastRestTime is missing/invalid to prevent NaN math
+            const lastRestTime = Number(character.lastRestTime) || now;
             const msPassed = now - lastRestTime;
             
-            // Update every 10 seconds roughly (client polls every 10s) to avoid database spam for tiny updates
-            if (msPassed >= 10000) { 
+            // Update if at least 1 second passed. Previously 10s, which caused sync issues with client polling.
+            if (msPassed >= 1000) { 
                 // Fetch necessary GameData to calculate Max Health correctly (including item bonuses)
                 const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
                 const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
@@ -73,6 +73,10 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
                     character.stats.currentHealth = maxHealth;
                     character.isResting = false; // Auto-stop resting if full
                     character.lastRestTime = undefined;
+                    needsDbUpdate = true;
+                } else if (!character.lastRestTime) {
+                    // Fix data if lastRestTime was missing but we are resting
+                    character.lastRestTime = now;
                     needsDbUpdate = true;
                 }
             }
@@ -276,7 +280,7 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             return res.status(404).json({ message: 'Skill not found.' });
         }
 
-        // Calculate derived stats to check against requirements
+        // Calculate derived stats to check requirements
         const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
         const derivedStats = characterWithDerivedStats.stats;
 
