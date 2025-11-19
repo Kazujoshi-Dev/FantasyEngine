@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, GameData, PlayerCharacter } from '../types.js';
 import { getPartyByLeader, getPartyByMember, processPartyCombat } from '../logic/hunting.js';
+import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -50,10 +51,11 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         if (!party) {
             return res.json(null);
         }
+        
+        const gameData = await getGameData();
 
         // Check if fight should start (Logic check on read)
         if (party.status === PartyStatus.Preparing && party.startTime) {
-             const gameData = await getGameData();
              const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
              const fightStartTime = new Date(party.startTime).getTime() + durationMinutes * 60 * 1000;
              
@@ -84,6 +86,18 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                      }
                  });
                  party.allRewards = allRewards;
+            }
+        }
+
+        // Hydrate members with derived stats for Tooltips
+        // We need to fetch the current character state for each member to calculate accurate stats
+        // Note: This adds DB load but is necessary for the UI to show correct values.
+        for (const member of party.members) {
+            const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
+            if (charRes.rows.length > 0) {
+                const rawChar: PlayerCharacter = charRes.rows[0].data;
+                const derivedChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
+                member.stats = derivedChar.stats;
             }
         }
 

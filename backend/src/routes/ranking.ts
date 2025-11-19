@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -25,11 +26,11 @@ router.get('/', async (req: any, res: any) => {
                 c.data->>'name' as name,
                 c.data->>'race' as race,
                 c.data->>'characterClass' as "characterClass",
-                (c.data->>'level')::int as level,
-                (c.data->>'experience')::bigint as experience,
-                (c.data->>'pvpWins')::int as "pvpWins",
-                (c.data->>'pvpLosses')::int as "pvpLosses",
-                (c.data->>'pvpProtectionUntil')::bigint as "pvpProtectionUntil",
+                COALESCE((c.data->>'level')::int, 1) as level,
+                COALESCE((c.data->>'experience')::bigint, 0) as experience,
+                COALESCE((c.data->>'pvpWins')::int, 0) as "pvpWins",
+                COALESCE((c.data->>'pvpLosses')::int, 0) as "pvpLosses",
+                COALESCE((c.data->>'pvpProtectionUntil')::bigint, 0) as "pvpProtectionUntil",
                 EXISTS (
                     SELECT 1 
                     FROM sessions s 
