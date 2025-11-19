@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { GameSettings, ItemRarity, Tab } from '../../../types';
+import { GameSettings, ItemRarity, Tab, Language } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
 
@@ -18,8 +17,12 @@ const DEFAULT_TAB_ORDER: Tab[] = [
     Tab.University, Tab.Messages, Tab.Options, Tab.Admin
 ];
 
-export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSettings, onSettingsUpdate, onForceTraderRefresh, onSendGlobalMessage }) => {
+export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, onSettingsUpdate, onForceTraderRefresh, onSendGlobalMessage }) => {
   const { t } = useTranslation();
+  
+  // Fallback if propSettings is null/undefined
+  const initialSettings = propSettings || { language: Language.PL };
+
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const [globalMessage, setGlobalMessage] = useState({ subject: '', content: '' });
   const [isSendingGlobal, setIsSendingGlobal] = useState(false);
@@ -29,10 +32,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
   const [sliderImages, setSliderImages] = useState<string[]>(initialSettings.titleScreen?.images || []);
 
   useEffect(() => {
-    setSettings(initialSettings);
-    setSidebarOrder(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
-    setSliderImages(initialSettings.titleScreen?.images || []);
-  }, [initialSettings]);
+    const safeSettings = propSettings || { language: Language.PL };
+    setSettings(safeSettings);
+    setSidebarOrder(safeSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+    setSliderImages(safeSettings.titleScreen?.images || []);
+  }, [propSettings]);
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

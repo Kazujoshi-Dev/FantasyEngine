@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter } from '../types';
+import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 
 import { GeneralTab } from './admin/tabs/GeneralTab';
@@ -49,6 +49,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
+  // Ensure gameData exists to prevent crashes, though Parent checks this too
+  if (!props.gameData) {
+      return <ContentPanel title={t('admin.title')}><p>Loading game data...</p></ContentPanel>;
+  }
+
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
     { id: 'hunting', label: 'Polowania' },
@@ -69,18 +74,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'databaseEditor', label: 'Edytor Bazy Danych' },
   ];
   
+  const defaultSettings: GameSettings = { language: Language.PL };
+  const settings = props.gameData.settings || defaultSettings;
+
   const renderActiveTab = () => {
     switch (adminTab) {
       case 'general':
         return <GeneralTab 
-                  settings={props.gameData.settings} 
+                  settings={settings} 
                   onSettingsUpdate={props.onSettingsUpdate} 
                   onForceTraderRefresh={props.onForceTraderRefresh}
                   onSendGlobalMessage={props.onSendGlobalMessage}
                 />;
       case 'hunting':
         return <HuntingTab
-                  settings={props.gameData.settings}
+                  settings={settings}
                   onSettingsUpdate={props.onSettingsUpdate}
                 />;
       case 'users':
@@ -143,7 +151,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                 />;
       case 'pvp':
         return <PvpTab
-                  settings={props.gameData.settings}
+                  settings={settings}
                   onSettingsUpdate={props.onSettingsUpdate}
                   onResetAllPvpCooldowns={props.onResetAllPvpCooldowns}
                 />;
