@@ -6,6 +6,8 @@ import { PlayerCharacter, HuntingParty, Enemy, PartyStatus, PartyMemberStatus, G
 import { api } from '../api';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { ExpeditionSummaryModal } from './Expedition';
+import { CoinsIcon } from './icons/CoinsIcon';
+import { StarIcon } from './icons/StarIcon';
 
 interface HuntingProps {
     character: PlayerCharacter;
@@ -37,17 +39,50 @@ const CountdownTimer: React.FC<{ targetDate: string, durationMinutes: number, on
     return <span className="font-mono text-2xl text-amber-400 font-bold">{timeLeft}</span>;
 };
 
-const BossStatsPanel: React.FC<{ stats: EnemyStats }> = ({ stats }) => {
+const BossStatsPanel: React.FC<{ stats: EnemyStats; baseStats?: EnemyStats }> = ({ stats, baseStats }) => {
     const { t } = useTranslation();
+    
+    // Helper to show increase if scaled
+    const renderScaledValue = (current: number, base: number) => {
+        if (current > base) {
+            return (
+                <span>
+                    <span className="text-white font-bold">{current}</span>
+                    <span className="text-xs text-amber-500 ml-1">(x{(current/base).toFixed(1)})</span>
+                </span>
+            );
+        }
+        return <span className="text-white font-bold">{current}</span>;
+    };
+
     return (
         <div className="space-y-2 text-sm text-gray-300 bg-slate-800/50 p-4 rounded-lg h-full border border-slate-700">
-            <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white font-bold">{stats.maxHealth}</span></p>
-            <p className="flex justify-between"><span>Obrażenia:</span> <span className="font-mono text-white">{stats.minDamage}-{stats.maxDamage}</span></p>
+            <p className="flex justify-between items-center">
+                <span>HP:</span> 
+                <span className="font-mono">
+                    {baseStats ? renderScaledValue(stats.maxHealth, baseStats.maxHealth) : <span className="text-white font-bold">{stats.maxHealth}</span>}
+                </span>
+            </p>
+            <p className="flex justify-between items-center">
+                <span>Obrażenia:</span> 
+                <span className="font-mono text-white">
+                    {stats.minDamage}-{stats.maxDamage}
+                    {baseStats && stats.minDamage > baseStats.minDamage && <span className="text-xs text-amber-500 ml-1">↑</span>}
+                </span>
+            </p>
             <p className="flex justify-between"><span>Pancerz:</span> <span className="font-mono text-white">{stats.armor}</span></p>
             <p className="flex justify-between"><span>Ataki/tura:</span> <span className="font-mono text-white">{stats.attacksPerTurn || 1}</span></p>
              <div className="border-t border-slate-700/50 my-2"></div>
              {stats.maxMana ? <p className="flex justify-between text-purple-300"><span>Mana:</span> <span className="font-mono">{stats.maxMana}</span></p> : null}
-             {stats.magicDamageMin ? <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{stats.magicDamageMin}-{stats.magicDamageMax}</span></p> : null}
+             {stats.magicDamageMin ? (
+                <p className="flex justify-between text-purple-300">
+                    <span>Mag. DMG:</span> 
+                    <span className="font-mono">
+                        {stats.magicDamageMin}-{stats.magicDamageMax}
+                        {baseStats && baseStats.magicDamageMin && stats.magicDamageMin > baseStats.magicDamageMin && <span className="text-xs text-amber-500 ml-1">↑</span>}
+                    </span>
+                </p>
+             ) : null}
         </div>
     );
 };
@@ -143,6 +178,42 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const bosses = enemies.filter(e => e.isBoss);
     const selectedBoss = bosses.find(b => b.id === createBossId);
     const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
+
+    // Calculate Scaled Stats for Preview
+    const scaledBossStats = useMemo(() => {
+        if (!selectedBoss) return null;
+        const count = createMembers;
+        // Scaling logic matching backend
+        const healthMult = 1 + (count - 1) * 0.7;
+        const damageMult = 1 + (count - 1) * 0.1;
+
+        return {
+            maxHealth: Math.floor(selectedBoss.stats.maxHealth * healthMult),
+            minDamage: Math.floor(selectedBoss.stats.minDamage * damageMult),
+            maxDamage: Math.floor(selectedBoss.stats.maxDamage * damageMult),
+            magicDamageMin: selectedBoss.stats.magicDamageMin ? Math.floor(selectedBoss.stats.magicDamageMin * damageMult) : 0,
+            magicDamageMax: selectedBoss.stats.magicDamageMax ? Math.floor(selectedBoss.stats.magicDamageMax * damageMult) : 0,
+            armor: selectedBoss.stats.armor,
+            attacksPerTurn: selectedBoss.stats.attacksPerTurn,
+            maxMana: selectedBoss.stats.maxMana,
+            manaRegen: selectedBoss.stats.manaRegen
+        };
+    }, [selectedBoss, createMembers]);
+
+    const estimatedRewards = useMemo(() => {
+        if (!selectedBoss) return null;
+        // Backend logic: TotalPool = Base * Players * 1.5
+        // Split per Player = TotalPool / Players = Base * 1.5
+        const bonusMult = 1.5;
+
+        return {
+            minGold: Math.floor(selectedBoss.rewards.minGold * bonusMult),
+            maxGold: Math.floor(selectedBoss.rewards.maxGold * bonusMult),
+            minExp: Math.floor(selectedBoss.rewards.minExperience * bonusMult),
+            maxExp: Math.floor(selectedBoss.rewards.maxExperience * bonusMult),
+        }
+    }, [selectedBoss]);
+
 
     if (myParty) {
         // View for Inside a Party
@@ -304,17 +375,31 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 {/* Column 2: Boss Stats */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">Informacje o Celu</h3>
-                    {selectedBoss ? (
+                    {selectedBoss && scaledBossStats && estimatedRewards ? (
                         <div className="flex flex-col h-full">
                             <div className="mb-4 text-center">
                                 <p className="text-lg font-bold text-white">{selectedBoss.name}</p>
                                 <p className="text-sm text-gray-400 italic">{selectedBoss.description}</p>
                             </div>
                             <div className="flex-grow">
-                                <BossStatsPanel stats={selectedBoss.stats} />
+                                <BossStatsPanel stats={scaledBossStats as EnemyStats} baseStats={selectedBoss.stats} />
+                                <div className="mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                    <p className="font-semibold text-center text-green-400 mb-2 text-sm">Szacowane Nagrody (na osobę)</p>
+                                    <div className="flex justify-around items-center">
+                                         <div className="flex items-center text-amber-400 font-mono">
+                                            <CoinsIcon className="h-4 w-4 mr-1" />
+                                            {estimatedRewards.minGold}-{estimatedRewards.maxGold}
+                                        </div>
+                                         <div className="flex items-center text-sky-400 font-mono">
+                                            <StarIcon className="h-4 w-4 mr-1" />
+                                            {estimatedRewards.minExp}-{estimatedRewards.maxExp}
+                                        </div>
+                                    </div>
+                                     <p className="text-[10px] text-gray-500 text-center mt-1 italic">Zawiera bonus grupowy</p>
+                                </div>
                             </div>
                             <div className="mt-4 text-xs text-gray-500 text-center">
-                                * Statystyki są skalowane w zależności od liczby graczy w grupie.
+                                * Statystyki i nagrody są skalowane w zależności od liczby graczy w grupie.
                             </div>
                         </div>
                     ) : (

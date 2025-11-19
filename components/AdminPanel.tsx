@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter } from '../types';
+import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 
 import { GeneralTab } from './admin/tabs/GeneralTab';
@@ -20,6 +20,7 @@ import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
 import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { UniversityTab } from './admin/tabs/UniversityTab';
 import { HuntingTab } from './admin/tabs/HuntingTab';
+import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 
 interface AdminPanelProps {
   gameData: GameData;
@@ -42,11 +43,30 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'databaseEditor';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
+
+  // Ensure gameData exists to prevent crashes
+  if (!props.gameData) {
+      return <ContentPanel title={t('admin.title')}><p>Loading game data...</p></ContentPanel>;
+  }
+  
+  // Create a safe version of gameData where all arrays are guaranteed to exist
+  // This prevents "undefined.map" crashes in sub-components
+  // Using optional chaining ?. ensures we handle cases where props.gameData itself might be valid but empty
+  const safeGameData: GameData = {
+      locations: props.gameData?.locations || [],
+      expeditions: props.gameData?.expeditions || [],
+      enemies: props.gameData?.enemies || [],
+      itemTemplates: props.gameData?.itemTemplates || [],
+      quests: props.gameData?.quests || [],
+      affixes: props.gameData?.affixes || [],
+      skills: props.gameData?.skills || [],
+      settings: props.gameData?.settings || { language: Language.PL }
+  };
 
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
@@ -65,26 +85,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'duplicationAudit', label: 'Audyt Duplikatów' },
     { id: 'orphanAudit', label: 'Audyt Osieroconych Przedmiotów' },
     { id: 'dataIntegrity', label: 'Kondycja Bazy Danych' },
+    { id: 'databaseEditor', label: 'Edytor Bazy Danych' },
   ];
   
+  const settings = safeGameData.settings;
+
   const renderActiveTab = () => {
     switch (adminTab) {
       case 'general':
         return <GeneralTab 
-                  settings={props.gameData.settings} 
+                  settings={settings} 
                   onSettingsUpdate={props.onSettingsUpdate} 
                   onForceTraderRefresh={props.onForceTraderRefresh}
                   onSendGlobalMessage={props.onSendGlobalMessage}
                 />;
       case 'hunting':
         return <HuntingTab
-                  settings={props.gameData.settings}
+                  settings={settings}
                   onSettingsUpdate={props.onSettingsUpdate}
                 />;
       case 'users':
         return <UsersTab 
-                  allCharacters={props.allCharacters}
-                  gameData={props.gameData}
+                  allCharacters={props.allCharacters || []}
+                  gameData={safeGameData}
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
                   onDeleteCharacter={props.onDeleteCharacter}
@@ -96,63 +119,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                 />;
       case 'locations':
         return <LocationsTab
-                  locations={props.gameData.locations}
+                  locations={safeGameData.locations}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'expeditions':
         return <ExpeditionsTab
-                  expeditions={props.gameData.expeditions}
-                  locations={props.gameData.locations}
-                  enemies={props.gameData.enemies}
-                  itemTemplates={props.gameData.itemTemplates}
+                  expeditions={safeGameData.expeditions}
+                  locations={safeGameData.locations}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'enemies':
         return <EnemiesTab
-                  enemies={props.gameData.enemies}
-                  itemTemplates={props.gameData.itemTemplates}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'bosses':
         return <BossesTab
-                  enemies={props.gameData.enemies}
-                  itemTemplates={props.gameData.itemTemplates}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'items':
         return <ItemsTab
-                  itemTemplates={props.gameData.itemTemplates}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'affixes':
         return <AffixesTab
-                  affixes={props.gameData.affixes}
+                  affixes={safeGameData.affixes}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'quests':
         return <QuestsTab
-                  gameData={props.gameData}
+                  gameData={safeGameData}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'university':
         return <UniversityTab
-                  skills={props.gameData.skills}
+                  skills={safeGameData.skills}
                   onGameDataUpdate={props.onGameDataUpdate as any}
                 />;
       case 'pvp':
         return <PvpTab
-                  settings={props.gameData.settings}
+                  settings={settings}
                   onSettingsUpdate={props.onSettingsUpdate}
                   onResetAllPvpCooldowns={props.onResetAllPvpCooldowns}
                 />;
       case 'itemInspector':
-        return <ItemInspectorTab gameData={props.gameData} />;
+        return <ItemInspectorTab gameData={safeGameData} />;
       case 'duplicationAudit':
         return <DuplicationAuditTab />;
       case 'orphanAudit':
         return <OrphanAuditTab />;
       case 'dataIntegrity':
         return <DataIntegrityTab />;
+      case 'databaseEditor':
+        return <DatabaseEditorTab />;
       default:
         return null;
     }
@@ -160,12 +185,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
 
   return (
     <ContentPanel title={t('admin.title')}>
-      <div className="flex border-b border-slate-700 mb-6 overflow-x-auto">
+      <div className="flex border-b border-slate-700 mb-6 overflow-x-auto pb-2">
         {ADMIN_TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setAdminTab(tab.id)}
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors duration-200 border-b-2 ${
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors duration-200 border-b-2 flex-shrink-0 ${
               adminTab === tab.id
                 ? 'border-indigo-500 text-white'
                 : 'border-transparent text-gray-400 hover:text-gray-200'

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { GameData, Affix, AffixType } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -39,8 +40,23 @@ export const AffixesTab: React.FC<AffixesTabProps> = ({ affixes, onGameDataUpdat
   };
 
   const { filteredPrefixes, filteredSuffixes } = useMemo(() => {
-    const prefixes = affixes.filter(a => a.type === 'Prefix' && a.name.masculine.toLowerCase().includes(affixSearch.toLowerCase())).sort((a,b) => a.name.masculine.localeCompare(b.name.masculine));
-    const suffixes = affixes.filter(a => a.type === 'Suffix' && a.name.masculine.toLowerCase().includes(affixSearch.toLowerCase())).sort((a,b) => a.name.masculine.localeCompare(b.name.masculine));
+    // Helper to safely extract name string
+    const getName = (a: Affix): string => {
+        if (!a || !a.name) return '';
+        if (typeof a.name === 'string') return a.name; // Legacy support
+        return a.name.masculine || '';
+    };
+
+    const safeAffixes = (affixes || []).filter(a => a && a.type);
+
+    const prefixes = safeAffixes
+        .filter(a => a.type === 'Prefix' && getName(a).toLowerCase().includes(affixSearch.toLowerCase()))
+        .sort((a,b) => getName(a).localeCompare(getName(b)));
+        
+    const suffixes = safeAffixes
+        .filter(a => a.type === 'Suffix' && getName(a).toLowerCase().includes(affixSearch.toLowerCase()))
+        .sort((a,b) => getName(a).localeCompare(getName(b)));
+        
     return { filteredPrefixes: prefixes, filteredSuffixes: suffixes };
   }, [affixes, affixSearch]);
 
@@ -53,7 +69,9 @@ export const AffixesTab: React.FC<AffixesTabProps> = ({ affixes, onGameDataUpdat
     
     if (affix.statsBonus) {
         for (const [key, value] of Object.entries(affix.statsBonus)) {
-            if(value) parts.push(formatMinMax(value, `+`, ` ${t(`statistics.${key}` as any)}`)!);
+            // Use key directly if translation fails or assume generic stat
+            const label = t(`statistics.${key}` as any) || key;
+            if(value) parts.push(formatMinMax(value, `+`, ` ${label}`)!);
         }
     }
     
@@ -89,7 +107,7 @@ export const AffixesTab: React.FC<AffixesTabProps> = ({ affixes, onGameDataUpdat
                             {filteredPrefixes.map(affix => (
                                 <div key={affix.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                                     <div>
-                                        <p className="font-semibold text-sky-400">{affix.name.masculine}</p>
+                                        <p className="font-semibold text-sky-400">{typeof affix.name === 'string' ? affix.name : affix.name.masculine}</p>
                                         <p className="text-xs text-gray-400 mt-1">{formatAffixBonuses(affix)}</p>
                                     </div>
                                     <div className="space-x-2"><button onClick={() => setEditingAffix(affix)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button><button onClick={() => handleDeleteData(affix.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button></div>
@@ -103,7 +121,7 @@ export const AffixesTab: React.FC<AffixesTabProps> = ({ affixes, onGameDataUpdat
                              {filteredSuffixes.map(affix => (
                                 <div key={affix.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                                     <div>
-                                        <p className="font-semibold text-amber-400">{affix.name.masculine}</p>
+                                        <p className="font-semibold text-amber-400">{typeof affix.name === 'string' ? affix.name : affix.name.masculine}</p>
                                         <p className="text-xs text-gray-400 mt-1">{formatAffixBonuses(affix)}</p>
                                     </div>
                                     <div className="space-x-2"><button onClick={() => setEditingAffix(affix)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button><button onClick={() => handleDeleteData(affix.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button></div>

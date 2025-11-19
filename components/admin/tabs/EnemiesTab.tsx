@@ -14,8 +14,10 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
   const { t } = useTranslation();
   const [editingEnemy, setEditingEnemy] = useState<Partial<Enemy> | null>(null);
 
-  // Filter OUT bosses
-  const standardEnemies = enemies.filter(e => !e.isBoss);
+  // Filter OUT bosses, safeguard array against nulls inside
+  const standardEnemies = (enemies || [])
+    .filter(e => e && typeof e === 'object')
+    .filter(e => !e.isBoss);
 
   const handleSaveData = (itemFromEditor: Enemy | null) => {
     if (!itemFromEditor) {
@@ -23,14 +25,15 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
         return;
     }
 
-    const itemExists = itemFromEditor.id ? enemies.some(d => d.id === itemFromEditor.id) : false;
+    const safeEnemies = enemies || [];
+    const itemExists = itemFromEditor.id ? safeEnemies.some(d => d.id === itemFromEditor.id) : false;
     let updatedData;
 
     if (itemExists) {
-        updatedData = enemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+        updatedData = safeEnemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
         // Ensure isBoss is false for this tab
-        updatedData = [...enemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: false }];
+        updatedData = [...safeEnemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: false }];
     }
     onGameDataUpdate('enemies', updatedData);
     setEditingEnemy(null);
@@ -38,7 +41,7 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
 
   const handleDeleteData = (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-        const updatedData = enemies.filter(item => item.id !== id);
+        const updatedData = (enemies || []).filter(item => item.id !== id);
         onGameDataUpdate('enemies', updatedData);
     }
   };
@@ -53,9 +56,10 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
             <EnemyEditor enemy={editingEnemy} onSave={handleSaveData} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates} />
         ) : (
             <div className="space-y-2">
+                {standardEnemies.length === 0 && <p className="text-gray-500 text-center py-4">Brak zdefiniowanych przeciwników.</p>}
                 {standardEnemies.map(enemy => (
                      <div key={enemy.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                        <div><p className="font-semibold">{enemy.name}</p></div>
+                        <div><p className="font-semibold">{enemy.name || 'Bez nazwy'}</p></div>
                         <div className="space-x-2">
                             <button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button>
                             <button onClick={() => handleDeleteData(enemy.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>

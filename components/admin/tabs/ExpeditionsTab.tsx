@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Expedition, Location, Enemy, ItemTemplate } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -15,19 +16,22 @@ export const ExpeditionsTab: React.FC<ExpeditionsTabProps> = ({ expeditions, loc
   const { t } = useTranslation();
   const [editingExpedition, setEditingExpedition] = useState<Partial<Expedition> | null>(null);
 
+  // Safe expedition list
+  const safeExpeditions = (expeditions || []).filter(e => e && typeof e === 'object');
+
   const handleSaveData = (itemFromEditor: Expedition | null) => {
     if (!itemFromEditor) {
         setEditingExpedition(null);
         return;
     }
 
-    const itemExists = itemFromEditor.id ? expeditions.some(d => d.id === itemFromEditor.id) : false;
+    const itemExists = itemFromEditor.id ? safeExpeditions.some(d => d.id === itemFromEditor.id) : false;
     let updatedData;
 
     if (itemExists) {
-        updatedData = expeditions.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+        updatedData = safeExpeditions.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...expeditions, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        updatedData = [...safeExpeditions, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
     }
     onGameDataUpdate('expeditions', updatedData);
     setEditingExpedition(null);
@@ -35,7 +39,7 @@ export const ExpeditionsTab: React.FC<ExpeditionsTabProps> = ({ expeditions, loc
 
   const handleDeleteData = (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-        const updatedData = expeditions.filter(item => item.id !== id);
+        const updatedData = safeExpeditions.filter(item => item.id !== id);
         onGameDataUpdate('expeditions', updatedData);
     }
   };
@@ -58,10 +62,11 @@ export const ExpeditionsTab: React.FC<ExpeditionsTabProps> = ({ expeditions, loc
             />
         ) : (
              <div className="space-y-2">
-                {expeditions.map(exp => (
+                {safeExpeditions.length === 0 && <p className="text-gray-500 text-center py-4">Brak zdefiniowanych wypraw.</p>}
+                {safeExpeditions.map(exp => (
                      <div key={exp.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                         <div>
-                            <p className="font-semibold">{exp.name}</p>
+                            <p className="font-semibold">{exp.name || 'Bez nazwy'}</p>
                             <p className="text-sm text-gray-400">{exp.description}</p>
                         </div>
                         <div className="space-x-2">
