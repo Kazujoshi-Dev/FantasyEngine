@@ -141,7 +141,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-                [userId, `Raport z Polowania: ${bossTemplate.name}`, summary]
+                [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
         }
     } else {
@@ -162,7 +162,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
              await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, summary]
+                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
             );
         }
     }
