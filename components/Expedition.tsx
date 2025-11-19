@@ -423,7 +423,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 updateCombatantState(nextLog);
                 setDisplayedLogs(prev => [...prev, nextLog]);
                 
-                animationTimerRef.current = window.setTimeout(playAnimation, isHunting ? 400 : 800);
+                animationTimerRef.current = window.setTimeout(playAnimation, isHunting ? 500 : 800);
             } else {
                 setIsAnimationComplete(true);
             }

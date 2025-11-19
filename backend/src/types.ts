@@ -529,6 +529,7 @@ export interface PartyMember {
     race: Race;
     characterClass?: CharacterClass;
     status: PartyMemberStatus;
+    stats?: CharacterStats;
 }
 
 export interface HuntingParty {
