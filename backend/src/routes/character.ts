@@ -141,7 +141,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
              VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, summary]
+            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
         );
 
         await client.query('COMMIT');
@@ -177,7 +177,7 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
              pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'system', $2, $3)`,
-                [req.user!.id, subject, body]
+                [req.user!.id, subject, JSON.stringify(body)]
             ).catch(err => console.error("Failed to send class choice message:", err));
         }
 
@@ -205,7 +205,7 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
              pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'system', $2, $3)`,
-                [req.user!.id, subject, body]
+                [req.user!.id, subject, JSON.stringify(body)]
             ).catch(err => console.error("Failed to send class choice message:", err));
         }
         
