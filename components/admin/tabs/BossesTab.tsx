@@ -1,0 +1,79 @@
+
+import React, { useState } from 'react';
+import { Enemy, ItemTemplate } from '../../../types';
+import { useTranslation } from '../../../contexts/LanguageContext';
+import { BossEditor } from '../editors/BossEditor';
+
+interface BossesTabProps {
+  enemies: Enemy[];
+  itemTemplates: ItemTemplate[];
+  onGameDataUpdate: (key: 'enemies', data: Enemy[]) => void;
+}
+
+export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, onGameDataUpdate }) => {
+  const { t } = useTranslation();
+  const [editingBoss, setEditingBoss] = useState<Partial<Enemy> | null>(null);
+
+  // Filter only bosses
+  const bosses = enemies.filter(e => e.isBoss);
+
+  const handleSaveData = (itemFromEditor: Enemy | null) => {
+    if (!itemFromEditor) {
+        setEditingBoss(null);
+        return;
+    }
+
+    const itemExists = itemFromEditor.id ? enemies.some(d => d.id === itemFromEditor.id) : false;
+    let updatedData;
+
+    if (itemExists) {
+        updatedData = enemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+    } else {
+        updatedData = [...enemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: true }];
+    }
+    onGameDataUpdate('enemies', updatedData);
+    setEditingBoss(null);
+  };
+
+  const handleDeleteData = (id: string) => {
+    if (window.confirm('Czy na pewno chcesz usunąć tego Bossa?')) {
+        const updatedData = enemies.filter(item => item.id !== id);
+        onGameDataUpdate('enemies', updatedData);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in">
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-2xl font-bold text-amber-400">Zarządzanie Bossami</h3>
+            <button onClick={() => setEditingBoss({})} className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 font-semibold">Dodaj Bossa</button>
+        </div>
+        {editingBoss ? (
+            <BossEditor boss={editingBoss} onSave={handleSaveData} onCancel={() => setEditingBoss(null)} isEditing={!!editingBoss.id} allItemTemplates={itemTemplates} />
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {bosses.map(boss => (
+                     <div key={boss.id} className="bg-slate-800/50 p-4 rounded-lg border border-amber-900/30 hover:border-amber-600/50 transition-colors flex flex-col">
+                        <div className="flex gap-4 mb-3">
+                             {boss.image ? (
+                                 <img src={boss.image} alt={boss.name} className="w-16 h-16 object-cover rounded-lg border border-slate-600" />
+                             ) : (
+                                 <div className="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center text-xs text-gray-500">Brak foto</div>
+                             )}
+                             <div>
+                                 <p className="font-bold text-lg text-white">{boss.name}</p>
+                                 <p className="text-xs text-gray-400">HP: {boss.stats.maxHealth} | DMG: {boss.stats.minDamage}-{boss.stats.maxDamage}</p>
+                             </div>
+                        </div>
+                        <p className="text-sm text-gray-400 italic mb-4 flex-grow line-clamp-2">{boss.description}</p>
+                        <div className="flex justify-end space-x-2 mt-auto">
+                            <button onClick={() => setEditingBoss(boss)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button>
+                            <button onClick={() => handleDeleteData(boss.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </div>
+  );
+};
