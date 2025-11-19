@@ -56,19 +56,22 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
 
     if (isVictory) {
-        // Randomize rewards within range, then multiply by 2 for Boss bonus
+        // Reward Logic: Total Pool = BaseReward * PlayerCount * 1.5
+        // This ensures that splitting the reward still yields a good result per player (1.5x normal mob).
+        const bossBonusMultiplier = 1.5; 
+
         const minGold = bossTemplate.rewards.minGold;
         const maxGold = bossTemplate.rewards.maxGold;
         const rolledGold = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
-        const baseGold = rolledGold * 2;
+        const totalPoolGold = rolledGold * playerCombatants.length * bossBonusMultiplier;
 
         const minExp = bossTemplate.rewards.minExperience;
         const maxExp = bossTemplate.rewards.maxExperience;
         const rolledExp = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
-        const baseExp = rolledExp * 2;
+        const totalPoolExp = rolledExp * playerCombatants.length * bossBonusMultiplier;
 
-        const splitGold = Math.floor(baseGold / playerCombatants.length);
-        const splitExp = Math.floor(baseExp / playerCombatants.length);
+        const splitGold = Math.floor(totalPoolGold / playerCombatants.length);
+        const splitExp = Math.floor(totalPoolExp / playerCombatants.length);
 
         // Iterate over raw characters to apply rewards to the clean state
         for (const userIdStr of Object.keys(rawCharactersMap)) {

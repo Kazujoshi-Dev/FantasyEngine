@@ -388,9 +388,10 @@ interface TeamCombatState {
 }
 
 export const simulateTeamCombat = (playersData: PlayerCharacter[], enemyData: Enemy, gameData: GameData): CombatLogEntry[] => {
-    // Scale boss health based on player count to make it challenging but fair
+    // Scale boss stats based on player count
     const healthMultiplier = 1 + (playersData.length - 1) * 0.7; // e.g., 1 player = 1x, 5 players = 3.8x
-    
+    const damageMultiplier = 1 + (playersData.length - 1) * 0.10; // 10% damage increase per additional player
+
     const state: TeamCombatState = {
         players: playersData.map(p => ({
             data: p,
@@ -401,7 +402,14 @@ export const simulateTeamCombat = (playersData: PlayerCharacter[], enemyData: En
             isDead: false
         })),
         enemy: {
-            stats: { ...enemyData.stats, maxHealth: Math.floor(enemyData.stats.maxHealth * healthMultiplier) },
+            stats: { 
+                ...enemyData.stats, 
+                maxHealth: Math.floor(enemyData.stats.maxHealth * healthMultiplier),
+                minDamage: Math.floor(enemyData.stats.minDamage * damageMultiplier),
+                maxDamage: Math.floor(enemyData.stats.maxDamage * damageMultiplier),
+                magicDamageMin: enemyData.stats.magicDamageMin ? Math.floor(enemyData.stats.magicDamageMin * damageMultiplier) : 0,
+                magicDamageMax: enemyData.stats.magicDamageMax ? Math.floor(enemyData.stats.magicDamageMax * damageMultiplier) : 0,
+            },
             currentHealth: Math.floor(enemyData.stats.maxHealth * healthMultiplier),
             currentMana: enemyData.stats.maxMana || 0,
             name: enemyData.name,
@@ -422,7 +430,7 @@ export const simulateTeamCombat = (playersData: PlayerCharacter[], enemyData: En
         enemyHealth: state.enemy.currentHealth,
         enemyMana: state.enemy.currentMana,
         enemyStats: state.enemy.stats,
-        enemyDescription: `Boss Multiplier: x${healthMultiplier.toFixed(1)}`
+        enemyDescription: `HP x${healthMultiplier.toFixed(1)} | DMG x${damageMultiplier.toFixed(1)}`
     });
 
     while (state.enemy.currentHealth > 0 && state.players.some(p => !p.isDead) && state.turn < 200) {

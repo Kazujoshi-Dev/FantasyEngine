@@ -140,7 +140,7 @@ export const App: React.FC = () => {
         const finishTime = character.activeExpedition.finishTime;
         const timeLeft = finishTime - now;
 
-        let timer: NodeJS.Timeout;
+        let timer: ReturnType<typeof setTimeout>;
 
         if (timeLeft <= 0) {
              // Time already passed (e.g. page refresh), complete immediately

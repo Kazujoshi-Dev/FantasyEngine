@@ -704,6 +704,29 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
     admin: {
         title: 'Panel Admina',
         menuOrder: 'Kolejność Zakładek Menu',
+        edit: 'Edytuj',
+        delete: 'Usuń',
+        select: 'Wybierz',
+        min: 'Min',
+        max: 'Max',
+        dropChance: 'Szansa (%)',
+        lootTable: 'Tabela Łupów',
+        resourceLootTable: 'Tabela Zasobów',
+        manageItems: 'Zarządzaj Przedmiotami',
+        saveSettings: 'Zapisz Ustawienia',
+        traderRefreshConfirm: 'Czy na pewno chcesz odświeżyć towary handlarza?',
+        traderActions: 'Akcje Handlarza',
+        forceTraderRefresh: 'Wymuś Odświeżenie',
+        traderSettings: {
+            rarityChancesDesc: 'Szansa w procentach (0-100) na pojawienie się przedmiotu danej rzadkości.',
+        },
+        globalMessage: {
+            title: 'Wiadomość Globalna',
+            contentPlaceholder: 'Treść wiadomości...',
+            sendButton: 'Wyślij do Wszystkich',
+            validationError: 'Temat i treść są wymagane.',
+            sendSuccess: 'Wiadomość została wysłana do wszystkich graczy.'
+        },
         tabs: {
             general: 'Ogólne',
             users: 'Użytkownicy i Postacie',
