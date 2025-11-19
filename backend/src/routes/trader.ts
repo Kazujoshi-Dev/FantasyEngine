@@ -1,7 +1,8 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix } from '../types.js';
+import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix, GameSettings, Language } from '../types.js';
 import { generateTraderInventory } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
@@ -21,14 +22,21 @@ const refreshTraderInventoryIfNeeded = async (force: boolean = false) => {
     if (force || currentHour > lastRefreshHour || !cachedGameDataForTrader || traderInventory.length === 0) {
         console.log('Refreshing trader inventory...');
         const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'settings')");
-        const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
+        const gameData: Partial<GameData> = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
         
-        if (gameData.itemTemplates && gameData.affixes && gameData.settings) {
-            const { regularItems, specialOfferItems: newSpecialOffers } = generateTraderInventory(gameData.itemTemplates, gameData.affixes, gameData.settings);
+        const itemTemplates = gameData.itemTemplates || [];
+        const affixes = gameData.affixes || [];
+        // Provide default settings if missing from DB
+        const settings = gameData.settings || { language: Language.PL } as GameSettings;
+
+        if (itemTemplates.length > 0) {
+            const { regularItems, specialOfferItems: newSpecialOffers } = generateTraderInventory(itemTemplates, affixes, settings);
             traderInventory = regularItems;
             specialOfferItems = newSpecialOffers;
             lastTraderRefresh = now;
-            cachedGameDataForTrader = gameData;
+            cachedGameDataForTrader = { itemTemplates, affixes, settings } as GameData;
+        } else {
+             console.warn('No item templates found in database, cannot generate trader inventory.');
         }
     }
 };

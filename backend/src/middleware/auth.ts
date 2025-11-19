@@ -1,7 +1,8 @@
+
 import { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import { pool } from '../db.js';
 
-export async function authenticateToken(req: any, res: any, next: NextFunction) {
+export async function authenticateToken(req: any, res: any, next: any) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

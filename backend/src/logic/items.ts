@@ -243,7 +243,8 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
-            regularItems.push(createItemInstance(template.id, itemTemplates, affixes, true));
+            // Pass false to create item without affixes for regular inventory
+            regularItems.push(createItemInstance(template.id, itemTemplates, affixes, false));
         }
     }
     
