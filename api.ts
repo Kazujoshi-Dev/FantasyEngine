@@ -1,5 +1,6 @@
 
 
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
 const API_BASE_URL = '/api';
@@ -19,6 +20,11 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // If body is FormData (for file uploads), remove Content-Type so browser sets it with boundary
+    if (options.body instanceof FormData) {
+        delete (headers as any)['Content-Type'];
     }
 
     const config: RequestInit = {
@@ -532,6 +538,15 @@ export const api = {
     async wipeGameData(): Promise<{ message: string }> {
         return fetchApi('/admin/wipe-game-data', {
             method: 'POST',
+        });
+    },
+    
+    async uploadFile(file: File): Promise<{ url: string }> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return fetchApi('/upload', {
+            method: 'POST',
+            body: formData
         });
     },
 

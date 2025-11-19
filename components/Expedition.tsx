@@ -630,7 +630,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             </div>
             
             {/* Hovered Member Tooltip - Rendered outside of the overflow container using fixed positioning */}
-            {hoveredMember && hoveredMember.data.stats && (
+            {hoveredMember && hoveredMember.data && (
                 <div 
                     className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
                     style={{
@@ -640,25 +640,26 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 >
                      <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-white text-center">{hoveredMember.data.characterName}</p>
                      <div className="space-y-1 text-xs text-gray-300">
-                        <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredMember.data.stats.currentHealth.toFixed(0)} / {hoveredMember.data.stats.maxHealth}</span></p>
-                        <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredMember.data.stats.currentMana.toFixed(0)} / {hoveredMember.data.stats.maxMana}</span></p>
+                         {/* Add safe navigation checks (?.) and defaults (|| 0) for all stats */}
+                        <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentHealth?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxHealth || 1}</span></p>
+                        <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentMana?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxMana || 0}</span></p>
                         <div className="border-t border-slate-700/50 my-1"></div>
-                        <p className="flex justify-between"><span>{t('statistics.strength')}:</span> <span>{hoveredMember.data.stats.strength}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.agility')}:</span> <span>{hoveredMember.data.stats.agility}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.accuracy')}:</span> <span>{hoveredMember.data.stats.accuracy}</span></p>
-                         <p className="flex justify-between"><span>{t('statistics.stamina')}:</span> <span>{hoveredMember.data.stats.stamina}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.intelligence')}:</span> <span>{hoveredMember.data.stats.intelligence}</span></p>
+                        <p className="flex justify-between"><span>{t('statistics.strength')}:</span> <span>{hoveredMember.data.stats?.strength || 0}</span></p>
+                        <p className="flex justify-between"><span>{t('statistics.agility')}:</span> <span>{hoveredMember.data.stats?.agility || 0}</span></p>
+                        <p className="flex justify-between"><span>{t('statistics.accuracy')}:</span> <span>{hoveredMember.data.stats?.accuracy || 0}</span></p>
+                         <p className="flex justify-between"><span>{t('statistics.stamina')}:</span> <span>{hoveredMember.data.stats?.stamina || 0}</span></p>
+                        <p className="flex justify-between"><span>{t('statistics.intelligence')}:</span> <span>{hoveredMember.data.stats?.intelligence || 0}</span></p>
                         <div className="border-t border-slate-700/50 my-1"></div>
-                        <p className="flex justify-between"><span>Fiz. DMG:</span> <span className="font-mono">{hoveredMember.data.stats.minDamage}-{hoveredMember.data.stats.maxDamage}</span></p>
-                        {(hoveredMember.data.stats.magicDamageMin > 0 || hoveredMember.data.stats.magicDamageMax > 0) && (
-                             <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{hoveredMember.data.stats.magicDamageMin}-{hoveredMember.data.stats.magicDamageMax}</span></p>
+                        <p className="flex justify-between"><span>Fiz. DMG:</span> <span className="font-mono">{hoveredMember.data.stats?.minDamage || 0}-{hoveredMember.data.stats?.maxDamage || 0}</span></p>
+                        {((hoveredMember.data.stats?.magicDamageMin || 0) > 0 || (hoveredMember.data.stats?.magicDamageMax || 0) > 0) && (
+                             <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{hoveredMember.data.stats?.magicDamageMin || 0}-{hoveredMember.data.stats?.magicDamageMax || 0}</span></p>
                         )}
-                        <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredMember.data.stats.armor}</span></p>
-                        <p className="flex justify-between"><span>Kryt:</span> <span>{hoveredMember.data.stats.critChance.toFixed(1)}% (x{hoveredMember.data.stats.critDamageModifier}%)</span></p>
-                         <p className="flex justify-between"><span>Unik:</span> <span>{hoveredMember.data.stats.dodgeChance.toFixed(1)}%</span></p>
-                        <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredMember.data.stats.attacksPerRound}</span></p>
-                        {hoveredMember.data.stats.lifeStealPercent > 0 && <p className="flex justify-between text-green-400"><span>Kradzież Życia:</span> <span>{hoveredMember.data.stats.lifeStealPercent}%</span></p>}
-                        {hoveredMember.data.stats.manaStealPercent > 0 && <p className="flex justify-between text-cyan-400"><span>Kradzież Many:</span> <span>{hoveredMember.data.stats.manaStealPercent}%</span></p>}
+                        <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredMember.data.stats?.armor || 0}</span></p>
+                        <p className="flex justify-between"><span>Kryt:</span> <span>{(hoveredMember.data.stats?.critChance || 0).toFixed(1)}% (x{hoveredMember.data.stats?.critDamageModifier || 200}%)</span></p>
+                         <p className="flex justify-between"><span>Unik:</span> <span>{(hoveredMember.data.stats?.dodgeChance || 0).toFixed(1)}%</span></p>
+                        <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredMember.data.stats?.attacksPerRound || 1}</span></p>
+                        {(hoveredMember.data.stats?.lifeStealPercent || 0) > 0 && <p className="flex justify-between text-green-400"><span>Kradzież Życia:</span> <span>{hoveredMember.data.stats?.lifeStealPercent}%</span></p>}
+                        {(hoveredMember.data.stats?.manaStealPercent || 0) > 0 && <p className="flex justify-between text-cyan-400"><span>Kradzież Many:</span> <span>{hoveredMember.data.stats?.manaStealPercent}%</span></p>}
                     </div>
                 </div>
             )}

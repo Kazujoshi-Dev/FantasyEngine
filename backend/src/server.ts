@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exit } from 'process';
+import fs from 'fs';
 
 import { initializeDatabase } from './db.js';
 import { cleanupOldTavernMessages } from './logic/tasks.js';
@@ -22,6 +23,7 @@ import tavernRoutes from './routes/tavern.js';
 import marketRoutes from './routes/market.js';
 import adminRoutes from './routes/admin.js';
 import huntingRoutes from './routes/hunting.js';
+import uploadRoutes from './routes/upload.js';
 
 
 dotenv.config();
@@ -56,6 +58,7 @@ app.use('/api/tavern', tavernRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/hunting', huntingRoutes);
+app.use('/api/upload', uploadRoutes);
 // This must be the last API route because it's a broad catch-all for /character, /characters/* etc.
 app.use('/api', characterRoutes);
 
@@ -64,6 +67,13 @@ app.use('/api', characterRoutes);
 //                            STATIC FILES & FALLBACK
 // ===================================================================================
 app.use(express.static(path.join(__dirname, '../../dist')) as any);
+
+// Serve uploads directory statically
+const uploadsPath = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath) as any);
 
 app.get('*', (req: any, res: any) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));

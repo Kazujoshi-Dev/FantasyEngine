@@ -137,11 +137,11 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: finalGold, experience: finalExp }]
             };
 
-            // Ensure summary is stringified to match standard report format and avoid pg type confusion
+            // Do NOT JSON.stringify summary for JSONB column if using pg driver with object support
             await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-                [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
+                [userId, `Raport z Polowania: ${bossTemplate.name}`, summary]
             );
         }
     } else {
@@ -158,11 +158,11 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 rewardBreakdown: []
             };
 
-            // Ensure summary is stringified
+            // Do NOT JSON.stringify summary
              await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
+                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, summary]
             );
         }
     }

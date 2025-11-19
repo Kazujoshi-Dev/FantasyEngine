@@ -44,10 +44,12 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
 
         // --- Health Regeneration Logic (Resting) ---
         if (character.isResting && character.lastRestTime) {
-            const msPassed = now - character.lastRestTime;
-            const minutesPassed = Math.floor(msPassed / (1000 * 60));
-
-            if (minutesPassed >= 1) {
+            // Ensure lastRestTime is a number
+            const lastRestTime = Number(character.lastRestTime);
+            const msPassed = now - lastRestTime;
+            
+            // Update every 10 seconds roughly (client polls every 10s) to avoid database spam for tiny updates
+            if (msPassed >= 10000) { 
                 // Fetch necessary GameData to calculate Max Health correctly (including item bonuses)
                 const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
                 const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
@@ -58,13 +60,14 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
 
                 // Camp level % of Max HP per minute
                 const regenPercentagePerMinute = character.camp.level; 
-                const hpToGain = (maxHealth * (regenPercentagePerMinute / 100)) * minutesPassed;
+                
+                // Calculate fractional HP gain based on milliseconds passed
+                const hpToGain = (maxHealth * (regenPercentagePerMinute / 100)) * (msPassed / 60000);
 
                 if (hpToGain > 0 && character.stats.currentHealth < maxHealth) {
                     character.stats.currentHealth = Math.min(maxHealth, character.stats.currentHealth + hpToGain);
-                    // Advance lastRestTime by the minutes we consumed to avoid double counting, 
-                    // but keep the remainder seconds for next time.
-                    character.lastRestTime = character.lastRestTime + (minutesPassed * 1000 * 60);
+                    // Update cursor to now
+                    character.lastRestTime = now;
                     needsDbUpdate = true;
                 } else if (character.stats.currentHealth >= maxHealth) {
                     character.stats.currentHealth = maxHealth;
@@ -130,11 +133,11 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
-        // Save expedition report as a message
+        // Save expedition report as a message - Pass OBJECT not string for JSONB column
         await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
              VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
+            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, summary]
         );
 
         await client.query('COMMIT');
@@ -170,7 +173,7 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
              pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'system', $2, $3)`,
-                [req.user!.id, subject, JSON.stringify(body)]
+                [req.user!.id, subject, body]
             ).catch(err => console.error("Failed to send class choice message:", err));
         }
 
@@ -198,7 +201,7 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
              pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
                  VALUES ($1, 'System', 'system', $2, $3)`,
-                [req.user!.id, subject, JSON.stringify(body)]
+                [req.user!.id, subject, body]
             ).catch(err => console.error("Failed to send class choice message:", err));
         }
         
