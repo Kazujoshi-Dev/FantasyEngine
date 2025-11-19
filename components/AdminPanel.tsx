@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language } from '../types';
+import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language, ItemRarity } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 
 import { GeneralTab } from './admin/tabs/GeneralTab';
@@ -55,8 +55,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   }
   
   // Create a safe version of gameData where all arrays are guaranteed to exist
-  // This prevents "undefined.map" crashes in sub-components
-  // Using optional chaining ?. ensures we handle cases where props.gameData itself might be valid but empty
+  // Also ensures settings has critical nested objects to prevent crashes in GeneralTab
+  const safeSettings: GameSettings = {
+      language: Language.PL,
+      ...props.gameData?.settings,
+      traderSettings: {
+          rarityChances: {
+              [ItemRarity.Common]: 0,
+              [ItemRarity.Uncommon]: 0,
+              [ItemRarity.Rare]: 0,
+              ...(props.gameData?.settings?.traderSettings?.rarityChances || {})
+          }
+      }
+  };
+
   const safeGameData: GameData = {
       locations: props.gameData?.locations || [],
       expeditions: props.gameData?.expeditions || [],
@@ -65,7 +77,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
       quests: props.gameData?.quests || [],
       affixes: props.gameData?.affixes || [],
       skills: props.gameData?.skills || [],
-      settings: props.gameData?.settings || { language: Language.PL }
+      settings: safeSettings
   };
 
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [

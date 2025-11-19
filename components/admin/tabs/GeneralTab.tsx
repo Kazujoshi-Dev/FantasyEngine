@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { GameSettings, ItemRarity, Tab, Language } from '../../../types';
+import { GameSettings, ItemRarity, Tab, Language, TraderSettings } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
 
@@ -51,17 +51,28 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
     const { name, value } = e.target;
 
     if (name.startsWith('traderRarity-')) {
-        const rarity = name.split('-')[1] as ItemRarity;
-        setSettings(prev => ({
-            ...prev,
-            traderSettings: {
-                ...(prev.traderSettings || { rarityChances: { [ItemRarity.Common]: 0, [ItemRarity.Uncommon]: 0, [ItemRarity.Rare]: 0 } }),
-                rarityChances: {
-                    ...prev.traderSettings?.rarityChances,
-                    [rarity]: parseInt(value, 10) || 0
+        const rarity = name.split('-')[1] as keyof TraderSettings['rarityChances'];
+        setSettings(prev => {
+            const defaultRarityChances = { 
+                [ItemRarity.Common]: 0, 
+                [ItemRarity.Uncommon]: 0, 
+                [ItemRarity.Rare]: 0 
+            };
+            
+            const currentTraderSettings = prev.traderSettings || { rarityChances: defaultRarityChances };
+            const currentRarityChances = currentTraderSettings.rarityChances || defaultRarityChances;
+
+            return {
+                ...prev,
+                traderSettings: {
+                    ...currentTraderSettings,
+                    rarityChances: {
+                        ...currentRarityChances,
+                        [rarity]: parseInt(value, 10) || 0
+                    }
                 }
-            }
-        }));
+            };
+        });
     } else if (name === 'pvpProtectionMinutes') {
         setSettings(prev => ({ ...prev, pvpProtectionMinutes: parseInt(value, 10) || 60 }));
     } else if (name === 'newsContent') {
@@ -271,7 +282,14 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
                {(Object.values(ItemRarity) as ItemRarity[]).filter(r => r !== ItemRarity.Epic && r !== ItemRarity.Legendary).map(rarity => (
                     <div key={rarity}>
                         <label htmlFor={`traderRarity-${rarity}`} className="block text-sm font-medium text-gray-300 mb-1">{t(`rarity.${rarity}`)}</label>
-                        <input type="number" id={`traderRarity-${rarity}`} name={`traderRarity-${rarity}`} value={settings.traderSettings?.rarityChances[rarity] || 0} onChange={handleSettingsChange} className="w-full bg-slate-700 p-2 rounded-md"/>
+                        <input 
+                            type="number" 
+                            id={`traderRarity-${rarity}`} 
+                            name={`traderRarity-${rarity}`} 
+                            value={settings.traderSettings?.rarityChances?.[rarity] || 0} 
+                            onChange={handleSettingsChange} 
+                            className="w-full bg-slate-700 p-2 rounded-md"
+                        />
                     </div>
                 ))}
             </div>
