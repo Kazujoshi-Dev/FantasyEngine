@@ -131,6 +131,7 @@ export interface Enemy {
   lootTable: LootDrop[];
   resourceLootTable?: ResourceDrop[];
   isBoss?: boolean;
+  image?: string; // Boss portrait
 }
 
 export interface ExpeditionEnemy {
