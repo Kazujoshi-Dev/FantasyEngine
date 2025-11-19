@@ -1,0 +1,753 @@
+
+export enum Tab {
+  Statistics,
+  Equipment,
+  Expedition,
+  Camp,
+  Location,
+  Resources,
+  Ranking,
+  Admin,
+  Trader,
+  Blacksmith,
+  Messages,
+  Quests,
+  Tavern,
+  Market,
+  Options,
+  University,
+  Hunting,
+}
+
+export enum Race {
+  Human = 'Human',
+  Elf = 'Elf',
+  Orc = 'Orc',
+  Gnome = 'Gnome',
+  Dwarf = 'Dwarf',
+}
+
+export enum CharacterClass {
+    // Human
+    Mage = 'Mage',
+    Warrior = 'Warrior',
+    Rogue = 'Rogue',
+    // Elf
+    Wizard = 'Wizard',
+    Hunter = 'Hunter',
+    Druid = 'Druid',
+    // Orc
+    Shaman = 'Shaman',
+    Berserker = 'Berserker',
+    // Dwarf
+    Blacksmith = 'Blacksmith',
+    DungeonHunter = 'DungeonHunter',
+    // Gnome
+    Thief = 'Thief',
+    Engineer = 'Engineer',
+}
+
+export enum Language {
+    PL = 'pl',
+    EN = 'en',
+}
+
+export enum GrammaticalGender {
+    Masculine = 'Masculine',
+    Feminine = 'Feminine',
+    Neuter = 'Neuter',
+}
+
+export interface User {
+    id: number;
+    username: string;
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  description: string;
+  travelTime: number; // in seconds
+  travelCost: number; // in gold
+  travelEnergyCost: number; // in energy
+  availableTabs: Tab[];
+  isStartLocation: boolean;
+  image?: string;
+}
+
+export interface EnemyStats {
+  maxHealth: number;
+  minDamage: number;
+  maxDamage: number;
+  armor: number;
+  critChance: number;
+  critDamageModifier?: number;
+  agility: number;
+  // New magic properties for enemies
+  maxMana?: number;
+  manaRegen?: number;
+  magicDamageMin?: number;
+  magicDamageMax?: number;
+  magicAttackChance?: number; // Percentage chance to use magic attack if mana is sufficient
+  magicAttackType?: MagicAttackType;
+  magicAttackManaCost?: number;
+  attacksPerTurn?: number;
+}
+
+export interface EnemyRewards {
+  minGold: number;
+  maxGold: number;
+  minExperience: number;
+  maxExperience: number;
+}
+
+export interface LootDrop {
+    templateId: string;
+    chance: number; // Percentage
+}
+
+export enum EssenceType {
+    Common = 'commonEssence',
+    Uncommon = 'uncommonEssence',
+    Rare = 'rareEssence',
+    Epic = 'epicEssence',
+    Legendary = 'legendaryEssence',
+}
+
+export interface ResourceDrop {
+    resource: EssenceType;
+    min: number;
+    max: number;
+    chance: number; // Percentage
+}
+
+export interface Enemy {
+  id: string; // Template ID
+  uniqueId?: string; // Runtime instance ID for expeditions
+  name: string;
+  description: string;
+  stats: EnemyStats;
+  rewards: EnemyRewards;
+  lootTable: LootDrop[];
+  resourceLootTable?: ResourceDrop[];
+  isBoss?: boolean;
+}
+
+export interface ExpeditionEnemy {
+  enemyId: string;
+  spawnChance: number; // Percentage
+}
+
+export interface Expedition {
+  id:string;
+  name: string;
+  description: string;
+  duration: number; // in seconds
+  goldCost: number;
+  energyCost: number;
+  minBaseGoldReward: number;
+  maxBaseGoldReward: number;
+  minBaseExperienceReward: number;
+  maxBaseExperienceReward: number;
+  locationIds: string[];
+  enemies: ExpeditionEnemy[];
+  maxEnemies?: number;
+  lootTable: LootDrop[];
+  resourceLootTable?: ResourceDrop[];
+  image?: string;
+}
+
+export enum MagicAttackType {
+    Fireball = 'Fireball',
+    LightningStrike = 'LightningStrike',
+    ShadowBolt = 'ShadowBolt',
+    FrostWave = 'FrostWave',
+    ChainLightning = 'ChainLightning',
+    IceLance = 'IceLance',
+    ArcaneMissile = 'ArcaneMissile',
+    LifeDrain = 'LifeDrain',
+    MeteorSwarm = 'MeteorSwarm',
+    Earthquake = 'Earthquake',
+}
+
+export interface CombatLogEntry {
+  turn: number;
+  attacker: string;
+  defender: string;
+  action: string;
+  damage?: number;
+  manaGained?: number;
+  healthGained?: number;
+  playerHealth: number;
+  playerMana: number;
+  enemyHealth: number;
+  enemyMana: number;
+  isCrit?: boolean;
+  isDodge?: boolean;
+  damageReduced?: number;
+  magicAttackType?: MagicAttackType;
+  playerStats?: CharacterStats;
+  enemyStats?: EnemyStats;
+  enemyDescription?: string;
+  weaponName?: string;
+}
+
+export interface ActiveExpedition {
+    expeditionId: string;
+    finishTime: number; // timestamp
+    enemies: Enemy[]; // Specific enemies encountered
+    combatLog: CombatLogEntry[];
+    rewards: {
+      gold: number;
+      experience: number;
+    }
+}
+
+export interface RewardSource {
+  source: string;
+  gold: number;
+  experience: number;
+}
+
+export interface ExpeditionRewardSummary {
+  rewardBreakdown: RewardSource[];
+  totalGold: number;
+  totalExperience: number;
+  combatLog: CombatLogEntry[];
+  isVictory: boolean;
+  itemsFound: ItemInstance[];
+  essencesFound: Partial<Record<EssenceType, number>>;
+  itemsLostCount?: number;
+}
+
+export interface PvpRewardSummary {
+    gold: number;
+    experience: number;
+    combatLog: CombatLogEntry[];
+    isVictory: boolean;
+    attacker: PlayerCharacter;
+    defender: PlayerCharacter;
+}
+
+
+export interface CharacterStats {
+  // Base Attributes
+  strength: number;
+  agility: number;
+  accuracy: number;
+  stamina: number;
+  intelligence: number;
+  energy: number;
+
+  // Distributable points
+  statPoints: number;
+
+  // Derived Stats
+  currentHealth: number;
+  maxHealth: number;
+  currentEnergy: number;
+  maxEnergy: number;
+  currentMana: number;
+  maxMana: number;
+  minDamage: number;
+  maxDamage: number;
+  magicDamageMin: number;
+  magicDamageMax: number;
+  critChance: number;
+  critDamageModifier: number;
+  armor: number;
+  armorPenetrationPercent: number;
+  armorPenetrationFlat: number;
+  attacksPerRound: number;
+  manaRegen: number;
+  lifeStealPercent: number;
+  lifeStealFlat: number;
+  manaStealPercent: number;
+  manaStealFlat: number;
+  dodgeChance: number;
+}
+
+export interface CharacterResources {
+  gold: number;
+  commonEssence: number;
+  uncommonEssence: number;
+  rareEssence: number;
+  epicEssence: number;
+  legendaryEssence: number;
+}
+
+export interface CharacterCamp {
+    level: number;
+}
+
+export interface CharacterChest {
+    level: number;
+    gold: number;
+}
+
+export interface CharacterBackpack {
+    level: number;
+}
+
+export interface ActiveTravel {
+  destinationLocationId: string;
+  finishTime: number; // timestamp
+}
+
+export enum EquipmentSlot {
+  Head = 'head',
+  Chest = 'chest',
+  Legs = 'legs',
+  Feet = 'feet',
+  Hands = 'hands',
+  Waist = 'waist',
+  Neck = 'neck',
+  Ring1 = 'ring1',
+  Ring2 = 'ring2',
+  MainHand = 'mainHand',
+  OffHand = 'offHand',
+  TwoHand = 'twoHand',
+}
+
+export enum ItemRarity {
+    Common = 'Common',
+    Uncommon = 'Uncommon',
+    Rare = 'Rare',
+    Epic = 'Epic',
+    Legendary = 'Legendary',
+}
+
+export enum ItemCategory {
+    Weapon = 'Weapon',
+    Armor = 'Armor',
+    Jewelry = 'Jewelry',
+}
+
+export interface ItemTemplate {
+    id: string;
+    name: string;
+    gender: GrammaticalGender;
+    description: string;
+    slot: EquipmentSlot | 'consumable' | 'ring';
+    category: ItemCategory; // New property
+    rarity: ItemRarity;
+    icon: string; // Placeholder for image path or ID
+    value: number; // Gold value
+    requiredLevel: number;
+    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    // Bonuses with min-max ranges
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    damageMin?: { min: number; max: number; };
+    damageMax?: { min: number; max: number; };
+    attacksPerRound?: number;
+    armorBonus?: { min: number; max: number; };
+    critChanceBonus?: { min: number; max: number; };
+    maxHealthBonus?: { min: number; max: number; };
+    critDamageModifierBonus?: { min: number; max: number; };
+    armorPenetrationPercent?: { min: number; max: number; };
+    armorPenetrationFlat?: { min: number; max: number; };
+    lifeStealPercent?: { min: number; max: number; };
+    lifeStealFlat?: { min: number; max: number; };
+    manaStealPercent?: { min: number; max: number; };
+    manaStealFlat?: { min: number; max: number; };
+    // Magic properties
+    isMagical?: boolean;
+    isRanged?: boolean;
+    magicAttackType?: MagicAttackType;
+    manaCost?: { min: number; max: number; };
+    magicDamageMin?: { min: number; max: number; };
+    magicDamageMax?: { min: number; max: number; };
+}
+
+export interface RolledAffixStats {
+    statsBonus?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    damageMin?: number;
+    damageMax?: number;
+    attacksPerRoundBonus?: number;
+    dodgeChanceBonus?: number;
+    armorBonus?: number;
+    critChanceBonus?: number;
+    maxHealthBonus?: number;
+    critDamageModifierBonus?: number;
+    armorPenetrationPercent?: number;
+    armorPenetrationFlat?: number;
+    lifeStealPercent?: number;
+    lifeStealFlat?: number;
+    manaStealPercent?: number;
+    manaStealFlat?: number;
+    magicDamageMin?: number;
+    magicDamageMax?: number;
+}
+
+export interface ItemInstance {
+    uniqueId: string;
+    templateId: string;
+    upgradeLevel?: number;
+    prefixId?: string;
+    suffixId?: string;
+    rolledPrefix?: RolledAffixStats;
+    rolledSuffix?: RolledAffixStats;
+    rolledBaseStats?: RolledAffixStats;
+}
+
+export enum AffixType {
+    Prefix = 'Prefix',
+    Suffix = 'Suffix',
+}
+
+export interface Affix {
+    id: string;
+    name: {
+        masculine: string;
+        feminine: string;
+        neuter: string;
+    };
+    type: AffixType;
+    value?: number;
+    requiredLevel?: number;
+    requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    damageMin?: { min: number; max: number; };
+    damageMax?: { min: number; max: number; };
+    attacksPerRoundBonus?: { min: number; max: number; };
+    dodgeChanceBonus?: { min: number; max: number; };
+    armorBonus?: { min: number; max: number; };
+    critChanceBonus?: { min: number; max: number; };
+    maxHealthBonus?: { min: number; max: number; };
+    critDamageModifierBonus?: { min: number; max: number; };
+    armorPenetrationPercent?: { min: number; max: number; };
+    armorPenetrationFlat?: { min: number; max: number; };
+    lifeStealPercent?: { min: number; max: number; };
+    lifeStealFlat?: { min: number; max: number; };
+    manaStealPercent?: { min: number; max: number; };
+    manaStealFlat?: { min: number; max: number; };
+    magicDamageMin?: { min: number; max: number; };
+    magicDamageMax?: { min: number; max: number; };
+
+    spawnChances: {
+      [key in ItemCategory]?: number;
+    };
+}
+
+
+// --- Quest System Types ---
+export enum QuestType {
+    Kill = 'Kill',
+    Gather = 'Gather', // Gather Items
+    GatherResource = 'GatherResource', // Gather Essences/Resources
+    PayGold = 'PayGold',
+}
+
+export interface QuestObjective {
+    type: QuestType;
+    targetId?: string; // enemyId for Kill, templateId for Gather, EssenceType for GatherResource
+    amount: number;
+}
+
+export interface ItemReward {
+    templateId: string;
+    quantity: number;
+}
+
+export interface ResourceReward {
+    resource: EssenceType;
+    quantity: number;
+}
+
+export interface QuestRewards {
+    gold: number;
+    experience: number;
+    itemRewards?: ItemReward[];
+    resourceRewards?: ResourceReward[];
+    lootTable?: LootDrop[];
+}
+
+export interface Quest {
+    id: string;
+    name: string;
+    description: string;
+    locationIds: string[];
+    objective: QuestObjective;
+    rewards: QuestRewards;
+    repeatable: number; // 1 for one-time, >1 for specific count, 0 for infinite
+}
+
+export interface PlayerQuestProgress {
+    questId: string;
+    progress: number; // e.g., number of enemies killed
+    completions: number;
+}
+// --- End Quest System Types ---
+
+// --- University / Skill System Types ---
+export enum SkillType {
+    Universal = 'Universal',
+    Racial = 'Racial',
+}
+
+export enum SkillCategory {
+    Passive = 'Passive',
+    Active = 'Active',
+}
+
+export type SkillCost = Partial<CharacterResources>;
+
+export type SkillRequirements = Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>> & {
+    level?: number;
+};
+
+export interface Skill {
+    id: string;
+    name: string;
+    description: string;
+    type: SkillType;
+    category: SkillCategory;
+    cost: SkillCost;
+    requirements: SkillRequirements;
+}
+// --- End University / Skill System Types ---
+
+// --- Hunting System Types ---
+export enum PartyStatus {
+    Forming = 'FORMING',
+    Preparing = 'PREPARING', // Countdown
+    Fighting = 'FIGHTING', // Logic processing
+    Finished = 'FINISHED'
+}
+
+export enum PartyMemberStatus {
+    Leader = 'LEADER',
+    Member = 'MEMBER',
+    Pending = 'PENDING'
+}
+
+export interface PartyMember {
+    userId: number;
+    characterName: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+    status: PartyMemberStatus;
+    stats?: CharacterStats; // Only for UI during combat
+}
+
+export interface HuntingParty {
+    id: number;
+    leaderId: number;
+    bossId: string;
+    maxMembers: number;
+    status: PartyStatus;
+    startTime?: string; // ISO date
+    createdAt: string;
+    members: PartyMember[];
+    combatLog?: CombatLogEntry[]; // Populated only when finished
+    victory?: boolean;
+    myRewards?: { // Only visible to specific user in response
+        gold: number;
+        experience: number;
+        items: ItemInstance[];
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    allRewards?: Record<string, { gold: number; experience: number }>; // Map player name -> rewards
+}
+// --- End Hunting System Types ---
+
+export interface PlayerCharacter {
+  id?: number; // User ID
+  username?: string;
+  name: string;
+  race: Race;
+  characterClass?: CharacterClass | null;
+  level: number;
+  experience: number;
+  experienceToNextLevel: number;
+  stats: CharacterStats;
+  resources: CharacterResources;
+  currentLocationId: string;
+  activeExpedition: ActiveExpedition | null;
+  activeTravel: ActiveTravel | null;
+  camp: CharacterCamp;
+  chest: CharacterChest;
+  backpack: CharacterBackpack;
+  isResting: boolean;
+  restStartHealth: number;
+  lastRestTime?: number;
+  lastEnergyUpdateTime: number;
+  equipment: Record<EquipmentSlot, ItemInstance | null>;
+  inventory: ItemInstance[];
+  pvpWins: number;
+  pvpLosses: number;
+  pvpProtectionUntil: number; // Timestamp
+  questProgress: PlayerQuestProgress[];
+  acceptedQuests: string[];
+  traderPurchases?: string[];
+  freeStatResetUsed?: boolean;
+  lastReadNewsTimestamp?: number;
+  settings?: {
+    language?: Language;
+  };
+  learnedSkills?: string[];
+}
+
+export interface TraderSettings {
+    rarityChances: {
+        [ItemRarity.Common]: number;
+        [ItemRarity.Uncommon]: number;
+        [ItemRarity.Rare]: number;
+    };
+}
+
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface GameSettings {
+    language: Language;
+    traderSettings?: TraderSettings;
+    pvpProtectionMinutes?: number;
+    huntingDurationMinutes?: number;
+    titleScreen?: {
+        description: string;
+        images: string[];
+    };
+    loginBackground?: string;
+    gameBackground?: string;
+    newsContent?: string;
+    newsLastUpdatedAt?: number;
+    sidebarOrder?: Tab[];
+}
+
+export interface GameData {
+    locations: Location[];
+    expeditions: Expedition[];
+    enemies: Enemy[];
+    itemTemplates: ItemTemplate[];
+    quests: Quest[];
+    affixes: Affix[];
+    skills: Skill[];
+    settings: GameSettings;
+}
+
+export interface RankingPlayer {
+    id: number; // User ID
+    name: string;
+    race: Race;
+    characterClass?: CharacterClass | null;
+    level: number;
+    experience: number;
+    pvpWins: number;
+    pvpLosses: number;
+    pvpProtectionUntil: number;
+    isOnline: boolean;
+}
+
+export interface AdminCharacterInfo {
+    user_id: number;
+    username: string;
+    name: string;
+    race: Race;
+    level: number;
+    gold: number;
+}
+
+export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system';
+
+export interface PlayerMessageBody {
+    content: string;
+}
+
+export interface MarketNotificationBody {
+    type: 'SOLD' | 'BOUGHT' | 'EXPIRED' | 'OUTBID' | 'WON' | 'ITEM_RETURNED';
+    itemName: string;
+    price?: number;
+    currency?: CurrencyType;
+    item?: ItemInstance; // For when an item is sent via message
+    listingId?: number;
+}
+
+
+export type MessageBody = PvpRewardSummary | PlayerMessageBody | ExpeditionRewardSummary | MarketNotificationBody;
+
+export interface Message {
+    id: number;
+    recipient_id: number;
+    sender_id: number | null;
+    sender_name: string | null;
+    message_type: MessageType;
+    subject: string;
+    body: MessageBody;
+    is_read: boolean;
+    created_at: string;
+}
+
+export interface TavernMessage {
+  id: number;
+  user_id: number;
+  character_name: string;
+  content: string;
+  created_at: string;
+}
+
+// --- Market Types ---
+export type CurrencyType = 'gold' | EssenceType;
+export type ListingType = 'buy_now' | 'auction';
+export type ListingStatus = 'ACTIVE' | 'SOLD' | 'EXPIRED' | 'CANCELLED' | 'CLAIMED';
+
+export interface MarketListing {
+    id: number;
+    seller_id: number;
+    seller_name: string;
+    item_data: ItemInstance;
+    listing_type: ListingType;
+    currency: CurrencyType;
+    buy_now_price?: number;
+    start_bid_price?: number;
+    current_bid_price?: number;
+    highest_bidder_id?: number;
+    highest_bidder_name?: string;
+    created_at: string;
+    expires_at: string;
+    status: ListingStatus;
+    bid_count: number;
+}
+
+// --- Admin Types ---
+export interface DuplicationInfo {
+    ownerName: string;
+    location: string; // e.g., 'inventory', 'equipment.mainHand', 'market'
+    userId: number;
+}
+
+export interface DuplicationAuditResult {
+    uniqueId: string;
+    templateId: string;
+    itemName: string;
+    gender: GrammaticalGender;
+    instances: DuplicationInfo[];
+}
+
+export interface OrphanInfo {
+    uniqueId: string;
+    templateId: string;
+    location: string; // e.g., 'inventory', 'equipment.mainHand'
+}
+
+export interface OrphanAuditResult {
+    characterName: string;
+    userId: number;
+    orphans: OrphanInfo[];
+}
+
+export interface ItemLocationInfo {
+    ownerName: string;
+    userId: number;
+    location: string; // e.g., 'inventory', 'equipment.mainHand', 'market.123', 'mailbox.456'
+}
+
+export interface ItemSearchResult {
+    item: ItemInstance;
+    template: ItemTemplate;
+    locations: ItemLocationInfo[];
+}
