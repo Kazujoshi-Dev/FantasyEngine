@@ -37,7 +37,7 @@ const formatTimeLeft = (seconds: number): string => {
     return `${h}:${m}:${s}`;
 };
 
-const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = ({ log, characterName }) => {
+const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossName?: string }> = ({ log, characterName, bossName }) => {
     const { t } = useTranslation();
 
     if (log.action === 'starts a fight with') {
@@ -52,19 +52,25 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = 
         )
     }
 
+    const getCombatantColor = (name: string) => {
+        if (bossName && name === bossName) return 'text-red-400';
+        // Default to blue for all players/allies if not the boss
+        return 'text-sky-400';
+    };
+
+    const attackerColor = getCombatantColor(log.attacker);
+    const defenderColor = getCombatantColor(log.defender);
+
     if (log.action === 'shaman_power') {
         return (
             <p className="text-sm text-purple-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className="font-semibold">{log.attacker}</span>
+                <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
                 <span> {t('expedition.shamanPower')} </span>
-                <span className="font-semibold text-red-400">{log.defender}</span>
+                <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
                 <span> {t('expedition.dealing')} </span>
                 <span className="font-bold text-white">{log.damage}</span>
                 <span> {t('expedition.damage')}.</span>
-                 <span className="text-xs text-gray-500 ml-2">
-                    ({log.attacker}: {log.playerHealth.toFixed(0)} HP, {log.defender}: {log.enemyHealth.toFixed(0)} HP)
-                </span>
             </p>
         );
     }
@@ -73,7 +79,7 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = 
         return (
              <p className="text-sm text-cyan-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className="font-semibold">{log.attacker}</span>
+                <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
                 <span> {t('expedition.manaGained')} </span>
                 <span className="font-bold text-white">+{log.manaGained?.toFixed(0)}</span>
                 <span> {t('expedition.manaPoints')}.</span>
@@ -94,21 +100,12 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = 
         return (
             <p className="text-sm text-green-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className="font-semibold">{log.defender}</span>
+                <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
                 <span> {t('expedition.dodge')}</span>
             </p>
         );
     }
 
-
-    // For Team combat, characterName might be different from log.attacker, so we check if log.attacker is *any* player friendly name
-    // But simplifying: Blue for attacker, Red for defender usually works unless attacker is enemy.
-    // Better heuristic: Enemy usually has a specific name from DB, players have user names.
-    // In simple PvE/PvP:
-    
-    const isPlayerAttacker = log.attacker === characterName || (log.attacker !== log.defender && log.playerStats !== undefined); // Heuristic
-    
-    const textColor = 'text-sky-400'; // Simplified for log readability
     const critText = log.isCrit ? <span className="font-bold text-amber-400">{t('expedition.critical')}</span> : '';
     const damageReducedText = log.damageReduced ? <span className="text-xs text-green-500 ml-1">{t('expedition.damageReduced', { amount: log.damageReduced })}</span> : '';
     
@@ -127,17 +124,14 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; }> = 
     return (
         <p className={`text-sm text-gray-300`}>
             <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-            <span className={`font-semibold text-sky-400`}>{log.attacker}</span>
+            <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
             <span> {attackVerb} </span>
             {log.weaponName && <span className="text-gray-500 mx-1">({log.weaponName})</span>}
-            <span className={`font-semibold text-red-400`}>{log.defender}</span>
+            <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
             <span> {t('expedition.dealing')} </span>
             <span className="font-bold text-white">{log.damage}</span>
             <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
             {stealText}
-            <span className="text-xs text-gray-500 ml-2">
-                ({log.attacker}: {log.playerHealth.toFixed(0)} HP, {log.defender}: {log.enemyHealth.toFixed(0)} HP)
-            </span>
         </p>
     );
 };
@@ -225,8 +219,14 @@ const CombatantStatsPanel: React.FC<{
   );
 };
 
-const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: string }> = ({ members, currentTurnActor }) => {
+const PartyMemberList: React.FC<{ 
+    members: PartyMember[]; 
+    currentTurnActor?: string;
+    onMemberHover: (member: PartyMember, rect: DOMRect) => void;
+    onMemberLeave: () => void;
+}> = ({ members, currentTurnActor, onMemberHover, onMemberLeave }) => {
     const { t } = useTranslation();
+    
     return (
         <div className="bg-slate-900/50 p-4 rounded-lg border border-sky-500/50 h-full overflow-y-auto overflow-visible">
              <h4 className="font-bold text-xl text-center border-b border-sky-500/50 pb-2 mb-2 text-sky-400">
@@ -240,7 +240,12 @@ const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: str
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
 
                     return (
-                        <div key={idx} className={`p-2 rounded bg-slate-800 relative group ${isActive ? 'ring-2 ring-sky-500' : ''}`}>
+                        <div 
+                            key={idx} 
+                            className={`p-2 rounded bg-slate-800 relative group ${isActive ? 'ring-2 ring-sky-500' : ''}`}
+                            onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
+                            onMouseLeave={onMemberLeave}
+                        >
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-bold text-sm">{member.characterName}</span>
                                 <span className="text-xs text-gray-400">Lvl {member.level}</span>
@@ -248,16 +253,6 @@ const PartyMemberList: React.FC<{ members: PartyMember[]; currentTurnActor?: str
                             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
                                 <div className="bg-green-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
                             </div>
-                             {/* Tooltip */}
-                             <div className="absolute left-full top-0 ml-2 z-[60] w-64 p-3 bg-slate-900 border border-slate-700 rounded shadow-xl opacity-0 group-hover:opacity-100 invisible group-hover:visible pointer-events-none transition-opacity">
-                                <p className="font-bold border-b border-slate-700 pb-1 mb-1">{member.characterName}</p>
-                                <div className="text-xs space-y-1 text-gray-300">
-                                    <p>HP: {currentHP.toFixed(0)} / {maxHP}</p>
-                                    <p>Mana: {member.stats?.currentMana.toFixed(0)} / {member.stats?.maxMana}</p>
-                                    <p>DMG: {member.stats?.minDamage}-{member.stats?.maxDamage}</p>
-                                    <p>Armor: {member.stats?.armor}</p>
-                                </div>
-                             </div>
                         </div>
                     );
                 })}
@@ -283,6 +278,7 @@ export interface ExpeditionSummaryModalProps {
     huntingMembers?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number }>;
     initialEnemy?: Enemy;
+    bossName?: string;
 }
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
@@ -297,7 +293,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     isHunting = false,
     huntingMembers = [],
     allRewards,
-    initialEnemy
+    initialEnemy,
+    bossName
 }) => {
     const { t } = useTranslation();
     const [displayedLogs, setDisplayedLogs] = useState<CombatLogEntry[]>([]);
@@ -325,6 +322,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const animationTimerRef = useRef<number | null>(null);
     const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const tooltipTimeoutRef = useRef<number | null>(null);
+    
+    // Member tooltip state
+    const [hoveredMember, setHoveredMember] = useState<{ data: PartyMember, rect: DOMRect } | null>(null);
+
 
     const handleItemMouseEnter = (itemInstance: ItemInstance) => {
         if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
@@ -465,7 +466,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                     <div className="flex gap-4 mb-6 min-h-[300px]">
                         <div className="w-1/4 flex-shrink-0">
                             {isHunting ? (
-                                <PartyMemberList members={partyMembersState} currentTurnActor={currentActor} />
+                                <PartyMemberList 
+                                    members={partyMembersState} 
+                                    currentTurnActor={currentActor} 
+                                    onMemberHover={(data, rect) => setHoveredMember({ data, rect })}
+                                    onMemberLeave={() => setHoveredMember(null)}
+                                />
                             ) : (
                                 <CombatantStatsPanel 
                                     name={combatant1Name} 
@@ -484,7 +490,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                     return (
                                         <React.Fragment key={index}>
                                             {isNewTurn && <div className="my-2 border-t border-slate-700/50"></div>}
-                                            <CombatLogRow log={log} characterName={characterName} />
+                                            <CombatLogRow log={log} characterName={characterName} bossName={bossName || currentEnemy?.name} />
                                         </React.Fragment>
                                     );
                                 })}
@@ -612,6 +618,26 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                     {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                 </button>
             </div>
+            
+            {/* Hovered Member Tooltip - Rendered outside of the overflow container using fixed positioning */}
+            {hoveredMember && (
+                <div 
+                    className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in"
+                    style={{
+                        top: Math.max(10, hoveredMember.rect.top),
+                        left: hoveredMember.rect.right + 10
+                    }}
+                >
+                     <p className="font-bold border-b border-slate-700 pb-1 mb-1 text-white">{hoveredMember.data.characterName}</p>
+                    <div className="text-xs space-y-1 text-gray-300">
+                        <p>HP: {hoveredMember.data.stats?.currentHealth.toFixed(0)} / {hoveredMember.data.stats?.maxHealth}</p>
+                        <p>Mana: {hoveredMember.data.stats?.currentMana.toFixed(0)} / {hoveredMember.data.stats?.maxMana}</p>
+                        <p>DMG: {hoveredMember.data.stats?.minDamage}-{hoveredMember.data.stats?.maxDamage}</p>
+                        <p>Armor: {hoveredMember.data.stats?.armor}</p>
+                    </div>
+                </div>
+            )}
+
             {tooltipData && (
                 <div
                     className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
@@ -798,6 +824,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
                     rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
                     lootTable: []
                 } : undefined}
+                bossName={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? (expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender) : undefined}
             />
         )}
         {content}

@@ -372,6 +372,61 @@ export const App: React.FC = () => {
                     onEquipItem={async (item) => {
                          const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                          if(!template) return;
+                         
+                         let newChar = { ...character };
+                         const targetSlot = template.slot;
+
+                         if (targetSlot === 'consumable') {
+                             // Consumable logic (use and remove)
+                             newChar.inventory = newChar.inventory.filter(i => i.uniqueId !== item.uniqueId);
+                             if(item.templateId === 'health_potion') { // Example hardcoded logic
+                                 newChar.stats.currentHealth = Math.min(newChar.stats.maxHealth, newChar.stats.currentHealth + 50);
+                             }
+                             await handleCharacterUpdate(newChar, true);
+                             return;
+                         }
+                         
+                         if (targetSlot === 'ring') {
+                             if (!newChar.equipment.ring1) {
+                                 newChar.equipment.ring1 = item;
+                             } else if (!newChar.equipment.ring2) {
+                                 newChar.equipment.ring2 = item;
+                             } else {
+                                 alert(t('equipment.ringSlotsFull'));
+                                 return;
+                             }
+                         } else if (targetSlot === EquipmentSlot.TwoHand) {
+                             if (newChar.equipment.mainHand) {
+                                 newChar.inventory.push(newChar.equipment.mainHand);
+                                 newChar.equipment.mainHand = null;
+                             }
+                             if (newChar.equipment.offHand) {
+                                 newChar.inventory.push(newChar.equipment.offHand);
+                                 newChar.equipment.offHand = null;
+                             }
+                             if (newChar.equipment.twoHand) {
+                                 newChar.inventory.push(newChar.equipment.twoHand);
+                             }
+                             newChar.equipment.twoHand = item;
+                         } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
+                             if (newChar.equipment.twoHand) {
+                                 newChar.inventory.push(newChar.equipment.twoHand);
+                                 newChar.equipment.twoHand = null;
+                             }
+                             if (newChar.equipment[targetSlot]) {
+                                 newChar.inventory.push(newChar.equipment[targetSlot]!);
+                             }
+                             newChar.equipment[targetSlot] = item;
+                         } else {
+                             const slot = targetSlot as EquipmentSlot;
+                             if (newChar.equipment[slot]) {
+                                 newChar.inventory.push(newChar.equipment[slot]!);
+                             }
+                             newChar.equipment[slot] = item;
+                         }
+
+                         newChar.inventory = newChar.inventory.filter(i => i.uniqueId !== item.uniqueId);
+                         await handleCharacterUpdate(newChar, true);
                     }}
                     onUnequipItem={async (item, slot) => {
                         const newChar = { ...character };
@@ -428,13 +483,31 @@ export const App: React.FC = () => {
                         handleCharacterUpdate({ ...character, isResting: !character.isResting, restStartHealth: character.stats.currentHealth }, true);
                     }}
                     onUpgradeCamp={() => {
-                        // Upgrade logic
+                        const cost = character.camp.level * 100;
+                        if (character.resources.gold >= cost) {
+                            const newChar = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost } };
+                            handleCharacterUpdate(newChar, true);
+                        }
                     }}
                     getCampUpgradeCost={(lvl) => lvl * 100}
                     onCharacterUpdate={handleCharacterUpdate}
                     onHealToFull={async () => { await api.healCharacter(character.id!); fetchCharacter(); }}
-                    onUpgradeChest={() => {}}
-                    onUpgradeBackpack={() => {}}
+                    onUpgradeChest={() => {
+                        const currentLevel = character.chest.level;
+                        const cost = { gold: currentLevel * 100, essences: [] }; // Simple cost for now
+                        if (character.resources.gold >= cost.gold) {
+                             const newChar = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                             handleCharacterUpdate(newChar, true);
+                        }
+                    }}
+                    onUpgradeBackpack={() => {
+                         const currentLevel = character.backpack?.level || 1;
+                         const cost = { gold: currentLevel * 100, essences: [] };
+                         if (character.resources.gold >= cost.gold) {
+                             const newChar = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                             handleCharacterUpdate(newChar, true);
+                         }
+                    }}
                     getChestUpgradeCost={(lvl) => ({ gold: lvl * 100, essences: [] })}
                     getBackpackUpgradeCost={(lvl) => ({ gold: lvl * 100, essences: [] })}
                 />;
@@ -559,6 +632,10 @@ export const App: React.FC = () => {
         }
     };
 
+    const backgroundStyle = gameData?.settings?.gameBackground 
+        ? { backgroundImage: `url(${gameData.settings.gameBackground})` } 
+        : { backgroundImage: `url('/bg_pattern.png')` };
+
     return (
         <LanguageContext.Provider value={{ lang: character.settings?.language || Language.PL, t }}>
             <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans">
@@ -574,7 +651,7 @@ export const App: React.FC = () => {
                     hasNewNews={hasNewNews}
                     settings={gameData.settings}
                 />
-                <main className="flex-1 overflow-y-auto p-6 bg-[url('/bg_pattern.png')] bg-repeat">
+                <main className="flex-1 overflow-y-auto p-6 bg-repeat bg-center" style={backgroundStyle}>
                     <div className="max-w-7xl mx-auto">
                         {renderContent()}
                     </div>

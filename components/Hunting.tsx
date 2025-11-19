@@ -154,6 +154,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     huntingMembers={myParty.members}
                     allRewards={myParty.allRewards}
                     initialEnemy={boss}
+                    bossName={boss?.name}
                 />
             );
         }

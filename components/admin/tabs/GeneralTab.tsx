@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GameSettings, ItemRarity, Tab } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -21,10 +22,12 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
   const [globalMessage, setGlobalMessage] = useState({ subject: '', content: '' });
   const [isSendingGlobal, setIsSendingGlobal] = useState(false);
   const [sidebarOrder, setSidebarOrder] = useState<Tab[]>(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+  const [sliderImagesInput, setSliderImagesInput] = useState(initialSettings.titleScreen?.images?.join(', ') || '');
 
   useEffect(() => {
     setSettings(initialSettings);
     setSidebarOrder(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+    setSliderImagesInput(initialSettings.titleScreen?.images?.join(', ') || '');
   }, [initialSettings]);
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -46,9 +49,32 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
         setSettings(prev => ({ ...prev, pvpProtectionMinutes: parseInt(value, 10) || 60 }));
     } else if (name === 'newsContent') {
          setSettings(prev => ({ ...prev, newsContent: value }));
+    } else if (name === 'titleScreenDescription') {
+        setSettings(prev => ({
+            ...prev,
+            titleScreen: {
+                ...prev.titleScreen,
+                description: value,
+                images: prev.titleScreen?.images || []
+            }
+        }));
     } else {
         setSettings(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleSliderImagesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setSliderImagesInput(value);
+      const images = value.split(',').map(url => url.trim()).filter(url => url.length > 0);
+      setSettings(prev => ({
+          ...prev,
+          titleScreen: {
+              ...prev.titleScreen,
+              description: prev.titleScreen?.description || '',
+              images: images
+          }
+      }));
   };
   
   const handleSaveSettings = () => {
@@ -117,6 +143,28 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSetting
                      <textarea name="newsContent" value={settings.newsContent || ''} onChange={handleSettingsChange} rows={6} className="w-full bg-slate-700 p-2 rounded-md" placeholder={t('admin.news.content')!}></textarea>
                 </div>
              </div>
+        </div>
+
+        <div className="border-t border-slate-700/50 pt-6">
+            <h3 className="text-2xl font-bold text-indigo-400 mb-4">Ustawienia Wizualne</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (URL)</label>
+                    <input type="text" name="loginBackground" value={settings.loginBackground || ''} onChange={handleSettingsChange} className="w-full bg-slate-700 p-2 rounded-md" placeholder="np. /login_bg.jpg lub https://..." />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Gry (URL)</label>
+                    <input type="text" name="gameBackground" value={settings.gameBackground || ''} onChange={handleSettingsChange} className="w-full bg-slate-700 p-2 rounded-md" placeholder="np. /bg_pattern.png lub https://..." />
+                </div>
+                <div className="md:col-span-2">
+                     <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.titleScreen.description')}</label>
+                     <textarea name="titleScreenDescription" value={settings.titleScreen?.description || ''} onChange={handleSettingsChange} rows={4} className="w-full bg-slate-700 p-2 rounded-md" placeholder="Opis gry na stronie logowania..."></textarea>
+                </div>
+                <div className="md:col-span-2">
+                     <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.titleScreen.sliderImages')} (oddzielone przecinkami)</label>
+                     <textarea name="sliderImages" value={sliderImagesInput} onChange={handleSliderImagesChange} rows={3} className="w-full bg-slate-700 p-2 rounded-md" placeholder="url1, url2, url3..."></textarea>
+                </div>
+            </div>
         </div>
         
         <div className="border-t border-slate-700/50 pt-6">
