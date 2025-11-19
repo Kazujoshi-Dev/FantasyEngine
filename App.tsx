@@ -21,7 +21,7 @@ import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
@@ -37,6 +37,7 @@ export const App: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
     const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
+    const [traderInventory, setTraderInventory] = useState<{ regularItems: ItemInstance[], specialOfferItems: ItemInstance[] }>({ regularItems: [], specialOfferItems: [] });
     
     // Ranking State
     const [ranking, setRanking] = useState<RankingPlayer[]>([]);
@@ -87,21 +88,34 @@ export const App: React.FC = () => {
         }
     }, []);
 
+    const fetchTraderInventory = useCallback(async (force = false) => {
+        try {
+            const inventory = await api.getTraderInventory(force);
+            setTraderInventory(inventory);
+        } catch (e) {
+            console.error("Failed to fetch trader inventory", e);
+        }
+    }, []);
+
     const handleForceTraderRefresh = useCallback(async () => {
         try {
-            await api.getTraderInventory(true);
+            await fetchTraderInventory(true);
             alert("Oferta handlarza została odświeżona.");
         } catch (e) {
             console.error("Failed to refresh trader", e);
             alert("Wystąpił błąd podczas odświeżania handlarza.");
         }
-    }, []);
+    }, [fetchTraderInventory]);
 
     useEffect(() => {
         if (activeTab === Tab.Ranking) {
             fetchRanking();
         }
         
+        if (activeTab === Tab.Trader) {
+            fetchTraderInventory();
+        }
+
         if (activeTab === Tab.Admin) {
              api.getUsers().then(setUsers).catch(console.error);
              api.getAllCharacters().then(setAllCharacters).catch(console.error);
@@ -121,7 +135,7 @@ export const App: React.FC = () => {
              }, 5000);
              return () => clearInterval(tavernInterval);
         }
-    }, [activeTab, fetchRanking]);
+    }, [activeTab, fetchRanking, fetchTraderInventory]);
 
     // --- Global Expedition Watcher ---
     // Monitors active expedition and auto-completes it when time is up, regardless of active tab.
@@ -655,10 +669,17 @@ export const App: React.FC = () => {
                     itemTemplates={gameData.itemTemplates}
                     affixes={gameData.affixes}
                     settings={gameData.settings}
-                    traderInventory={[]}
-                    traderSpecialOfferItems={[]}
-                    onBuyItem={async (item) => { await api.buyItem(item.uniqueId); fetchCharacter(); }}
-                    onSellItems={async (items) => { await api.sellItems(items.map(i => i.uniqueId)); fetchCharacter(); }}
+                    traderInventory={traderInventory.regularItems}
+                    traderSpecialOfferItems={traderInventory.specialOfferItems}
+                    onBuyItem={async (item) => { 
+                        await api.buyItem(item.uniqueId); 
+                        fetchCharacter();
+                        fetchTraderInventory();
+                    }}
+                    onSellItems={async (items) => { 
+                        await api.sellItems(items.map(i => i.uniqueId)); 
+                        fetchCharacter();
+                    }}
                 />;
              case Tab.Blacksmith:
                 return <Blacksmith 
