@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -13,6 +14,9 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
   const { t } = useTranslation();
   const [editingEnemy, setEditingEnemy] = useState<Partial<Enemy> | null>(null);
 
+  // Filter OUT bosses
+  const standardEnemies = enemies.filter(e => !e.isBoss);
+
   const handleSaveData = (itemFromEditor: Enemy | null) => {
     if (!itemFromEditor) {
         setEditingEnemy(null);
@@ -25,7 +29,8 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
     if (itemExists) {
         updatedData = enemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...enemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        // Ensure isBoss is false for this tab
+        updatedData = [...enemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: false }];
     }
     onGameDataUpdate('enemies', updatedData);
     setEditingEnemy(null);
@@ -48,7 +53,7 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
             <EnemyEditor enemy={editingEnemy} onSave={handleSaveData} onCancel={() => setEditingEnemy(null)} isEditing={!!editingEnemy.id} allItemTemplates={itemTemplates} />
         ) : (
             <div className="space-y-2">
-                {enemies.map(enemy => (
+                {standardEnemies.map(enemy => (
                      <div key={enemy.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                         <div><p className="font-semibold">{enemy.name}</p></div>
                         <div className="space-x-2">
