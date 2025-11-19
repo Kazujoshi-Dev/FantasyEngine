@@ -25,6 +25,11 @@ export const UsersTab: React.FC<UsersTabProps> = (props) => {
     ? props.allCharacters.filter(char => char && typeof char === 'object' && char.user_id != null)
     : [];
 
+  const renderText = (val: any) => {
+      if (typeof val === 'string' || typeof val === 'number') return val;
+      return 'N/A';
+  };
+
   return (
     <>
       {inspectingChar && (
@@ -63,8 +68,8 @@ export const UsersTab: React.FC<UsersTabProps> = (props) => {
                 {validCharacters.map(char => (
                   <tr key={char.user_id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
                     <td className="p-3">{char.user_id}</td>
-                    <td className="p-3">{char.username ?? 'N/A'}</td>
-                    <td className="p-3 font-semibold">{char.name ?? 'N/A'}</td>
+                    <td className="p-3">{renderText(char.username)}</td>
+                    <td className="p-3 font-semibold">{renderText(char.name)}</td>
                     <td className="p-3">{char.level ?? 0}</td>
                     <td className="p-3 font-mono">{(char.gold ?? 0).toLocaleString()}</td>
                     <td className="p-3 text-right">

@@ -40,6 +40,12 @@ export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate
         onGameDataUpdate('quests', updatedData);
     }
   };
+  
+  const renderName = (name: any) => {
+      if (typeof name === 'string') return name;
+      if (typeof name === 'object' && name !== null) return '[Invalid Object]';
+      return 'Bez nazwy';
+  };
 
   return (
     <div className="animate-fade-in">
@@ -53,7 +59,7 @@ export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate
           <div className="space-y-2">
               {safeQuests.map(quest => (
                    <div key={quest.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                      <div><p className="font-semibold">{quest.name || 'Bez nazwy'}</p></div>
+                      <div><p className="font-semibold">{renderName(quest.name)}</p></div>
                       <div className="space-x-2">
                           <button onClick={() => setEditingQuest(quest)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button>
                           <button onClick={() => handleDeleteData(quest.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>

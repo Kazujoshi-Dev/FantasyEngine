@@ -45,6 +45,12 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
         onGameDataUpdate('enemies', updatedData);
     }
   };
+  
+  const renderName = (name: any) => {
+      if (typeof name === 'string') return name;
+      if (typeof name === 'object' && name !== null) return '[Invalid Object]';
+      return 'Bez nazwy';
+  };
 
   return (
     <div className="animate-fade-in">
@@ -59,7 +65,7 @@ export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, 
                 {standardEnemies.length === 0 && <p className="text-gray-500 text-center py-4">Brak zdefiniowanych przeciwników.</p>}
                 {standardEnemies.map(enemy => (
                      <div key={enemy.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                        <div><p className="font-semibold">{enemy.name || 'Bez nazwy'}</p></div>
+                        <div><p className="font-semibold">{renderName(enemy.name)}</p></div>
                         <div className="space-x-2">
                             <button onClick={() => setEditingEnemy(enemy)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button>
                             <button onClick={() => handleDeleteData(enemy.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>

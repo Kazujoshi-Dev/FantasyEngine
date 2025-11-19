@@ -45,6 +45,12 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
     }
   };
 
+  const renderText = (text: any, fallback = '') => {
+      if (typeof text === 'string') return text;
+      if (typeof text === 'object' && text !== null) return '[Invalid Object]';
+      return fallback;
+  };
+
   return (
     <div className="animate-fade-in">
         <div className="flex justify-between items-center mb-4">
@@ -60,16 +66,16 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
                      <div key={boss.id} className="bg-slate-800/50 p-4 rounded-lg border border-amber-900/30 hover:border-amber-600/50 transition-colors flex flex-col">
                         <div className="flex gap-4 mb-3">
                              {boss.image ? (
-                                 <img src={boss.image} alt={boss.name} className="w-16 h-16 object-cover rounded-lg border border-slate-600" />
+                                 <img src={boss.image} alt={renderText(boss.name)} className="w-16 h-16 object-cover rounded-lg border border-slate-600" />
                              ) : (
                                  <div className="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center text-xs text-gray-500">Brak foto</div>
                              )}
                              <div>
-                                 <p className="font-bold text-lg text-white">{boss.name || 'Bez nazwy'}</p>
+                                 <p className="font-bold text-lg text-white">{renderText(boss.name, 'Bez nazwy')}</p>
                                  <p className="text-xs text-gray-400">HP: {boss.stats?.maxHealth || 0} | DMG: {boss.stats?.minDamage || 0}-{boss.stats?.maxDamage || 0}</p>
                              </div>
                         </div>
-                        <p className="text-sm text-gray-400 italic mb-4 flex-grow line-clamp-2">{boss.description || 'Brak opisu'}</p>
+                        <p className="text-sm text-gray-400 italic mb-4 flex-grow line-clamp-2">{renderText(boss.description, 'Brak opisu')}</p>
                         <div className="flex justify-end space-x-2 mt-auto">
                             <button onClick={() => setEditingBoss(boss)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600">{t('admin.edit')}</button>
                             <button onClick={() => handleDeleteData(boss.id!)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('admin.delete')}</button>

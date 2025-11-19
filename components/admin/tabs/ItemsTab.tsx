@@ -45,7 +45,7 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
 
   const filteredItems = useMemo(() => {
     return (itemTemplates || []).filter(item => {
-        if (!item || !item.name) return false;
+        if (!item || !item.name || typeof item.name !== 'string') return false;
         const nameMatch = item.name.toLowerCase().includes(itemSearch.toLowerCase());
         const rarityMatch = itemRarityFilter === 'all' || item.rarity === itemRarityFilter;
         const slotMatch = itemSlotFilter === 'all' || item.slot === itemSlotFilter;

@@ -174,7 +174,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
 
   const getTabName = (tab: Tab): string => {
       const tabNameEnum = Tab[tab];
-      if (!tabNameEnum) return `Unknown Tab (${tab})`;
+      if (tabNameEnum === undefined) return `Unknown Tab (${tab})`;
 
       const key = tabNameEnum.toLowerCase();
       // Map special cases or default to standard naming convention
