@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { GameSettings, ItemRarity, Tab, Language } from '../../../types';
+import { GameSettings, ItemRarity, Tab } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
 
@@ -12,40 +13,26 @@ interface GeneralTabProps {
 }
 
 const DEFAULT_TAB_ORDER: Tab[] = [
-    Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Hunting, Tab.Tavern, Tab.Trader,
+    Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Tavern, Tab.Trader,
     Tab.Blacksmith, Tab.Market, Tab.Camp, Tab.Location, Tab.Resources, Tab.Ranking,
     Tab.University, Tab.Messages, Tab.Options, Tab.Admin
 ];
 
-export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, onSettingsUpdate, onForceTraderRefresh, onSendGlobalMessage }) => {
+export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: initialSettings, onSettingsUpdate, onForceTraderRefresh, onSendGlobalMessage }) => {
   const { t } = useTranslation();
-  
-  // Fallback if propSettings is null/undefined
-  const initialSettings = propSettings || { language: Language.PL };
-
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const [globalMessage, setGlobalMessage] = useState({ subject: '', content: '' });
   const [isSendingGlobal, setIsSendingGlobal] = useState(false);
-  
-  // Safe initialization of sidebarOrder: filter out duplicates and invalid enum values
-  const safeSidebarOrder = (initialSettings.sidebarOrder || DEFAULT_TAB_ORDER)
-    .filter((t, index, self) => Tab[t] !== undefined && self.indexOf(t) === index);
-
-  const [sidebarOrder, setSidebarOrder] = useState<Tab[]>(safeSidebarOrder);
+  const [sidebarOrder, setSidebarOrder] = useState<Tab[]>(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
   
   // Slider images handling
   const [sliderImages, setSliderImages] = useState<string[]>(initialSettings.titleScreen?.images || []);
 
   useEffect(() => {
-    const safeSettings = propSettings || { language: Language.PL };
-    setSettings(safeSettings);
-    
-    const newSafeSidebarOrder = (safeSettings.sidebarOrder || DEFAULT_TAB_ORDER)
-      .filter((t, index, self) => Tab[t] !== undefined && self.indexOf(t) === index);
-
-    setSidebarOrder(newSafeSidebarOrder);
-    setSliderImages(safeSettings.titleScreen?.images || []);
-  }, [propSettings]);
+    setSettings(initialSettings);
+    setSidebarOrder(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+    setSliderImages(initialSettings.titleScreen?.images || []);
+  }, [initialSettings]);
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -162,15 +149,12 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   };
 
   const getTabName = (tab: Tab): string => {
-      const tabNameEnum = Tab[tab];
-      if (!tabNameEnum) return `Unknown Tab (${tab})`;
-
-      const key = tabNameEnum.toLowerCase();
+      const key = Tab[tab].toLowerCase();
       // Map special cases or default to standard naming convention
       if (tab === Tab.Admin) return t('sidebar.admin');
       // Using optional access for i18n keys
       const translated = t(`sidebar.${key}`);
-      return translated.includes('sidebar.') ? tabNameEnum : translated;
+      return translated.includes('sidebar.') ? Tab[tab] : translated;
   };
 
   return (

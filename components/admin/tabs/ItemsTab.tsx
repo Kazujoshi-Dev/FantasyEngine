@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ItemTemplate, ItemRarity, EquipmentSlot } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -23,14 +22,13 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
         return;
     }
 
-    const safeItemTemplates = itemTemplates || [];
-    const itemExists = itemFromEditor.id ? safeItemTemplates.some(d => d.id === itemFromEditor.id) : false;
+    const itemExists = itemFromEditor.id ? itemTemplates.some(d => d.id === itemFromEditor.id) : false;
     let updatedData;
 
     if (itemExists) {
-        updatedData = safeItemTemplates.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+        updatedData = itemTemplates.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...safeItemTemplates, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        updatedData = [...itemTemplates, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
     }
     onGameDataUpdate('itemTemplates', updatedData);
     setEditingItem(null);
@@ -38,13 +36,13 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
 
   const handleDeleteData = (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-        const updatedData = (itemTemplates || []).filter(item => item.id !== id);
+        const updatedData = itemTemplates.filter(item => item.id !== id);
         onGameDataUpdate('itemTemplates', updatedData);
     }
   };
 
   const filteredItems = useMemo(() => {
-    return (itemTemplates || []).filter(item => {
+    return itemTemplates.filter(item => {
         const nameMatch = item.name.toLowerCase().includes(itemSearch.toLowerCase());
         const rarityMatch = itemRarityFilter === 'all' || item.rarity === itemRarityFilter;
         const slotMatch = itemSlotFilter === 'all' || item.slot === itemSlotFilter;

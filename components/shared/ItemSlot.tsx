@@ -15,9 +15,8 @@ export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shad
 };
 
 export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
-    const safeAffixes = affixes || [];
-    const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
-    const suffixAffix = safeAffixes.find(a => a.id === item.suffixId);
+    const prefixAffix = affixes.find(a => a.id === item.prefixId);
+    const suffixAffix = affixes.find(a => a.id === item.suffixId);
     
     let genderKey: keyof Affix['name'] = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
@@ -51,7 +50,6 @@ export const ItemDetailsPanel: React.FC<{
 }> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title }) => {
     const { t } = useTranslation();
     const isSmall = size === 'small';
-    const safeAffixes = affixes || [];
     
     if (!item || !template) {
         return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
@@ -60,9 +58,9 @@ export const ItemDetailsPanel: React.FC<{
     const upgradeLevel = item.upgradeLevel || 0;
     const upgradeBonusFactor = upgradeLevel * 0.1;
     
-    const prefix = safeAffixes.find(a => a.id === item.prefixId);
-    const suffix = safeAffixes.find(a => a.id === item.suffixId);
-    const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
+    const prefix = affixes.find(a => a.id === item.prefixId);
+    const suffix = affixes.find(a => a.id === item.suffixId);
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
     
     let genderKey: keyof Affix['name'] = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
@@ -203,8 +201,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
     const { t } = useTranslation();
     const upgradeLevel = item.upgradeLevel || 0;
     const { border, text, bg, shadow } = rarityStyles[template.rarity];
-    const safeAffixes = affixes || [];
-    const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
     const finalBorder = meetsRequirements ? border : 'border-red-500';
 
     return (
@@ -265,11 +262,11 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                 let price;
                 if (showPrice) {
                     let itemValue = Number(template.value) || 0;
-                    if (item.prefixId && affixes) {
+                    if (item.prefixId) {
                         const prefix = affixes.find(a => a.id === item.prefixId);
                         itemValue += Number(prefix?.value) || 0;
                     }
-                    if (item.suffixId && affixes) {
+                    if (item.suffixId) {
                         const suffix = affixes.find(a => a.id === item.suffixId);
                         itemValue += Number(suffix?.value) || 0;
                     }

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { GameData, Quest } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -19,16 +18,13 @@ export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate
         return;
     }
 
-    // Safeguard: gameData.quests might be undefined initially in unsafe contexts
-    const safeQuests = gameData.quests || [];
-
-    const itemExists = itemFromEditor.id ? safeQuests.some(d => d.id === itemFromEditor.id) : false;
+    const itemExists = itemFromEditor.id ? gameData.quests.some(d => d.id === itemFromEditor.id) : false;
     let updatedData;
 
     if (itemExists) {
-        updatedData = safeQuests.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
+        updatedData = gameData.quests.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...safeQuests, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        updatedData = [...gameData.quests, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
     }
     onGameDataUpdate('quests', updatedData);
     setEditingQuest(null);
@@ -36,7 +32,7 @@ export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate
 
   const handleDeleteData = (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-        const updatedData = (gameData.quests || []).filter(item => item.id !== id);
+        const updatedData = gameData.quests.filter(item => item.id !== id);
         onGameDataUpdate('quests', updatedData);
     }
   };
@@ -51,7 +47,7 @@ export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate
           <QuestEditor quest={editingQuest} onSave={handleSaveData} onCancel={() => setEditingQuest(null)} isEditing={!!editingQuest.id} gameData={gameData} />
       ) : (
           <div className="space-y-2">
-              {(gameData.quests || []).map(quest => (
+              {gameData.quests.map(quest => (
                    <div key={quest.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                       <div><p className="font-semibold">{quest.name}</p></div>
                       <div className="space-x-2">
