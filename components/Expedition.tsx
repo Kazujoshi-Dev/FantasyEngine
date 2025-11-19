@@ -315,13 +315,20 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>(huntingMembers);
 
     const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(() => {
+        // Prioritize log data for stats initialization (scaled values)
+        const startLog = reward.combatLog && reward.combatLog.length > 0 ? reward.combatLog[0] : null;
+
         if (initialEnemy) {
+             // If we have a start log with enemy stats, use those (they are the scaled ones from the server)
+             // Otherwise fall back to the template stats
+             const effectiveStats = (startLog && startLog.enemyStats) ? startLog.enemyStats : initialEnemy.stats;
+
              return {
                  name: initialEnemy.name,
                  description: initialEnemy.description,
-                 stats: initialEnemy.stats,
-                 currentHealth: initialEnemy.stats.maxHealth,
-                 currentMana: initialEnemy.stats.maxMana || 0
+                 stats: effectiveStats,
+                 currentHealth: startLog ? startLog.enemyHealth : initialEnemy.stats.maxHealth,
+                 currentMana: startLog ? startLog.enemyMana : (initialEnemy.stats.maxMana || 0)
              };
         }
         return null;
