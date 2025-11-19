@@ -56,15 +56,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   
   // Create a safe version of gameData where all arrays are guaranteed to exist
   // This prevents "undefined.map" crashes in sub-components
+  // Using optional chaining ?. ensures we handle cases where props.gameData itself might be valid but empty
   const safeGameData: GameData = {
-      locations: props.gameData.locations || [],
-      expeditions: props.gameData.expeditions || [],
-      enemies: props.gameData.enemies || [],
-      itemTemplates: props.gameData.itemTemplates || [],
-      quests: props.gameData.quests || [],
-      affixes: props.gameData.affixes || [],
-      skills: props.gameData.skills || [],
-      settings: props.gameData.settings || { language: Language.PL }
+      locations: props.gameData?.locations || [],
+      expeditions: props.gameData?.expeditions || [],
+      enemies: props.gameData?.enemies || [],
+      itemTemplates: props.gameData?.itemTemplates || [],
+      quests: props.gameData?.quests || [],
+      affixes: props.gameData?.affixes || [],
+      skills: props.gameData?.skills || [],
+      settings: props.gameData?.settings || { language: Language.PL }
   };
 
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [

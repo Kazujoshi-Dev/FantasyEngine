@@ -12,7 +12,7 @@ interface GeneralTabProps {
 }
 
 const DEFAULT_TAB_ORDER: Tab[] = [
-    Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Tavern, Tab.Trader,
+    Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Hunting, Tab.Tavern, Tab.Trader,
     Tab.Blacksmith, Tab.Market, Tab.Camp, Tab.Location, Tab.Resources, Tab.Ranking,
     Tab.University, Tab.Messages, Tab.Options, Tab.Admin
 ];
@@ -26,7 +26,12 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const [globalMessage, setGlobalMessage] = useState({ subject: '', content: '' });
   const [isSendingGlobal, setIsSendingGlobal] = useState(false);
-  const [sidebarOrder, setSidebarOrder] = useState<Tab[]>(initialSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+  
+  // Safe initialization of sidebarOrder: filter out duplicates and invalid enum values
+  const safeSidebarOrder = (initialSettings.sidebarOrder || DEFAULT_TAB_ORDER)
+    .filter((t, index, self) => Tab[t] !== undefined && self.indexOf(t) === index);
+
+  const [sidebarOrder, setSidebarOrder] = useState<Tab[]>(safeSidebarOrder);
   
   // Slider images handling
   const [sliderImages, setSliderImages] = useState<string[]>(initialSettings.titleScreen?.images || []);
@@ -34,7 +39,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   useEffect(() => {
     const safeSettings = propSettings || { language: Language.PL };
     setSettings(safeSettings);
-    setSidebarOrder(safeSettings.sidebarOrder || DEFAULT_TAB_ORDER);
+    
+    const newSafeSidebarOrder = (safeSettings.sidebarOrder || DEFAULT_TAB_ORDER)
+      .filter((t, index, self) => Tab[t] !== undefined && self.indexOf(t) === index);
+
+    setSidebarOrder(newSafeSidebarOrder);
     setSliderImages(safeSettings.titleScreen?.images || []);
   }, [propSettings]);
 
@@ -153,12 +162,15 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   };
 
   const getTabName = (tab: Tab): string => {
-      const key = Tab[tab].toLowerCase();
+      const tabNameEnum = Tab[tab];
+      if (!tabNameEnum) return `Unknown Tab (${tab})`;
+
+      const key = tabNameEnum.toLowerCase();
       // Map special cases or default to standard naming convention
       if (tab === Tab.Admin) return t('sidebar.admin');
       // Using optional access for i18n keys
       const translated = t(`sidebar.${key}`);
-      return translated.includes('sidebar.') ? Tab[tab] : translated;
+      return translated.includes('sidebar.') ? tabNameEnum : translated;
   };
 
   return (
