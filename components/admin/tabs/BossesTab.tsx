@@ -51,6 +51,12 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
       return fallback;
   };
 
+  const getImageUrl = (url: string | undefined) => {
+      if (!url) return undefined;
+      if (url.startsWith('/uploads')) return `/api${url}`;
+      return url;
+  }
+
   return (
     <div className="animate-fade-in">
         <div className="flex justify-between items-center mb-4">
@@ -66,7 +72,7 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
                      <div key={boss.id} className="bg-slate-800/50 p-4 rounded-lg border border-amber-900/30 hover:border-amber-600/50 transition-colors flex flex-col">
                         <div className="flex gap-4 mb-3">
                              {boss.image ? (
-                                 <img src={boss.image} alt={renderText(boss.name)} className="w-16 h-16 object-cover rounded-lg border border-slate-600" />
+                                 <img src={getImageUrl(boss.image)} alt={renderText(boss.name)} className="w-16 h-16 object-cover rounded-lg border border-slate-600" />
                              ) : (
                                  <div className="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center text-xs text-gray-500">Brak foto</div>
                              )}

@@ -102,6 +102,12 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
         onSave(formData as Enemy);
     };
 
+    const getImageUrl = (url: string | undefined) => {
+        if (!url) return undefined;
+        if (url.startsWith('/uploads')) return `/api${url}`;
+        return url;
+    }
+
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-amber-400">{isEditing ? 'Edytuj Bossa' : 'Stwórz Bossa'}</h3>
@@ -124,7 +130,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                         {formData.image && (
                             <div className="mt-2">
                                 <p className="text-xs text-gray-400 mb-1">Podgląd:</p>
-                                <img src={formData.image} alt="Boss Portrait" className="w-32 h-32 object-cover rounded-lg border border-amber-700/50" />
+                                <img src={getImageUrl(formData.image)} alt="Boss Portrait" className="w-32 h-32 object-cover rounded-lg border border-amber-700/50" />
                             </div>
                         )}
                     </div>

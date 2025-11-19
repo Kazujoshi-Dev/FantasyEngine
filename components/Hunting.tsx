@@ -87,6 +87,12 @@ const BossStatsPanel: React.FC<{ stats: EnemyStats; baseStats?: EnemyStats }> = 
     );
 };
 
+const getImageUrl = (url: string | undefined) => {
+    if (!url) return undefined;
+    if (url.startsWith('/uploads')) return `/api${url}`;
+    return url;
+}
+
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
@@ -253,7 +259,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                      {/* Boss Portrait if available */}
                     {boss?.image && (
                         <div className="flex justify-center mb-4">
-                             <img src={boss.image} alt={boss.name} className="w-48 h-48 object-cover rounded-lg border-2 border-amber-600 shadow-lg" />
+                             <img src={getImageUrl(boss.image)} alt={boss.name} className="w-48 h-48 object-cover rounded-lg border-2 border-amber-600 shadow-lg" />
                         </div>
                     )}
 
@@ -335,7 +341,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     <div className="flex-grow flex flex-col items-center justify-center mb-4 bg-slate-800/30 rounded-lg border border-slate-700/50 p-4">
                         {selectedBoss ? (
                              selectedBoss.image ? (
-                                <img src={selectedBoss.image} alt={selectedBoss.name} className="max-w-full max-h-48 object-contain rounded-lg shadow-lg border border-amber-700/50" />
+                                <img src={getImageUrl(selectedBoss.image)} alt={selectedBoss.name} className="max-w-full max-h-48 object-contain rounded-lg shadow-lg border border-amber-700/50" />
                              ) : (
                                  <div className="w-32 h-32 bg-slate-700 rounded-full flex items-center justify-center text-gray-500">
                                      <CrossedSwordsIcon className="h-16 w-16 opacity-20" />
@@ -419,7 +425,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                             return (
                                 <div key={party.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center hover:bg-slate-800 transition-colors border border-slate-700/50">
                                     <div className="flex items-center gap-3">
-                                        {boss?.image && <img src={boss.image} alt="" className="w-10 h-10 rounded object-cover bg-slate-900" />}
+                                        {boss?.image && <img src={getImageUrl(boss.image)} alt="" className="w-10 h-10 rounded object-cover bg-slate-900" />}
                                         <div>
                                             <p className="font-bold text-amber-400 text-sm">{boss?.name}</p>
                                             <p className="text-xs text-gray-400">{party.currentMembersCount} / {party.maxMembers} graczy</p>

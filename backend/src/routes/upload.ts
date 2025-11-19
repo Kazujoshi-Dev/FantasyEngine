@@ -41,19 +41,19 @@ const upload = multer({
     }
 });
 
-router.post('/', authenticateToken, async (req: any, res: any, next: any) => {
+router.post('/', authenticateToken as any, (async (req: any, res: any, next: any) => {
      // Basic admin check
     const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [req.user!.id]);
     if (userRes.rows[0]?.username !== 'Kazujoshi') {
         return res.status(403).json({ message: 'Forbidden' });
     }
     next();
-}, upload.single('file'), (req: any, res: any) => {
+}) as any, upload.single('file'), (req: any, res: any) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
-    // Return the URL path that the static middleware will serve
-    const fileUrl = `/uploads/${req.file.filename}`;
+    // Return the URL path with /api prefix to ensure it works through proxies
+    const fileUrl = `/api/uploads/${req.file.filename}`;
     res.json({ url: fileUrl });
 });
 

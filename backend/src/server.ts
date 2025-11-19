@@ -72,7 +72,9 @@ const uploadsPath = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsPath)) {
     fs.mkdirSync(uploadsPath, { recursive: true });
 }
+// Serve via /uploads (legacy/direct) AND /api/uploads (proxy-friendly)
 app.use('/uploads', express.static(uploadsPath) as any);
+app.use('/api/uploads', express.static(uploadsPath) as any);
 
 app.get('*', (req: any, res: any) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
