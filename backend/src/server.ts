@@ -4,7 +4,6 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { exit } from 'process';
 import fs from 'fs';
 
 import { initializeDatabase } from './db.js';
@@ -98,5 +97,5 @@ initializeDatabase().then(() => {
     setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); // Run every hour
 }).catch((err: Error) => {
     console.error('Failed to start server:', err);
-    exit(1);
+    process.exit(1);
 });

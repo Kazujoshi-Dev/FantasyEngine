@@ -155,17 +155,14 @@ const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix
     );
 
     if (eligibleTemplates.length === 0) {
-        console.warn("No Common, Uncommon, or Rare items found for special item. Falling back to all items.");
+        // Fallback to any template if specific rarities are missing
         eligibleTemplates = itemTemplates;
     }
     
-    // Hardcoded fallback to prevent returning null
+    // Hardcoded fallback to prevent returning null if DB is totally empty of valid templates
     if (eligibleTemplates.length === 0) {
-        console.error("CRITICAL: No item templates found in the database. Using hardcoded fallback item.");
-        const fallbackTemplate: ItemTemplate = { id: 'fallback_sword', name: 'Awaryjny Miecz', gender: GrammaticalGender.Masculine, description: 'Miecz na czarną godzinę.', slot: EquipmentSlot.MainHand, category: ItemCategory.Weapon, rarity: ItemRarity.Common, icon: '', value: 1, requiredLevel: 1, damageMin: { min: 1, max: 1 }, damageMax: { min: 2, max: 2 } };
-        eligibleTemplates.push(fallbackTemplate);
+        return null;
     }
-
 
     const template = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
 
@@ -207,6 +204,7 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
     
     const chances = settings.traderSettings?.rarityChances || defaultChances;
     
+    // Filter templates that are meant to be sold by trader (usually lower tiers)
     let eligibleTemplates = itemTemplates.filter(t => 
         t.rarity === ItemRarity.Common ||
         t.rarity === ItemRarity.Uncommon ||
@@ -217,7 +215,8 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
         console.warn("No Common, Uncommon, or Rare items found for trader. Falling back to all items.");
         eligibleTemplates = itemTemplates;
     }
-
+    
+    // If absolutely no items exist, return empty to prevent crash
     if (eligibleTemplates.length === 0) return { regularItems: [], specialOfferItems: [] };
     
     for (let i = 0; i < INVENTORY_SIZE; i++) {
@@ -235,13 +234,14 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
         let templatesOfRarity = eligibleTemplates.filter(t => t.rarity === selectedRarity);
 
         if (templatesOfRarity.length === 0) {
-            // Fallback to any eligible template if no items of the selected rarity are found
+            // Critical Fallback: If we rolled "Rare" but have no Rare items, 
+            // default to ANY eligible item instead of leaving the slot empty.
             templatesOfRarity = eligibleTemplates;
         }
 
         if (templatesOfRarity.length > 0) {
             const template = templatesOfRarity[Math.floor(Math.random() * templatesOfRarity.length)];
-            regularItems.push(createItemInstance(template.id, itemTemplates, affixes, false));
+            regularItems.push(createItemInstance(template.id, itemTemplates, affixes, true));
         }
     }
     
