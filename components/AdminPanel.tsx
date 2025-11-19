@@ -16,7 +16,6 @@ import { PvpTab } from './admin/tabs/PvpTab';
 import { ItemInspectorTab } from './admin/tabs/ItemInspectorTab';
 import { DuplicationAuditTab } from './admin/tabs/DuplicationAuditTab';
 import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
-import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { UniversityTab } from './admin/tabs/UniversityTab';
 import { HuntingTab } from './admin/tabs/HuntingTab';
@@ -42,7 +41,7 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'databaseEditor' | 'dataIntegrity' | 'university' | 'hunting';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
@@ -52,7 +51,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'general', label: 'Ogólne' },
     { id: 'hunting', label: 'Polowania' },
     { id: 'users', label: 'Użytkownicy i Postacie' },
-    { id: 'databaseEditor', label: 'Edytor Bazy Danych' },
     { id: 'locations', label: 'Lokacje' },
     { id: 'expeditions', label: 'Ekspedycje' },
     { id: 'enemies', label: 'Wrogowie' },
@@ -94,8 +92,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onInspectCharacter={props.onInspectCharacter}
                   onDeleteCharacterItem={props.onDeleteCharacterItem}
                 />;
-      case 'databaseEditor':
-        return <DatabaseEditorTab />;
       case 'locations':
         return <LocationsTab
                   locations={props.gameData.locations}

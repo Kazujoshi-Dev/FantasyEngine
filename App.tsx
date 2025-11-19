@@ -21,7 +21,7 @@ import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
@@ -37,6 +37,10 @@ export const App: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
     const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
+    
+    // Ranking State
+    const [ranking, setRanking] = useState<RankingPlayer[]>([]);
+    const [isRankingLoading, setIsRankingLoading] = useState(false);
 
     // Ref to prevent double submission of expedition completion
     const isCompletingExpeditionRef = useRef(false);
@@ -70,6 +74,44 @@ export const App: React.FC = () => {
             }
         }
     };
+    
+    const fetchRanking = useCallback(async () => {
+        setIsRankingLoading(true);
+        try {
+            const data = await api.getRanking();
+            setRanking(data);
+        } catch (e) {
+            console.error("Failed to fetch ranking", e);
+        } finally {
+            setIsRankingLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === Tab.Ranking) {
+            fetchRanking();
+        }
+        
+        if (activeTab === Tab.Admin) {
+             api.getUsers().then(setUsers).catch(console.error);
+             api.getAllCharacters().then(setAllCharacters).catch(console.error);
+        }
+        
+        if (activeTab === Tab.Tavern) {
+             api.getTavernMessages().then(data => {
+                 setTavernMessages(data.messages);
+                 setActiveUsers(data.activeUsers);
+             }).catch(console.error);
+             
+             const tavernInterval = setInterval(() => {
+                 api.getTavernMessages().then(data => {
+                     setTavernMessages(data.messages);
+                     setActiveUsers(data.activeUsers);
+                 }).catch(console.error);
+             }, 5000);
+             return () => clearInterval(tavernInterval);
+        }
+    }, [activeTab, fetchRanking]);
 
     // --- Global Expedition Watcher ---
     // Monitors active expedition and auto-completes it when time is up, regardless of active tab.
@@ -567,10 +609,10 @@ export const App: React.FC = () => {
                 return <Resources character={character} />;
             case Tab.Ranking:
                 return <Ranking 
-                    ranking={[]} 
+                    ranking={ranking} 
                     currentPlayer={character} 
-                    onRefresh={() => {}} 
-                    isLoading={false} 
+                    onRefresh={fetchRanking} 
+                    isLoading={isRankingLoading} 
                     onAttack={async (id) => { await api.attackPlayer(id); fetchCharacter(); }}
                     onComposeMessage={() => {}}
                 />;
