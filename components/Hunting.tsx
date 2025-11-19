@@ -56,7 +56,7 @@ const BossStatsPanel: React.FC<{ stats: EnemyStats; baseStats?: EnemyStats }> = 
     };
 
     return (
-        <div className="space-y-2 text-sm text-gray-300 bg-slate-800/50 p-4 rounded-lg h-full border border-slate-700">
+        <div className="space-y-2 text-sm text-gray-300 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
             <p className="flex justify-between items-center">
                 <span>HP:</span> 
                 <span className="font-mono">
@@ -321,10 +321,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     // View for Browser / Create - 3 Columns
     return (
         <ContentPanel title={t('hunting.title')}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[70vh]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[70vh]">
                 
-                {/* Column 1: Create / Select Boss */}
-                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
+                {/* Column 1: Create / Select Boss (approx 33%) */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-4">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">{t('hunting.chooseBoss')}</h3>
                     
                     <div className="mb-4">
@@ -378,16 +378,16 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     )}
                 </div>
 
-                {/* Column 2: Boss Stats */}
-                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
+                {/* Column 2: Boss Stats (approx 25% - reduced width) */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-3">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">Informacje o Celu</h3>
                     {selectedBoss && scaledBossStats && estimatedRewards ? (
-                        <div className="flex flex-col h-full">
+                        <div className="flex flex-col">
                             <div className="mb-4 text-center">
                                 <p className="text-lg font-bold text-white">{selectedBoss.name}</p>
                                 <p className="text-sm text-gray-400 italic">{selectedBoss.description}</p>
                             </div>
-                            <div className="flex-grow">
+                            <div>
                                 <BossStatsPanel stats={scaledBossStats as EnemyStats} baseStats={selectedBoss.stats} />
                                 <div className="mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                                     <p className="font-semibold text-center text-green-400 mb-2 text-sm">Szacowane Nagrody (na osobę)</p>
@@ -415,8 +415,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     )}
                 </div>
 
-                {/* Column 3: Available Groups */}
-                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
+                {/* Column 3: Available Groups (approx 42% - increased width) */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-5">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('hunting.availableParties')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                         {availableParties.length === 0 && <p className="text-gray-500 text-center py-4">{t('hunting.noParties')}</p>}

@@ -48,7 +48,7 @@ router.post('/', authenticateToken as any, (async (req: any, res: any, next: any
         return res.status(403).json({ message: 'Forbidden' });
     }
     next();
-}) as any, upload.single('file'), (req: any, res: any) => {
+}) as any, upload.single('file') as any, (req: any, res: any) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }

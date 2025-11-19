@@ -60,14 +60,31 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
              const fightStartTime = new Date(party.startTime).getTime() + durationMinutes * 60 * 1000;
              
              if (new Date().getTime() > fightStartTime) {
-                 // Transition to FIGHTING -> FINISHED immediately for simplicity in this architecture
-                 party = await processPartyCombat(party, gameData);
+                 // Atomic Lock: Try to update status to FIGHTING. 
+                 // Only one request will succeed (rowCount === 1).
+                 const lockResult = await pool.query(
+                     "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
+                     [party.id]
+                 );
+
+                 if (lockResult.rowCount === 1) {
+                     // We won the race. Process combat.
+                     // processPartyCombat updates DB to FINISHED at the end.
+                     party = await processPartyCombat(party, gameData);
+                 } else {
+                     // We lost the race (someone else is processing) or it's already finished.
+                     // Fetch the updated state from DB.
+                     const updatedParty = await getPartyByMember(req.user.id);
+                     if (updatedParty) party = updatedParty;
+                 }
              }
         }
         
         // Inject rewards specific to this user if finished
         if (party.status === PartyStatus.Finished) {
-            const rewardsRaw = (await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0].rewards;
+            // Re-fetch rewards if we came from the "lost race" branch above to ensure we have the data
+            const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id]);
+            const rewardsRaw = rewardsRes.rows[0]?.rewards;
             
             // Personal rewards
             if (rewardsRaw && rewardsRaw[req.user.id]) {

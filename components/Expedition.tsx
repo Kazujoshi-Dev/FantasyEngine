@@ -35,47 +35,68 @@ const formatTimeLeft = (seconds: number): string => {
     return `${h}:${m}:${s}`;
 };
 
-const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossName?: string }> = ({ log, characterName, bossName }) => {
+const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossName?: string; isParty?: boolean }> = ({ log, characterName, bossName, isParty }) => {
     const { t } = useTranslation();
-
-    if (log.action === 'starts a fight with') {
-        return (
-            <div className="text-center my-3 py-2 border-y border-slate-700/50">
-                <p className="font-bold text-lg text-gray-300">
-                    <span className="text-sky-400">{log.attacker}</span>
-                    <span className="text-gray-400 mx-2">{t('expedition.versus')}</span>
-                    <span className="text-red-400">{log.defender}</span>
-                </p>
-            </div>
-        )
-    }
 
     const getCombatantColor = (name: string) => {
         if (bossName && name === bossName) return 'text-red-400';
         // Default to blue for all players/allies if not the boss
         return 'text-sky-400';
     };
+
+    const getHpForEntity = (name: string) => {
+        if (isParty) {
+             if (bossName && name === bossName) return log.enemyHealth;
+             return log.playerHealth;
+        } else {
+             if (name === characterName) return log.playerHealth;
+             return log.enemyHealth;
+        }
+    };
+
+    const renderName = (name: string) => {
+        const color = getCombatantColor(name);
+        if(name === 'Team') return <span className={`font-semibold ${color}`}>{name}</span>;
+        
+        const hp = Math.max(0, Math.ceil(getHpForEntity(name)));
+        
+        return (
+            <>
+                <span className={`font-semibold ${color}`}>{name}</span>
+                <span className="text-xs text-gray-500 font-normal ml-1">({hp} HP)</span>
+            </>
+        );
+    };
+
+    if (log.action === 'starts a fight with') {
+        return (
+            <div className="text-center my-3 py-2 border-y border-slate-700/50">
+                <p className="font-bold text-lg text-gray-300">
+                    {renderName(log.attacker)}
+                    <span className="text-gray-400 mx-2">{t('expedition.versus')}</span>
+                    {renderName(log.defender)}
+                </p>
+            </div>
+        )
+    }
     
     if (log.action === 'death') {
         return (
              <div className="text-center my-2 py-1 bg-red-900/20 rounded border border-red-900/50">
                 <p className="font-bold text-sm text-red-500">
-                    Gracz <span className="text-white">{log.defender}</span> poległ od ciosu przeciwnika <span className="text-red-300">{log.attacker}</span>!
+                    Gracz {renderName(log.defender)} poległ od ciosu przeciwnika {renderName(log.attacker)}!
                 </p>
             </div>
         );
     }
 
-    const attackerColor = getCombatantColor(log.attacker);
-    const defenderColor = getCombatantColor(log.defender);
-
     if (log.action === 'shaman_power') {
         return (
             <p className="text-sm text-purple-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
+                {renderName(log.attacker)}
                 <span> {t('expedition.shamanPower')} </span>
-                <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
+                {renderName(log.defender)}
                 <span> {t('expedition.dealing')} </span>
                 <span className="font-bold text-white">{log.damage}</span>
                 <span> {t('expedition.damage')}.</span>
@@ -87,7 +108,7 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
         return (
              <p className="text-sm text-cyan-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
+                {renderName(log.attacker)}
                 <span> {t('expedition.manaGained')} </span>
                 <span className="font-bold text-white">+{log.manaGained?.toFixed(0)}</span>
                 <span> {t('expedition.manaPoints')}.</span>
@@ -108,7 +129,7 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
         return (
             <p className="text-sm text-green-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
+                {renderName(log.defender)}
                 <span> {t('expedition.dodge')}</span>
             </p>
         );
@@ -132,10 +153,10 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
     return (
         <p className={`text-sm text-gray-300`}>
             <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-            <span className={`font-semibold ${attackerColor}`}>{log.attacker}</span>
+            {renderName(log.attacker)}
             <span> {attackVerb} </span>
             {log.weaponName && <span className="text-gray-500 mx-1">({log.weaponName})</span>}
-            <span className={`font-semibold ${defenderColor}`}>{log.defender}</span>
+            {renderName(log.defender)}
             <span> {t('expedition.dealing')} </span>
             <span className="font-bold text-white">{log.damage}</span>
             <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
@@ -505,7 +526,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                     return (
                                         <React.Fragment key={index}>
                                             {isNewTurn && <div className="my-2 border-t border-slate-700/50"></div>}
-                                            <CombatLogRow log={log} characterName={characterName} bossName={bossName || currentEnemy?.name} />
+                                            <CombatLogRow 
+                                                log={log} 
+                                                characterName={characterName} 
+                                                bossName={bossName || currentEnemy?.name}
+                                                isParty={isHunting} 
+                                            />
                                         </React.Fragment>
                                     );
                                 })}
