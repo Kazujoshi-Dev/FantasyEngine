@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import process from 'process';
 
 import { initializeDatabase } from './db.js';
 import { cleanupOldTavernMessages } from './logic/tasks.js';

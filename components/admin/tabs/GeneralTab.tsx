@@ -293,6 +293,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
                     </div>
                 ))}
             </div>
+            {/* Use explicit key to avoid rendering object */}
             <p className="text-xs text-gray-500 mt-2">{t('admin.traderSettings.rarityChancesDesc')}</p>
         </div>
 

@@ -87,6 +87,16 @@ export const App: React.FC = () => {
         }
     }, []);
 
+    const handleForceTraderRefresh = useCallback(async () => {
+        try {
+            await api.getTraderInventory(true);
+            alert("Oferta handlarza została odświeżona.");
+        } catch (e) {
+            console.error("Failed to refresh trader", e);
+            alert("Wystąpił błąd podczas odświeżania handlarza.");
+        }
+    }, []);
+
     useEffect(() => {
         if (activeTab === Tab.Ranking) {
             fetchRanking();
@@ -707,7 +717,7 @@ export const App: React.FC = () => {
                     onResetCharacterStats={async (id) => { await api.resetCharacterStats(id); }}
                     onHealCharacter={async (id) => { await api.adminHealCharacter(id); }}
                     onUpdateCharacterGold={async (id, gold) => { await api.updateCharacterGold(id, gold); }}
-                    onForceTraderRefresh={() => {}}
+                    onForceTraderRefresh={handleForceTraderRefresh}
                     onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); }}
                     onSendGlobalMessage={async (data) => { await api.sendGlobalMessage(data); }}
                     onRegenerateCharacterEnergy={async (id) => { await api.regenerateCharacterEnergy(id); }}

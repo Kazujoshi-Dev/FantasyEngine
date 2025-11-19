@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -299,7 +300,11 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                     </div>
 
                     <h4 className="font-bold text-lg text-gray-300 mt-4 pt-4 border-t border-slate-700/50 mb-2 px-2">{t('trader.regularWares')}</h4>
-                    <ItemList items={traderInventory} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} showPrice="buy" meetsRequirements={meetsRequirements} />
+                    {traderInventory.length > 0 ? (
+                        <ItemList items={traderInventory} itemTemplates={itemTemplates} affixes={affixes} selectedItem={detailsItem?.item || null} onSelectItem={handleTraderItemClick} showPrice="buy" meetsRequirements={meetsRequirements} />
+                    ) : (
+                         <p className="text-sm text-gray-500 px-2">Brak towarów. Wróć później.</p>
+                    )}
                 </div>
 
                 <div className="bg-slate-900/40 p-4 rounded-xl min-h-0">

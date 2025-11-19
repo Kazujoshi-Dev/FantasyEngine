@@ -204,6 +204,8 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
     
     const chances = settings.traderSettings?.rarityChances || defaultChances;
     
+    if (!Array.isArray(itemTemplates)) return { regularItems: [], specialOfferItems: [] };
+
     // Filter templates that are meant to be sold by trader (usually lower tiers)
     let eligibleTemplates = itemTemplates.filter(t => 
         t.rarity === ItemRarity.Common ||
