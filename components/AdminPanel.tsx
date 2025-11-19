@@ -9,6 +9,7 @@ import { UsersTab } from './admin/tabs/UsersTab';
 import { LocationsTab } from './admin/tabs/LocationsTab';
 import { ExpeditionsTab } from './admin/tabs/ExpeditionsTab';
 import { EnemiesTab } from './admin/tabs/EnemiesTab';
+import { BossesTab } from './admin/tabs/BossesTab';
 import { ItemsTab } from './admin/tabs/ItemsTab';
 import { AffixesTab } from './admin/tabs/AffixesTab';
 import { QuestsTab } from './admin/tabs/QuestsTab';
@@ -41,7 +42,7 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
@@ -54,6 +55,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'locations', label: 'Lokacje' },
     { id: 'expeditions', label: 'Ekspedycje' },
     { id: 'enemies', label: 'Wrogowie' },
+    { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },
     { id: 'affixes', label: 'Afiksy' },
     { id: 'quests', label: 'Zadania' },
@@ -107,6 +109,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                 />;
       case 'enemies':
         return <EnemiesTab
+                  enemies={props.gameData.enemies}
+                  itemTemplates={props.gameData.itemTemplates}
+                  onGameDataUpdate={props.onGameDataUpdate}
+                />;
+      case 'bosses':
+        return <BossesTab
                   enemies={props.gameData.enemies}
                   itemTemplates={props.gameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
