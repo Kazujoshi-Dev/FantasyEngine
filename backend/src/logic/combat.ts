@@ -470,13 +470,16 @@ const performTeamAttack = (
     const attackerStats = isBossAttacking ? state.enemy.stats : activePlayer.stats;
     const defenderStats = isBossAttacking ? activePlayer.stats : state.enemy.stats;
 
+    const attackerName = isBossAttacking ? state.enemy.name : activePlayer.data.name;
+    const defenderName = isBossAttacking ? activePlayer.data.name : state.enemy.name;
+
     // Dodge Check
     const dodgeChance = 'dodgeChance' in defenderStats ? (defenderStats as CharacterStats).dodgeChance : 0;
     if (Math.random() * 100 < dodgeChance) {
         state.log.push({
             turn: state.turn,
-            attacker: attacker === state.enemy ? attacker.name : (attacker as TeamCombatPlayerState).data.name,
-            defender: defender === state.enemy ? defender.name : (defender as TeamCombatPlayerState).data.name,
+            attacker: attackerName,
+            defender: defenderName,
             action: 'dodge',
             isDodge: true,
             // Capture state of specific player involved
@@ -581,13 +584,12 @@ const performTeamAttack = (
         state.enemy.currentHealth = Math.max(0, state.enemy.currentHealth - damage);
     } else {
         activePlayer.currentHealth = Math.max(0, activePlayer.currentHealth - damage);
-        if (activePlayer.currentHealth <= 0) activePlayer.isDead = true;
     }
 
     state.log.push({
         turn: state.turn,
-        attacker: attacker === state.enemy ? attacker.name : (attacker as TeamCombatPlayerState).data.name,
-        defender: defender === state.enemy ? defender.name : (defender as TeamCombatPlayerState).data.name,
+        attacker: attackerName,
+        defender: defenderName,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
         damage,
         isCrit,
@@ -602,4 +604,19 @@ const performTeamAttack = (
         enemyMana: state.enemy.currentMana,
         playerStats: !isBossAttacking ? activePlayer.stats : undefined // Pass stats on attack so UI can update
     });
+
+    // Handle death specifically to avoid "attacking dead player" logs
+    if (isBossAttacking && activePlayer.currentHealth <= 0 && !activePlayer.isDead) {
+        activePlayer.isDead = true;
+        state.log.push({
+            turn: state.turn,
+            attacker: attackerName,
+            defender: defenderName,
+            action: 'death',
+            playerHealth: 0,
+            playerMana: activePlayer.currentMana,
+            enemyHealth: state.enemy.currentHealth,
+            enemyMana: state.enemy.currentMana
+        });
+    }
 }
