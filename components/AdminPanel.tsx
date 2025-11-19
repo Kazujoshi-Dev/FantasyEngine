@@ -49,10 +49,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
-  // Ensure gameData exists to prevent crashes, though Parent checks this too
+  // Ensure gameData exists to prevent crashes
   if (!props.gameData) {
       return <ContentPanel title={t('admin.title')}><p>Loading game data...</p></ContentPanel>;
   }
+  
+  // Create a safe version of gameData where all arrays are guaranteed to exist
+  // This prevents "undefined.map" crashes in sub-components
+  const safeGameData: GameData = {
+      locations: props.gameData.locations || [],
+      expeditions: props.gameData.expeditions || [],
+      enemies: props.gameData.enemies || [],
+      itemTemplates: props.gameData.itemTemplates || [],
+      quests: props.gameData.quests || [],
+      affixes: props.gameData.affixes || [],
+      skills: props.gameData.skills || [],
+      settings: props.gameData.settings || { language: Language.PL }
+  };
 
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
@@ -74,8 +87,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'databaseEditor', label: 'Edytor Bazy Danych' },
   ];
   
-  const defaultSettings: GameSettings = { language: Language.PL };
-  const settings = props.gameData.settings || defaultSettings;
+  const settings = safeGameData.settings;
 
   const renderActiveTab = () => {
     switch (adminTab) {
@@ -94,7 +106,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
       case 'users':
         return <UsersTab 
                   allCharacters={props.allCharacters || []}
-                  gameData={props.gameData}
+                  gameData={safeGameData}
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
                   onDeleteCharacter={props.onDeleteCharacter}
@@ -106,47 +118,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                 />;
       case 'locations':
         return <LocationsTab
-                  locations={props.gameData.locations || []}
+                  locations={safeGameData.locations}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'expeditions':
         return <ExpeditionsTab
-                  expeditions={props.gameData.expeditions || []}
-                  locations={props.gameData.locations || []}
-                  enemies={props.gameData.enemies || []}
-                  itemTemplates={props.gameData.itemTemplates || []}
+                  expeditions={safeGameData.expeditions}
+                  locations={safeGameData.locations}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'enemies':
         return <EnemiesTab
-                  enemies={props.gameData.enemies || []}
-                  itemTemplates={props.gameData.itemTemplates || []}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'bosses':
         return <BossesTab
-                  enemies={props.gameData.enemies || []}
-                  itemTemplates={props.gameData.itemTemplates || []}
+                  enemies={safeGameData.enemies}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'items':
         return <ItemsTab
-                  itemTemplates={props.gameData.itemTemplates || []}
+                  itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'affixes':
         return <AffixesTab
-                  affixes={props.gameData.affixes || []}
+                  affixes={safeGameData.affixes}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'quests':
         return <QuestsTab
-                  gameData={props.gameData}
+                  gameData={safeGameData}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'university':
         return <UniversityTab
-                  skills={props.gameData.skills || []}
+                  skills={safeGameData.skills}
                   onGameDataUpdate={props.onGameDataUpdate as any}
                 />;
       case 'pvp':
@@ -156,7 +168,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onResetAllPvpCooldowns={props.onResetAllPvpCooldowns}
                 />;
       case 'itemInspector':
-        return <ItemInspectorTab gameData={props.gameData} />;
+        return <ItemInspectorTab gameData={safeGameData} />;
       case 'duplicationAudit':
         return <DuplicationAuditTab />;
       case 'orphanAudit':
