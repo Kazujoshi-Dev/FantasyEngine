@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, HuntingParty, Enemy, PartyStatus, PartyMemberStatus, GameData, ItemTemplate, Affix } from '../types';
+import { PlayerCharacter, HuntingParty, Enemy, PartyStatus, PartyMemberStatus, GameData, ItemTemplate, Affix, EnemyStats } from '../types';
 import { api } from '../api';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { ExpeditionSummaryModal } from './Expedition';
@@ -37,6 +37,21 @@ const CountdownTimer: React.FC<{ targetDate: string, durationMinutes: number, on
     return <span className="font-mono text-2xl text-amber-400 font-bold">{timeLeft}</span>;
 };
 
+const BossStatsPanel: React.FC<{ stats: EnemyStats }> = ({ stats }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="space-y-2 text-sm text-gray-300 bg-slate-800/50 p-4 rounded-lg h-full border border-slate-700">
+            <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white font-bold">{stats.maxHealth}</span></p>
+            <p className="flex justify-between"><span>Obrażenia:</span> <span className="font-mono text-white">{stats.minDamage}-{stats.maxDamage}</span></p>
+            <p className="flex justify-between"><span>Pancerz:</span> <span className="font-mono text-white">{stats.armor}</span></p>
+            <p className="flex justify-between"><span>Ataki/tura:</span> <span className="font-mono text-white">{stats.attacksPerTurn || 1}</span></p>
+             <div className="border-t border-slate-700/50 my-2"></div>
+             {stats.maxMana ? <p className="flex justify-between text-purple-300"><span>Mana:</span> <span className="font-mono">{stats.maxMana}</span></p> : null}
+             {stats.magicDamageMin ? <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{stats.magicDamageMin}-{stats.magicDamageMax}</span></p> : null}
+        </div>
+    );
+};
+
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
@@ -44,7 +59,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const [createBossId, setCreateBossId] = useState('');
     const [createMembers, setCreateMembers] = useState(4);
     const [isLoading, setIsLoading] = useState(false);
-    const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
     const fetchMyParty = useCallback(async () => {
         try {
@@ -127,6 +141,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
     // Boss List
     const bosses = enemies.filter(e => e.isBoss);
+    const selectedBoss = bosses.find(b => b.id === createBossId);
     const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
 
     if (myParty) {
@@ -163,6 +178,14 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
             <ContentPanel title={t('hunting.title')}>
                 <div className="bg-slate-900/40 p-6 rounded-xl text-center">
                     <h3 className="text-2xl font-bold text-amber-400 mb-2">{boss?.name || 'Unknown Boss'}</h3>
+                    
+                     {/* Boss Portrait if available */}
+                    {boss?.image && (
+                        <div className="flex justify-center mb-4">
+                             <img src={boss.image} alt={boss.name} className="w-48 h-48 object-cover rounded-lg border-2 border-amber-600 shadow-lg" />
+                        </div>
+                    )}
+
                     <p className="text-gray-400 mb-6">{t('hunting.statusLabel')}: <span className="text-white font-bold">{t(`hunting.status.${myParty.status}`)}</span></p>
                     
                     {myParty.status === PartyStatus.Preparing && myParty.startTime && (
@@ -218,66 +241,110 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         );
     }
 
-    // View for Browser / Create
+    // View for Browser / Create - 3 Columns
     return (
         <ContentPanel title={t('hunting.title')}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Create Party */}
-                <div className="bg-slate-900/40 p-6 rounded-xl">
-                    <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('hunting.createParty')}</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">{t('hunting.chooseBoss')}</label>
-                            <select 
-                                value={createBossId} 
-                                onChange={e => setCreateBossId(e.target.value)}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
-                            >
-                                <option value="">-- {t('admin.select')} --</option>
-                                {bosses.map(b => <option key={b.id} value={b.id}>{b.name} (Lvl req: 10+)</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">{t('hunting.partySize')}</label>
-                            <select 
-                                value={createMembers} 
-                                onChange={e => setCreateMembers(parseInt(e.target.value))}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
-                            >
-                                <option value={2}>2</option>
-                                <option value={3}>3</option>
-                                <option value={4}>4</option>
-                                <option value={5}>5</option>
-                            </select>
-                        </div>
-                        <button 
-                            onClick={handleCreate}
-                            disabled={!createBossId || isLoading}
-                            className="w-full bg-green-700 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition-colors disabled:bg-slate-600"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[70vh]">
+                
+                {/* Column 1: Create / Select Boss */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">{t('hunting.chooseBoss')}</h3>
+                    
+                    <div className="mb-4">
+                         <select 
+                            value={createBossId} 
+                            onChange={e => setCreateBossId(e.target.value)}
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
                         >
-                            {t('hunting.create')}
-                        </button>
+                            <option value="">-- Wybierz Cel --</option>
+                            {bosses.map(b => <option key={b.id} value={b.id}>{b.name} (Lvl 10+)</option>)}
+                        </select>
                     </div>
+
+                    <div className="flex-grow flex flex-col items-center justify-center mb-4 bg-slate-800/30 rounded-lg border border-slate-700/50 p-4">
+                        {selectedBoss ? (
+                             selectedBoss.image ? (
+                                <img src={selectedBoss.image} alt={selectedBoss.name} className="max-w-full max-h-48 object-contain rounded-lg shadow-lg border border-amber-700/50" />
+                             ) : (
+                                 <div className="w-32 h-32 bg-slate-700 rounded-full flex items-center justify-center text-gray-500">
+                                     <CrossedSwordsIcon className="h-16 w-16 opacity-20" />
+                                 </div>
+                             )
+                        ) : (
+                            <div className="text-gray-500 italic text-sm text-center">Wybierz bossa z listy, aby zobaczyć szczegóły.</div>
+                        )}
+                    </div>
+
+                    {selectedBoss && (
+                        <div className="space-y-4 mt-auto">
+                            <div>
+                                <label className="block text-sm text-gray-300 mb-1">{t('hunting.partySize')}</label>
+                                <select 
+                                    value={createMembers} 
+                                    onChange={e => setCreateMembers(parseInt(e.target.value))}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                                >
+                                    <option value={2}>2</option>
+                                    <option value={3}>3</option>
+                                    <option value={4}>4</option>
+                                    <option value={5}>5</option>
+                                </select>
+                            </div>
+                            <button 
+                                onClick={handleCreate}
+                                disabled={!createBossId || isLoading}
+                                className="w-full bg-green-700 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600 shadow-lg"
+                            >
+                                {t('hunting.create')}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
-                {/* Party Browser */}
-                <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl">
+                {/* Column 2: Boss Stats */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">Informacje o Celu</h3>
+                    {selectedBoss ? (
+                        <div className="flex flex-col h-full">
+                            <div className="mb-4 text-center">
+                                <p className="text-lg font-bold text-white">{selectedBoss.name}</p>
+                                <p className="text-sm text-gray-400 italic">{selectedBoss.description}</p>
+                            </div>
+                            <div className="flex-grow">
+                                <BossStatsPanel stats={selectedBoss.stats} />
+                            </div>
+                            <div className="mt-4 text-xs text-gray-500 text-center">
+                                * Statystyki są skalowane w zależności od liczby graczy w grupie.
+                            </div>
+                        </div>
+                    ) : (
+                         <div className="flex items-center justify-center h-full text-gray-500">
+                            Brak wybranego celu.
+                        </div>
+                    )}
+                </div>
+
+                {/* Column 3: Available Groups */}
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('hunting.availableParties')}</h3>
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                         {availableParties.length === 0 && <p className="text-gray-500 text-center py-4">{t('hunting.noParties')}</p>}
                         {availableParties.map(party => {
                             const boss = enemies.find(e => e.id === party.bossId);
                             return (
-                                <div key={party.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center hover:bg-slate-800 transition-colors">
-                                    <div>
-                                        <p className="font-bold text-amber-400 text-lg">{boss?.name}</p>
-                                        <p className="text-sm text-gray-400">{t('hunting.members')}: <span className="text-white">{party.currentMembersCount} / {party.maxMembers}</span></p>
-                                        {party.leaderName && <p className="text-xs text-gray-500 mt-1">Lider: {party.leaderName}</p>}
+                                <div key={party.id} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center hover:bg-slate-800 transition-colors border border-slate-700/50">
+                                    <div className="flex items-center gap-3">
+                                        {boss?.image && <img src={boss.image} alt="" className="w-10 h-10 rounded object-cover bg-slate-900" />}
+                                        <div>
+                                            <p className="font-bold text-amber-400 text-sm">{boss?.name}</p>
+                                            <p className="text-xs text-gray-400">{party.currentMembersCount} / {party.maxMembers} graczy</p>
+                                            {party.leaderName && <p className="text-[10px] text-gray-500">Lider: {party.leaderName}</p>}
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => handleJoin(party.id)}
                                         disabled={isLoading}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white font-semibold transition-colors disabled:bg-slate-600"
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white text-xs font-semibold transition-colors disabled:bg-slate-600"
                                     >
                                         {t('hunting.join')}
                                     </button>
