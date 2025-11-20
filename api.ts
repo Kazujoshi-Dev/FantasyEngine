@@ -1,6 +1,4 @@
 
-
-
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
 const API_BASE_URL = '/api';
@@ -10,7 +8,7 @@ const getAuthToken = (): string | null => {
     return localStorage.getItem('token');
 };
 
-// Centralized fetch logic
+// Centralized fetch logic with timeout
 const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
     const token = getAuthToken();
     const headers: HeadersInit = {
@@ -26,32 +24,45 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
     if (options.body instanceof FormData) {
         delete (headers as any)['Content-Type'];
     }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
     const config: RequestInit = {
         ...options,
         headers,
+        signal: controller.signal,
     };
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+        clearTimeout(timeoutId);
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred.' }));
-        // Map backend credential errors to more user-friendly messages
-        if (response.status === 401 && errorData.message === 'Invalid credentials.') {
-             throw new Error('Invalid username or password.');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred.' }));
+            // Map backend credential errors to more user-friendly messages
+            if (response.status === 401 && errorData.message === 'Invalid credentials.') {
+                 throw new Error('Invalid username or password.');
+            }
+            if (response.status === 401 || response.status === 403) {
+                throw new Error('Invalid token');
+            }
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        if (response.status === 401 || response.status === 403) {
-            throw new Error('Invalid token');
+        
+        // Handle responses that might not have a body (e.g., 204 No Content)
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return response.json();
         }
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        return {};
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if ((error as Error).name === 'AbortError') {
+             throw new Error('Request timed out. Server is slow or unreachable.');
+        }
+        throw error;
     }
-    
-    // Handle responses that might not have a body (e.g., 204 No Content)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") !== -1) {
-        return response.json();
-    }
-    return {};
 };
 
 

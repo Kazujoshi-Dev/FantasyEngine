@@ -46,6 +46,8 @@ const MainApp: React.FC = () => {
 
     // Loading State
     const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [loadingMessage, setLoadingMessage] = useState('');
+    const [loadingError, setLoadingError] = useState<string | null>(null);
 
     // Ref to prevent double submission of expedition completion
     const isCompletingExpeditionRef = useRef(false);
@@ -60,59 +62,66 @@ const MainApp: React.FC = () => {
     useEffect(() => {
         if (token) {
             setIsInitialLoading(true);
+            setLoadingError(null);
             
-            // Ensure game data is fetched if not already
-            const dataPromise = gameData ? Promise.resolve(gameData) : api.getGameData().then(data => {
-                setGameData(data);
-                return data;
-            });
+            const loadData = async () => {
+                try {
+                    // 1. Game Data
+                    if (!gameData) {
+                        setLoadingMessage(t('loading') + " (Dane gry...)");
+                        const data = await api.getGameData();
+                        if (!data || !data.itemTemplates) {
+                            throw new Error("Nie udało się pobrać danych gry.");
+                        }
+                        setGameData(data);
+                    }
 
-            Promise.all([dataPromise, fetchCharacter()])
-                .catch(e => {
+                    // 2. Character
+                    setLoadingMessage(t('loading') + " (Postać...)");
+                    const char = await api.getCharacter();
+                    setCharacter(char);
+                    
+                    // News check logic moved here to ensure we have both char and data
+                    if (char && char.lastReadNewsTimestamp && gameData?.settings?.newsLastUpdatedAt) {
+                        setHasNewNews(char.lastReadNewsTimestamp < gameData.settings.newsLastUpdatedAt);
+                    } else if (gameData?.settings?.newsContent) {
+                         if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
+                    }
+                    
+                    setIsInitialLoading(false);
+                } catch (e) {
                     console.error("Initial load error:", e);
-                     if ((e as Error).message === 'Invalid token') {
+                    const errorMessage = (e as Error).message;
+                    
+                    if (errorMessage === 'Invalid username or password.' || errorMessage === 'Invalid token') {
+                         handleLogout();
+                    } else {
+                         setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
+                    }
+                }
+            };
+
+            loadData();
+
+            const interval = setInterval(async () => {
+                try {
+                    const char = await api.getCharacter();
+                    setCharacter(char);
+                } catch (e) {
+                    console.error("Sync error", e);
+                    if ((e as Error).message === 'Invalid token') {
                         handleLogout();
                     }
-                })
-                .finally(() => {
-                    setIsInitialLoading(false);
-                });
+                }
+            }, 10000); // Periodic sync
 
-            const interval = setInterval(fetchCharacter, 10000); // Periodic sync
             return () => clearInterval(interval);
         } else {
             setIsInitialLoading(false);
         }
     }, [token]);
 
-    const fetchCharacter = async () => {
-        try {
-            const char = await api.getCharacter();
-            setCharacter(char);
-            
-            // Check for news updates
-            // Note: We access the current state of gameData inside the callback or via ref if needed, 
-            // but since fetchCharacter is recreated on render or called in effect, we might need to be careful.
-            // For simplicity, we rely on the latest closure or the periodic update.
-            // Ideally, we should use a ref for gameData if we want to access it in an interval without re-triggering.
-            // However, for this logic, if gameData isn't loaded yet, we just skip the news check until next tick.
-            if (char && char.lastReadNewsTimestamp && gameData?.settings?.newsLastUpdatedAt) {
-                setHasNewNews(char.lastReadNewsTimestamp < gameData.settings.newsLastUpdatedAt);
-            } else if (gameData?.settings?.newsContent) {
-                 // If user has never read news (timestamp 0/undefined) but news exists
-                 if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
-            }
-
-            return char;
-        } catch (e) {
-            console.error("Failed to fetch character", e);
-            if ((e as Error).message === 'Invalid token') {
-                handleLogout();
-            }
-            throw e;
-        }
-    };
-    
+    // ... rest of existing functions ...
     const fetchRanking = useCallback(async () => {
         setIsRankingLoading(true);
         try {
@@ -231,6 +240,11 @@ const MainApp: React.FC = () => {
         setCharacter(null);
         // Don't clear gameData so login screen still looks good
     };
+    
+    const fetchCharacter = async () => {
+        const char = await api.getCharacter();
+        setCharacter(char);
+    }
 
     const handleCharacterUpdate = useCallback(async (updatedCharacter: PlayerCharacter, immediate = false) => {
         setCharacter(updatedCharacter); // Optimistic update
@@ -486,13 +500,29 @@ const MainApp: React.FC = () => {
     }
 
     if (isInitialLoading) {
-        return <div className="flex items-center justify-center h-screen text-white">{t('loading')}</div>;
+         return (
+             <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
+                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+                 <p>{loadingMessage || t('loading')}</p>
+                 {loadingError && (
+                     <div className="text-center">
+                         <p className="text-red-400 mb-2">{t('error.title')}: {loadingError}</p>
+                         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
+                             {t('error.refresh')}
+                         </button>
+                     </div>
+                 )}
+             </div>
+         );
     }
 
     if (!gameData) {
         return <div className="flex items-center justify-center h-screen text-white text-center">
             <p>{t('error.title')}</p>
-            <p className="text-sm text-gray-400 mt-2">Failed to load game data.</p>
+            <p className="text-sm text-gray-400 mt-2">Nie udało się załadować danych gry.</p>
+            <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
+                 {t('error.refresh')}
+            </button>
         </div>;
     }
 
@@ -501,7 +531,7 @@ const MainApp: React.FC = () => {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
             <CharacterCreation onCharacterCreate={async (data) => {
                 await api.createCharacter(data.name, data.race, gameData.locations.find(l => l.isStartLocation)?.id || '');
-                fetchCharacter();
+                await fetchCharacter();
             }} />
         </LanguageContext.Provider>;
     }
