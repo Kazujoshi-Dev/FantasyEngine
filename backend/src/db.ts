@@ -1,18 +1,21 @@
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL;
+// Construct PoolConfig from individual environment variables
+// This is more robust for hosting platforms that may not substitute variables inside other variables.
 const poolConfig: PoolConfig = {
-  connectionString: connectionString,
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  host: process.env.POSTGRES_HOST || 'localhost', // 'db' in docker-compose, 'localhost' for local dev
+  database: process.env.POSTGRES_DB,
+  port: 5432,
 };
 
-// No special SSL handling. Let the connection string from the environment handle it.
-// If a managed DB needs SSL, its DATABASE_URL should include "?sslmode=require".
-// The local Docker setup does not need it and will no longer incorrectly try to use it.
 
 export const pool = new Pool(poolConfig);
 
