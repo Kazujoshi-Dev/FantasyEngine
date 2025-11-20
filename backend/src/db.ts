@@ -1,5 +1,6 @@
 
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -11,7 +12,7 @@ dotenv.config();
 const poolConfig: PoolConfig = {
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  host: 'db', // Hardcoded host for Docker internal network
+  host: process.env.POSTGRES_HOST || 'db', // Use env var or default to internal host 'db'
   database: process.env.POSTGRES_DB,
   port: 5432,
 };
