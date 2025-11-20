@@ -7,12 +7,12 @@ services:
     # w panelu Twojego dostawcy hostingu w sekcji "Secrets" lub "Zmienne Środowiskowe".
     # Aplikacja nie działa, ponieważ te zmienne nie są obecnie ustawione.
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${postgresDBU}
+      - POSTGRES_PASSWORD=${password#%@#%ff22}
+      - POSTGRES_DB=${fantasy_game}
       - POSTGRES_HOST=db
-      - PORT=${PORT}
-      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${3001}
+      - JWT_SECRET=${SDFGTDVBNHJESRTWDSFSA}
     depends_on:
       db:
         condition: service_healthy
@@ -24,9 +24,9 @@ services:
     # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu
     # w sekcji "Secrets" lub "Zmienne Środowiskowe", aby zainicjować bazę danych.
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${postgresDBU}
+      POSTGRES_PASSWORD: ${password#%@#%ff22}
+      POSTGRES_DB: ${fantasy_game}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
