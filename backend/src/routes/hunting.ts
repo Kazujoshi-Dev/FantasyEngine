@@ -243,7 +243,7 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
 router.post('/leave', authenticateToken, async (req: any, res: any) => {
     try {
         const partyRes = await pool.query(`
-            SELECT id, members, leader_id, status 
+            SELECT id, members, leader_id, status, start_time 
             FROM hunting_parties 
             WHERE members @> jsonb_build_array(jsonb_build_object('userId', $1::int))
             FOR UPDATE
@@ -251,23 +251,31 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
 
         if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Not in a party.' });
         const party = partyRes.rows[0];
+        const isLeader = party.leader_id === req.user.id;
+        const isFinished = party.status === 'FINISHED';
 
-        if (party.leader_id === req.user.id) {
-            // Leader leaving dissolves party
+        // Leader leaves a FORMING or PREPARING party -> Dissolve
+        if (isLeader && !isFinished) {
             await pool.query('DELETE FROM hunting_parties WHERE id = $1', [party.id]);
         } else {
+            // Member leaves, OR Leader leaves a FINISHED party
             let members = party.members.filter((m: any) => m.userId !== req.user.id);
-            
-            // Reset status if it was preparing
-            let newStatus = party.status;
-            let startTime = party.start_time;
-            if (party.status === 'PREPARING') {
-                 newStatus = 'FORMING';
-                 startTime = null;
-            }
 
-            await pool.query('UPDATE hunting_parties SET members = $1, status = $2, start_time = $3 WHERE id = $4', 
-                [JSON.stringify(members), newStatus, startTime, party.id]);
+            if (members.length === 0) {
+                // Last member is leaving, delete the party record.
+                await pool.query('DELETE FROM hunting_parties WHERE id = $1', [party.id]);
+            } else {
+                let newStatus = party.status;
+                let startTime = party.start_time;
+                // If a member leaves during PREPARING, revert to FORMING.
+                if (party.status === 'PREPARING') {
+                     newStatus = 'FORMING';
+                     startTime = null;
+                }
+
+                await pool.query('UPDATE hunting_parties SET members = $1, status = $2, start_time = $3 WHERE id = $4', 
+                    [JSON.stringify(members), newStatus, startTime, party.id]);
+            }
         }
 
         res.sendStatus(200);

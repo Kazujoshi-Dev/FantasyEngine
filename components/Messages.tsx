@@ -1,19 +1,19 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './Expedition';
 import { MailIcon } from './icons/MailIcon';
 import { api } from '../api';
-import { getGrammaticallyCorrectFullName, rarityStyles } from './shared/ItemSlot';
+import { rarityStyles } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 
 interface ComposeMessageModalProps {
     allCharacterNames: string[];
     onClose: () => void;
-    onSendMessage: (data: { recipientName: string; subject: string; content: string }) => Promise<void>;
+    // fix: Changed Promise<void> to Promise<Message> to match the return type of api.sendMessage.
+    onSendMessage: (data: { recipientName: string; subject: string; content: string }) => Promise<Message>;
     initialRecipient?: string;
     initialSubject?: string;
 }
@@ -122,9 +122,7 @@ const MarketNotification: React.FC<{
     body: MarketNotificationBody;
     messageId: number;
     onClaimReturn: (messageId: number) => Promise<boolean>;
-    itemTemplates: ItemTemplate[];
-    affixes: Affix[];
-}> = ({ body, messageId, onClaimReturn, itemTemplates, affixes }) => {
+}> = ({ body, messageId, onClaimReturn }) => {
     const { t } = useTranslation();
     const [isClaiming, setIsClaiming] = useState(false);
 
@@ -172,25 +170,44 @@ const MarketNotification: React.FC<{
 
 
 interface MessagesProps {
-    messages: Message[];
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     currentPlayer: PlayerCharacter;
-    onDeleteMessage: (messageId: number) => void;
-    onMarkAsRead: (messageId: number) => void;
-    onCompose: (recipient?: string, subject?: string) => void;
-    onClaimReturn: (messageId: number) => Promise<boolean>;
-    onDeleteBulk: (type: 'read' | 'all' | 'expedition_reports') => void;
+    onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
 }
 
 const MESSAGES_PER_PAGE = 5;
 
-export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, affixes, currentPlayer, onDeleteMessage, onMarkAsRead, onCompose, onClaimReturn, onDeleteBulk }) => {
+export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, currentPlayer, onCharacterUpdate }) => {
     const { t } = useTranslation();
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
     const [selectedReport, setSelectedReport] = useState<ExpeditionRewardSummary | null>(null);
     const [selectedPvpReport, setSelectedPvpReport] = useState<PvpRewardSummary | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    
+    // State for compose modal
+    const [isComposing, setIsComposing] = useState(false);
+    const [allCharNames, setAllCharNames] = useState<string[]>([]);
+    const [composeRecipient, setComposeRecipient] = useState<string | undefined>(undefined);
+    const [composeSubject, setComposeSubject] = useState<string | undefined>(undefined);
+
+    const fetchMessages = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await api.getMessages();
+            setMessages(data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchMessages();
+    }, [fetchMessages]);
 
     const totalPages = Math.ceil(messages.length / MESSAGES_PER_PAGE);
 
@@ -211,42 +228,72 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
     }, [messages, currentPage]);
 
     const selectedMessage = useMemo(() => {
-        return messages.find(msg => msg.id === selectedMessageId) || (messages.length > 0 ? messages[0] : null);
-    }, [selectedMessageId, messages]);
+        if (selectedMessageId) {
+            return messages.find(msg => msg.id === selectedMessageId);
+        }
+        return paginatedMessages.length > 0 ? paginatedMessages[0] : null;
+    }, [selectedMessageId, messages, paginatedMessages]);
 
-     useEffect(() => {
-        if (!selectedMessageId && messages.length > 0) {
-            handleMessageSelect(messages[0].id);
+    useEffect(() => {
+        if (!selectedMessageId && paginatedMessages.length > 0) {
+            const firstMsg = paginatedMessages[0];
+            handleMessageSelect(firstMsg.id, firstMsg.is_read);
         } else if (messages.length === 0) {
             setSelectedMessageId(null);
         }
-    }, [messages, selectedMessageId]);
+    }, [paginatedMessages, selectedMessageId, messages.length]);
 
-    const handleMessageSelect = (id: number) => {
+    const handleMessageSelect = (id: number, isRead: boolean) => {
         setSelectedMessageId(id);
-        const msg = messages.find(m => m.id === id);
-        if (msg && !msg.is_read) {
-            onMarkAsRead(id);
-        }
-    };
-
-    const handleReply = (msg: Message) => {
-        if (msg.sender_name) {
-            const subject = msg.subject.startsWith('Re: ') ? msg.subject : `Re: ${msg.subject}`;
-            onCompose(msg.sender_name, subject);
-        }
-    };
-
-    const handleDelete = (id: number) => {
-        onDeleteMessage(id);
-        if (selectedMessageId === id) {
-             const currentIndex = messages.findIndex(m => m.id === id);
-             const nextMessage = messages[currentIndex + 1] || messages[currentIndex - 1] || null;
-             setSelectedMessageId(nextMessage ? nextMessage.id : null);
+        if (!isRead) {
+            api.markMessageAsRead(id);
+            setMessages(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
         }
     };
     
-    const handleBulkDelete = (type: 'read' | 'all' | 'expedition_reports') => {
+    const handleOpenCompose = (recipient?: string, subject?: string) => {
+        setComposeRecipient(recipient);
+        setComposeSubject(subject);
+        api.getCharacterNames().then(setAllCharNames).catch(console.error);
+        setIsComposing(true);
+    };
+
+    const handleDelete = async (id: number) => {
+        const oldMessages = [...messages];
+        setMessages(prev => prev.filter(m => m.id !== id)); // Optimistic delete
+        if (selectedMessageId === id) {
+            const currentIndex = oldMessages.findIndex(m => m.id === id);
+            const nextMessage = oldMessages[currentIndex + 1] || oldMessages[currentIndex - 1] || null;
+            setSelectedMessageId(nextMessage ? nextMessage.id : null);
+        }
+        try {
+            await api.deleteMessage(id);
+        } catch (err) {
+            setMessages(oldMessages); // Revert on error
+            alert((err as Error).message);
+        }
+    };
+    
+    const handleReply = (msg: Message) => {
+        if (msg.sender_name) {
+            const subject = msg.subject.startsWith('Re: ') ? msg.subject : `Re: ${msg.subject}`;
+            handleOpenCompose(msg.sender_name, subject);
+        }
+    };
+    
+    const handleClaimReturn = async (messageId: number) => {
+        try {
+            const updatedChar = await api.claimMarketReturn(messageId);
+            onCharacterUpdate(updatedChar, true);
+            await fetchMessages();
+            return true;
+        } catch(err) {
+            alert((err as Error).message);
+            return false;
+        }
+    };
+
+    const handleBulkDelete = async (type: 'read' | 'all' | 'expedition_reports') => {
         let confirmText = '';
         switch(type) {
             case 'read': confirmText = t('messages.bulkDelete.confirmRead'); break;
@@ -254,7 +301,8 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
             case 'expedition_reports': confirmText = t('messages.bulkDelete.confirmReports'); break;
         }
         if (window.confirm(confirmText)) {
-            onDeleteBulk(type);
+            await api.deleteBulkMessages(type);
+            await fetchMessages();
             setCurrentPage(1);
         }
     };
@@ -266,21 +314,21 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                     const pvpBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                     return (
                         <div className="mt-4">
-                            <button onClick={() => { setSelectedPvpReport(pvpBody as PvpRewardSummary); onMarkAsRead(msg.id); }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                            <button onClick={() => setSelectedPvpReport(pvpBody as PvpRewardSummary)} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
                         </div>
                     );
                 case 'expedition_report':
                     const expBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                     return (
                         <div className="mt-4">
-                            <button onClick={() => { setSelectedReport(expBody as ExpeditionRewardSummary); onMarkAsRead(msg.id); }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                            <button onClick={() => setSelectedReport(expBody as ExpeditionRewardSummary)} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
                         </div>
                     );
                 case 'player_message':
                     return <p className="mt-4 whitespace-pre-wrap">{(msg.body as PlayerMessageBody).content}</p>;
                 case 'market_notification':
                      const marketBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
-                     return <MarketNotification body={marketBody} messageId={msg.id} onClaimReturn={onClaimReturn} itemTemplates={itemTemplates} affixes={affixes} />;
+                     return <MarketNotification body={marketBody} messageId={msg.id} onClaimReturn={handleClaimReturn} />;
                 case 'system':
                      const systemBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                      return <p className="mt-4 whitespace-pre-wrap">{(systemBody as PlayerMessageBody).content}</p>;
@@ -297,6 +345,15 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
 
     return (
         <ContentPanel title={t('messages.title')}>
+            {isComposing && (
+                <ComposeMessageModal
+                    allCharacterNames={allCharNames}
+                    onClose={() => setIsComposing(false)}
+                    onSendMessage={api.sendMessage}
+                    initialRecipient={composeRecipient}
+                    initialSubject={composeSubject}
+                />
+            )}
             {selectedReport && (
                 <ExpeditionSummaryModal
                   reward={selectedReport}
@@ -330,7 +387,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                 <div className="md:col-span-1 bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('messages.inbox')}</h3>
-                        <button onClick={() => onCompose()} className="px-3 py-1.5 text-sm rounded bg-indigo-600 hover:bg-indigo-700 font-semibold">
+                        <button onClick={() => handleOpenCompose()} className="px-3 py-1.5 text-sm rounded bg-indigo-600 hover:bg-indigo-700 font-semibold">
                             {t('messages.compose.title')}
                         </button>
                     </div>
@@ -346,12 +403,13 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                     </div>
                     
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                        {paginatedMessages.map(msg => (
-                            <div key={msg.id} onClick={() => handleMessageSelect(msg.id)}
+                        {isLoading && <p className="text-gray-500">{t('loading')}</p>}
+                        {!isLoading && paginatedMessages.map(msg => (
+                            <div key={msg.id} onClick={() => handleMessageSelect(msg.id, msg.is_read)}
                                 className={`p-3 rounded-lg cursor-pointer border-l-4 ${selectedMessage?.id === msg.id ? 'bg-slate-700/50 border-indigo-500' : 'bg-slate-800/50 border-transparent hover:bg-slate-700/30'}`}>
                                 <div className="flex justify-between items-start">
                                     <p className={`font-semibold truncate ${!msg.is_read ? 'text-white' : 'text-gray-300'}`}>{msg.subject}</p>
-                                    {!msg.is_read && <span className="h-2 w-2 bg-sky-400 rounded-full flex-shrink-0 mt-1.5 ml-2"></span>}
+                                    {!msg.is_read && <span className="h-2.5 w-2.5 bg-sky-400 rounded-full flex-shrink-0 mt-1.5 ml-2"></span>}
                                 </div>
                                 <p className="text-sm text-gray-400">
                                     {t('messages.from')}: {msg.sender_name || t('messages.system')}
@@ -359,7 +417,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                                 <p className="text-xs text-gray-500 mt-1">{new Date(msg.created_at).toLocaleString()}</p>
                             </div>
                         ))}
-                        {messages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
+                        {!isLoading && messages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
                     </div>
                     
                     {totalPages > 1 && (
@@ -404,7 +462,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, itemTemplates, aff
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500">
                             <MailIcon className="h-12 w-12 mb-4" />
-                            <p>{t('messages.noMessages')}</p>
+                            <p>{isLoading ? t('loading') : t('messages.noMessages')}</p>
                         </div>
                     )}
                 </div>

@@ -642,15 +642,10 @@ export const App: React.FC = () => {
                 />;
             case Tab.Messages:
                 return <Messages 
-                    messages={[]} // Should fetch messages
                     itemTemplates={gameData.itemTemplates} 
                     affixes={gameData.affixes} 
                     currentPlayer={character} 
-                    onDeleteMessage={async (id) => { await api.deleteMessage(id); }}
-                    onMarkAsRead={async (id) => { await api.markMessageAsRead(id); }}
-                    onCompose={() => {}}
-                    onClaimReturn={async (id) => { await api.claimMarketReturn(id); return true; }}
-                    onDeleteBulk={() => {}}
+                    onCharacterUpdate={handleCharacterUpdate}
                 />;
             case Tab.Quests:
                 return <Quests 
