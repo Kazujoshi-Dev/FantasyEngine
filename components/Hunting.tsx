@@ -121,17 +121,24 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const [createBossId, setCreateBossId] = useState('');
     const [createMembers, setCreateMembers] = useState(4);
     const [isLoading, setIsLoading] = useState(false);
+    const [finalReportData, setFinalReportData] = useState<HuntingParty | null>(null);
 
     const { party: myParty, serverTime } = myPartyState;
 
     const fetchMyParty = useCallback(async () => {
         try {
             const { party, serverTime } = await api.getMyParty();
+            if (party?.status === PartyStatus.Finished && !finalReportData) {
+                setFinalReportData(party);
+            }
+            if (!party) {
+                setFinalReportData(null);
+            }
             setMyPartyState({ party, serverTime });
         } catch (err) {
             console.error(err);
         }
-    }, []);
+    }, [finalReportData]);
 
     const fetchParties = useCallback(async () => {
         try {
@@ -148,12 +155,11 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         const interval = setInterval(() => {
             if(document.visibilityState === 'visible') {
                 fetchMyParty();
-                // Only refresh list if not in party
-                if (!myParty) fetchParties();
+                if (!myPartyState.party) fetchParties();
             }
         }, 5000);
         return () => clearInterval(interval);
-    }, [fetchMyParty, fetchParties, myParty]);
+    }, [fetchMyParty, fetchParties, myPartyState.party]);
 
     const handleCreate = async () => {
         if (!createBossId) return;
@@ -186,6 +192,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         try {
             await api.leaveParty();
             setMyPartyState({ party: null, serverTime: null });
+            setFinalReportData(null);
             await fetchParties();
         } catch (err: any) {
             alert(err.message);
@@ -203,16 +210,13 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         }
     };
 
-    // Boss List
     const bosses = enemies.filter(e => e.isBoss);
     const selectedBoss = bosses.find(b => b.id === createBossId);
     const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
 
-    // Calculate Scaled Stats for Preview
     const scaledBossStats = useMemo(() => {
         if (!selectedBoss) return null;
         const count = createMembers;
-        // Scaling logic matching backend
         const healthMult = 1 + (count - 1) * 0.7;
         const damageMult = 1 + (count - 1) * 0.1;
 
@@ -231,8 +235,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
     const estimatedRewards = useMemo(() => {
         if (!selectedBoss) return null;
-        // Backend logic: TotalPool = Base * Players * 1.5
-        // Split per Player = TotalPool / Players = Base * 1.5
         const bonusMult = 1.5;
 
         return {
@@ -243,37 +245,37 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         }
     }, [selectedBoss]);
 
+    const reportData = finalReportData || myParty;
+
+    if (reportData && reportData.status === PartyStatus.Finished && reportData.combatLog) {
+        const boss = enemies.find(e => e.id === reportData.bossId);
+        return (
+            <ExpeditionSummaryModal 
+                reward={{
+                    rewardBreakdown: [],
+                    totalGold: reportData.myRewards?.gold || 0,
+                    totalExperience: reportData.myRewards?.experience || 0,
+                    combatLog: reportData.combatLog,
+                    isVictory: reportData.victory || false,
+                    itemsFound: reportData.myRewards?.items || [],
+                    essencesFound: reportData.myRewards?.essences || {}
+                }}
+                onClose={handleLeave}
+                characterName={character.name}
+                itemTemplates={itemTemplates}
+                affixes={affixes}
+                isHunting={true}
+                huntingMembers={reportData.members}
+                allRewards={reportData.allRewards}
+                initialEnemy={boss}
+                bossName={boss?.name}
+            />
+        );
+    }
 
     if (myParty) {
-        // View for Inside a Party
         const isLeader = myParty.leaderId === character.id;
         const boss = enemies.find(e => e.id === myParty.bossId);
-        
-        if (myParty.status === PartyStatus.Finished && myParty.combatLog) {
-            return (
-                <ExpeditionSummaryModal 
-                    reward={{
-                        rewardBreakdown: [],
-                        totalGold: myParty.myRewards?.gold || 0,
-                        totalExperience: myParty.myRewards?.experience || 0,
-                        combatLog: myParty.combatLog,
-                        isVictory: myParty.victory || false,
-                        itemsFound: myParty.myRewards?.items || [],
-                        essencesFound: myParty.myRewards?.essences || {}
-                    }}
-                    onClose={handleLeave}
-                    characterName={character.name}
-                    itemTemplates={itemTemplates}
-                    affixes={affixes}
-                    isHunting={true}
-                    huntingMembers={myParty.members}
-                    allRewards={myParty.allRewards}
-                    initialEnemy={boss}
-                    bossName={boss?.name}
-                />
-            );
-        }
-
         const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + durationMinutes * 60 * 1000).toISOString() : '';
 
         return (
@@ -281,7 +283,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 <div className="bg-slate-900/40 p-6 rounded-xl text-center">
                     <h3 className="text-2xl font-bold text-amber-400 mb-2">{boss?.name || 'Unknown Boss'}</h3>
                     
-                     {/* Boss Portrait if available */}
                     {boss?.image && (
                         <div className="flex justify-center mb-4">
                              <img src={getImageUrl(boss.image)} alt={boss.name} className="w-48 h-48 object-cover rounded-lg border-2 border-amber-600 shadow-lg" />
@@ -342,13 +343,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
             </ContentPanel>
         );
     }
-
-    // View for Browser / Create - 3 Columns
+    
     return (
         <ContentPanel title={t('hunting.title')}>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[70vh]">
-                
-                {/* Column 1: Create / Select Boss (approx 33%) */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-4">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">{t('hunting.chooseBoss')}</h3>
                     
@@ -403,7 +401,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     )}
                 </div>
 
-                {/* Column 2: Boss Stats (approx 25% - reduced width) */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-3">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">Informacje o Celu</h3>
                     {selectedBoss && scaledBossStats && estimatedRewards ? (
@@ -440,7 +437,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     )}
                 </div>
 
-                {/* Column 3: Available Groups (approx 42% - increased width) */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-5">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('hunting.availableParties')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">

@@ -1,4 +1,5 @@
 
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -13,13 +14,18 @@ const router = express.Router();
 // GET /api/character - Get the current user's character data
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
-        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
+        const result = await pool.query('SELECT user_id, data FROM characters WHERE user_id = $1', [req.user!.id]);
         
         if (result.rows.length === 0) {
             return res.status(200).json(null);
         }
         
-        const character: PlayerCharacter = result.rows[0].data;
+        const row = result.rows[0];
+        const character: PlayerCharacter = {
+            ...row.data,
+            id: row.user_id,
+        };
+        
         const now = Date.now();
         let needsDbUpdate = false;
 
