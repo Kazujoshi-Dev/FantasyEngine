@@ -32,7 +32,7 @@ services:
     healthcheck:
       # Ta komenda sprawdza, czy baza danych jest gotowa na przyjmowanie połączeń.
       # Używa ona zmiennych środowiskowych, które musisz podać w panelu Hostinger.
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $$postgresDBU -d $$fantasy_game"]
       interval: 10s
       timeout: 5s
       retries: 5
