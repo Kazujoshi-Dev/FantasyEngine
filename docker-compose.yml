@@ -12,12 +12,12 @@ services:
     # - PORT (np. 3001)
     # - JWT_SECRET (dowolny długi, losowy ciąg znaków)
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${PpostgresDBU}
+      - POSTGRES_PASSWORD=${password#%@#%ff22}
+      - POSTGRES_DB=${fantasy_game}
       - POSTGRES_HOST=db
-      - PORT=${PORT}
-      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${3001}
+      - JWT_SECRET=${SDFGTDVBNHJESRTWDSFSAGSDFEWRJLKUIYRRER}
     depends_on:
       db:
         condition: service_healthy
@@ -30,15 +30,15 @@ services:
     # Baza danych nie może wystartować bez podania co najmniej POSTGRES_PASSWORD.
     # To jest główna przyczyna błędu wdrożenia.
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${PpostgresDBU}
+      POSTGRES_PASSWORD: ${password#%@#%ff22}
+      POSTGRES_DB: ${fantasy_game}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       # Ta komenda sprawdza, czy baza danych jest gotowa na przyjmowanie połączeń.
       # Używa ona zmiennych środowiskowych, które musisz podać w panelu Hostinger.
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $$PpostgresDBU -d $$fantasy_game"]
       interval: 10s
       timeout: 5s
       retries: 5
