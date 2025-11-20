@@ -54,11 +54,7 @@ const MainApp: React.FC = () => {
 
     const t = getT(character?.settings?.language || Language.PL);
 
-    // Fetch Game Data independently (needed for Auth screen background etc.)
-    useEffect(() => {
-        api.getGameData().then(setGameData).catch(console.error);
-    }, []);
-
+    // Main Data Loading Effect
     useEffect(() => {
         if (token) {
             setIsInitialLoading(true);
@@ -66,14 +62,17 @@ const MainApp: React.FC = () => {
             
             const loadData = async () => {
                 try {
-                    // 1. Game Data
-                    if (!gameData) {
+                    // 1. Game Data - Check if we already have it to avoid re-fetching unnecessarily
+                    // But if it's missing (e.g. reload), fetch it.
+                    let currentGameData = gameData;
+                    if (!currentGameData) {
                         setLoadingMessage(t('loading') + " (Dane gry...)");
                         const data = await api.getGameData();
                         if (!data || !data.itemTemplates) {
-                            throw new Error("Nie udało się pobrać danych gry.");
+                            throw new Error("Nie udało się pobrać danych gry. Spróbuj odświeżyć stronę.");
                         }
                         setGameData(data);
+                        currentGameData = data;
                     }
 
                     // 2. Character
@@ -81,10 +80,10 @@ const MainApp: React.FC = () => {
                     const char = await api.getCharacter();
                     setCharacter(char);
                     
-                    // News check logic moved here to ensure we have both char and data
-                    if (char && char.lastReadNewsTimestamp && gameData?.settings?.newsLastUpdatedAt) {
-                        setHasNewNews(char.lastReadNewsTimestamp < gameData.settings.newsLastUpdatedAt);
-                    } else if (gameData?.settings?.newsContent) {
+                    // News check logic
+                    if (char && char.lastReadNewsTimestamp && currentGameData?.settings?.newsLastUpdatedAt) {
+                        setHasNewNews(char.lastReadNewsTimestamp < currentGameData.settings.newsLastUpdatedAt);
+                    } else if (currentGameData?.settings?.newsContent) {
                          if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
                     }
                     
@@ -97,11 +96,22 @@ const MainApp: React.FC = () => {
                          handleLogout();
                     } else {
                          setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
+                         // Crucial: Turn off loading so the error message is visible!
+                         setIsInitialLoading(false);
                     }
                 }
             };
 
             loadData();
+            
+            // Safety timeout: if loading takes too long (e.g. backend hanging), force an error state
+            const safetyTimer = setTimeout(() => {
+                if (isInitialLoading) {
+                    console.warn("Loading timed out.");
+                    setLoadingError("Ładowanie trwa zbyt długo. Sprawdź połączenie z internetem lub spróbuj ponownie.");
+                    setIsInitialLoading(false);
+                }
+            }, 12000); // 12 seconds timeout
 
             const interval = setInterval(async () => {
                 try {
@@ -115,11 +125,21 @@ const MainApp: React.FC = () => {
                 }
             }, 10000); // Periodic sync
 
-            return () => clearInterval(interval);
+            return () => {
+                clearInterval(interval);
+                clearTimeout(safetyTimer);
+            };
         } else {
+            // If no token, we are not loading (show auth)
             setIsInitialLoading(false);
+            // Try to fetch game data in background for auth screen images if needed
+            if (!gameData) {
+                 api.getGameData().then(data => {
+                     if (data) setGameData(data);
+                 }).catch(() => {}); // Ignore errors for background fetch on auth screen
+            }
         }
-    }, [token]);
+    }, [token]); // Only re-run if token changes
 
     // ... rest of existing functions ...
     const fetchRanking = useCallback(async () => {
@@ -493,39 +513,58 @@ const MainApp: React.FC = () => {
 
     const derivedCharacter = useMemo(() => character ? calculateDerivedStats(character, gameData) : null, [character, gameData]);
 
+    // --- Render Logic ---
+
+    // 1. Not Logged In
     if (!token) {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
             <Auth onLoginSuccess={handleLoginSuccess} settings={gameData?.settings} />
         </LanguageContext.Provider>;
     }
 
+    // 2. Initial Loading OR Error during Initial Load
     if (isInitialLoading) {
          return (
              <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
                  <p>{loadingMessage || t('loading')}</p>
-                 {loadingError && (
-                     <div className="text-center">
-                         <p className="text-red-400 mb-2">{t('error.title')}: {loadingError}</p>
-                         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
-                             {t('error.refresh')}
-                         </button>
-                     </div>
-                 )}
              </div>
          );
     }
-
-    if (!gameData) {
-        return <div className="flex items-center justify-center h-screen text-white text-center">
-            <p>{t('error.title')}</p>
-            <p className="text-sm text-gray-400 mt-2">Nie udało się załadować danych gry.</p>
-            <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
-                 {t('error.refresh')}
-            </button>
-        </div>;
+    
+    // 2b. Error State (Loading finished, but has error)
+    if (loadingError) {
+        return (
+             <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
+                 <div className="text-center">
+                     <p className="text-red-400 mb-4 text-lg font-bold">{t('error.title')}: {loadingError}</p>
+                     <div className="flex gap-4 justify-center">
+                        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 rounded hover:bg-indigo-700 font-semibold">
+                            {t('error.refresh')}
+                        </button>
+                        <button onClick={handleLogout} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 font-semibold">
+                            {t('error.logout')}
+                        </button>
+                     </div>
+                 </div>
+             </div>
+        );
     }
 
+    // 3. Missing Critical Data (GameData)
+    if (!gameData) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen text-white text-center bg-gray-900">
+                <p className="text-lg font-bold mb-2">{t('error.title')}</p>
+                <p className="text-sm text-gray-400 mb-4">Nie udało się załadować danych gry.</p>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
+                     {t('error.refresh')}
+                </button>
+            </div>
+        );
+    }
+
+    // 4. New User (Character creation)
     // If token exists, initial loading is done, but character is null => New User
     if (!character) {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
@@ -536,9 +575,9 @@ const MainApp: React.FC = () => {
         </LanguageContext.Provider>;
     }
 
-    // Fallback if something is still calculating, though character is present
+    // 5. Calculation Fallback (Should technically not happen if character exists, but safe to keep)
     if (!derivedCharacter) {
-        return <div className="flex items-center justify-center h-screen text-white">{t('loading')}</div>;
+        return <div className="flex items-center justify-center h-screen text-white bg-gray-900">{t('loading')}... (Obliczanie statystyk)</div>;
     }
 
     const currentLocation = gameData.locations.find(l => l.id === character.currentLocationId);

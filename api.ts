@@ -50,11 +50,16 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
             throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
         
-        // Handle responses that might not have a body (e.g., 204 No Content)
         const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
+        if (contentType && contentType.includes("application/json")) {
             return response.json();
         }
+        
+        // If we get HTML text (like index.html fallback from SPA), it means the API route is missing or server is misconfigured
+        if (contentType && contentType.includes("text/html")) {
+             throw new Error("Server returned HTML instead of JSON. Check API configuration.");
+        }
+
         return {};
     } catch (error) {
         clearTimeout(timeoutId);

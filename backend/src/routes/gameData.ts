@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { GameData, GameSettings } from '../types.js';
@@ -13,7 +14,8 @@ router.get('/', async (req: any, res: any) => {
         for (const row of result.rows) {
             (gameData as any)[row.key] = row.data;
         }
-        res.json(gameData);
+        // Explicitly return empty object if result is empty, ensuring valid JSON
+        res.json(gameData || {});
     } catch (err) {
         console.error('Error fetching game data:', err);
         res.status(500).json({ message: 'Failed to fetch game data.' });
