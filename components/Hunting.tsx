@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -87,11 +86,15 @@ const BossStatsPanel: React.FC<{ stats: EnemyStats; baseStats?: EnemyStats }> = 
     );
 };
 
-const getImageUrl = (url: string | undefined) => {
+const getImageUrl = (url: string | undefined): string | undefined => {
     if (!url) return undefined;
-    if (url.startsWith('/uploads')) return `/api${url}`;
+    if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
+    const uploadsIndex = url.indexOf('uploads/');
+    if (uploadsIndex > -1) {
+        return `/api/${url.substring(uploadsIndex)}`;
+    }
     return url;
-}
+};
 
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
@@ -382,12 +385,12 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col min-h-0 lg:col-span-3">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 text-center">Informacje o Celu</h3>
                     {selectedBoss && scaledBossStats && estimatedRewards ? (
-                        <div className="flex flex-col">
+                        <div className="flex flex-col h-full">
                             <div className="mb-4 text-center">
                                 <p className="text-lg font-bold text-white">{selectedBoss.name}</p>
                                 <p className="text-sm text-gray-400 italic">{selectedBoss.description}</p>
                             </div>
-                            <div>
+                            <div className="flex-grow">
                                 <BossStatsPanel stats={scaledBossStats as EnemyStats} baseStats={selectedBoss.stats} />
                                 <div className="mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                                     <p className="font-semibold text-center text-green-400 mb-2 text-sm">Szacowane Nagrody (na osobę)</p>
@@ -404,7 +407,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                      <p className="text-[10px] text-gray-500 text-center mt-1 italic">Zawiera bonus grupowy</p>
                                 </div>
                             </div>
-                            <div className="mt-4 text-xs text-gray-500 text-center">
+                            <div className="mt-4 text-xs text-gray-500 text-center mt-auto">
                                 * Statystyki i nagrody są skalowane w zależności od liczby graczy w grupie.
                             </div>
                         </div>

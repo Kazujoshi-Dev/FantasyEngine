@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -102,11 +101,15 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
         onSave(formData as Enemy);
     };
 
-    const getImageUrl = (url: string | undefined) => {
+    const getImageUrl = (url: string | undefined): string | undefined => {
         if (!url) return undefined;
-        if (url.startsWith('/uploads')) return `/api${url}`;
+        if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
+        const uploadsIndex = url.indexOf('uploads/');
+        if (uploadsIndex > -1) {
+            return `/api/${url.substring(uploadsIndex)}`;
+        }
         return url;
-    }
+    };
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">

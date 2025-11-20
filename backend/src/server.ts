@@ -99,5 +99,6 @@ initializeDatabase().then(() => {
     setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); // Run every hour
 }).catch((err: Error) => {
     console.error('Failed to start server:', err);
-    process.exit(1);
+    // fix: Cast process to any to resolve type conflict with browser/webworker environments.
+    (process as any).exit(1);
 });

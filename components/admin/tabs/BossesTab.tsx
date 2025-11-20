@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -51,9 +50,13 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
       return fallback;
   };
 
-  const getImageUrl = (url: string | undefined) => {
+  const getImageUrl = (url: string | undefined): string | undefined => {
       if (!url) return undefined;
-      if (url.startsWith('/uploads')) return `/api${url}`;
+      if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
+      const uploadsIndex = url.indexOf('uploads/');
+      if (uploadsIndex > -1) {
+          return `/api/${url.substring(uploadsIndex)}`;
+      }
       return url;
   }
 
