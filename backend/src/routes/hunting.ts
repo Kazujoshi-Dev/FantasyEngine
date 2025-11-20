@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -49,7 +50,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         let party = await getPartyByMember(req.user.id);
         
         if (!party) {
-            return res.json(null);
+            return res.json({ party: null, serverTime: new Date().toISOString() });
         }
         
         const gameData = await getGameData();
@@ -118,7 +119,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
 
-        res.json(party);
+        res.json({ party, serverTime: new Date().toISOString() });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch party status' });

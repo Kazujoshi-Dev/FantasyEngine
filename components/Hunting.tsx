@@ -16,26 +16,44 @@ interface HuntingProps {
     gameData: GameData;
 }
 
-const CountdownTimer: React.FC<{ targetDate: string, durationMinutes: number, onZero: () => void }> = ({ targetDate, durationMinutes, onZero }) => {
-    const [timeLeft, setTimeLeft] = useState('');
+const CountdownTimer: React.FC<{ finishTime: string, serverNow: string, onZero: () => void }> = ({ finishTime, serverNow, onZero }) => {
+    const calculateTimeLeft = useCallback(() => {
+        const diff = new Date(finishTime).getTime() - new Date(serverNow).getTime();
+        return Math.max(0, diff);
+    }, [finishTime, serverNow]);
+    
+    const [timeLeftMs, setTimeLeftMs] = useState(calculateTimeLeft);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            const diff = new Date(new Date(targetDate).getTime() + durationMinutes * 60 * 1000).getTime() - Date.now();
-            if (diff <= 0) {
-                setTimeLeft('00:00');
-                clearInterval(interval);
-                onZero();
-            } else {
-                const m = Math.floor(diff / 60000);
-                const s = Math.floor((diff % 60000) / 1000);
-                setTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [targetDate, durationMinutes, onZero]);
+        setTimeLeftMs(calculateTimeLeft());
+    }, [calculateTimeLeft]);
 
-    return <span className="font-mono text-2xl text-amber-400 font-bold">{timeLeft}</span>;
+    useEffect(() => {
+        if (timeLeftMs <= 0) {
+            onZero();
+            return;
+        }
+
+        const interval = setInterval(() => {
+            setTimeLeftMs(prev => {
+                const newTime = prev - 1000;
+                if (newTime <= 0) {
+                    clearInterval(interval);
+                    onZero();
+                    return 0;
+                }
+                return newTime;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [timeLeftMs, onZero]);
+    
+    const m = Math.floor(timeLeftMs / 60000);
+    const s = Math.floor((timeLeftMs % 60000) / 1000);
+    const formattedTime = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+    return <span className="font-mono text-2xl text-amber-400 font-bold">{formattedTime}</span>;
 };
 
 const BossStatsPanel: React.FC<{ stats: EnemyStats; baseStats?: EnemyStats }> = ({ stats, baseStats }) => {
@@ -98,16 +116,18 @@ const getImageUrl = (url: string | undefined): string | undefined => {
 
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
-    const [myParty, setMyParty] = useState<HuntingParty | null>(null);
+    const [myPartyState, setMyPartyState] = useState<{ party: HuntingParty | null, serverTime: string | null }>({ party: null, serverTime: null });
     const [availableParties, setAvailableParties] = useState<any[]>([]);
     const [createBossId, setCreateBossId] = useState('');
     const [createMembers, setCreateMembers] = useState(4);
     const [isLoading, setIsLoading] = useState(false);
 
+    const { party: myParty, serverTime } = myPartyState;
+
     const fetchMyParty = useCallback(async () => {
         try {
-            const party = await api.getMyParty();
-            setMyParty(party);
+            const { party, serverTime } = await api.getMyParty();
+            setMyPartyState({ party, serverTime });
         } catch (err) {
             console.error(err);
         }
@@ -165,7 +185,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         setIsLoading(true);
         try {
             await api.leaveParty();
-            setMyParty(null);
+            setMyPartyState({ party: null, serverTime: null });
             await fetchParties();
         } catch (err: any) {
             alert(err.message);
@@ -254,6 +274,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
             );
         }
 
+        const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + durationMinutes * 60 * 1000).toISOString() : '';
+
         return (
             <ContentPanel title={t('hunting.title')}>
                 <div className="bg-slate-900/40 p-6 rounded-xl text-center">
@@ -268,10 +290,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
                     <p className="text-gray-400 mb-6">{t('hunting.statusLabel')}: <span className="text-white font-bold">{t(`hunting.status.${myParty.status}`)}</span></p>
                     
-                    {myParty.status === PartyStatus.Preparing && myParty.startTime && (
+                    {myParty.status === PartyStatus.Preparing && myParty.startTime && serverTime && (
                         <div className="mb-6">
                             <p className="text-sm text-gray-400 mb-1">{t('hunting.startsIn')}</p>
-                            <CountdownTimer targetDate={myParty.startTime} durationMinutes={durationMinutes} onZero={fetchMyParty} />
+                            <CountdownTimer finishTime={finishTime} serverNow={serverTime} onZero={fetchMyParty} />
                         </div>
                     )}
 

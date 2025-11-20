@@ -644,6 +644,7 @@ export const App: React.FC = () => {
                 return <Messages 
                     itemTemplates={gameData.itemTemplates} 
                     affixes={gameData.affixes} 
+                    enemies={gameData.enemies}
                     currentPlayer={character} 
                     onCharacterUpdate={handleCharacterUpdate}
                 />;

@@ -219,6 +219,10 @@ export interface ExpeditionRewardSummary {
   itemsFound: ItemInstance[];
   essencesFound: Partial<Record<EssenceType, number>>;
   itemsLostCount?: number;
+  // For Hunting Reports
+  huntingMembers?: PartyMember[];
+  allRewards?: Record<string, { gold: number; experience: number }>;
+  bossId?: string;
 }
 
 export interface PvpRewardSummary {

@@ -1,3 +1,4 @@
+
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -66,6 +67,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 4. Calculate Rewards and Save State (Individually)
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
+    const allRewardsForReport: Record<string, { gold: number; experience: number }> = {};
 
     if (isVictory) {
         // Reward Logic: Total Pool = BaseReward * PlayerCount * 1.5
@@ -122,6 +124,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             }
             
             rewardsMap[userId] = { gold: finalGold, experience: finalExp, items: itemsFound, essences: essencesFound };
+            allRewardsForReport[char.name] = { gold: finalGold, experience: finalExp };
 
             // Update Character object
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
@@ -153,7 +156,10 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 combatLog,
                 itemsFound, 
                 essencesFound,
-                rewardBreakdown: [{ source: breakdownSource, gold: finalGold, experience: finalExp }]
+                rewardBreakdown: [{ source: breakdownSource, gold: finalGold, experience: finalExp }],
+                huntingMembers: acceptedMembers.map(({ stats, ...member }) => member), // Strip runtime stats
+                allRewards: allRewardsForReport,
+                bossId: bossTemplate.id
             };
             await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
@@ -170,7 +176,10 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
              const summary: ExpeditionRewardSummary = {
                 isVictory: false, totalGold: 0, totalExperience: 0, combatLog,
-                itemsFound: [], essencesFound: {}, rewardBreakdown: []
+                itemsFound: [], essencesFound: {}, rewardBreakdown: [],
+                huntingMembers: acceptedMembers.map(({ stats, ...member }) => member),
+                allRewards: {},
+                bossId: bossTemplate.id
             };
              await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,

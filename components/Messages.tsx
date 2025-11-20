@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance } from '../types';
+import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './Expedition';
 import { MailIcon } from './icons/MailIcon';
@@ -12,7 +13,6 @@ import { StarIcon } from './icons/StarIcon';
 interface ComposeMessageModalProps {
     allCharacterNames: string[];
     onClose: () => void;
-    // fix: Changed Promise<void> to Promise<Message> to match the return type of api.sendMessage.
     onSendMessage: (data: { recipientName: string; subject: string; content: string }) => Promise<Message>;
     initialRecipient?: string;
     initialSubject?: string;
@@ -172,13 +172,14 @@ const MarketNotification: React.FC<{
 interface MessagesProps {
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
+    enemies: Enemy[];
     currentPlayer: PlayerCharacter;
     onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
 }
 
 const MESSAGES_PER_PAGE = 5;
 
-export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, currentPlayer, onCharacterUpdate }) => {
+export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enemies, currentPlayer, onCharacterUpdate }) => {
     const { t } = useTranslation();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -241,6 +242,7 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, curr
         } else if (messages.length === 0) {
             setSelectedMessageId(null);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [paginatedMessages, selectedMessageId, messages.length]);
 
     const handleMessageSelect = (id: number, isRead: boolean) => {
@@ -343,6 +345,19 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, curr
 
     const isDefenderView = selectedPvpReport ? selectedPvpReport.defender.id === currentPlayer.id : false;
 
+    const selectedBoss = selectedReport?.bossId ? enemies.find(e => e.id === selectedReport.bossId) : undefined;
+    const initialEnemyForModal = selectedBoss || (
+        selectedReport?.combatLog?.[0]?.enemyStats ? {
+            id: 'unknown',
+            name: selectedReport.combatLog[0].defender === currentPlayer.name ? selectedReport.combatLog[0].attacker : selectedReport.combatLog[0].defender,
+            description: selectedReport.combatLog[0].enemyDescription || '',
+            stats: selectedReport.combatLog[0].enemyStats,
+            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
+            lootTable: []
+        } : undefined
+    );
+    const bossNameForModal = selectedBoss?.name || initialEnemyForModal?.name;
+
     return (
         <ContentPanel title={t('messages.title')}>
             {isComposing && (
@@ -361,6 +376,11 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, curr
                   characterName={currentPlayer.name}
                   itemTemplates={itemTemplates}
                   affixes={affixes}
+                  isHunting={!!selectedReport.huntingMembers}
+                  huntingMembers={selectedReport.huntingMembers}
+                  allRewards={selectedReport.allRewards}
+                  initialEnemy={initialEnemyForModal}
+                  bossName={bossNameForModal}
                 />
             )}
              {selectedPvpReport && (

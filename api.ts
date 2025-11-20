@@ -418,7 +418,7 @@ export const api = {
         return fetchApi('/hunting/parties');
     },
 
-    async getMyParty(): Promise<HuntingParty | null> {
+    async getMyParty(): Promise<{ party: HuntingParty | null, serverTime: string }> {
         return fetchApi('/hunting/my-party');
     },
 
