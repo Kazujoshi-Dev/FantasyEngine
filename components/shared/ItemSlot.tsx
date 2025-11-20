@@ -92,7 +92,7 @@ export const ItemDetailsPanel: React.FC<{
         const entries = [
             ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${isUpgrade ? calculateStat(v as number) : v}`, color: 'text-green-300'})) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`},
-            (s.attacksPerRound !== undefined) && {label: t('statistics.attacksPerTurn'), value: s.attacksPerRound},
+            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerTurn'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`},
             (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`},
             (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`},
@@ -101,7 +101,6 @@ export const ItemDetailsPanel: React.FC<{
             (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${s.lifeStealFlat || 0}`},
             (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
             (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
-            (s.attacksPerRoundBonus !== undefined) && {label: t('item.attacksPerRoundBonus'), value: `+${s.attacksPerRoundBonus}`},
             (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
         ].filter(Boolean);
 
@@ -137,7 +136,7 @@ export const ItemDetailsPanel: React.FC<{
                     </p>
                 </div>
 
-                <StatSection source={item.rolledBaseStats || {}} isUpgrade={true} />
+                <StatSection source={item.rolledBaseStats || template} isUpgrade={true} />
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isUpgrade={false} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isUpgrade={false} />}
 
