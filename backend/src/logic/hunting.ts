@@ -86,6 +86,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const splitGold = Math.floor(totalPoolGold / playerCombatants.length);
         const splitExp = Math.floor(totalPoolExp / playerCombatants.length);
 
+        // FIRST LOOP: Calculate rewards for all members and update their characters in DB.
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
@@ -126,7 +127,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             rewardsMap[userId] = { gold: finalGold, experience: finalExp, items: itemsFound, essences: essencesFound };
             allRewardsForReport[char.name] = { gold: finalGold, experience: finalExp };
 
-            // Update Character object
+            // Update Character object in memory
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
             char.experience = (Number(char.experience) || 0) + finalExp;
             char.inventory.push(...itemsFound);
@@ -143,22 +144,30 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             }
 
             await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
-
-            // Send Message Report
+        }
+        
+        // SECOND LOOP: Now that allRewardsForReport is complete, send the same report to everyone.
+        for (const userIdStr of Object.keys(rawCharactersMap)) {
+            const userId = parseInt(userIdStr, 10);
+            const char = rawCharactersMap[userId];
+            const finalState = finalPlayers.find(p => p.data.name === char.name);
+            const isDefeated = !finalState || finalState.isDead;
+            const userRewards = rewardsMap[userId];
+            
             const breakdownSource = isDefeated 
                 ? `Polowanie na Bossa: ${bossTemplate.name} (Pokonany, 50% nagrody)`
                 : `Polowanie na Bossa: ${bossTemplate.name}`;
-
+            
             const summary: ExpeditionRewardSummary = {
                 isVictory: true, 
-                totalGold: finalGold, 
-                totalExperience: finalExp, 
+                totalGold: userRewards.gold, 
+                totalExperience: userRewards.experience, 
                 combatLog,
-                itemsFound, 
-                essencesFound,
-                rewardBreakdown: [{ source: breakdownSource, gold: finalGold, experience: finalExp }],
+                itemsFound: userRewards.items, 
+                essencesFound: userRewards.essences,
+                rewardBreakdown: [{ source: breakdownSource, gold: userRewards.gold, experience: userRewards.experience }],
                 huntingMembers: acceptedMembers.map(({ stats, ...member }) => member), // Strip runtime stats
-                allRewards: allRewardsForReport,
+                allRewards: allRewardsForReport, // This map is now complete for all players
                 bossId: bossTemplate.id
             };
             await pool.query(
