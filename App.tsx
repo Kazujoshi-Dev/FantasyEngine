@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -37,7 +38,7 @@ const MainApp: React.FC = () => {
     const [tavernMessages, setTavernMessages] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
-    const [expeditionReport, setExpeditionReport] = useState<ExpeditionRewardSummary | null>(null);
+    const [expeditionReport, setExpeditionReport] = useState<{ summary: ExpeditionRewardSummary; messageId: number; } | null>(null);
     const [traderInventory, setTraderInventory] = useState<{ regularItems: ItemInstance[], specialOfferItems: ItemInstance[] }>({ regularItems: [], specialOfferItems: [] });
     
     // Ranking State
@@ -150,7 +151,7 @@ const MainApp: React.FC = () => {
         try {
             const result = await api.completeExpedition();
             setCharacter(result.updatedCharacter);
-            setExpeditionReport(result.summary);
+            setExpeditionReport({ summary: result.summary, messageId: result.messageId });
         } catch (e) {
             console.error("Failed to complete expedition automatically", e);
         } finally {
@@ -783,20 +784,21 @@ const MainApp: React.FC = () => {
                 {/* Global Expedition Report Modal Overlay */}
                 {expeditionReport && (
                     <ExpeditionSummaryModal
-                        reward={expeditionReport}
+                        reward={expeditionReport.summary}
+                        messageId={expeditionReport.messageId}
                         onClose={() => setExpeditionReport(null)}
                         characterName={character.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
-                        initialEnemy={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? {
+                        initialEnemy={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? {
                             id: 'unknown', // Placeholder
-                            name: expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender,
-                            description: expeditionReport.combatLog[0].enemyDescription || '',
-                            stats: expeditionReport.combatLog[0].enemyStats,
+                            name: expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender,
+                            description: expeditionReport.summary.combatLog[0].enemyDescription || '',
+                            stats: expeditionReport.summary.combatLog[0].enemyStats,
                             rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
                             lootTable: []
                         } : undefined}
-                        bossName={expeditionReport.combatLog.length > 0 && expeditionReport.combatLog[0].enemyStats ? (expeditionReport.combatLog[0].defender === character.name ? expeditionReport.combatLog[0].attacker : expeditionReport.combatLog[0].defender) : undefined}
+                        bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
                     />
                 )}
             </div>

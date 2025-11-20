@@ -89,7 +89,7 @@ export const api = {
         return fetchApi('/character');
     },
 
-    async completeExpedition(): Promise<{ updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary }> {
+    async completeExpedition(): Promise<{ updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, messageId: number }> {
         return fetchApi('/character/complete-expedition', {
             method: 'POST',
         });

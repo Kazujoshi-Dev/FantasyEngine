@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType } from '../types';
@@ -80,6 +81,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         onClose: handleClose,
         itemTemplates: gameData.itemTemplates,
         affixes: gameData.affixes,
+        messageId: parseInt(reportId, 10),
     };
 
     if (type === 'expedition_report') {

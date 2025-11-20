@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -307,6 +309,7 @@ export interface ExpeditionSummaryModalProps {
     allRewards?: Record<string, { gold: number; experience: number }>;
     initialEnemy?: Enemy;
     bossName?: string;
+    messageId?: number | null;
 }
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
@@ -322,12 +325,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     huntingMembers = [],
     allRewards,
     initialEnemy,
-    bossName
+    bossName,
+    messageId
 }) => {
     const { t } = useTranslation();
     const [displayedLogs, setDisplayedLogs] = useState<CombatLogEntry[]>([]);
     const [isAnimationComplete, setIsAnimationComplete] = useState(false);
     const logContainerRef = useRef<HTMLDivElement>(null);
+    const [copyStatus, setCopyStatus] = useState('');
     
     const [currentPlayerStats, setCurrentPlayerStats] = useState<CharacterStats | null>(null);
     const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>([]);
@@ -382,6 +387,18 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     // Member tooltip state
     const [hoveredMember, setHoveredMember] = useState<{ data: PartyMember, rect: DOMRect } | null>(null);
 
+    const handleCopyLink = () => {
+        if (!messageId) return;
+        const url = `${window.location.origin}/report/${messageId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopyStatus('Skopiowano link!');
+            setTimeout(() => setCopyStatus(''), 2000);
+        }, (err) => {
+            setCopyStatus('Błąd kopiowania');
+            console.error('Could not copy text: ', err);
+            setTimeout(() => setCopyStatus(''), 2000);
+        });
+    };
 
     const handleItemMouseEnter = (itemInstance: ItemInstance) => {
         if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
@@ -654,13 +671,20 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                     )}
                 </div>
 
-                <button
-                    onClick={onClose}
-                    disabled={!isAnimationComplete}
-                    className="mt-4 w-full bg-indigo-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-indigo-700 transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed flex-shrink-0"
-                >
-                    {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
-                </button>
+                <div className="flex items-center gap-4 mt-4 flex-shrink-0">
+                    <button
+                        onClick={onClose}
+                        disabled={!isAnimationComplete}
+                        className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-indigo-700 transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
+                    >
+                        {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
+                    </button>
+                     {isAnimationComplete && messageId && (
+                        <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
+                            {copyStatus || 'Kopiuj Link'}
+                        </button>
+                    )}
+                </div>
             </div>
             
             {/* Hovered Member Tooltip - Rendered outside of the overflow container using fixed positioning */}

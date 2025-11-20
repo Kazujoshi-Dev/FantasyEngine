@@ -143,15 +143,16 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
-        // Save expedition report as a message - Pass OBJECT not string for JSONB column
-        await client.query(
+        // Save expedition report as a message and get its ID
+        const messageRes = await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
-             VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+             VALUES ($1, 'System', 'expedition_report', $2, $3) RETURNING id`,
             [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
         );
+        const messageId = messageRes.rows[0].id;
 
         await client.query('COMMIT');
-        res.json({ updatedCharacter, summary });
+        res.json({ updatedCharacter, summary, messageId });
 
     } catch (err: any) {
         await client.query('ROLLBACK');
