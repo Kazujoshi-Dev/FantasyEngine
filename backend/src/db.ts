@@ -11,7 +11,7 @@ dotenv.config();
 const poolConfig: PoolConfig = {
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  host: process.env.POSTGRES_HOST || 'localhost', // 'db' in docker-compose, 'localhost' for local dev
+  host: 'db', // Hardcoded host for Docker internal network
   database: process.env.POSTGRES_DB,
   port: 5432,
 };
