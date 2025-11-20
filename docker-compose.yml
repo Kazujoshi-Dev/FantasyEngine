@@ -3,9 +3,14 @@ services:
     build: .
     ports:
       - "3001:3001"
-    # WAŻNE: Zmienne poniżej (np. ${POSTGRES_USER}) MUSZĄ być ustawione
-    # w panelu Twojego dostawcy hostingu w sekcji "Secrets" lub "Zmienne Środowiskowe".
-    # Aplikacja nie działa, ponieważ te zmienne nie są obecnie ustawione.
+    # WAŻNE: Zmienne środowiskowe poniżej MUSZĄ być ustawione w panelu Twojego dostawcy hostingu.
+    # W logach wdrożenia widać błędy "variable is not set", co oznacza, że te wartości nie zostały skonfigurowane.
+    # Przejdź do ustawień aplikacji na Hostingerze, znajdź sekcję "Secrets" (lub "Zmienne środowiskowe") i dodaj następujące klucze z Twoimi wartościami:
+    # - POSTGRES_USER
+    # - POSTGRES_PASSWORD
+    # - POSTGRES_DB
+    # - PORT (np. 3001)
+    # - JWT_SECRET (dowolny długi, losowy ciąg znaków)
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -21,8 +26,9 @@ services:
 
   db:
     image: postgres:15-alpine
-    # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu
-    # w sekcji "Secrets" lub "Zmienne Środowiskowe", aby zainicjować bazę danych.
+    # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu.
+    # Baza danych nie może wystartować bez podania co najmniej POSTGRES_PASSWORD.
+    # To jest główna przyczyna błędu wdrożenia.
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
