@@ -20,12 +20,13 @@ import { Market } from './components/Market';
 import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
+import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
 import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
-export const App: React.FC = () => {
+const MainApp: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
@@ -801,4 +802,15 @@ export const App: React.FC = () => {
             </div>
         </LanguageContext.Provider>
     );
+};
+
+export const App: React.FC = () => {
+    const reportMatch = window.location.pathname.match(/^\/report\/(\d+)$/);
+
+    if (reportMatch) {
+        const reportId = reportMatch[1];
+        return <PublicReportViewer reportId={reportId} />;
+    }
+
+    return <MainApp />;
 };

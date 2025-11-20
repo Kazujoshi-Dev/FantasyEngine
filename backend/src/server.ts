@@ -23,6 +23,7 @@ import marketRoutes from './routes/market.js';
 import adminRoutes from './routes/admin.js';
 import huntingRoutes from './routes/hunting.js';
 import uploadRoutes from './routes/upload.js';
+import publicRoutes from './routes/public.js';
 
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use(express.json({ limit: '10mb' }) as any);
 // ===================================================================================
 //                                  API ROUTES
 // ===================================================================================
+app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/game-data', gameDataRoutes);
 app.use('/api/ranking', rankingRoutes);

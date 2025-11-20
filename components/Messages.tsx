@@ -187,6 +187,7 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
     const [selectedReport, setSelectedReport] = useState<ExpeditionRewardSummary | null>(null);
     const [selectedPvpReport, setSelectedPvpReport] = useState<PvpRewardSummary | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [copyStatus, setCopyStatus] = useState('');
     
     // State for compose modal
     const [isComposing, setIsComposing] = useState(false);
@@ -308,22 +309,34 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
             setCurrentPage(1);
         }
     };
+
+    const handleCopyLink = (messageId: number) => {
+        const url = `${window.location.origin}/report/${messageId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopyStatus('Skopiowano link!');
+            setTimeout(() => setCopyStatus(''), 2000);
+        }, (err) => {
+            setCopyStatus('Błąd kopiowania');
+            console.error('Could not copy text: ', err);
+            setTimeout(() => setCopyStatus(''), 2000);
+        });
+    };
     
     const renderMessageBody = (msg: Message) => {
         try {
             switch (msg.message_type) {
                 case 'pvp_report':
-                    const pvpBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
-                    return (
-                        <div className="mt-4">
-                            <button onClick={() => setSelectedPvpReport(pvpBody as PvpRewardSummary)} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
-                        </div>
-                    );
                 case 'expedition_report':
-                    const expBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                    const body = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                     return (
-                        <div className="mt-4">
-                            <button onClick={() => setSelectedReport(expBody as ExpeditionRewardSummary)} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                        <div className="mt-4 flex items-center gap-2">
+                            <button onClick={() => {
+                                if (msg.message_type === 'pvp_report') setSelectedPvpReport(body as PvpRewardSummary);
+                                else setSelectedReport(body as ExpeditionRewardSummary);
+                            }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
+                            <button onClick={() => handleCopyLink(msg.id)} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
+                                {copyStatus || 'Kopiuj Link'}
+                            </button>
                         </div>
                     );
                 case 'player_message':
