@@ -7,12 +7,12 @@ services:
     # w panelu Twojego dostawcy hostingu w sekcji "Secrets" lub "Zmienne Środowiskowe".
     # Aplikacja nie działa, ponieważ te zmienne nie są obecnie ustawione.
     environment:
-      - POSTGRES_USER=${postgresDBU}
-      - POSTGRES_PASSWORD=${password#%@#%ff22}
-      - POSTGRES_DB=${fantasy_game}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
-      - PORT=${3001}
-      - JWT_SECRET=${SDFGTDVBNHJESRTWDSFSA}
+      - PORT=${PORT}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       db:
         condition: service_healthy
@@ -24,15 +24,15 @@ services:
     # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu
     # w sekcji "Secrets" lub "Zmienne Środowiskowe", aby zainicjować bazę danych.
     environment:
-      POSTGRES_USER: ${postgresDBU}
-      POSTGRES_PASSWORD: ${password#%@#%ff22}
-      POSTGRES_DB: ${fantasy_game}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       # Ta komenda sprawdza, czy baza danych jest gotowa na przyjmowanie połączeń.
       # Używa ona zmiennych środowiskowych, które musisz podać w panelu Hostinger.
-      test: ["CMD-SHELL", "pg_isready -U $$postgresDBU -d $$fantasy_game"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
