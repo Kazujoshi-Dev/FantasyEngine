@@ -305,7 +305,6 @@ const UpgradePanel: React.FC<{
         
         if (result.messageKey !== 'error.title') { // Check if it's not a generic error
             setNotification({
-// fix: Use nullish coalescing operator to provide a default value for level to avoid passing undefined.
                 message: t(result.messageKey, { level: result.level ?? currentLevel + 1 }),
                 type: result.success ? 'success' : 'error'
             });
@@ -325,7 +324,7 @@ const UpgradePanel: React.FC<{
             [ItemRarity.Common]: 1, [ItemRarity.Uncommon]: 1.5, [ItemRarity.Rare]: 2.5,
             [ItemRarity.Epic]: 4, [ItemRarity.Legendary]: 8
         };
-        const goldCost = Math.floor(selectedTemplate.value * 0.5 * nextLevel * rarityMultiplier[selectedTemplate.rarity]);
+        const goldCost = Math.floor(Number(selectedTemplate.value) * 0.5 * nextLevel * rarityMultiplier[selectedTemplate.rarity]);
         const essenceCostAmount = 1;
         
         let essenceType: EssenceType | null = null;

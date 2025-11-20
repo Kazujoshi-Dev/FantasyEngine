@@ -10,9 +10,9 @@ const poolConfig: PoolConfig = {
   connectionString: connectionString,
 };
 
-if (connectionString && !/sslmode/i.test(connectionString)) {
-  poolConfig.ssl = { rejectUnauthorized: false };
-}
+// No special SSL handling. Let the connection string from the environment handle it.
+// If a managed DB needs SSL, its DATABASE_URL should include "?sslmode=require".
+// The local Docker setup does not need it and will no longer incorrectly try to use it.
 
 export const pool = new Pool(poolConfig);
 

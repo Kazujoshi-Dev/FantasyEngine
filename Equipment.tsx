@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -244,7 +243,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         }
         const fromSlot = contextMenu.fromSlot;
         if (contextMenu.source === 'equipment' && fromSlot) {
-// fix: Correct the action for the unequip context menu item to pass the correct slot.
             return [{ label: t('equipment.unequip'), action: () => onUnequipItem(contextMenu.item, fromSlot) }];
         }
         return [];

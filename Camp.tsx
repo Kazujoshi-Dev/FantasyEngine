@@ -52,12 +52,11 @@ const ChestPanel: React.FC<{
         const depositAmount = value === 'all' ? baseCharacter.resources.gold : Math.min(baseCharacter.resources.gold, Number(value));
         if (isNaN(depositAmount) || depositAmount <= 0) return;
 
-        const newChestGold = Math.min(capacity, baseCharacter.chest.gold + depositAmount);
-        const actualDeposit = newChestGold - baseCharacter.chest.gold;
+        const newChestGold = Math.min(capacity, (Number(baseCharacter.chest.gold) || 0) + depositAmount);
+        const actualDeposit = newChestGold - (Number(baseCharacter.chest.gold) || 0);
 
         if(actualDeposit > 0) {
             const newChar = JSON.parse(JSON.stringify(baseCharacter));
-            // fix: Ensure gold is treated as a number to prevent string concatenation.
             newChar.resources.gold = (Number(newChar.resources.gold) || 0) - actualDeposit;
             newChar.chest.gold = newChestGold;
             onCharacterUpdate(newChar, true);
@@ -70,9 +69,7 @@ const ChestPanel: React.FC<{
         if (isNaN(withdrawAmount) || withdrawAmount <= 0) return;
 
         const newChar = JSON.parse(JSON.stringify(baseCharacter));
-        // fix: Ensure gold is treated as a number to prevent string concatenation.
         newChar.chest.gold = (Number(newChar.chest.gold) || 0) - withdrawAmount;
-        // fix: Ensure gold is treated as a number to prevent string concatenation.
         newChar.resources.gold = (Number(newChar.resources.gold) || 0) + withdrawAmount;
         onCharacterUpdate(newChar, true);
         setAmount('');
