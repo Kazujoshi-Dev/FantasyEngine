@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../types.js';
 import { getGrammaticallyCorrectFullName } from './items.js';
 
@@ -387,7 +386,11 @@ interface TeamCombatState {
     turn: number;
 }
 
-export const simulateTeamCombat = (playersData: PlayerCharacter[], enemyData: Enemy, gameData: GameData): CombatLogEntry[] => {
+export const simulateTeamCombat = (
+    playersData: PlayerCharacter[], 
+    enemyData: Enemy, 
+    gameData: GameData
+): { combatLog: CombatLogEntry[], finalPlayers: TeamCombatPlayerState[] } => {
     // Scale boss stats based on player count
     const healthMultiplier = 1 + (playersData.length - 1) * 0.7; // e.g., 1 player = 1x, 5 players = 3.8x
     const damageMultiplier = 1 + (playersData.length - 1) * 0.10; // 10% damage increase per additional player
@@ -462,7 +465,7 @@ export const simulateTeamCombat = (playersData: PlayerCharacter[], enemyData: En
         }
     }
 
-    return state.log;
+    return { combatLog: state.log, finalPlayers: state.players };
 }
 
 const performTeamAttack = (

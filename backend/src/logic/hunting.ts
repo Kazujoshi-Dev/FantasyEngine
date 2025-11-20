@@ -1,4 +1,3 @@
-
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -48,16 +47,26 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     if (!bossTemplate) throw new Error('Boss not found');
 
     // 3. Simulate Combat using derived stats
-    const combatLog = simulateTeamCombat(playerCombatants, bossTemplate, gameData);
+    const { combatLog, finalPlayers } = simulateTeamCombat(playerCombatants, bossTemplate, gameData);
     const lastEntry = combatLog[combatLog.length - 1];
     const isVictory = lastEntry.enemyHealth <= 0;
 
-    // 4. Calculate Rewards (Individually)
+    // 3.5 Update player health from combat results
+    for (const finalPlayerState of finalPlayers) {
+        // Find the corresponding raw character to update. The ID is on `finalPlayerState.data.id`
+        const charToUpdate = rawCharactersMap[finalPlayerState.data.id!];
+        if (charToUpdate) {
+            // Apply the final health from the combat simulation. Ensure it's not negative.
+            charToUpdate.stats.currentHealth = Math.max(0, finalPlayerState.currentHealth);
+            charToUpdate.stats.currentMana = Math.max(0, finalPlayerState.currentMana);
+        }
+    }
+
+    // 4. Calculate Rewards and Save State (Individually)
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
 
     if (isVictory) {
         // Reward Logic: Total Pool = BaseReward * PlayerCount * 1.5
-        // This ensures that splitting the reward still yields a good result per player (1.5x normal mob).
         const bossBonusMultiplier = 1.5; 
 
         const minGold = bossTemplate.rewards.minGold;
@@ -73,7 +82,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const splitGold = Math.floor(totalPoolGold / playerCombatants.length);
         const splitExp = Math.floor(totalPoolExp / playerCombatants.length);
 
-        // Iterate over raw characters to apply rewards to the clean state
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
@@ -91,7 +99,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             const essencesFound: Partial<Record<EssenceType, number>> = {};
             const backpackCap = getBackpackCapacity(char);
             
-            // Use Boss Loot Table
             for (const drop of (bossTemplate.lootTable || [])) {
                 if (Math.random() * 100 < drop.chance) {
                     if (char.inventory.length + itemsFound.length < backpackCap) {
@@ -100,7 +107,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 }
             }
             
-            // Use Boss Resource Table
              for (const drop of (bossTemplate.resourceLootTable || [])) {
                 if (Math.random() * 100 < drop.chance) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
@@ -111,7 +117,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             
             rewardsMap[userId] = { gold: finalGold, experience: finalExp, items: itemsFound, essences: essencesFound };
 
-            // Update Character in DB (Using the RAW char, not the combat one)
+            // Update Character object
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
             char.experience = (Number(char.experience) || 0) + finalExp;
             char.inventory.push(...itemsFound);
@@ -131,40 +137,29 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
             // Send Message Report
             const summary: ExpeditionRewardSummary = {
-                isVictory: true,
-                totalGold: finalGold,
-                totalExperience: finalExp,
-                combatLog: combatLog, // Full log might be heavy, but required for replay
-                itemsFound: itemsFound,
-                essencesFound: essencesFound,
+                isVictory: true, totalGold: finalGold, totalExperience: finalExp, combatLog,
+                itemsFound, essencesFound,
                 rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: finalGold, experience: finalExp }]
             };
-
-            // Do NOT JSON.stringify summary for JSONB column if using pg driver with object support
             await pool.query(
-                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
-                 VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
         }
     } else {
-        // Handle defeat messages (no rewards)
+        // Handle defeat: save updated health and send messages
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
-             const summary: ExpeditionRewardSummary = {
-                isVictory: false,
-                totalGold: 0,
-                totalExperience: 0,
-                combatLog: combatLog,
-                itemsFound: [],
-                essencesFound: {},
-                rewardBreakdown: []
-            };
+            const char = rawCharactersMap[userId];
+            
+            await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
-            // Do NOT JSON.stringify summary
+             const summary: ExpeditionRewardSummary = {
+                isVictory: false, totalGold: 0, totalExperience: 0, combatLog,
+                itemsFound: [], essencesFound: {}, rewardBreakdown: []
+            };
              await pool.query(
-                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
-                 VALUES ($1, 'System', 'expedition_report', $2, $3)`,
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
             );
         }
@@ -185,7 +180,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         status: PartyStatus.Finished,
         combatLog: combatLog,
         victory: isVictory,
-        // Note: we don't return myRewards here, endpoint handles specific user filtering
     };
 };
 
