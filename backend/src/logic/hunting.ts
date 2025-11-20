@@ -53,12 +53,14 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 3.5 Update player health from combat results
     for (const finalPlayerState of finalPlayers) {
-        // Find the corresponding raw character to update. The ID is on `finalPlayerState.data.id`
-        const charToUpdate = rawCharactersMap[finalPlayerState.data.id!];
-        if (charToUpdate) {
-            // Apply the final health from the combat simulation. Ensure it's not negative.
-            charToUpdate.stats.currentHealth = Math.max(0, finalPlayerState.currentHealth);
-            charToUpdate.stats.currentMana = Math.max(0, finalPlayerState.currentMana);
+        const member = acceptedMembers.find(m => m.characterName === finalPlayerState.data.name);
+        if(member) {
+            const charToUpdate = rawCharactersMap[member.userId];
+            if (charToUpdate) {
+                // Apply the final health from the combat simulation. Ensure it's not negative.
+                charToUpdate.stats.currentHealth = Math.max(0, finalPlayerState.currentHealth);
+                charToUpdate.stats.currentMana = Math.max(0, finalPlayerState.currentMana);
+            }
         }
     }
 
@@ -85,33 +87,37 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
+
+            const finalState = finalPlayers.find(p => p.data.name === char.name);
+            const isDefeated = !finalState || finalState.isDead;
+            const rewardMultiplier = isDefeated ? 0.5 : 1.0;
             
-            let finalGold = splitGold;
-            let finalExp = splitExp;
+            let finalGold = Math.floor(splitGold * rewardMultiplier);
+            let finalExp = Math.floor(splitExp * rewardMultiplier);
 
             // Bonuses
             if (char.race === 'Gnome') finalGold = Math.floor(finalGold * 1.2);
             if (char.characterClass === 'Thief') finalGold = Math.floor(finalGold * 1.25);
             if (char.race === 'Human') finalExp = Math.floor(finalExp * 1.1);
             
-            // Individual Loot Roll
+            // Loot is only for survivors
             const itemsFound: ItemInstance[] = [];
             const essencesFound: Partial<Record<EssenceType, number>> = {};
-            const backpackCap = getBackpackCapacity(char);
-            
-            for (const drop of (bossTemplate.lootTable || [])) {
-                if (Math.random() * 100 < drop.chance) {
-                    if (char.inventory.length + itemsFound.length < backpackCap) {
-                        itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
+            if (!isDefeated) {
+                const backpackCap = getBackpackCapacity(char);
+                for (const drop of (bossTemplate.lootTable || [])) {
+                    if (Math.random() * 100 < drop.chance) {
+                        if (char.inventory.length + itemsFound.length < backpackCap) {
+                            itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
+                        }
                     }
                 }
-            }
-            
-             for (const drop of (bossTemplate.resourceLootTable || [])) {
-                if (Math.random() * 100 < drop.chance) {
-                    let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                     if(char.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
-                    essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
+                for (const drop of (bossTemplate.resourceLootTable || [])) {
+                    if (Math.random() * 100 < drop.chance) {
+                        let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                         if(char.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
+                        essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
+                    }
                 }
             }
             
@@ -136,10 +142,18 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
             // Send Message Report
+            const breakdownSource = isDefeated 
+                ? `Polowanie na Bossa: ${bossTemplate.name} (Pokonany, 50% nagrody)`
+                : `Polowanie na Bossa: ${bossTemplate.name}`;
+
             const summary: ExpeditionRewardSummary = {
-                isVictory: true, totalGold: finalGold, totalExperience: finalExp, combatLog,
-                itemsFound, essencesFound,
-                rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: finalGold, experience: finalExp }]
+                isVictory: true, 
+                totalGold: finalGold, 
+                totalExperience: finalExp, 
+                combatLog,
+                itemsFound, 
+                essencesFound,
+                rewardBreakdown: [{ source: breakdownSource, gold: finalGold, experience: finalExp }]
             };
             await pool.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
