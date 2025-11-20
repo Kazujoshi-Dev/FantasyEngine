@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
@@ -330,10 +329,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [isAnimationComplete, setIsAnimationComplete] = useState(false);
     const logContainerRef = useRef<HTMLDivElement>(null);
     
-    // State for single player / pvp
     const [currentPlayerStats, setCurrentPlayerStats] = useState<CharacterStats | null>(null);
-    // State for Hunting (Party)
-    const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>(huntingMembers);
+    const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>([]);
 
     const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(() => {
         // Prioritize log data for stats initialization (scaled values)
@@ -354,6 +351,29 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         }
         return null;
     });
+
+    useEffect(() => {
+        // If this is a hunt report and the members from props don't have stats,
+        // it means we are viewing a saved report (from Messages). We need to reconstruct the stats
+        // from the combat log to ensure tooltips work correctly.
+        if (isHunting && huntingMembers.length > 0 && !huntingMembers[0].stats) {
+            const statsMap = new Map<string, CharacterStats>();
+            // Find the first instance of each player's stats in the log
+            for (const log of reward.combatLog) {
+                if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
+                    statsMap.set(log.attacker, log.playerStats);
+                }
+            }
+            // Rebuild the members array with their reconstructed stats
+            setPartyMembersState(huntingMembers.map(member => ({
+                ...member,
+                stats: statsMap.get(member.characterName)
+            })));
+        } else {
+            // Otherwise (live view from Hunting tab), the stats are already present.
+            setPartyMembersState(huntingMembers);
+        }
+    }, [isHunting, huntingMembers, reward.combatLog]);
 
     const animationTimerRef = useRef<number | null>(null);
     const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
@@ -381,32 +401,15 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
     const updateCombatantState = (log: CombatLogEntry) => {
          if (isHunting) {
-             // Update Party Member Stats if matching
              setPartyMembersState(prev => prev.map(m => {
-                 if (m.characterName === log.attacker) {
-                      return { ...m, stats: { ...m.stats!, currentHealth: log.playerHealth, currentMana: log.playerMana } };
-                 }
-                 // If member was hit (is defender), we update them too
-                 if (m.characterName === log.defender) {
-                     return { ...m, stats: { ...m.stats!, currentHealth: log.playerHealth, currentMana: log.playerMana } };
+                 // Only update if stats object exists to avoid errors.
+                 if (!m.stats) return m; 
+                 
+                 if (m.characterName === log.attacker || m.characterName === log.defender) {
+                      return { ...m, stats: { ...m.stats, currentHealth: log.playerHealth, currentMana: log.playerMana } };
                  }
                  return m;
              }));
-             
-             // Update Boss (Enemy)
-             if (currentEnemy) {
-                 setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
-             } else if (log.enemyStats) {
-                 // Initialize boss on first log if not already (fallback)
-                  setCurrentEnemy({
-                    name: log.defender === 'Team' ? log.attacker : log.defender,
-                    description: log.enemyDescription,
-                    stats: log.enemyStats,
-                    currentHealth: log.enemyHealth,
-                    currentMana: log.enemyMana
-                });
-             }
-
          } else {
              // Standard PvE / PvP logic
              if (isPvp && pvpData) {
