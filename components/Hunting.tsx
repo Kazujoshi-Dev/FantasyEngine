@@ -128,12 +128,19 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const fetchMyParty = useCallback(async () => {
         try {
             const { party, serverTime } = await api.getMyParty();
+
+            // If the party is finished and we haven't "frozen" the report yet, do it now.
+            // This captures the state at the moment of finishing.
             if (party?.status === PartyStatus.Finished && !finalReportData) {
                 setFinalReportData(party);
             }
+
+            // If the party has disappeared entirely (e.g., user left from another tab),
+            // ensure the report modal is also cleared.
             if (!party) {
                 setFinalReportData(null);
             }
+
             setMyPartyState({ party, serverTime });
         } catch (err) {
             console.error(err);
@@ -192,7 +199,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         try {
             await api.leaveParty();
             setMyPartyState({ party: null, serverTime: null });
-            setFinalReportData(null);
+            setFinalReportData(null); // Explicitly clear the frozen report.
             await fetchParties();
         } catch (err: any) {
             alert(err.message);
@@ -245,6 +252,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         }
     }, [selectedBoss]);
 
+    // Use the "frozen" report data if it exists; otherwise, fall back to the live party state.
+    // This makes the report modal immutable once the hunt finishes.
     const reportData = finalReportData || myParty;
 
     if (reportData && reportData.status === PartyStatus.Finished && reportData.combatLog) {
