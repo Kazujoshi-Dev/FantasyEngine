@@ -5,19 +5,19 @@ services:
       - "3001:3001"
     # WAŻNE: Zmienne środowiskowe poniżej MUSZĄ być ustawione w panelu Twojego dostawcy hostingu.
     # W logach wdrożenia widać błędy "variable is not set", co oznacza, że te wartości nie zostały skonfigurowane.
-    # Przejdź do ustawień aplikacji na Hostingerze, znajdź sekcję "Secrets" (lub "Zmienne środowiskowe") i dodaj następujące klucze z Twoimi wartościami:
-    # - POSTGRES_USER
-    # - POSTGRES_PASSWORD
-    # - POSTGRES_DB
-    # - PORT (np. 3001)
-    # - JWT_SECRET (dowolny długi, losowy ciąg znaków)
+    # Przejdź do ustawień aplikacji na platformie hostingowej, znajdź sekcję "Secrets" (lub "Zmienne środowiskowe") i dodaj następujące klucze z Twoimi wartościami:
+    # - POSTGRES_USER       (np. "admin")
+    # - POSTGRES_PASSWORD   (np. "twoje_super_tajne_haslo")
+    # - POSTGRES_DB         (np. "fantasy_game")
+    # - PORT                (np. "3001")
+    # - JWT_SECRET          (dowolny długi, losowy ciąg znaków)
     environment:
-      - POSTGRES_USER=${postgresDBU}
-      - POSTGRES_PASSWORD=${password#%@#%ff22}
-      - POSTGRES_DB=${fantasy_game}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
-      - PORT=${3001}
-      - JWT_SECRET=${SDFGTDVBNHJESRTWDSFSAGSDFEWRJLKUIYRRER}
+      - PORT=${PORT}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       db:
         condition: service_healthy
@@ -28,17 +28,17 @@ services:
     image: postgres:15-alpine
     # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu.
     # Baza danych nie może wystartować bez podania co najmniej POSTGRES_PASSWORD.
-    # To jest główna przyczyna błędu wdrożenia.
+    # To jest główna przyczyna błędu wdrożenia. Upewnij się, że nazwy zmiennych są identyczne.
     environment:
-      POSTGRES_USER: ${postgresDBU}
-      POSTGRES_PASSWORD: ${password#%@#%ff22}
-      POSTGRES_DB: ${fantasy_game}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       # Ta komenda sprawdza, czy baza danych jest gotowa na przyjmowanie połączeń.
-      # Używa ona zmiennych środowiskowych, które musisz podać w panelu Hostinger.
-      test: ["CMD-SHELL", "pg_isready -U $$postgresDBU -d $$fantasy_game"]
+      # Używa ona zmiennych środowiskowych, które musisz podać w panelu hostingu.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
