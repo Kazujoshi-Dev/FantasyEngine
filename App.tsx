@@ -408,6 +408,14 @@ const MainApp: React.FC = () => {
             const itemInstance = char.equipment[slot as EquipmentSlot];
             if (itemInstance && typeof itemInstance === 'object') {
                 const template = itemTemplates.find(t => t.id === itemInstance.templateId);
+
+                // Definitive guard clause: if an item instance exists but its template doesn't,
+                // skip it entirely to prevent crashes from corrupted data.
+                if (!template) {
+                    console.warn(`Could not find template for item ${itemInstance.uniqueId} (templateId: ${itemInstance.templateId}). Skipping for stat calculation.`);
+                    continue;
+                }
+
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;
     
@@ -540,6 +548,82 @@ const MainApp: React.FC = () => {
 
     const derivedCharacter = useMemo(() => character ? calculateDerivedStats(character, gameData) : null, [character, gameData]);
 
+    const handleEquipItem = async (item: ItemInstance) => {
+        if (!character || !gameData) return;
+
+        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+        if (!template) return;
+
+        if (template.slot === 'consumable') {
+            const newInventory = character.inventory.filter(i => i.uniqueId !== item.uniqueId);
+            let newStats = { ...character.stats };
+
+            if (item.templateId === 'health_potion') { // Example hardcoded logic
+                newStats.currentHealth = Math.min(newStats.maxHealth, newStats.currentHealth + 50);
+            }
+            
+            const updatedChar: PlayerCharacter = { ...character, inventory: newInventory, stats: newStats };
+            await handleCharacterUpdate(updatedChar, true);
+            return;
+        }
+
+        const newEquipment = { ...character.equipment };
+        let newInventory = [...character.inventory];
+        const targetSlot = template.slot;
+
+        const unequipToInventory = (slot: EquipmentSlot) => {
+            if (newEquipment[slot]) {
+                newInventory.push(newEquipment[slot]!);
+                newEquipment[slot] = null;
+            }
+        };
+
+        if (targetSlot === 'ring') {
+            if (!newEquipment.ring1) {
+                newEquipment.ring1 = item;
+            } else if (!newEquipment.ring2) {
+                newEquipment.ring2 = item;
+            } else {
+                alert(t('equipment.ringSlotsFull'));
+                return;
+            }
+        } else if (targetSlot === EquipmentSlot.TwoHand) {
+            unequipToInventory(EquipmentSlot.MainHand);
+            unequipToInventory(EquipmentSlot.OffHand);
+            unequipToInventory(EquipmentSlot.TwoHand);
+            newEquipment.twoHand = item;
+        } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
+            unequipToInventory(EquipmentSlot.TwoHand);
+            unequipToInventory(targetSlot);
+            newEquipment[targetSlot] = item;
+        } else {
+            const slot = targetSlot as EquipmentSlot;
+            unequipToInventory(slot);
+            newEquipment[slot] = item;
+        }
+
+        newInventory = newInventory.filter(i => i.uniqueId !== item.uniqueId);
+        
+        const updatedChar: PlayerCharacter = { ...character, equipment: newEquipment, inventory: newInventory };
+        await handleCharacterUpdate(updatedChar, true);
+    };
+
+    const handleUnequipItem = async (item: ItemInstance, slot: EquipmentSlot) => {
+        if (!character) return;
+        const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
+        if (character.inventory.length >= backpackCapacity) {
+            alert(t('equipment.backpackFull'));
+            return;
+        }
+        
+        const newEquipment = { ...character.equipment, [slot]: null };
+        const newInventory = [...character.inventory, item];
+        
+        const newChar: PlayerCharacter = { ...character, equipment: newEquipment, inventory: newInventory };
+        await handleCharacterUpdate(newChar, true);
+    };
+
+
     // --- Render Logic ---
 
     // 1. Not Logged In
@@ -642,76 +726,8 @@ const MainApp: React.FC = () => {
                     character={derivedCharacter} 
                     baseCharacter={character} 
                     gameData={gameData} 
-                    onEquipItem={async (item) => {
-                        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                        if (!template) return;
-
-                        if (template.slot === 'consumable') {
-                            const newInventory = character.inventory.filter(i => i.uniqueId !== item.uniqueId);
-                            let newStats = { ...character.stats };
-
-                            if (item.templateId === 'health_potion') { // Example hardcoded logic
-                                newStats.currentHealth = Math.min(newStats.maxHealth, newStats.currentHealth + 50);
-                            }
-                            
-                            const updatedChar = { ...character, inventory: newInventory, stats: newStats };
-                            await handleCharacterUpdate(updatedChar, true);
-                            return;
-                        }
-
-                        const newEquipment = { ...character.equipment };
-                        let newInventory = [...character.inventory];
-                        const targetSlot = template.slot;
-
-                        const unequipToInventory = (slot: EquipmentSlot) => {
-                            if (newEquipment[slot]) {
-                                newInventory.push(newEquipment[slot]!);
-                                newEquipment[slot] = null;
-                            }
-                        };
-
-                        if (targetSlot === 'ring') {
-                            if (!newEquipment.ring1) {
-                                newEquipment.ring1 = item;
-                            } else if (!newEquipment.ring2) {
-                                newEquipment.ring2 = item;
-                            } else {
-                                alert(t('equipment.ringSlotsFull'));
-                                return;
-                            }
-                        } else if (targetSlot === EquipmentSlot.TwoHand) {
-                            unequipToInventory(EquipmentSlot.MainHand);
-                            unequipToInventory(EquipmentSlot.OffHand);
-                            unequipToInventory(EquipmentSlot.TwoHand);
-                            newEquipment.twoHand = item;
-                        } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
-                            unequipToInventory(EquipmentSlot.TwoHand);
-                            unequipToInventory(targetSlot);
-                            newEquipment[targetSlot] = item;
-                        } else {
-                            const slot = targetSlot as EquipmentSlot;
-                            unequipToInventory(slot);
-                            newEquipment[slot] = item;
-                        }
-
-                        newInventory = newInventory.filter(i => i.uniqueId !== item.uniqueId);
-                        
-                        const updatedChar = { ...character, equipment: newEquipment, inventory: newInventory };
-                        await handleCharacterUpdate(updatedChar, true);
-                    }}
-                    onUnequipItem={async (item, slot) => {
-                        const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
-                        if (character.inventory.length >= backpackCapacity) {
-                            alert(t('equipment.backpackFull'));
-                            return;
-                        }
-                        
-                        const newEquipment = { ...character.equipment, [slot]: null };
-                        const newInventory = [...character.inventory, item];
-                        
-                        const newChar = { ...character, equipment: newEquipment, inventory: newInventory };
-                        await handleCharacterUpdate(newChar, true);
-                    }}
+                    onEquipItem={handleEquipItem}
+                    onUnequipItem={handleUnequipItem}
                 />;
             case Tab.Expedition:
                 return <Expedition 
@@ -728,15 +744,17 @@ const MainApp: React.FC = () => {
                             return;
                         }
 
-                        const updatedChar = { ...character };
-                        updatedChar.resources.gold -= expedition.goldCost;
-                        updatedChar.stats.currentEnergy -= expedition.energyCost;
-                        updatedChar.activeExpedition = {
-                            expeditionId: expId,
-                            finishTime: Date.now() + expedition.duration * 1000,
-                            enemies: [], // Populated on completion
-                            combatLog: [],
-                            rewards: { gold: 0, experience: 0 }
+                        const updatedChar: PlayerCharacter = { 
+                            ...character,
+                            resources: { ...character.resources, gold: character.resources.gold - expedition.goldCost },
+                            stats: { ...character.stats, currentEnergy: character.stats.currentEnergy - expedition.energyCost },
+                            activeExpedition: {
+                                expeditionId: expId,
+                                finishTime: Date.now() + expedition.duration * 1000,
+                                enemies: [], // Populated on completion
+                                combatLog: [],
+                                rewards: { gold: 0, experience: 0 }
+                            }
                         };
                         
                         await handleCharacterUpdate(updatedChar, true);
@@ -761,7 +779,7 @@ const MainApp: React.FC = () => {
                     onUpgradeCamp={() => {
                         const cost = character.camp.level * 100;
                         if (character.resources.gold >= cost) {
-                            const newChar = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost } };
+                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost } };
                             handleCharacterUpdate(newChar, true);
                         }
                     }}
@@ -772,7 +790,7 @@ const MainApp: React.FC = () => {
                         const currentLevel = character.chest.level;
                         const cost = { gold: currentLevel * 100, essences: [] }; // Simple cost for now
                         if (character.resources.gold >= cost.gold) {
-                             const newChar = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
                              handleCharacterUpdate(newChar, true);
                         }
                     }}
@@ -780,7 +798,7 @@ const MainApp: React.FC = () => {
                          const currentLevel = character.backpack?.level || 1;
                          const cost = { gold: currentLevel * 100, essences: [] };
                          if (character.resources.gold >= cost.gold) {
-                             const newChar = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
                              handleCharacterUpdate(newChar, true);
                          }
                     }}
