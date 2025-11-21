@@ -23,7 +23,7 @@ services:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
-      - ./:/app
+
   db:
     image: postgres:15-alpine
     # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu.
