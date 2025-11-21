@@ -10,8 +10,8 @@ dotenv.config();
 const poolConfig: PoolConfig = {
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  // Reverted to prioritize env var (Docker uses 'db'), fallback to localhost only if env is missing.
-  host: process.env.POSTGRES_HOST || 'db', 
+  // Use env var if present (Docker), otherwise default to localhost (Local Dev)
+  host: process.env.POSTGRES_HOST || 'localhost', 
   database: process.env.POSTGRES_DB,
   port: 5432,
   // Timeout to fail fast if DB is unreachable (5 seconds)
