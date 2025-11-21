@@ -57,13 +57,16 @@ const MainApp: React.FC = () => {
 
     const t = getT(character?.settings?.language || Language.PL);
 
-    // Force logout handler - Nukes everything to fix "stuck" states
+    // Force logout handler - Clean state without reload to avoid loops
     const handleForceLogout = () => {
+        console.log("Force logout triggered");
         localStorage.removeItem('token');
         setToken(null);
         setCharacter(null);
+        setGameData(null);
         setIsInitialLoading(false);
-        window.location.reload(); // Hard reload to clear memory
+        setLoadingError(null);
+        // window.location.reload(); // Disabled to prevent refresh loops
     };
 
     // Loading Timer Effect
@@ -71,10 +74,15 @@ const MainApp: React.FC = () => {
         let timer: any;
         if (isInitialLoading) {
             timer = setInterval(() => {
-                setLoadingTime(t => t + 1);
+                setLoadingTime(t => {
+                    // Show force logout faster (after 2 seconds)
+                    if (t >= 2) setShowForceLogout(true);
+                    return t + 1;
+                });
             }, 1000);
         } else {
             setLoadingTime(0);
+            setShowForceLogout(false);
         }
         return () => clearInterval(timer);
     }, [isInitialLoading]);
@@ -100,8 +108,9 @@ const MainApp: React.FC = () => {
                 
                 if (!isMounted) return;
                 
-                if (!data || (!data.itemTemplates && !data.locations)) {
-                    throw new Error("Nieprawidłowe dane gry. Serwer może być niedostępny.");
+                // More robust check - allow empty object but check if call actually succeeded/returned JSON
+                if (!data) {
+                    throw new Error("Nieprawidłowe dane gry (pusta odpowiedź). Serwer może być niedostępny.");
                 }
                 setGameData(data);
 
@@ -141,21 +150,14 @@ const MainApp: React.FC = () => {
 
         loadData();
         
-        // Show "Force Logout" button after 1 second of loading (aggressively show it)
-        const forceLogoutTimer = setTimeout(() => {
-            if (isMounted && isLoadingRef.current) {
-                setShowForceLogout(true);
-            }
-        }, 1000);
-
-        // Safety timeout: if loading takes > 4s, assume failure
+        // Safety timeout: if loading takes > 8s (aligned with API timeout), assume failure
         const failTimer = setTimeout(() => {
             if (isMounted && isLoadingRef.current) {
                 setLoadingError("Przekroczono limit czasu. Serwer nie odpowiada.");
                 setIsInitialLoading(false);
                 isLoadingRef.current = false;
             }
-        }, 4000);
+        }, 8000);
 
         const interval = setInterval(async () => {
             if (!token || isLoadingRef.current) return;
@@ -171,7 +173,6 @@ const MainApp: React.FC = () => {
 
         return () => {
             isMounted = false;
-            clearTimeout(forceLogoutTimer);
             clearTimeout(failTimer);
             clearInterval(interval);
         };

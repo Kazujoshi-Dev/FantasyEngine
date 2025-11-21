@@ -1,6 +1,4 @@
 
-
-
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -12,9 +10,12 @@ dotenv.config();
 const poolConfig: PoolConfig = {
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  host: process.env.POSTGRES_HOST || 'db', // Use env var or default to internal host 'db'
+  // CHANGE: Default to 'localhost' instead of 'db' to fix local development hanging
+  host: process.env.POSTGRES_HOST || 'localhost', 
   database: process.env.POSTGRES_DB,
   port: 5432,
+  // CHANGE: Add timeout to fail fast if DB is unreachable (5 seconds)
+  connectionTimeoutMillis: 5000, 
 };
 
 

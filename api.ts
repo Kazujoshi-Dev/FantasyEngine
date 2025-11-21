@@ -50,6 +50,7 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred.' }));
+            console.error(`Fetch failed for ${endpoint}:`, response.status, errorData); // Log specific failure
             // Map backend credential errors to more user-friendly messages
             if (response.status === 401 && errorData.message === 'Invalid credentials.') {
                  throw new Error('Invalid username or password.');
@@ -68,7 +69,7 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
         
         // If we get HTML text (like index.html fallback from SPA), it means the API route is missing or server is misconfigured
         if (contentType && contentType.includes("text/html")) {
-             console.error(`API Error: Received HTML instead of JSON for ${endpoint}. Base URL: ${API_BASE_URL}`);
+             console.error(`API Error: Received HTML instead of JSON for ${endpoint}. Base URL: ${API_BASE_URL}. This usually means the backend is unreachable or the route is 404.`);
              throw new Error("Server returned HTML instead of JSON. Check API configuration.");
         }
 
