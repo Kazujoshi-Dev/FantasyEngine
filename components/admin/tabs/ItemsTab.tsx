@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { ItemTemplate, ItemRarity, EquipmentSlot } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -30,7 +31,7 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
     if (itemExists) {
         updatedData = safeItemTemplates.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...safeItemTemplates, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        updatedData = [...safeItemTemplates, { ...itemFromEditor, id: itemFromEditor.id || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }) }];
     }
     onGameDataUpdate('itemTemplates', updatedData);
     setEditingItem(null);
