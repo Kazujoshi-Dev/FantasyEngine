@@ -1,7 +1,7 @@
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
-import { api } from '../../../api';
 
 interface BossEditorProps {
   boss: Partial<Enemy>;
@@ -83,15 +83,6 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
     const addResourceLoot = () => setFormData(prev => ({ ...prev, resourceLootTable: [...(prev.resourceLootTable || []), { resource: EssenceType.Common, min: 1, max: 1, chance: 0 }] }));
     const removeResourceLoot = (index: number) => setFormData(prev => ({ ...prev, resourceLootTable: prev.resourceLootTable?.filter((_, i) => i !== index) }));
 
-    const handleImageUpload = async (file: File) => {
-        try {
-            const { url } = await api.uploadFile(file);
-            setFormData(prev => ({ ...prev, image: url }));
-        } catch (err: any) {
-            alert(`Upload failed: ${err.message}`);
-        }
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) {
@@ -121,14 +112,16 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                     <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} rows={4} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     
-                    {/* Image Upload */}
+                    {/* Image URL */}
                     <div>
-                         <label className="block text-sm font-medium text-gray-300 mb-1">Portret Bossa (Wgraj plik)</label>
-                         <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])} 
-                            className="w-full bg-slate-700 p-2 rounded-md text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-700 file:text-white hover:file:bg-amber-600 mb-2"
+                         <label className="block text-sm font-medium text-gray-300 mb-1">Portret Bossa (URL)</label>
+                         <input
+                            type="text"
+                            name="image"
+                            value={formData.image || ''}
+                            onChange={handleChange}
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                            placeholder="https://example.com/image.png"
                         />
                         {formData.image && (
                             <div className="mt-2">

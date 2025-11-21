@@ -573,15 +573,6 @@ export const api = {
         });
     },
     
-    async uploadFile(file: File): Promise<{ url: string }> {
-        const formData = new FormData();
-        formData.append('file', file);
-        return fetchApi('/upload', {
-            method: 'POST',
-            body: formData
-        });
-    },
-
     // DB Editor
     async getDbTables(): Promise<string[]> {
         return fetchApi('/admin/db/tables');

@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { GameSettings, ItemRarity, Tab, Language, TraderSettings } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
-import { api } from '../../../api';
 
 interface GeneralTabProps {
   settings: GameSettings;
@@ -34,6 +34,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   
   // Slider images handling
   const [sliderImages, setSliderImages] = useState<string[]>(initialSettings.titleScreen?.images || []);
+  const [newSliderImageUrl, setNewSliderImageUrl] = useState('');
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -77,33 +78,6 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
     } else {
         setSettings(prev => ({ ...prev, [name]: value }));
     }
-  };
-  
-  const handleFileUpload = async (file: File, settingKey: 'loginBackground' | 'gameBackground') => {
-      try {
-          const { url } = await api.uploadFile(file);
-          setSettings(prev => ({ ...prev, [settingKey]: url }));
-      } catch (err: any) {
-          alert(`Upload failed: ${err.message}`);
-      }
-  };
-  
-  const handleSliderImageUpload = async (file: File) => {
-       try {
-          const { url } = await api.uploadFile(file);
-          const newImages = [...sliderImages, url];
-          setSliderImages(newImages);
-          setSettings(prev => ({
-              ...prev,
-              titleScreen: {
-                  ...prev.titleScreen,
-                  description: prev.titleScreen?.description || '',
-                  images: newImages
-              }
-          }));
-      } catch (err: any) {
-          alert(`Upload failed: ${err.message}`);
-      }
   };
   
   const removeSliderImage = (index: number) => {
@@ -194,37 +168,64 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
             <h3 className="text-2xl font-bold text-indigo-400 mb-4">Ustawienia Wizualne</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (Wgraj plik)</label>
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'loginBackground')} 
-                        className="w-full bg-slate-700 p-2 rounded-md text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (URL)</label>
+                    <input
+                        type="text"
+                        name="loginBackground"
+                        value={settings.loginBackground || ''}
+                        onChange={handleSettingsChange}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/image.png"
                     />
                     {settings.loginBackground && <p className="text-xs text-gray-400 mt-1 truncate">Obecne: {settings.loginBackground}</p>}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Gry (Wgraj plik)</label>
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'gameBackground')} 
-                        className="w-full bg-slate-700 p-2 rounded-md text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Gry (URL)</label>
+                    <input
+                        type="text"
+                        name="gameBackground"
+                        value={settings.gameBackground || ''}
+                        onChange={handleSettingsChange}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/image.png"
                     />
                     {settings.gameBackground && <p className="text-xs text-gray-400 mt-1 truncate">Obecne: {settings.gameBackground}</p>}
                 </div>
                 <div className="md:col-span-2">
-                     <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.titleScreen.description')}</label>
+                     <label className="block text-sm font-medium text-gray-300 mb-1">Opis gry</label>
                      <textarea name="titleScreenDescription" value={settings.titleScreen?.description || ''} onChange={handleSettingsChange} rows={4} className="w-full bg-slate-700 p-2 rounded-md" placeholder="Opis gry na stronie logowania..."></textarea>
                 </div>
                 <div className="md:col-span-2">
-                     <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.titleScreen.sliderImages')}</label>
-                     <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleSliderImageUpload(e.target.files[0])} 
-                        className="w-full bg-slate-700 p-2 rounded-md text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-700 file:text-white hover:file:bg-green-600 mb-2"
-                    />
+                     <label className="block text-sm font-medium text-gray-300 mb-1">Obrazy w sliderze</label>
+                    <div className="flex gap-2 mb-2">
+                        <input
+                            type="text"
+                            value={newSliderImageUrl}
+                            onChange={(e) => setNewSliderImageUrl(e.target.value)}
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                            placeholder="https://example.com/image.png"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (newSliderImageUrl.trim()) {
+                                    const newImages = [...sliderImages, newSliderImageUrl.trim()];
+                                    setSliderImages(newImages);
+                                    setSettings(prev => ({
+                                        ...prev,
+                                        titleScreen: {
+                                            ...(prev.titleScreen || { description: '', images: [] }),
+                                            images: newImages
+                                        }
+                                    }));
+                                    setNewSliderImageUrl('');
+                                }
+                            }}
+                            className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 font-semibold text-sm whitespace-nowrap"
+                        >
+                            Dodaj Obraz
+                        </button>
+                    </div>
                     <div className="flex flex-wrap gap-2 mt-2">
                         {sliderImages.map((img, idx) => (
                             <div key={idx} className="relative group">
