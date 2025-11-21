@@ -23,7 +23,6 @@
     "App.tsx",
     "index.tsx",
     "types.ts",
-    "vite.config.ts",
     "components/**/*.ts",
     "components/**/*.tsx",
     "contexts/**/*.ts",
@@ -31,5 +30,6 @@
     "i18n/**/*.ts",
     "i18n/**/*.tsx"
   ],
-  "exclude": ["node_modules", "backend", "dist", "uploads"]
+  "exclude": ["node_modules", "backend", "dist", "uploads"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
