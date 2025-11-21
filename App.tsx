@@ -885,8 +885,26 @@ const MainApp: React.FC = () => {
             case Tab.Admin:
                 return <AdminPanel 
                     gameData={gameData}
-                    onGameDataUpdate={async (key, data) => { await api.updateGameData(key, data); api.getGameData().then(setGameData); }}
-                    onSettingsUpdate={async (s) => { await api.updateGameSettings(s); api.getGameData().then(setGameData); }}
+                    onGameDataUpdate={async (key, data) => {
+                        try {
+                            await api.updateGameData(key, data);
+                            const refreshedData = await api.getGameData();
+                            setGameData(refreshedData);
+                        } catch (e) {
+                            console.error(`Failed to update ${key}:`, e);
+                            alert(t('error.title'));
+                        }
+                    }}
+                    onSettingsUpdate={async (s) => {
+                        try {
+                            await api.updateGameSettings(s);
+                            const refreshedData = await api.getGameData();
+                            setGameData(refreshedData);
+                        } catch (e) {
+                            console.error("Failed to update settings:", e);
+                            alert(t('error.title'));
+                        }
+                    }}
                     users={users}
                     onDeleteUser={async (id) => { await api.deleteUser(id); }}
                     allCharacters={allCharacters}
