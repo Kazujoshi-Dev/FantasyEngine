@@ -6,7 +6,7 @@ import { SkillEditor } from '../editors/SkillEditor';
 
 interface UniversityTabProps {
   skills: Skill[];
-  onGameDataUpdate: (key: 'skills', data: Skill[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const UniversityTab: React.FC<UniversityTabProps> = ({ skills, onGameDataUpdate }) => {

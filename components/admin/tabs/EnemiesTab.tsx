@@ -7,7 +7,7 @@ import { EnemyEditor } from '../editors/EnemyEditor';
 interface EnemiesTabProps {
   enemies: Enemy[];
   itemTemplates: ItemTemplate[];
-  onGameDataUpdate: (key: 'enemies', data: Enemy[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const EnemiesTab: React.FC<EnemiesTabProps> = ({ enemies, itemTemplates, onGameDataUpdate }) => {

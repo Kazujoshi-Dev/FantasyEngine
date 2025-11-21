@@ -6,7 +6,7 @@ import { QuestEditor } from '../editors/QuestEditor';
 
 interface QuestsTabProps {
   gameData: GameData;
-  onGameDataUpdate: (key: 'quests', data: Quest[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate }) => {

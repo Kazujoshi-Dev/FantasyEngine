@@ -9,7 +9,7 @@ interface ExpeditionsTabProps {
   locations: Location[];
   enemies: Enemy[];
   itemTemplates: ItemTemplate[];
-  onGameDataUpdate: (key: 'expeditions', data: Expedition[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const ExpeditionsTab: React.FC<ExpeditionsTabProps> = ({ expeditions, locations, enemies, itemTemplates, onGameDataUpdate }) => {

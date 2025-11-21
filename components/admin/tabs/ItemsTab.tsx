@@ -7,7 +7,7 @@ import { rarityStyles } from '../../shared/ItemSlot';
 
 interface ItemsTabProps {
   itemTemplates: ItemTemplate[];
-  onGameDataUpdate: (key: 'itemTemplates', data: ItemTemplate[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpdate }) => {

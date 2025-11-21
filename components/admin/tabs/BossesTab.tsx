@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -6,7 +7,7 @@ import { BossEditor } from '../editors/BossEditor';
 interface BossesTabProps {
   enemies: Enemy[];
   itemTemplates: ItemTemplate[];
-  onGameDataUpdate: (key: 'enemies', data: Enemy[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, onGameDataUpdate }) => {

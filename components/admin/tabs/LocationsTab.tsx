@@ -6,7 +6,7 @@ import { LocationEditor } from '../editors/LocationEditor';
 
 interface LocationsTabProps {
   locations: Location[];
-  onGameDataUpdate: (key: 'locations', data: Location[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const LocationsTab: React.FC<LocationsTabProps> = ({ locations, onGameDataUpdate }) => {

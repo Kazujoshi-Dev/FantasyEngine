@@ -6,7 +6,7 @@ import { AffixEditor } from '../editors/AffixEditor';
 
 interface AffixesTabProps {
   affixes: Affix[];
-  onGameDataUpdate: (key: 'affixes', data: Affix[]) => void;
+  onGameDataUpdate: (key: string, data: any) => void;
 }
 
 export const AffixesTab: React.FC<AffixesTabProps> = ({ affixes, onGameDataUpdate }) => {
