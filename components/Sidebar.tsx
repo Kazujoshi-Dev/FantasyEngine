@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
     <aside className="w-56 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex-shrink-0 flex flex-col">
       <div className="p-6 border-b border-slate-700/50">
         <h1 className="text-2xl font-bold text-white tracking-wider mb-2">
-          {t('sidebar.title')}
+          Kroniki Mroku
         </h1>
         {playerCharacter && (
           <div className="text-center bg-slate-900/50 rounded-lg p-3">
