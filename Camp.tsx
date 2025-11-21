@@ -22,7 +22,7 @@ interface CampProps {
     getBackpackUpgradeCost: (level: number) => { gold: number; essences: { type: EssenceType; amount: number }[] };
 }
 
-const REGEN_INTERVAL_SECONDS = 5;
+const REGEN_INTERVAL_SECONDS = 10; // Synced with App.tsx polling interval
 
 // --- Chest Calculation Helpers ---
 const getChestCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));

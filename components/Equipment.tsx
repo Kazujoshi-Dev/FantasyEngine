@@ -105,7 +105,8 @@ const ItemComparisonTooltip: React.FC<{
     if (!hoveredTemplate) return null;
 
     const equippedItemsToCompare: { item: ItemInstance | null, slotName: string }[] = [];
-    if (hoveredTemplate.slot === 'ring') {
+    // Fix: Unify comparison for all ring types ('ring', 'ring1', 'ring2') to show both equipped rings.
+    if (hoveredTemplate.slot === 'ring' || hoveredTemplate.slot === EquipmentSlot.Ring1 || hoveredTemplate.slot === EquipmentSlot.Ring2) {
         equippedItemsToCompare.push({ item: character.equipment.ring1, slotName: t('equipment.slot.ring1') });
         equippedItemsToCompare.push({ item: character.equipment.ring2, slotName: t('equipment.slot.ring2') });
     } else if (hoveredTemplate.slot === EquipmentSlot.TwoHand) {
@@ -128,6 +129,7 @@ const ItemComparisonTooltip: React.FC<{
              const slotToCompare = hoveredTemplate.slot;
              equippedItemsToCompare.push({ item: character.equipment[slotToCompare], slotName: t(`equipment.slot.${slotToCompare}`) });
         }
+    // Fix: Removed redundant '&& hoveredTemplate.slot !== 'ring'' which caused the TypeScript error.
     } else if (hoveredTemplate.slot !== 'consumable') {
         const slot = hoveredTemplate.slot as EquipmentSlot;
         equippedItemsToCompare.push({ item: character.equipment[slot], slotName: t(`equipment.slot.${slot}`) });

@@ -125,9 +125,10 @@ const ItemComparisonTooltip: React.FC<{
         if (character.equipment.twoHand) {
             equippedItemsToCompare.push({ item: character.equipment.twoHand, slotName: t('equipment.slot.twoHand') });
         } else {
-             equippedItemsToCompare.push({ item: character.equipment[hoveredTemplate.slot], slotName: t(`equipment.slot.${hoveredTemplate.slot}`) });
+             const slotToCompare = hoveredTemplate.slot;
+             equippedItemsToCompare.push({ item: character.equipment[slotToCompare], slotName: t(`equipment.slot.${slotToCompare}`) });
         }
-    } else if (hoveredTemplate.slot !== 'consumable') {
+    } else if (hoveredTemplate.slot !== 'consumable' && hoveredTemplate.slot !== 'ring') {
         const slot = hoveredTemplate.slot as EquipmentSlot;
         equippedItemsToCompare.push({ item: character.equipment[slot], slotName: t(`equipment.slot.${slot}`) });
     }
