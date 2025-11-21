@@ -1,7 +1,16 @@
 
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
-const API_BASE_URL = '/api';
+// Helper to determine API URL based on environment
+const getApiBaseUrl = () => {
+    // Check if running on typical dev port 8000 (esbuild default)
+    if (typeof window !== 'undefined' && window.location.port === '8000') {
+        return 'http://localhost:3001/api';
+    }
+    return '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Helper to get the token from localStorage
 const getAuthToken = (): string | null => {
@@ -59,6 +68,7 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
         
         // If we get HTML text (like index.html fallback from SPA), it means the API route is missing or server is misconfigured
         if (contentType && contentType.includes("text/html")) {
+             console.error(`API Error: Received HTML instead of JSON for ${endpoint}. Base URL: ${API_BASE_URL}`);
              throw new Error("Server returned HTML instead of JSON. Check API configuration.");
         }
 

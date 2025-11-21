@@ -49,6 +49,7 @@ const MainApp: React.FC = () => {
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [showForceLogout, setShowForceLogout] = useState(false);
+    const [loadingTime, setLoadingTime] = useState(0);
 
     // Refs
     const isCompletingExpeditionRef = useRef(false);
@@ -64,6 +65,19 @@ const MainApp: React.FC = () => {
         setIsInitialLoading(false);
         window.location.reload(); // Hard reload to clear memory
     };
+
+    // Loading Timer Effect
+    useEffect(() => {
+        let timer: any;
+        if (isInitialLoading) {
+            timer = setInterval(() => {
+                setLoadingTime(t => t + 1);
+            }, 1000);
+        } else {
+            setLoadingTime(0);
+        }
+        return () => clearInterval(timer);
+    }, [isInitialLoading]);
 
     // Main Data Loading Effect
     useEffect(() => {
@@ -127,21 +141,21 @@ const MainApp: React.FC = () => {
 
         loadData();
         
-        // Show "Force Logout" button after 2 seconds of loading
+        // Show "Force Logout" button after 1 second of loading (aggressively show it)
         const forceLogoutTimer = setTimeout(() => {
             if (isMounted && isLoadingRef.current) {
                 setShowForceLogout(true);
             }
-        }, 2000);
+        }, 1000);
 
-        // Safety timeout: if loading takes > 8s, assume failure
+        // Safety timeout: if loading takes > 4s, assume failure
         const failTimer = setTimeout(() => {
             if (isMounted && isLoadingRef.current) {
                 setLoadingError("Przekroczono limit czasu. Serwer nie odpowiada.");
                 setIsInitialLoading(false);
                 isLoadingRef.current = false;
             }
-        }, 8000);
+        }, 4000);
 
         const interval = setInterval(async () => {
             if (!token || isLoadingRef.current) return;
@@ -541,6 +555,7 @@ const MainApp: React.FC = () => {
              <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
                  <p>{loadingMessage || t('loading')}</p>
+                 <p className="text-xs text-gray-500">Czas: {loadingTime}s</p>
                  {showForceLogout && (
                      <div className="mt-6 flex flex-col items-center gap-2 animate-fade-in">
                          <p className="text-sm text-gray-400">Ładowanie trwa zbyt długo?</p>

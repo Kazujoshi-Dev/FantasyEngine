@@ -1,3 +1,4 @@
+
 {
   "name": "fantastic-idle-expedition",
   "version": "1.0.0",
@@ -6,7 +7,7 @@
   "type": "module",
   "scripts": {
     "predev:frontend": "mkdir -p dist && cp index.html dist/",
-    "dev:frontend": "esbuild index.tsx --bundle --outfile=dist/index.js --loader:.tsx=tsx --serve=8000 --servedir=dist",
+    "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",
     "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
     "build:frontend": "mkdir -p dist && cp index.html dist/index.html && esbuild index.tsx --bundle --outfile=dist/index.js --loader:.tsx=tsx --minify",
