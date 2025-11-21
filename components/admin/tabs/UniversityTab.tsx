@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { GameData, Skill } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -28,7 +29,7 @@ export const UniversityTab: React.FC<UniversityTabProps> = ({ skills, onGameData
     if (itemExists) {
         updatedData = safeSkills.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...safeSkills, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID() }];
+        updatedData = [...safeSkills, { ...itemFromEditor, id: itemFromEditor.id || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }) }];
     }
     onGameDataUpdate('skills', updatedData);
     setEditingSkill(null);
