@@ -406,7 +406,7 @@ const MainApp: React.FC = () => {
     
         for (const slot in char.equipment) {
             const itemInstance = char.equipment[slot as EquipmentSlot];
-            if (itemInstance) {
+            if (itemInstance && typeof itemInstance === 'object') {
                 const template = itemTemplates.find(t => t.id === itemInstance.templateId);
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;

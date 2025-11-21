@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -303,7 +302,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
-                            const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
+                            const template = (item && typeof item === 'object') ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
                              if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) {
                                 return null;
                             }
