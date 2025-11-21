@@ -72,7 +72,30 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
             alert(t('admin.expedition.nameRequired'));
             return;
         }
-        onSave(formData as Expedition);
+
+        // Construct a full Expedition object to satisfy the type,
+        // providing default values for any potentially undefined fields.
+        // This fixes a bug where casting a partial object caused issues.
+        const finalExpedition: Expedition = {
+            id: formData.id || crypto.randomUUID(),
+            name: formData.name,
+            description: formData.description || '',
+            duration: formData.duration || 0,
+            goldCost: formData.goldCost || 0,
+            energyCost: formData.energyCost || 0,
+            minBaseGoldReward: formData.minBaseGoldReward || 0,
+            maxBaseGoldReward: formData.maxBaseGoldReward || 0,
+            minBaseExperienceReward: formData.minBaseExperienceReward || 0,
+            maxBaseExperienceReward: formData.maxBaseExperienceReward || 0,
+            locationIds: formData.locationIds || [],
+            enemies: formData.enemies || [],
+            lootTable: formData.lootTable || [],
+            resourceLootTable: formData.resourceLootTable || [],
+            maxEnemies: formData.maxEnemies,
+            image: formData.image,
+        };
+
+        onSave(finalExpedition);
     };
 
     return (
