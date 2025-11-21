@@ -1,5 +1,5 @@
 {
-  "name": "kroniki-mroku",
+  "name": "fantastic-idle-expedition",
   "version": "1.0.0",
   "description": "A browser-based fantasy game.",
   "private": true,
@@ -10,7 +10,7 @@
     "dev:backend": "npm run dev --prefix backend",
     "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
     "build:frontend": "vite build",
-    "build:backend": "tsc -p backend/tsconfig.json",
+    "build:backend": "npm run compile --prefix backend",
     "build": "npm run build:frontend && npm run build:backend",
     "start": "npm start --prefix backend"
   },
