@@ -10,7 +10,7 @@
     "dev:backend": "npm run dev --prefix backend",
     "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
     "build:frontend": "vite build",
-    "build:backend": "npm run compile --prefix backend",
+    "build:backend": "tsc -p backend/tsconfig.json",
     "build": "npm run build:frontend && npm run build:backend",
     "start": "npm start --prefix backend"
   },
