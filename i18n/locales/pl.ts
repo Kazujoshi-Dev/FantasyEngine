@@ -44,7 +44,7 @@ export default {
         Dwarf: 'Posiada bazowo 5 punktów pancerza. Dodatkowo, gdy ma mniej niż 50% zdrowia, otrzymuje obrażenia zmniejszone o 20%.',
     },
     sidebar: {
-        title: 'Fantastyczna Wyprawa',
+        title: 'Kroniki Mroku',
         statistics: 'Statystyki',
         equipment: 'Ekwipunek',
         expedition: 'Wyprawa',
