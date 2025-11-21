@@ -1,36 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "./dist",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    /* Linting */
+    "rootDir": "src",
+    "esModuleInterop": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "api.ts",
-    "App.tsx",
-    "index.tsx",
-    "types.ts",
-    "vite.config.ts",
-    "components/**/*.ts",
-    "components/**/*.tsx",
-    "contexts/**/*.ts",
-    "contexts/**/*.tsx",
-    "i18n/**/*.ts",
-    "i18n/**/*.tsx"
-  ],
-  "exclude": ["node_modules", "backend", "dist", "uploads"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
