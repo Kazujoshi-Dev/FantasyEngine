@@ -77,7 +77,7 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
         // providing default values for any potentially undefined fields.
         // This fixes a bug where casting a partial object caused issues.
         const finalExpedition: Expedition = {
-            id: formData.id || crypto.randomUUID(),
+            id: formData.id || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }),
             name: formData.name,
             description: formData.description || '',
             duration: formData.duration || 0,
