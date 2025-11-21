@@ -26,7 +26,6 @@ RUN npm ci --prefix backend --omit=dev
 # Kopiowanie zbudowanego kodu
 COPY --from=frontend-builder /app/dist ./dist
 COPY --from=backend-builder /app/backend/dist ./backend/dist
-COPY --from=backend-builder /app/uploads ./uploads
 
 # Ustawienie zmiennej środowiskowej i komendy startowej
 ENV NODE_ENV=production
