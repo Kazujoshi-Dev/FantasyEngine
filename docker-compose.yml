@@ -1,5 +1,10 @@
 services:
   app:
+    # WAŻNE: Dodajemy nazwę obrazu. To zmusza system do wykonania kroku `build`,
+    # zamiast próbować pobrać nieistniejący obraz z internetu.
+    # To jest kluczowa zmiana, która naprawia błąd "No such image".
+    image: fantasyengine-app
+    container_name: fantasyengine-app
     build: .
     ports:
       - "3001:3001"
@@ -22,9 +27,12 @@ services:
       db:
         condition: service_healthy
     volumes:
+      # Montujemy tylko katalog uploads, aby zachować wgrane pliki między wdrożeniami.
       - ./uploads:/app/uploads
+
   db:
     image: postgres:15-alpine
+    container_name: fantasyengine-db
     # WAŻNE: Te zmienne również muszą być ustawione w panelu Twojego dostawcy hostingu.
     # Baza danych nie może wystartować bez podania co najmniej POSTGRES_PASSWORD.
     # To jest główna przyczyna błędu wdrożenia. Upewnij się, że nazwy zmiennych są identyczne.
