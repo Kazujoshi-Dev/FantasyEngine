@@ -26,7 +26,8 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    // Shorter timeout (8s) to fail fast if server is dead or token is stuck
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const config: RequestInit = {
         ...options,

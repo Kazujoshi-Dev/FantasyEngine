@@ -48,13 +48,22 @@ const MainApp: React.FC = () => {
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
-    const [showSlowLoadingOption, setShowSlowLoadingOption] = useState(false);
+    const [showForceLogout, setShowForceLogout] = useState(false);
 
     // Refs
     const isCompletingExpeditionRef = useRef(false);
-    const isLoadingRef = useRef(false); // Track loading status in ref for timeouts
+    const isLoadingRef = useRef(false); 
 
     const t = getT(character?.settings?.language || Language.PL);
+
+    // Force logout handler - Nukes everything to fix "stuck" states
+    const handleForceLogout = () => {
+        localStorage.removeItem('token');
+        setToken(null);
+        setCharacter(null);
+        setIsInitialLoading(false);
+        window.location.reload(); // Hard reload to clear memory
+    };
 
     // Main Data Loading Effect
     useEffect(() => {
@@ -67,13 +76,12 @@ const MainApp: React.FC = () => {
         isLoadingRef.current = true;
         setIsInitialLoading(true);
         setLoadingError(null);
-        setShowSlowLoadingOption(false);
+        setShowForceLogout(false);
 
         const loadData = async () => {
             try {
                 // 1. Game Data
-                setLoadingMessage(t('loading') + " (Dane gry...)");
-                // Always fetch fresh game data on reload to ensure sync
+                setLoadingMessage(t('loading') + " (Pobieranie konfiguracji...)");
                 const data = await api.getGameData();
                 
                 if (!isMounted) return;
@@ -84,7 +92,7 @@ const MainApp: React.FC = () => {
                 setGameData(data);
 
                 // 2. Character
-                setLoadingMessage(t('loading') + " (Postać...)");
+                setLoadingMessage(t('loading') + " (Wczytywanie postaci...)");
                 const char = await api.getCharacter();
                 
                 if (!isMounted) return;
@@ -106,8 +114,9 @@ const MainApp: React.FC = () => {
                 console.error("Initial load error:", e);
                 const errorMessage = (e as Error).message;
                 
-                if (errorMessage === 'Invalid username or password.' || errorMessage === 'Invalid token') {
-                     handleLogout();
+                // If token is invalid, logout immediately.
+                if (errorMessage === 'Invalid token' || errorMessage === 'Invalid username or password.') {
+                     handleForceLogout();
                 } else {
                      setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
                      setIsInitialLoading(false);
@@ -118,38 +127,37 @@ const MainApp: React.FC = () => {
 
         loadData();
         
-        // Visual "Still Loading" warning after 5 seconds
-        const slowTimer = setTimeout(() => {
+        // Show "Force Logout" button after 2 seconds of loading
+        const forceLogoutTimer = setTimeout(() => {
             if (isMounted && isLoadingRef.current) {
-                setShowSlowLoadingOption(true);
+                setShowForceLogout(true);
             }
-        }, 5000);
+        }, 2000);
 
-        // Hard fail timeout after 15 seconds
+        // Safety timeout: if loading takes > 8s, assume failure
         const failTimer = setTimeout(() => {
             if (isMounted && isLoadingRef.current) {
-                setLoadingError("Przekroczono limit czasu ładowania. Serwer nie odpowiada.");
+                setLoadingError("Przekroczono limit czasu. Serwer nie odpowiada.");
                 setIsInitialLoading(false);
                 isLoadingRef.current = false;
             }
-        }, 15000);
+        }, 8000);
 
         const interval = setInterval(async () => {
-            if (!token || isLoadingRef.current) return; // Don't sync if loading or no token
+            if (!token || isLoadingRef.current) return;
             try {
                 const char = await api.getCharacter();
                 if (isMounted) setCharacter(char);
             } catch (e) {
-                console.error("Sync error", e);
                 if ((e as Error).message === 'Invalid token') {
-                    handleLogout();
+                    handleForceLogout();
                 }
             }
         }, 10000);
 
         return () => {
             isMounted = false;
-            clearTimeout(slowTimer);
+            clearTimeout(forceLogoutTimer);
             clearTimeout(failTimer);
             clearInterval(interval);
         };
@@ -218,11 +226,9 @@ const MainApp: React.FC = () => {
     }, [activeTab, fetchRanking, fetchTraderInventory]);
 
     // --- Global Expedition Watcher ---
-    // Monitors active expedition and auto-completes it when time is up, regardless of active tab.
     const handleExpeditionCompletion = useCallback(async () => {
         if (isCompletingExpeditionRef.current || !character?.activeExpedition) return;
         
-        // Double check time client-side to avoid premature calls
         if (Date.now() < character.activeExpedition.finishTime) return;
 
         isCompletingExpeditionRef.current = true;
@@ -247,10 +253,8 @@ const MainApp: React.FC = () => {
         let timer: ReturnType<typeof setTimeout>;
 
         if (timeLeft <= 0) {
-             // Time already passed (e.g. page refresh), complete immediately
              handleExpeditionCompletion();
         } else {
-             // Set timer for remaining duration
              timer = setTimeout(() => {
                  handleExpeditionCompletion();
              }, timeLeft);
@@ -269,10 +273,7 @@ const MainApp: React.FC = () => {
 
     const handleLogout = () => {
         if (token) api.logout(token);
-        localStorage.removeItem('token');
-        setToken(null);
-        setCharacter(null);
-        // Don't clear gameData so login screen still looks good
+        handleForceLogout();
     };
     
     const fetchCharacter = async () => {
@@ -540,13 +541,17 @@ const MainApp: React.FC = () => {
              <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
                  <p>{loadingMessage || t('loading')}</p>
-                 {showSlowLoadingOption && (
-                     <button 
-                        onClick={() => window.location.reload()} 
-                        className="mt-4 text-sm text-indigo-400 underline hover:text-indigo-300"
-                     >
-                        Ładowanie trwa długo? Kliknij, aby odświeżyć.
-                     </button>
+                 {showForceLogout && (
+                     <div className="mt-6 flex flex-col items-center gap-2 animate-fade-in">
+                         <p className="text-sm text-gray-400">Ładowanie trwa zbyt długo?</p>
+                         <button 
+                            onClick={handleForceLogout} 
+                            className="px-6 py-2 bg-red-700 rounded-lg hover:bg-red-600 font-semibold text-white shadow-lg transition-colors"
+                         >
+                            Wyloguj się (Napraw błąd)
+                         </button>
+                         <p className="text-xs text-gray-500 mt-1">Kliknij, jeśli Twój "bilet" wygasł lub gra się zacięła.</p>
+                     </div>
                  )}
              </div>
          );
@@ -562,7 +567,7 @@ const MainApp: React.FC = () => {
                         <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 rounded hover:bg-indigo-700 font-semibold">
                             {t('error.refresh')}
                         </button>
-                        <button onClick={handleLogout} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 font-semibold">
+                        <button onClick={handleForceLogout} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 font-semibold">
                             {t('error.logout')}
                         </button>
                      </div>
