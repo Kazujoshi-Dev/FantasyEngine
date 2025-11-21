@@ -176,7 +176,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                                     </div>
                                 ) : (
                                     <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
-                                        <p>Fantastic Idle Expedition</p>
+                                        <p>Kroniki Mroku</p>
                                     </div>
                                 )}
                             </div>
