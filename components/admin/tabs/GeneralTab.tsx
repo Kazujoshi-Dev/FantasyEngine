@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameSettings, ItemRarity, Tab, Language, TraderSettings } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -35,17 +34,6 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
   
   // Slider images handling
   const [sliderImages, setSliderImages] = useState<string[]>(initialSettings.titleScreen?.images || []);
-
-  useEffect(() => {
-    const safeSettings = propSettings || { language: Language.PL };
-    setSettings(safeSettings);
-    
-    const newSafeSidebarOrder = (safeSettings.sidebarOrder || DEFAULT_TAB_ORDER)
-      .filter((t, index, self) => Tab[t] !== undefined && self.indexOf(t) === index);
-
-    setSidebarOrder(newSafeSidebarOrder);
-    setSliderImages(safeSettings.titleScreen?.images || []);
-  }, [propSettings]);
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

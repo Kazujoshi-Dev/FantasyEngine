@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -546,7 +545,7 @@ const MainApp: React.FC = () => {
     // 1. Not Logged In
     if (!token) {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
-            <Auth onLoginSuccess={handleLoginSuccess} settings={gameData?.settings} />
+            <Auth onLoginSuccess={handleLoginSuccess} />
         </LanguageContext.Provider>;
     }
 

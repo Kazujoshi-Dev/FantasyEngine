@@ -5,10 +5,9 @@ import { GameSettings } from '../types';
 
 interface AuthProps {
     onLoginSuccess: (token: string) => void;
-    settings?: GameSettings;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
+export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     const { t } = useTranslation(); // Use the hook at the top level
     const [isLoginView, setIsLoginView] = useState(true);
     const [username, setUsername] = useState('');
@@ -16,11 +15,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [settings, setSettings] = useState<GameSettings | undefined>(undefined);
     
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const images = settings?.titleScreen?.images || [];
     const description = settings?.titleScreen?.description || '';
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const data = await api.getGameData();
+                setSettings(data.settings);
+            } catch (err) {
+                console.error("Failed to load game settings for auth screen:", err);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         if (images.length > 1) {
