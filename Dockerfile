@@ -1,58 +1,53 @@
-# === Etap 1: Budowanie (Builder) ===
-# Używamy lekkiego obrazu Node.js do zbudowania naszej aplikacji.
+# --- ETAP 1: Budowanie aplikacji (Builder) ---
+# Używamy oficjalnego obrazu Node.js w wersji 20 z Alpine Linux jako lekkiej bazy.
+# Nazwaliśmy ten etap "builder", aby móc się do niego odwołać później.
 FROM node:20-alpine AS builder
 
-# Ustawiamy katalog roboczy w kontenerze
+# Ustawiamy katalog roboczy wewnątrz kontenera na /app
 WORKDIR /app
 
-# Kopiujemy pliki package.json i package-lock.json, aby zoptymalizować cache'owanie warstw
+# Kopiujemy pliki package.json z głównego katalogu i z backendu.
+# Robimy to jako osobny krok, aby wykorzystać buforowanie warstw Dockera.
+# Jeśli te pliki się nie zmienią, Docker nie będzie ponownie instalował zależności.
 COPY package*.json ./
 COPY backend/package*.json ./backend/
 
-# Instalujemy wszystkie zależności (włącznie z deweloperskimi, potrzebnymi do budowania)
-# Najpierw dla backendu, potem dla roota
-RUN npm install --prefix backend
+# Instalujemy wszystkie zależności (w tym deweloperskie, potrzebne do budowania)
 RUN npm install
+RUN npm install --prefix backend
 
-# Kopiujemy resztę kodu źródłowego
+# Kopiujemy resztę kodu źródłowego aplikacji
 COPY . .
 
-# Uruchamiamy skrypt budujący, który skompiluje frontend i backend
-# To jest kluczowy krok, który tworzy brakujący katalog /backend/dist
+# Uruchamiamy skrypt budujący, który tworzy frontend i backend
 RUN npm run build
 
-# === Etap 2: Produkcja (Production) ===
-# Zaczynamy od świeżego, jeszcze mniejszego obrazu Node.js
+
+# --- ETAP 2: Obraz produkcyjny (Finalny) ---
+# Zaczynamy od nowa z czystym, lekkim obrazem Node.js
 FROM node:20-alpine
 
+# Ustawiamy katalog roboczy
 WORKDIR /app
 
-# Kopiujemy pliki package.json z głównego katalogu i backendu
-COPY package*.json ./
+# Kopiujemy pliki package.json z backendu, aby zainstalować tylko zależności produkcyjne
 COPY backend/package*.json ./backend/
 
-# Instalujemy TYLKO zależności produkcyjne, aby zmniejszyć rozmiar finalnego obrazu
-RUN npm install --omit=dev --prefix backend
-RUN npm install --omit=dev
+# Instalujemy TYLKO zależności produkcyjne dla backendu
+RUN npm install --prefix backend --omit=dev
 
-# Kopiujemy zbudowany backend z etapu "builder"
+# Kopiujemy zbudowane pliki z etapu "builder"
+# Kopiujemy zbudowany frontend (katalog /dist)
+COPY --from=builder /app/dist ./dist
+# Kopiujemy zbudowany backend (katalog /backend/dist)
 COPY --from=builder /app/backend/dist ./backend/dist
 
-# Kopiujemy zbudowany frontend z etapu "builder"
-COPY --from=builder /app/dist ./dist
+# Ustawiamy zmienną środowiskową dla portu, na którym nasłuchuje aplikacja
+ENV PORT=3001
 
-# Kopiujemy katalog na uploadowane pliki
-COPY ./uploads ./uploads
-
-# Upewniamy się, że uprawnienia do katalogu uploads są poprawne (opcjonalne, ale dobra praktyka)
-RUN chown -R node:node /app/uploads
-
-# Zmieniamy użytkownika na mniej uprzywilejowanego dla bezpieczeństwa
-USER node
-
-# Ustawiamy port, na którym będzie działać aplikacja
+# Odsłaniamy port, aby można było się połączyć z aplikacją z zewnątrz kontenera
 EXPOSE 3001
 
-# Komenda startowa, która uruchomi serwer backendowy
-# Używamy skryptu startowego z package.json
-CMD ["npm", "start"]
+# Definiujemy domyślną komendę, która zostanie uruchomiona po starcie kontenera
+# Uruchamia ona serwer Node.js
+CMD ["node", "backend/dist/server.js"]
