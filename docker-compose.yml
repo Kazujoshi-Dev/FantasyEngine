@@ -1,8 +1,9 @@
 services:
   app:
-    # WAŻNE: Dodajemy nazwę obrazu. To zmusza system do wykonania kroku `build`,
-    # zamiast próbować pobrać nieistniejący obraz z internetu.
-    # To jest kluczowa zmiana, która naprawia błąd "No such image".
+    # WAŻNE: Przywracamy tę linię. Platforma hostingowa najpierw buduje obraz
+    # z pliku Dockerfile (nazywając go prawdopodobnie 'fantasyengine-app'),
+    # a DOPIERO POTEM używa tego pliku, aby uruchomić kontener o tej nazwie.
+    # Brak tej linii powodował, że system nie wiedział, co uruchomić.
     image: fantasyengine-app
     container_name: fantasyengine-app
     build: .
