@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
