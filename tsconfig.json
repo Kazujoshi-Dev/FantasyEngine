@@ -18,6 +18,18 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [
+    "api.ts",
+    "App.tsx",
+    "index.tsx",
+    "types.ts",
+    "vite.config.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "contexts/**/*.ts",
+    "contexts/**/*.tsx",
+    "i18n/**/*.ts",
+    "i18n/**/*.tsx"
+  ],
+  "exclude": ["node_modules", "backend", "dist", "uploads"]
 }
