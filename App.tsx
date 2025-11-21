@@ -643,68 +643,73 @@ const MainApp: React.FC = () => {
                     baseCharacter={character} 
                     gameData={gameData} 
                     onEquipItem={async (item) => {
-                         const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                         if(!template) return;
-                         
-                         let newChar = { ...character };
-                         const targetSlot = template.slot;
+                        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+                        if (!template) return;
 
-                         if (targetSlot === 'consumable') {
-                             // Consumable logic (use and remove)
-                             newChar.inventory = newChar.inventory.filter(i => i.uniqueId !== item.uniqueId);
-                             if(item.templateId === 'health_potion') { // Example hardcoded logic
-                                 newChar.stats.currentHealth = Math.min(newChar.stats.maxHealth, newChar.stats.currentHealth + 50);
-                             }
-                             await handleCharacterUpdate(newChar, true);
-                             return;
-                         }
-                         
-                         if (targetSlot === 'ring') {
-                             if (!newChar.equipment.ring1) {
-                                 newChar.equipment.ring1 = item;
-                             } else if (!newChar.equipment.ring2) {
-                                 newChar.equipment.ring2 = item;
-                             } else {
-                                 alert(t('equipment.ringSlotsFull'));
-                                 return;
-                             }
-                         } else if (targetSlot === EquipmentSlot.TwoHand) {
-                             if (newChar.equipment.mainHand) {
-                                 newChar.inventory.push(newChar.equipment.mainHand);
-                                 newChar.equipment.mainHand = null;
-                             }
-                             if (newChar.equipment.offHand) {
-                                 newChar.inventory.push(newChar.equipment.offHand);
-                                 newChar.equipment.offHand = null;
-                             }
-                             if (newChar.equipment.twoHand) {
-                                 newChar.inventory.push(newChar.equipment.twoHand);
-                             }
-                             newChar.equipment.twoHand = item;
-                         } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
-                             if (newChar.equipment.twoHand) {
-                                 newChar.inventory.push(newChar.equipment.twoHand);
-                                 newChar.equipment.twoHand = null;
-                             }
-                             if (newChar.equipment[targetSlot]) {
-                                 newChar.inventory.push(newChar.equipment[targetSlot]!);
-                             }
-                             newChar.equipment[targetSlot] = item;
-                         } else {
-                             const slot = targetSlot as EquipmentSlot;
-                             if (newChar.equipment[slot]) {
-                                 newChar.inventory.push(newChar.equipment[slot]!);
-                             }
-                             newChar.equipment[slot] = item;
-                         }
+                        if (template.slot === 'consumable') {
+                            const newInventory = character.inventory.filter(i => i.uniqueId !== item.uniqueId);
+                            let newStats = { ...character.stats };
 
-                         newChar.inventory = newChar.inventory.filter(i => i.uniqueId !== item.uniqueId);
-                         await handleCharacterUpdate(newChar, true);
+                            if (item.templateId === 'health_potion') { // Example hardcoded logic
+                                newStats.currentHealth = Math.min(newStats.maxHealth, newStats.currentHealth + 50);
+                            }
+                            
+                            const updatedChar = { ...character, inventory: newInventory, stats: newStats };
+                            await handleCharacterUpdate(updatedChar, true);
+                            return;
+                        }
+
+                        const newEquipment = { ...character.equipment };
+                        let newInventory = [...character.inventory];
+                        const targetSlot = template.slot;
+
+                        const unequipToInventory = (slot: EquipmentSlot) => {
+                            if (newEquipment[slot]) {
+                                newInventory.push(newEquipment[slot]!);
+                                newEquipment[slot] = null;
+                            }
+                        };
+
+                        if (targetSlot === 'ring') {
+                            if (!newEquipment.ring1) {
+                                newEquipment.ring1 = item;
+                            } else if (!newEquipment.ring2) {
+                                newEquipment.ring2 = item;
+                            } else {
+                                alert(t('equipment.ringSlotsFull'));
+                                return;
+                            }
+                        } else if (targetSlot === EquipmentSlot.TwoHand) {
+                            unequipToInventory(EquipmentSlot.MainHand);
+                            unequipToInventory(EquipmentSlot.OffHand);
+                            unequipToInventory(EquipmentSlot.TwoHand);
+                            newEquipment.twoHand = item;
+                        } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
+                            unequipToInventory(EquipmentSlot.TwoHand);
+                            unequipToInventory(targetSlot);
+                            newEquipment[targetSlot] = item;
+                        } else {
+                            const slot = targetSlot as EquipmentSlot;
+                            unequipToInventory(slot);
+                            newEquipment[slot] = item;
+                        }
+
+                        newInventory = newInventory.filter(i => i.uniqueId !== item.uniqueId);
+                        
+                        const updatedChar = { ...character, equipment: newEquipment, inventory: newInventory };
+                        await handleCharacterUpdate(updatedChar, true);
                     }}
                     onUnequipItem={async (item, slot) => {
-                        const newChar = { ...character };
-                        newChar.equipment[slot] = null;
-                        newChar.inventory.push(item);
+                        const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
+                        if (character.inventory.length >= backpackCapacity) {
+                            alert(t('equipment.backpackFull'));
+                            return;
+                        }
+                        
+                        const newEquipment = { ...character.equipment, [slot]: null };
+                        const newInventory = [...character.inventory, item];
+                        
+                        const newChar = { ...character, equipment: newEquipment, inventory: newInventory };
                         await handleCharacterUpdate(newChar, true);
                     }}
                 />;
