@@ -1,60 +1,53 @@
-# ===================================================================================
-# ETAP 1: "Builder" - Budowanie aplikacji w czystym środowisku
-# ===================================================================================
-# Używamy lekkiego obrazu Node.js jako tymczasowego środowiska do budowania.
-# Nazywamy ten etap "builder", aby móc się do niego później odwołać.
+# --- ETAP 1: Budowanie aplikacji (Builder) ---
+# Używamy oficjalnego obrazu Node.js w wersji 20 z Alpine Linux jako lekkiej bazy.
+# Nazwaliśmy ten etap "builder", aby móc się do niego odwołać później.
 FROM node:20-alpine AS builder
 
-# Ustawiamy katalog roboczy wewnątrz kontenera.
+# Ustawiamy katalog roboczy wewnątrz kontenera na /app
 WORKDIR /app
 
-# Kopiujemy pliki package.json i package-lock.json (jeśli istnieje) z głównego folderu i z folderu backend.
-# Robimy to jako pierwszy krok, aby wykorzystać cache'owanie warstw Dockera.
-# Instalacja zależności zostanie pominięta, jeśli te pliki się nie zmienią.
+# Kopiujemy pliki package.json z głównego katalogu i z backendu.
+# Robimy to jako osobny krok, aby wykorzystać buforowanie warstw Dockera.
+# Jeśli te pliki się nie zmienią, Docker nie będzie ponownie instalował zależności.
 COPY package*.json ./
-COPY backend/package*.json backend/
+COPY backend/package*.json ./backend/
 
-# Instalujemy wszystkie zależności (włącznie z devDependencies) potrzebne do budowania.
+# Instalujemy wszystkie zależności (w tym deweloperskie, potrzebne do budowania)
 RUN npm install
 RUN npm install --prefix backend
 
-# Kopiujemy resztę kodu źródłowego aplikacji.
+# Kopiujemy resztę kodu źródłowego aplikacji
 COPY . .
 
-# Uruchamiamy skrypt budowania, który kompiluje frontend (do /dist) i backend (do /backend/dist).
-# Ten krok tworzy brakujący plik server.js.
+# Uruchamiamy skrypt budujący, który tworzy frontend i backend
 RUN npm run build
 
-# ===================================================================================
-# ETAP 2: "Runtime" - Tworzenie finalnego, lekkiego obrazu produkcyjnego
-# ===================================================================================
-# Zaczynamy od nowa, z tego samego lekkiego obrazu Node.js.
+
+# --- ETAP 2: Obraz produkcyjny (Finalny) ---
+# Zaczynamy od nowa z czystym, lekkim obrazem Node.js
 FROM node:20-alpine
 
+# Ustawiamy katalog roboczy
 WORKDIR /app
 
-# Kopiujemy tylko pliki package.json z backendu.
-COPY backend/package*.json backend/
+# Kopiujemy pliki package.json z backendu, aby zainstalować tylko zależności produkcyjne
+COPY backend/package*.json ./backend/
 
-# Instalujemy WYŁĄCZNIE produkcyjne zależności dla backendu.
-# To sprawia, że finalny obraz jest znacznie mniejszy i bezpieczniejszy.
+# Instalujemy TYLKO zależności produkcyjne dla backendu
 RUN npm install --prefix backend --omit=dev
 
-# Kopiujemy skompilowany kod backendu z etapu "builder".
-# To jest kluczowy krok, który umieszcza gotowy plik server.js w finalnym obrazie.
+# Kopiujemy zbudowane pliki z etapu "builder"
+# Kopiujemy zbudowany frontend (katalog /dist)
+COPY --from=builder /app/dist ./dist
+# Kopiujemy zbudowany backend (katalog /backend/dist)
 COPY --from=builder /app/backend/dist ./backend/dist
 
-# Kopiujemy zbudowane pliki statyczne frontendu z etapu "builder".
-COPY --from=builder /app/dist ./dist
+# Ustawiamy zmienną środowiskową dla portu, na którym nasłuchuje aplikacja
+ENV PORT=3001
 
-# Tworzymy folder na wgrane pliki, aby istniał, nawet jeśli wolumen nie jest jeszcze podpięty.
-COPY --from=builder /app/uploads ./uploads
-
-# Ustawiamy zmienną środowiskową, aby Node.js działał w trybie produkcyjnym.
-ENV NODE_ENV=production
-
-# Otwieramy port, na którym nasłuchuje nasza aplikacja.
+# Odsłaniamy port, aby można było się połączyć z aplikacją z zewnątrz kontenera
 EXPOSE 3001
 
-# Definiujemy domyślną komendę, która uruchomi serwer po starcie kontenera.
-CMD ["npm", "start", "--prefix", "backend"]
+# Definiujemy domyślną komendę, która zostanie uruchomiona po starcie kontenera
+# Uruchamia ona serwer Node.js
+CMD ["node", "backend/dist/server.js"]
