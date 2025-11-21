@@ -52,7 +52,8 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
         
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-            return response.json();
+            const json = await response.json();
+            return json; // Return exactly what was parsed, even if null
         }
         
         // If we get HTML text (like index.html fallback from SPA), it means the API route is missing or server is misconfigured
@@ -60,9 +61,10 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
              throw new Error("Server returned HTML instead of JSON. Check API configuration.");
         }
 
-        return {};
+        return null; // Return null for empty/non-json successful responses instead of empty object
     } catch (error) {
         clearTimeout(timeoutId);
+        console.error(`API Error [${endpoint}]:`, error);
         if ((error as Error).name === 'AbortError') {
              throw new Error('Request timed out. Server is slow or unreachable.');
         }

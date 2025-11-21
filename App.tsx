@@ -48,98 +48,112 @@ const MainApp: React.FC = () => {
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
+    const [showSlowLoadingOption, setShowSlowLoadingOption] = useState(false);
 
-    // Ref to prevent double submission of expedition completion
+    // Refs
     const isCompletingExpeditionRef = useRef(false);
+    const isLoadingRef = useRef(false); // Track loading status in ref for timeouts
 
     const t = getT(character?.settings?.language || Language.PL);
 
     // Main Data Loading Effect
     useEffect(() => {
-        if (token) {
-            setIsInitialLoading(true);
-            setLoadingError(null);
-            
-            const loadData = async () => {
-                try {
-                    // 1. Game Data - Check if we already have it to avoid re-fetching unnecessarily
-                    // But if it's missing (e.g. reload), fetch it.
-                    let currentGameData = gameData;
-                    if (!currentGameData) {
-                        setLoadingMessage(t('loading') + " (Dane gry...)");
-                        const data = await api.getGameData();
-                        if (!data || !data.itemTemplates) {
-                            throw new Error("Nie udało się pobrać danych gry. Spróbuj odświeżyć stronę.");
-                        }
-                        setGameData(data);
-                        currentGameData = data;
-                    }
-
-                    // 2. Character
-                    setLoadingMessage(t('loading') + " (Postać...)");
-                    const char = await api.getCharacter();
-                    setCharacter(char);
-                    
-                    // News check logic
-                    if (char && char.lastReadNewsTimestamp && currentGameData?.settings?.newsLastUpdatedAt) {
-                        setHasNewNews(char.lastReadNewsTimestamp < currentGameData.settings.newsLastUpdatedAt);
-                    } else if (currentGameData?.settings?.newsContent) {
-                         if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
-                    }
-                    
-                    setIsInitialLoading(false);
-                } catch (e) {
-                    console.error("Initial load error:", e);
-                    const errorMessage = (e as Error).message;
-                    
-                    if (errorMessage === 'Invalid username or password.' || errorMessage === 'Invalid token') {
-                         handleLogout();
-                    } else {
-                         setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
-                         // Crucial: Turn off loading so the error message is visible!
-                         setIsInitialLoading(false);
-                    }
-                }
-            };
-
-            loadData();
-            
-            // Safety timeout: if loading takes too long (e.g. backend hanging), force an error state
-            const safetyTimer = setTimeout(() => {
-                if (isInitialLoading) {
-                    console.warn("Loading timed out.");
-                    setLoadingError("Ładowanie trwa zbyt długo. Sprawdź połączenie z internetem lub spróbuj ponownie.");
-                    setIsInitialLoading(false);
-                }
-            }, 12000); // 12 seconds timeout
-
-            const interval = setInterval(async () => {
-                try {
-                    const char = await api.getCharacter();
-                    setCharacter(char);
-                } catch (e) {
-                    console.error("Sync error", e);
-                    if ((e as Error).message === 'Invalid token') {
-                        handleLogout();
-                    }
-                }
-            }, 10000); // Periodic sync
-
-            return () => {
-                clearInterval(interval);
-                clearTimeout(safetyTimer);
-            };
-        } else {
-            // If no token, we are not loading (show auth)
+        if (!token) {
             setIsInitialLoading(false);
-            // Try to fetch game data in background for auth screen images if needed
-            if (!gameData) {
-                 api.getGameData().then(data => {
-                     if (data) setGameData(data);
-                 }).catch(() => {}); // Ignore errors for background fetch on auth screen
-            }
+            return;
         }
-    }, [token]); // Only re-run if token changes
+
+        let isMounted = true;
+        isLoadingRef.current = true;
+        setIsInitialLoading(true);
+        setLoadingError(null);
+        setShowSlowLoadingOption(false);
+
+        const loadData = async () => {
+            try {
+                // 1. Game Data
+                setLoadingMessage(t('loading') + " (Dane gry...)");
+                // Always fetch fresh game data on reload to ensure sync
+                const data = await api.getGameData();
+                
+                if (!isMounted) return;
+                
+                if (!data || (!data.itemTemplates && !data.locations)) {
+                    throw new Error("Nieprawidłowe dane gry. Serwer może być niedostępny.");
+                }
+                setGameData(data);
+
+                // 2. Character
+                setLoadingMessage(t('loading') + " (Postać...)");
+                const char = await api.getCharacter();
+                
+                if (!isMounted) return;
+
+                setCharacter(char);
+                
+                // News check logic
+                if (char && char.lastReadNewsTimestamp && data.settings?.newsLastUpdatedAt) {
+                    setHasNewNews(char.lastReadNewsTimestamp < data.settings.newsLastUpdatedAt);
+                } else if (data.settings?.newsContent) {
+                     if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
+                }
+                
+                setIsInitialLoading(false);
+                isLoadingRef.current = false;
+
+            } catch (e) {
+                if (!isMounted) return;
+                console.error("Initial load error:", e);
+                const errorMessage = (e as Error).message;
+                
+                if (errorMessage === 'Invalid username or password.' || errorMessage === 'Invalid token') {
+                     handleLogout();
+                } else {
+                     setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
+                     setIsInitialLoading(false);
+                     isLoadingRef.current = false;
+                }
+            }
+        };
+
+        loadData();
+        
+        // Visual "Still Loading" warning after 5 seconds
+        const slowTimer = setTimeout(() => {
+            if (isMounted && isLoadingRef.current) {
+                setShowSlowLoadingOption(true);
+            }
+        }, 5000);
+
+        // Hard fail timeout after 15 seconds
+        const failTimer = setTimeout(() => {
+            if (isMounted && isLoadingRef.current) {
+                setLoadingError("Przekroczono limit czasu ładowania. Serwer nie odpowiada.");
+                setIsInitialLoading(false);
+                isLoadingRef.current = false;
+            }
+        }, 15000);
+
+        const interval = setInterval(async () => {
+            if (!token || isLoadingRef.current) return; // Don't sync if loading or no token
+            try {
+                const char = await api.getCharacter();
+                if (isMounted) setCharacter(char);
+            } catch (e) {
+                console.error("Sync error", e);
+                if ((e as Error).message === 'Invalid token') {
+                    handleLogout();
+                }
+            }
+        }, 10000);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(slowTimer);
+            clearTimeout(failTimer);
+            clearInterval(interval);
+        };
+    }, [token]); 
 
     // ... rest of existing functions ...
     const fetchRanking = useCallback(async () => {
@@ -296,8 +310,6 @@ const MainApp: React.FC = () => {
             return;
         }
 
-        // Recalculate total points based on level to fix any database corruption from previous bugs
-        // Base points (10) + 1 point per level gained (level - 1)
         const totalPointsToRefund = 10 + (baseCharacter.level - 1);
 
         const updatedChar: PlayerCharacter = {
@@ -528,6 +540,14 @@ const MainApp: React.FC = () => {
              <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
                  <p>{loadingMessage || t('loading')}</p>
+                 {showSlowLoadingOption && (
+                     <button 
+                        onClick={() => window.location.reload()} 
+                        className="mt-4 text-sm text-indigo-400 underline hover:text-indigo-300"
+                     >
+                        Ładowanie trwa długo? Kliknij, aby odświeżyć.
+                     </button>
+                 )}
              </div>
          );
     }
@@ -569,8 +589,8 @@ const MainApp: React.FC = () => {
     if (!character) {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
             <CharacterCreation onCharacterCreate={async (data) => {
-                await api.createCharacter(data.name, data.race, gameData.locations.find(l => l.isStartLocation)?.id || '');
-                await fetchCharacter();
+                const newChar = await api.createCharacter(data.name, data.race, gameData.locations.find(l => l.isStartLocation)?.id || '');
+                setCharacter(newChar);
             }} />
         </LanguageContext.Provider>;
     }
