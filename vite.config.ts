@@ -30,7 +30,6 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
-          '/index.js': '/index.tsx' // Redirects browser request for .js to source .tsx in dev mode
         }
       }
     };

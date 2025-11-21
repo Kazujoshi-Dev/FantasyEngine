@@ -10,7 +10,7 @@
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",
     "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
-    "build:frontend": "mkdir -p dist && cp index.html dist/index.html && esbuild index.tsx --bundle --outfile=dist/index.js --loader:.tsx=tsx --minify",
+    "build:frontend": "vite build",
     "build:backend": "cp types.ts backend/src/types.ts && npm run build --prefix backend",
     "build": "npm run build:frontend && npm run build:backend",
     "start": "npm start --prefix backend"
@@ -24,6 +24,8 @@
     "@types/react-dom": "^18.3.0",
     "concurrently": "^8.2.2",
     "esbuild": "^0.23.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.3.3",
+    "@vitejs/plugin-react": "^4.3.1"
   }
 }
