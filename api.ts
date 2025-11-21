@@ -3,9 +3,11 @@ import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
-    // Check if running on typical dev port 8000 (esbuild default)
-    if (typeof window !== 'undefined' && window.location.port === '8000') {
-        return 'http://localhost:3001/api';
+    // Check if running on typical dev port 3000 (Vite) or 8000 (esbuild)
+    if (typeof window !== 'undefined') {
+        if (window.location.port === '8000' || window.location.port === '3000') {
+            return 'http://localhost:3001/api';
+        }
     }
     return '/api';
 };
