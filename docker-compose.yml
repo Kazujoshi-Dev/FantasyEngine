@@ -4,9 +4,10 @@ services:
     # z pliku Dockerfile (nazywając go prawdopodobnie 'fantasyengine-app'),
     # a DOPIERO POTEM używa tego pliku, aby uruchomić kontener o tej nazwie.
     # Brak tej linii powodował, że system nie wiedział, co uruchomić.
+    build:
+    context: .
+    dockerfile: Dockerfile
     image: fantasyengine-app
-    container_name: fantasyengine-app
-    build: .
     ports:
       - "3001:3001"
     # WAŻNE: Zmienne środowiskowe poniżej MUSZĄ być ustawione w panelu Twojego dostawcy hostingu.
@@ -27,10 +28,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      # Montujemy tylko katalog uploads, aby zachować wgrane pliki między wdrożeniami.
-      - ./uploads:/app/uploads
-
+    volumes: []
   db:
     image: postgres:15-alpine
     container_name: fantasyengine-db
