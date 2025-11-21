@@ -172,7 +172,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
       case 'university':
         return <UniversityTab
                   skills={safeGameData.skills}
-                  onGameDataUpdate={props.onGameDataUpdate as any}
+                  onGameDataUpdate={props.onGameDataUpdate}
                 />;
       case 'pvp':
         return <PvpTab
