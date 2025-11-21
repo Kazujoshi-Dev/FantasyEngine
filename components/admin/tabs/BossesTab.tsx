@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -32,7 +33,7 @@ export const BossesTab: React.FC<BossesTabProps> = ({ enemies, itemTemplates, on
     if (itemExists) {
         updatedData = safeEnemies.map(item => item.id === itemFromEditor.id ? itemFromEditor : item);
     } else {
-        updatedData = [...safeEnemies, { ...itemFromEditor, id: itemFromEditor.id || crypto.randomUUID(), isBoss: true }];
+        updatedData = [...safeEnemies, { ...itemFromEditor, id: itemFromEditor.id || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }), isBoss: true }];
     }
     onGameDataUpdate('enemies', updatedData);
     setEditingBoss(null);
