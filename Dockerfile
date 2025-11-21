@@ -1,53 +1,33 @@
-# --- ETAP 1: Budowanie aplikacji (Builder) ---
-# Używamy oficjalnego obrazu Node.js w wersji 20 z Alpine Linux jako lekkiej bazy.
-# Nazwaliśmy ten etap "builder", aby móc się do niego odwołać później.
-FROM node:20-alpine AS builder
-
-# Ustawiamy katalog roboczy wewnątrz kontenera na /app
+# Etap 1: Instalacja zależności (dla lepszego cache'owania)
+FROM node:18-alpine AS base
 WORKDIR /app
 
-# Kopiujemy pliki package.json z głównego katalogu i z backendu.
-# Robimy to jako osobny krok, aby wykorzystać buforowanie warstw Dockera.
-# Jeśli te pliki się nie zmienią, Docker nie będzie ponownie instalował zależności.
-COPY package*.json ./
-COPY backend/package*.json ./backend/
+FROM base AS deps
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./backend/
+RUN npm ci
+RUN npm ci --prefix backend
 
-# Instalujemy wszystkie zależności (w tym deweloperskie, potrzebne do budowania)
-RUN npm install
-RUN npm install --prefix backend
-
-# Kopiujemy resztę kodu źródłowego aplikacji
+# Etap 2: Budowanie aplikacji (frontend i backend)
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY . .
-
-# Uruchamiamy skrypt budujący, który tworzy frontend i backend
+# Ta komenda buduje zarówno frontend (Vite), jak i kompiluje backend (TypeScript)
 RUN npm run build
 
-
-# --- ETAP 2: Obraz produkcyjny (Finalny) ---
-# Zaczynamy od nowa z czystym, lekkim obrazem Node.js
-FROM node:20-alpine
-
-# Ustawiamy katalog roboczy
+# Etap 3: Stworzenie finalnego, lekkiego obrazu produkcyjnego
+FROM base as runner
 WORKDIR /app
 
-# Kopiujemy pliki package.json z backendu, aby zainstalować tylko zależności produkcyjne
-COPY backend/package*.json ./backend/
-
-# Instalujemy TYLKO zależności produkcyjne dla backendu
-RUN npm install --prefix backend --omit=dev
-
-# Kopiujemy zbudowane pliki z etapu "builder"
-# Kopiujemy zbudowany frontend (katalog /dist)
+# Kopiujemy tylko niezbędne, zbudowane pliki
 COPY --from=builder /app/dist ./dist
-# Kopiujemy zbudowany backend (katalog /backend/dist)
 COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/backend/package.json ./backend/package.json
+COPY --from=builder /app/backend/package-lock.json ./backend/package-lock.json
 
-# Ustawiamy zmienną środowiskową dla portu, na którym nasłuchuje aplikacja
-ENV PORT=3001
+# Instalujemy tylko zależności produkcyjne dla backendu
+RUN npm ci --prefix backend --omit=dev
 
-# Odsłaniamy port, aby można było się połączyć z aplikacją z zewnątrz kontenera
-EXPOSE 3001
-
-# Definiujemy domyślną komendę, która zostanie uruchomiona po starcie kontenera
-# Uruchamia ona serwer Node.js
-CMD ["node", "backend/dist/server.js"]
+# Ustawiamy komendę startową dla serwera backendowego
+CMD ["npm", "start", "--prefix", "backend"]
