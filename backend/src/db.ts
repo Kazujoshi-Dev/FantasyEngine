@@ -221,12 +221,7 @@ export const initializeDatabase = async () => {
             }],
             expeditions: [],
             enemies: [],
-            itemTemplates: [
-                { id: 'short_sword', name: 'Krótki Miecz', gender: 'Masculine', description: 'Prosty, ale niezawodny krótki miecz.', slot: 'mainHand', category: 'Weapon', rarity: 'Common', icon: 'https://i.imgur.com/3sS8Z29.png', value: 10, requiredLevel: 1, damageMin: { min: 3, max: 5 }, damageMax: { min: 6, max: 8 } },
-                { id: 'leather_armor', name: 'Skórzana Zbroja', gender: 'Feminine', description: 'Podstawowa zbroja zapewniająca minimalną ochronę.', slot: 'chest', category: 'Armor', rarity: 'Common', icon: 'https://i.imgur.com/m8e0v3K.png', value: 15, requiredLevel: 1, armorBonus: { min: 5, max: 8 } },
-                { id: 'wooden_shield', name: 'Drewniana Tarcza', gender: 'Feminine', description: 'Prosta tarcza z drewna.', slot: 'offHand', category: 'Armor', rarity: 'Common', icon: 'https://i.imgur.com/2JB2t4x.png', value: 8, requiredLevel: 1, armorBonus: { min: 3, max: 5 } },
-                { id: 'long_sword', name: 'Długi Miecz', gender: 'Masculine', description: 'Dobrze wyważony długi miecz, ulubieniec poszukiwaczy przygód.', slot: 'mainHand', category: 'Weapon', rarity: 'Uncommon', icon: 'https://i.imgur.com/mYtE5a3.png', value: 50, requiredLevel: 5, damageMin: { min: 8, max: 12 }, damageMax: { min: 15, max: 20 } }
-            ],
+            itemTemplates: [],
             quests: [],
             affixes: [
                 { id: 'prefix_strength', name: { masculine: 'Mocny', feminine: 'Mocna', neuter: 'Mocne' }, type: 'Prefix', value: 10, statsBonus: { strength: { min: 1, max: 3 } }, spawnChances: { Weapon: 10, Armor: 5 } },

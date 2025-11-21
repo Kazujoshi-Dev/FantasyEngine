@@ -128,7 +128,8 @@ const ItemComparisonTooltip: React.FC<{
              const slotToCompare = hoveredTemplate.slot;
              equippedItemsToCompare.push({ item: character.equipment[slotToCompare], slotName: t(`equipment.slot.${slotToCompare}`) });
         }
-    } else if (hoveredTemplate.slot !== 'consumable' && hoveredTemplate.slot !== 'ring') {
+    // FIX: Removed redundant check for `hoveredTemplate.slot !== 'ring'` which is always true here due to prior type narrowing, resolving a linter error.
+    } else if (hoveredTemplate.slot !== 'consumable') {
         const slot = hoveredTemplate.slot as EquipmentSlot;
         equippedItemsToCompare.push({ item: character.equipment[slot], slotName: t(`equipment.slot.${slot}`) });
     }
