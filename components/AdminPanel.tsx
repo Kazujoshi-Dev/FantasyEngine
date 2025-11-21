@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language, ItemRarity } from '../types';
@@ -12,7 +13,7 @@ import { EnemiesTab } from './admin/tabs/EnemiesTab';
 import { BossesTab } from './admin/tabs/BossesTab';
 import { ItemsTab } from './admin/tabs/ItemsTab';
 import { AffixesTab } from './admin/tabs/AffixesTab';
-import { QuestsTab } from './admin/tabs/QuestsTab';
+import QuestsTab from './admin/tabs/QuestsTab';
 import { PvpTab } from './admin/tabs/PvpTab';
 import { ItemInspectorTab } from './admin/tabs/ItemInspectorTab';
 import { DuplicationAuditTab } from './admin/tabs/DuplicationAuditTab';
