@@ -1048,8 +1048,7 @@ const MainApp: React.FC = () => {
                         characterName={character.name}
                         itemTemplates={gameData.itemTemplates || []}
                         affixes={gameData.affixes || []}
-                        // FIX: Changed prop 'initialEnemies' to 'initialEnemy' and passed the first enemy.
-                        initialEnemy={expeditionReport.summary.encounteredEnemies?.[0]}
+                        encounteredEnemies={expeditionReport.summary.encounteredEnemies}
                         bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
                     />
                 )}

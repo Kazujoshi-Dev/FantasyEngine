@@ -91,11 +91,11 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         modalProps = {
             ...modalProps,
             reward: expBody,
-            characterName: 'Gracz', // Placeholder
+            characterName: reportData.sender || 'Gracz',
             isHunting: !!expBody.huntingMembers,
             huntingMembers: expBody.huntingMembers,
             allRewards: expBody.allRewards,
-            initialEnemy: boss,
+            encounteredEnemies: expBody.encounteredEnemies,
             bossName: boss?.name,
         };
     } else if (type === 'pvp_report') {

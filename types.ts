@@ -213,6 +213,8 @@ export interface CombatLogEntry {
   specialAttackType?: SpecialAttackType;
   stunnedPlayer?: string;
   affectedPlayers?: string[];
+  defenderUniqueId?: string;
+  allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
 }
 
 export interface ActiveExpedition {

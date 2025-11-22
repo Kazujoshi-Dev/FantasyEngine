@@ -1,4 +1,5 @@
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
+// Fix: Removed import for non-existent simulateGroupCombat function.
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
@@ -37,25 +38,36 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     // 2. Simulate combat and gather logs/results
     const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || []);
     
-    // FIX: Correctly simulate combat against multiple enemies sequentially.
     let fullCombatLog: CombatLogEntry[] = [];
+    let finalPlayerHealth: number;
+    let finalPlayerMana: number;
+    let isVictory: boolean;
+
+    // Fix: Replaced the broken simulateGroupCombat logic with a sequential combat loop.
+    // This handles combat against multiple enemies one after another, which is the expected behavior for a solo expedition.
     let currentCharacterForCombat = JSON.parse(JSON.stringify(characterWithStats));
 
     for (const enemy of encounteredEnemies) {
-        if (currentCharacterForCombat.stats.currentHealth <= 0) {
-            break;
-        }
+        if (currentCharacterForCombat.stats.currentHealth <= 0) break;
+
         const singleCombatLog = simulateCombat(currentCharacterForCombat, enemy, gameData);
         fullCombatLog.push(...singleCombatLog);
+        
         if (singleCombatLog.length > 0) {
             const lastLog = singleCombatLog[singleCombatLog.length - 1];
             currentCharacterForCombat.stats.currentHealth = lastLog.playerHealth;
             currentCharacterForCombat.stats.currentMana = lastLog.playerMana;
         }
     }
-    const finalPlayerHealth = currentCharacterForCombat.stats.currentHealth;
-    const finalPlayerMana = currentCharacterForCombat.stats.currentMana;
-    const isVictory = finalPlayerHealth > 0;
+    
+    finalPlayerHealth = currentCharacterForCombat.stats.currentHealth;
+    finalPlayerMana = currentCharacterForCombat.stats.currentMana;
+    
+    const lastLog = fullCombatLog[fullCombatLog.length - 1];
+    const lastEnemyDefeated = lastLog ? lastLog.enemyHealth <= 0 : false;
+    
+    isVictory = finalPlayerHealth > 0 && (encounteredEnemies.length === 0 || lastEnemyDefeated);
+
 
     // 3. Calculate final rewards and update character state
     let finalCharacter = { ...character };

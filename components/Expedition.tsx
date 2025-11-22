@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -311,6 +310,8 @@ export interface ExpeditionSummaryModalProps {
     initialEnemy?: Enemy;
     bossName?: string;
     messageId?: number | null;
+    // Fix: Add encounteredEnemies prop to match usage in App.tsx and PublicReportViewer.tsx
+    encounteredEnemies?: Enemy[];
 }
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
@@ -702,7 +703,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                     </button>
                      {isAnimationComplete && messageId && (
                         // Fix: The function handleCopyLink does not take any arguments.
-                        <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
+                        <button onClick={() => handleCopyLink()} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
                     )}
