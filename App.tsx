@@ -87,6 +87,20 @@ const MainApp: React.FC = () => {
         return () => clearInterval(timer);
     }, [isInitialLoading]);
 
+    // Heartbeat Effect - keeps the player "Online" in ranking
+    useEffect(() => {
+        if (!token) return;
+
+        const doHeartbeat = () => {
+            api.sendHeartbeat().catch(e => console.error("Heartbeat failed", e));
+        };
+
+        doHeartbeat(); // Send one immediately
+        const interval = setInterval(doHeartbeat, 60000); // Then every minute
+
+        return () => clearInterval(interval);
+    }, [token]);
+
     // Main Data Loading Effect
     useEffect(() => {
         if (!token) {

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass } from '../types';
@@ -172,6 +171,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
         statPoints: availablePoints,
       }
     }, true); // Force immediate save to the server
+    setSpentPoints(0);
   };
 
   const handleResetChanges = () => {

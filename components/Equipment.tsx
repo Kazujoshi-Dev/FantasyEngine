@@ -296,7 +296,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
     return (
         <ContentPanel title={t('equipment.title')}>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
+            <div 
+                className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]" 
+                onClick={() => setSelectedItem(null)} // Neutral click to deselect
+            >
                 {/* Equipped Items */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
@@ -324,7 +327,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             template={template}
                                             affixes={gameData.affixes || []}
                                             isSelected={selectedItem?.item.uniqueId === item.uniqueId}
-                                            onClick={() => handleItemClick(item, 'equipment', slot)}
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent deselecting
+                                                handleItemClick(item, 'equipment', slot);
+                                            }}
                                             showPrimaryStat={false}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
@@ -342,7 +348,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                 </div>
 
                 {/* Details/Stats Panel */}
-                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
+                <div 
+                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
+                    onClick={(e) => e.stopPropagation()} // Prevent clicks in detail panel from deselecting item
+                >
                     {selectedItem ? (
                         <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes || []} character={character} />
                     ) : (
@@ -358,7 +367,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                             {validInventoryCount} / {backpackCapacity}
                         </div>
                     </div>
-                    <div className="px-2 mb-4 space-y-2">
+                    <div 
+                        className="px-2 mb-4 space-y-2"
+                        onClick={(e) => e.stopPropagation()} // Prevent interacting with filters from deselecting
+                    >
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-center space-x-2">
                                 <label htmlFor="item-filter" className="text-sm text-gray-400 flex-shrink-0">{t('equipment.filterByType')}:</label>
@@ -412,7 +424,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         template={template}
                                         affixes={gameData.affixes || []}
                                         isSelected={isSelected}
-                                        onClick={() => handleItemClick(item, 'inventory')}
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Prevent deselecting
+                                            handleItemClick(item, 'inventory');
+                                        }}
                                         showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
                                         draggable="true"

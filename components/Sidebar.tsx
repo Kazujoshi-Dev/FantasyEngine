@@ -123,7 +123,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
 
           const isRestrictedByResting = isResting && [Tab.Expedition, Tab.Location, Tab.Trader, Tab.Blacksmith, Tab.Quests, Tab.Hunting].includes(item.id);
           const isRestrictedByTraveling = isTraveling && [Tab.Expedition, Tab.Camp, Tab.Trader, Tab.Blacksmith, Tab.Quests, Tab.Hunting].includes(item.id);
-          const isRestrictedByExpedition = isExpeditionActive && ![Tab.Tavern, Tab.Resources, Tab.Messages].includes(item.id);
+          // FIX: Added Tab.Expedition to the allowed list during an expedition so users can return to the tab to see progress/finish it.
+          const isRestrictedByExpedition = isExpeditionActive && ![Tab.Tavern, Tab.Resources, Tab.Messages, Tab.Expedition].includes(item.id);
 
           const isRestricted = isRestrictedByResting || isRestrictedByTraveling || isRestrictedByExpedition;
 

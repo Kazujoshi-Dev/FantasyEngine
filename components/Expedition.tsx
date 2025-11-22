@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -782,14 +780,22 @@ const ActiveExpeditionPanel: React.FC<{
             <p className="text-4xl font-extrabold text-white mb-4">{activeExpeditionDetails.name}</p>
             <p className="text-lg text-gray-400 mb-6">{isFinished ? t('expedition.finalizing') : t('expedition.endsIn')}</p>
             <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
-            {/* The button is removed, and a status message is shown instead when finished */}
-            {isFinished ? (
-                 <div className="mt-8 h-14 flex items-center justify-center"> {/* Set a fixed height to prevent layout shift from the removed button */}
+            
+            {/* Fallback button for when automation fails */}
+            {isFinished && (
+                 <div className="mt-8 flex flex-col items-center justify-center gap-4">
                     <p className="text-lg text-gray-300 animate-pulse">{t('expedition.generatingReport')}</p>
+                    <button 
+                        onClick={onCompletion}
+                        className="px-6 py-2 bg-green-700 hover:bg-green-600 text-white font-bold rounded-lg shadow-lg transition-colors"
+                    >
+                        Odbierz Raport (Wymuś)
+                    </button>
+                    <p className="text-xs text-gray-500">Kliknij, jeśli raport nie pojawi się automatycznie.</p>
                 </div>
-            ) : (
-                <div className="mt-8 h-14"></div> // Placeholder to keep layout consistent
             )}
+            
+            {!isFinished && <div className="mt-8 h-14"></div>}
         </div>
     );
 };
