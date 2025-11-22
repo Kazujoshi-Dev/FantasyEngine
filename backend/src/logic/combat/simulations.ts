@@ -95,15 +95,29 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         name: playerData.name,
         hardSkinTriggered: false,
     };
+    
+    const nameCounts = new Map<string, number>();
+    enemiesData.forEach(e => {
+        nameCounts.set(e.name, (nameCounts.get(e.name) || 0) + 1);
+    });
 
-    let enemiesState: (Omit<AttackerState, 'stats'> & { uniqueId: string, stats: EnemyStats })[] = enemiesData.map(e => ({
-        stats: e.stats,
-        currentHealth: e.stats.maxHealth,
-        currentMana: e.stats.maxMana || 0,
-        name: e.name,
-        uniqueId: e.uniqueId!,
-        hardSkinTriggered: false,
-    }));
+    const currentNameInstances = new Map<string, number>();
+    let enemiesState: (Omit<AttackerState, 'stats'> & { uniqueId: string, stats: EnemyStats })[] = enemiesData.map(e => {
+        let finalName = e.name;
+        if ((nameCounts.get(e.name) || 0) > 1) {
+            const instanceCount = (currentNameInstances.get(e.name) || 0) + 1;
+            currentNameInstances.set(e.name, instanceCount);
+            finalName = `${e.name} ${instanceCount}`;
+        }
+        return {
+            stats: e.stats,
+            currentHealth: e.stats.maxHealth,
+            currentMana: e.stats.maxMana || 0,
+            name: finalName,
+            uniqueId: e.uniqueId!,
+            hardSkinTriggered: false,
+        };
+    });
 
     const log: CombatLogEntry[] = [];
     let turn = 0;
@@ -125,6 +139,7 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             
             const target = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
             const targetIndex = enemiesState.findIndex(e => e.uniqueId === target.uniqueId);
+            const healthBeforeAttack = target.currentHealth;
 
             const { logEntry, attackerState, defenderState } = performAttack(playerState, target, turn, gameData);
             
@@ -138,13 +153,22 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
 
             logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
             log.push(logEntry);
+
+            if (defenderState.currentHealth <= 0 && healthBeforeAttack > 0) {
+                log.push({
+                    turn, attacker: '', defender: defenderState.name, action: 'enemy_death',
+                    playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+                    enemyHealth: 0, enemyMana: 0, defenderUniqueId: target.uniqueId,
+                    allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
+                });
+            }
         }
 
         // Enemies' turn
-        const livingEnemies = enemiesState.filter(e => e.currentHealth > 0);
-        if (livingEnemies.length === 0 || playerState.currentHealth <= 0) break;
+        const livingEnemiesAfterPlayerTurn = enemiesState.filter(e => e.currentHealth > 0);
+        if (livingEnemiesAfterPlayerTurn.length === 0 || playerState.currentHealth <= 0) break;
 
-        for (const enemy of livingEnemies) {
+        for (const enemy of livingEnemiesAfterPlayerTurn) {
             if (playerState.currentHealth <= 0) break;
 
             const { logEntry, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData);

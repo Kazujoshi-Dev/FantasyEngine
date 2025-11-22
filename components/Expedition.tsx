@@ -79,6 +79,16 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
         )
     }
     
+    if (log.action === 'enemy_death') {
+        return (
+            <div className="text-center my-2 py-1 bg-red-900/20 rounded border border-red-900/50">
+                <p className="font-bold text-sm text-red-400">
+                    {log.defender} został pokonany!
+                </p>
+            </div>
+        );
+    }
+    
     if (log.action === 'death') {
         return (
              <div className="text-center my-2 py-1 bg-red-900/20 rounded border border-red-900/50">
@@ -165,6 +175,43 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
         </p>
     );
 };
+
+const EnemyListPanel: React.FC<{
+  enemies: Enemy[];
+  currentEnemiesHealth: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[] | undefined;
+}> = ({ enemies, currentEnemiesHealth }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-red-500/50 h-full overflow-y-auto">
+             <h4 className="font-bold text-xl text-center border-b border-red-500/50 pb-2 mb-2 text-red-400">
+                Wrogowie
+            </h4>
+            <div className="space-y-3">
+                {enemies.map(enemy => {
+                    const healthData = currentEnemiesHealth?.find(h => h.uniqueId === enemy.uniqueId);
+                    const currentHealth = healthData?.currentHealth ?? enemy.stats.maxHealth;
+                    const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
+                    const hpPercent = (currentHealth / maxHealth) * 100;
+                    const isDead = currentHealth <= 0;
+                    const enemyName = healthData?.name || enemy.name; // Use numbered name from log
+
+                    return (
+                        <div key={enemy.uniqueId} className={`p-2 rounded bg-slate-800 ${isDead ? 'opacity-50' : ''}`}>
+                            <p className={`font-bold text-sm text-white ${isDead ? 'line-through text-red-500' : ''}`}>
+                                {enemyName}
+                            </p>
+                            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
+                                <div className="bg-red-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
+                            </div>
+                            <p className="text-xs text-right text-gray-400 font-mono mt-0.5">{Math.max(0, Math.ceil(currentHealth))} / {maxHealth}</p>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 
 const CombatantStatsPanel: React.FC<{
   name: string;
@@ -437,7 +484,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
              } else {
                  if (log.playerStats) setCurrentPlayerStats({ ...log.playerStats, currentHealth: log.playerHealth, currentMana: log.playerMana });
                  // Logic to init enemy if missing
-                 if (!currentEnemy && log.enemyStats) {
+                 if (!currentEnemy && log.enemyStats && (reward.encounteredEnemies || []).length <= 1) {
                       setCurrentEnemy({
                         name: log.defender,
                         description: log.enemyDescription,
@@ -504,6 +551,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
     const combatant1Name = isPvp && pvpData ? pvpData.attacker.name : characterName;
     const combatant2Name = isPvp && pvpData ? pvpData.defender.name : (currentEnemy?.name || (isHunting ? 'Boss' : ''));
+    
+    const encounteredEnemies = reward.encounteredEnemies || [];
+    const latestLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : null;
+    const currentEnemiesHealth = latestLog?.allEnemiesHealth;
 
     // Current actor for highlighting
     const currentActor = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1].attacker : '';
@@ -567,13 +618,17 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                             </div>
                             
                             <div className="w-1/4 flex-shrink-0">
-                                <CombatantStatsPanel 
-                                    name={combatant2Name}
-                                    description={isPvp ? undefined : currentEnemy?.description}
-                                    stats={currentEnemy?.stats || null}
-                                    currentHealth={currentEnemy?.currentHealth}
-                                    currentMana={currentEnemy?.currentMana}
-                                />
+                                {encounteredEnemies.length > 1 && !isHunting ? (
+                                     <EnemyListPanel enemies={encounteredEnemies} currentEnemiesHealth={currentEnemiesHealth} />
+                                ) : (
+                                    <CombatantStatsPanel 
+                                        name={combatant2Name}
+                                        description={isPvp ? undefined : currentEnemy?.description}
+                                        stats={currentEnemy?.stats || null}
+                                        currentHealth={currentEnemy?.currentHealth}
+                                        currentMana={currentEnemy?.currentMana}
+                                    />
+                                )}
                             </div>
                         </div>
                     ) : (
