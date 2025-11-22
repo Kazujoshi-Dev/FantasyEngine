@@ -60,7 +60,11 @@ const CombatLogRow: React.FC<{
         if (friendlyNames.includes(name)) {
             return log.playerHealth;
         }
-        return log.enemyHealth;
+        const enemyHealthData = log.allEnemiesHealth?.find(e => e.name === name);
+        if (enemyHealthData) {
+            return enemyHealthData.currentHealth;
+        }
+        return log.enemyHealth; // Fallback for 1v1
     };
 
 
@@ -838,7 +842,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {hoveredEnemy.data.stats.maxMana && hoveredEnemy.data.stats.maxMana > 0 && <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredEnemy.data.stats.maxMana}</span></p>}
                         <div className="border-t border-slate-700/50 my-1"></div>
                         <p className="flex justify-between"><span>Obrażenia:</span> <span className="font-mono">{hoveredEnemy.data.stats.minDamage}-{hoveredEnemy.data.stats.maxDamage}</span></p>
-                        {hoveredEnemy.data.stats.magicDamageMin && hoveredEnemy.data.stats.magicDamageMin > 0 && <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{hoveredEnemy.data.stats.magicDamageMin}-{hoveredEnemy.data.stats.magicDamageMax}</span></p>}
+                        {((hoveredEnemy.data.stats.magicDamageMin || 0) > 0 || (hoveredEnemy.data.stats.magicDamageMax || 0) > 0) && (
+                            <p className="flex justify-between text-purple-300">
+                                <span>Mag. DMG:</span> 
+                                <span className="font-mono">{hoveredEnemy.data.stats.magicDamageMin || 0}-{hoveredEnemy.data.stats.magicDamageMax || 0}</span>
+                            </p>
+                        )}
                         <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredEnemy.data.stats.armor}</span></p>
                         <p className="flex justify-between"><span>Kryt:</span> <span>{hoveredEnemy.data.stats.critChance}%</span></p>
                         <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredEnemy.data.stats.attacksPerTurn || 1}</span></p>

@@ -170,6 +170,7 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
 
         for (const enemy of livingEnemiesAfterPlayerTurn) {
             if (playerState.currentHealth <= 0) break;
+            const healthBeforeAttack = playerState.currentHealth;
 
             const { logEntry, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData);
 
@@ -184,6 +185,20 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             
             logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
             log.push(logEntry);
+            
+            if (playerState.currentHealth <= 0 && healthBeforeAttack > 0) {
+                 log.push({
+                    turn,
+                    attacker: attackerState.name,
+                    defender: defenderState.name,
+                    action: 'death',
+                    playerHealth: 0,
+                    playerMana: defenderState.currentMana,
+                    enemyHealth: attackerState.currentHealth,
+                    enemyMana: attackerState.currentMana,
+                    allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
+                });
+            }
         }
     }
     
