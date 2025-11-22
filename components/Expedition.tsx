@@ -34,24 +34,35 @@ const formatTimeLeft = (seconds: number): string => {
     return `${h}:${m}:${s}`;
 };
 
-const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossName?: string; isParty?: boolean }> = ({ log, characterName, bossName, isParty }) => {
+const CombatLogRow: React.FC<{
+    log: CombatLogEntry;
+    characterName: string;
+    isHunting?: boolean;
+    huntingMembers?: PartyMember[];
+}> = ({ log, characterName, isHunting, huntingMembers }) => {
     const { t } = useTranslation();
 
+    const friendlyNames = useMemo(() => {
+        if (isHunting && huntingMembers) {
+            return huntingMembers.map(m => m.characterName);
+        }
+        return [characterName];
+    }, [isHunting, huntingMembers, characterName]);
+
     const getCombatantColor = (name: string) => {
-        if (bossName && name === bossName) return 'text-red-400';
-        // Default to blue for all players/allies if not the boss
-        return 'text-sky-400';
+        if (friendlyNames.includes(name) || name === 'Team') {
+            return 'text-sky-400';
+        }
+        return 'text-red-400';
     };
 
     const getHpForEntity = (name: string) => {
-        if (isParty) {
-             if (bossName && name === bossName) return log.enemyHealth;
-             return log.playerHealth;
-        } else {
-             if (name === characterName) return log.playerHealth;
-             return log.enemyHealth;
+        if (friendlyNames.includes(name)) {
+            return log.playerHealth;
         }
+        return log.enemyHealth;
     };
+
 
     const renderName = (name: string) => {
         const color = getCombatantColor(name);
@@ -177,9 +188,11 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
 };
 
 const EnemyListPanel: React.FC<{
-  enemies: Enemy[];
-  currentEnemiesHealth: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[] | undefined;
-}> = ({ enemies, currentEnemiesHealth }) => {
+    enemies: Enemy[];
+    currentEnemiesHealth: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[] | undefined;
+    onEnemyHover: (enemy: Enemy, rect: DOMRect) => void;
+    onEnemyLeave: () => void;
+}> = ({ enemies, currentEnemiesHealth, onEnemyHover, onEnemyLeave }) => {
     const { t } = useTranslation();
     return (
         <div className="bg-slate-900/50 p-4 rounded-lg border border-red-500/50 h-full overflow-y-auto">
@@ -196,7 +209,12 @@ const EnemyListPanel: React.FC<{
                     const enemyName = healthData?.name || enemy.name; // Use numbered name from log
 
                     return (
-                        <div key={enemy.uniqueId} className={`p-2 rounded bg-slate-800 ${isDead ? 'opacity-50' : ''}`}>
+                        <div 
+                            key={enemy.uniqueId} 
+                            className={`p-2 rounded bg-slate-800 ${isDead ? 'opacity-50' : ''}`}
+                            onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
+                            onMouseLeave={onEnemyLeave}
+                        >
                             <p className={`font-bold text-sm text-white ${isDead ? 'line-through text-red-500' : ''}`}>
                                 {enemyName}
                             </p>
@@ -435,6 +453,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     
     // Member tooltip state
     const [hoveredMember, setHoveredMember] = useState<{ data: PartyMember, rect: DOMRect } | null>(null);
+    const [hoveredEnemy, setHoveredEnemy] = useState<{ data: Enemy, rect: DOMRect } | null>(null);
 
     const handleCopyLink = () => {
         if (!messageId) return;
@@ -608,8 +627,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                                 <CombatLogRow 
                                                     log={log} 
                                                     characterName={characterName} 
-                                                    bossName={bossName || currentEnemy?.name}
-                                                    isParty={isHunting} 
+                                                    isHunting={isHunting} 
+                                                    huntingMembers={huntingMembers}
                                                 />
                                             </React.Fragment>
                                         );
@@ -619,7 +638,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                             
                             <div className="w-1/4 flex-shrink-0">
                                 {encounteredEnemies.length > 1 && !isHunting ? (
-                                     <EnemyListPanel enemies={encounteredEnemies} currentEnemiesHealth={currentEnemiesHealth} />
+                                     <EnemyListPanel 
+                                        enemies={encounteredEnemies} 
+                                        currentEnemiesHealth={currentEnemiesHealth} 
+                                        onEnemyHover={(data, rect) => setHoveredEnemy({ data, rect })}
+                                        onEnemyLeave={() => setHoveredEnemy(null)}
+                                    />
                                 ) : (
                                     <CombatantStatsPanel 
                                         name={combatant2Name}
@@ -765,7 +789,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 </div>
             </div>
             
-            {/* Hovered Member Tooltip - Rendered outside of the overflow container using fixed positioning */}
+            {/* Hovered Member Tooltip */}
             {hoveredMember && hoveredMember.data && (
                 <div 
                     className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
@@ -776,7 +800,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 >
                      <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-white text-center">{hoveredMember.data.characterName}</p>
                      <div className="space-y-1 text-xs text-gray-300">
-                         {/* Add safe navigation checks (?.) and defaults (|| 0) for all stats */}
                         <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentHealth?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxHealth || 1}</span></p>
                         <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentMana?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxMana || 0}</span></p>
                         <div className="border-t border-slate-700/50 my-1"></div>
@@ -796,6 +819,29 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredMember.data.stats?.attacksPerRound || 1}</span></p>
                         {(hoveredMember.data.stats?.lifeStealPercent || 0) > 0 && <p className="flex justify-between text-green-400"><span>Kradzież Życia:</span> <span>{hoveredMember.data.stats?.lifeStealPercent}%</span></p>}
                         {(hoveredMember.data.stats?.manaStealPercent || 0) > 0 && <p className="flex justify-between text-cyan-400"><span>Kradzież Many:</span> <span>{hoveredMember.data.stats?.manaStealPercent}%</span></p>}
+                    </div>
+                </div>
+            )}
+            
+            {/* Hovered Enemy Tooltip */}
+            {hoveredEnemy && hoveredEnemy.data && (
+                <div 
+                    className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
+                    style={{
+                        top: Math.max(10, hoveredEnemy.rect.top),
+                        left: hoveredEnemy.rect.left - 266 // width + padding
+                    }}
+                >
+                     <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-red-400 text-center">{hoveredEnemy.data.name}</p>
+                     <div className="space-y-1 text-xs text-gray-300">
+                        <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredEnemy.data.stats.maxHealth}</span></p>
+                        {hoveredEnemy.data.stats.maxMana && hoveredEnemy.data.stats.maxMana > 0 && <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredEnemy.data.stats.maxMana}</span></p>}
+                        <div className="border-t border-slate-700/50 my-1"></div>
+                        <p className="flex justify-between"><span>Obrażenia:</span> <span className="font-mono">{hoveredEnemy.data.stats.minDamage}-{hoveredEnemy.data.stats.maxDamage}</span></p>
+                        {hoveredEnemy.data.stats.magicDamageMin && hoveredEnemy.data.stats.magicDamageMin > 0 && <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{hoveredEnemy.data.stats.magicDamageMin}-{hoveredEnemy.data.stats.magicDamageMax}</span></p>}
+                        <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredEnemy.data.stats.armor}</span></p>
+                        <p className="flex justify-between"><span>Kryt:</span> <span>{hoveredEnemy.data.stats.critChance}%</span></p>
+                        <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredEnemy.data.stats.attacksPerTurn || 1}</span></p>
                     </div>
                 </div>
             )}
