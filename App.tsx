@@ -830,7 +830,7 @@ const MainApp: React.FC = () => {
                             handleCharacterUpdate(newChar, true);
                         }
                     }}
-                    getCampUpgradeCost={(lvl) => getCampUpgradeCost(lvl).gold}
+                    getCampUpgradeCost={getCampUpgradeCost}
                     onCharacterUpdate={handleCharacterUpdate}
                     onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
                      onUpgradeChest={() => {

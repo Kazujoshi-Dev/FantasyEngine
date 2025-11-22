@@ -14,7 +14,7 @@ interface CampProps {
     baseCharacter: PlayerCharacter;
     onToggleResting: () => void;
     onUpgradeCamp: () => void;
-    getCampUpgradeCost: (level: number) => number;
+    getCampUpgradeCost: (level: number) => { gold: number; essences: { type: EssenceType; amount: number }[] };
     onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
     onHealToFull: () => void;
     onUpgradeChest: () => void;
@@ -31,6 +31,13 @@ const getChestCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8
 // --- Backpack Calculation Helpers ---
 const getBackpackCapacity = (level: number) => 40 + (level - 1) * 10;
 
+const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+    [EssenceType.Common]: ItemRarity.Common,
+    [EssenceType.Uncommon]: ItemRarity.Uncommon,
+    [EssenceType.Rare]: ItemRarity.Rare,
+    [EssenceType.Epic]: ItemRarity.Epic,
+    [EssenceType.Legendary]: ItemRarity.Legendary,
+};
 
 const ChestPanel: React.FC<{ 
     character: PlayerCharacter; 
@@ -74,14 +81,6 @@ const ChestPanel: React.FC<{
         newChar.resources.gold = (Number(newChar.resources.gold) || 0) + withdrawAmount;
         onCharacterUpdate(newChar, true);
         setAmount('');
-    };
-    
-    const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
-        [EssenceType.Common]: ItemRarity.Common,
-        [EssenceType.Uncommon]: ItemRarity.Uncommon,
-        [EssenceType.Rare]: ItemRarity.Rare,
-        [EssenceType.Epic]: ItemRarity.Epic,
-        [EssenceType.Legendary]: ItemRarity.Legendary,
     };
 
     return (
@@ -154,14 +153,6 @@ const BackpackPanel: React.FC<{
     
     const canAffordUpgrade = !isMaxLevel && (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
 
-    const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
-        [EssenceType.Common]: ItemRarity.Common,
-        [EssenceType.Uncommon]: ItemRarity.Uncommon,
-        [EssenceType.Rare]: ItemRarity.Rare,
-        [EssenceType.Epic]: ItemRarity.Epic,
-        [EssenceType.Legendary]: ItemRarity.Legendary,
-    };
-
     return (
          <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between h-full">
             <div>
@@ -219,13 +210,8 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
     const maxLevel = 10;
     const isMaxLevel = camp.level >= maxLevel;
 
-    // This is a bit of a hack since App.tsx is passing the gold cost function, but we need the full object here.
-    // For now, let's reconstruct a dummy cost object to avoid crashing. A better refactor would be to update the prop signature.
-    const goldOnlyCost = getCampUpgradeCost(camp.level);
-    const upgradeCost = { gold: goldOnlyCost, essences: [] }; // Dummy, real logic is in App.tsx
-    // The `canAffordUpgrade` relies on the parent's check now. Button might be enabled but click will fail.
-    // This isn't ideal but is a limitation of the current prop drilling.
-    const canAffordUpgrade = (resources.gold || 0) >= upgradeCost.gold;
+    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getCampUpgradeCost(camp.level);
+    const canAffordUpgrade = !isMaxLevel && (resources.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (resources[e.type] || 0) >= e.amount);
 
     const [countdown, setCountdown] = useState(REGEN_INTERVAL_SECONDS);
 
@@ -320,38 +306,51 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                 </div>
 
                 {/* Upgrade Panel */}
-                <div className="bg-slate-900/40 p-6 rounded-xl">
-                    <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('camp.upgradeTitle')}</h3>
-                    {isMaxLevel ? (
-                        <div className="text-center text-gray-300 bg-slate-800/50 p-6 rounded-lg">
-                            <p className="text-xl font-bold text-amber-400">{t('camp.maxLevel')}</p>
-                            <p className="mt-2">{t('camp.maxLevelDesc')}</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-lg text-gray-300">{t('camp.nextLevel')}: <span className="font-bold text-white">{camp.level + 1}</span></p>
-                                <p className="text-lg text-gray-300">{t('camp.newRegeneration')}: <span className="font-bold text-green-400">{camp.level + 1}% HP / min</span></p>
+                <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('camp.upgradeTitle')}</h3>
+                        {isMaxLevel ? (
+                            <div className="text-center text-gray-300 bg-slate-800/50 p-6 rounded-lg">
+                                <p className="text-xl font-bold text-amber-400">{t('camp.maxLevel')}</p>
+                                <p className="mt-2">{t('camp.maxLevelDesc')}</p>
                             </div>
-                            <div className="bg-slate-800/50 p-4 rounded-lg">
-                                <p className="text-lg text-gray-300 flex items-center justify-between">
-                                    <span className="flex items-center"><CoinsIcon className="h-5 w-5 mr-2 text-amber-400" />{t('camp.upgradeCost')}:</span>
-                                    <span className={`font-mono text-xl font-bold ${(resources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>{upgradeCost.gold.toLocaleString()}</span>
-                                </p>
-                                {/* Essences will be handled by the parent but we can show a placeholder */}
-                                {upgradeCost.essences.length > 0 && <p className="text-xs text-gray-400 mt-1">Wymagane będą również esencje.</p>}
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-lg text-gray-300">{t('camp.nextLevel')}: <span className="font-bold text-white">{camp.level + 1}</span></p>
+                                    <p className="text-lg text-gray-300">{t('camp.newRegeneration')}: <span className="font-bold text-green-400">{camp.level + 1}% HP / min</span></p>
+                                </div>
+                                <div className="bg-slate-800/50 p-4 rounded-lg space-y-1 text-sm">
+                                    <p className="flex justify-between items-center">
+                                        <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
+                                        <span className={`font-mono ${(resources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                                            {(resources.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                                        </span>
+                                    </p>
+                                    {upgradeCost.essences.map(e => {
+                                        const rarity = essenceToRarityMap[e.type];
+                                        return (
+                                            <p key={e.type} className="flex justify-between items-center">
+                                                <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
+                                                <span className={`font-mono ${(resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {(resources[e.type] || 0)} / {e.amount}
+                                                </span>
+                                            </p>
+                                        )
+                                    })}
+                                </div>
                             </div>
-                             <p className="text-sm text-gray-500">
-                                {t('camp.yourGold')}: {(resources.gold || 0).toLocaleString()}
-                            </p>
-                            <button
+                        )}
+                    </div>
+                    {!isMaxLevel && (
+                        <div>
+                             <button
                                 onClick={onUpgradeCamp}
-                                disabled={isResting || isTraveling} // The parent's canAfford check will handle the logic
+                                disabled={!canAffordUpgrade || isResting || isTraveling}
                                 className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
                             >
                                 {t('camp.upgrade')}
                             </button>
-                            {!canAffordUpgrade && <p className="text-center text-sm text-red-400 mt-2">{t('camp.notEnoughGold')}</p>}
                             {isResting && <p className="text-center text-sm text-amber-400 mt-2">{t('camp.mustStopResting')}</p>}
                             {isTraveling && <p className="text-center text-sm text-red-400 mt-2">{t('camp.unavailableDuringTravel')}</p>}
                         </div>
