@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
@@ -36,7 +37,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     }
 
     // 2. Simulate combat and gather logs/results
-    const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates, gameData.affixes);
+    // Pass fallback empty arrays for safe execution even if gameData is missing properties
+    const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || []);
     let playerHealth = characterWithStats.stats.currentHealth;
     let playerMana = characterWithStats.stats.currentMana;
     let isVictory = true;
@@ -136,7 +138,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         for (const drop of allLootTables) {
             if (Math.random() * 100 < drop.chance) {
                 if (finalCharacter.inventory.length < backpackCapacity) {
-                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes);
+                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || []);
                     finalCharacter.inventory.push(newItem);
                     itemsFound.push(newItem);
                 } else {

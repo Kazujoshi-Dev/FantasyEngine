@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../types.js';
 import { getGrammaticallyCorrectFullName } from './items.js';
 
@@ -11,9 +12,11 @@ interface CombatState {
 const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
     const weaponInstance = playerData.equipment.mainHand || playerData.equipment.twoHand;
     if (weaponInstance) {
-        const template = gameData.itemTemplates.find(t => t.id === weaponInstance.templateId);
+        const templates = gameData.itemTemplates || [];
+        const affixes = gameData.affixes || [];
+        const template = templates.find(t => t.id === weaponInstance.templateId);
         if (template) {
-            return getGrammaticallyCorrectFullName(weaponInstance, template, gameData.affixes);
+            return getGrammaticallyCorrectFullName(weaponInstance, template, affixes);
         }
     }
     return undefined; 
@@ -56,11 +59,12 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
     });
     
     const weaponName = getFullWeaponName(playerData, gameData);
+    const allTemplates = gameData.itemTemplates || [];
     
     // ... (Previous turn 0 logic remains the same, abbreviated for brevity but assume it's here) ...
      // Turn 0 attacks for ranged weapons
     const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
-    const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
+    const template = weapon ? allTemplates.find(t => t.id === weapon.templateId) : null;
     if (template && template.isRanged) {
         let universalDamage = Math.floor(Math.random() * (state.player.stats.maxDamage - state.player.stats.minDamage + 1)) + state.player.stats.minDamage;
         const universalArmorReduction = Math.min(universalDamage, Math.floor(state.enemy.stats.armor));
@@ -198,6 +202,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
     const isPlayerAttacking = attackerType === 'player';
     const attacker = isPlayerAttacking ? state.player : state.enemy;
     const defender = isPlayerAttacking ? state.enemy : state.player;
+    const allTemplates = gameData.itemTemplates || [];
     
     const attackerStats = attacker.stats;
     const defenderStats = defender.stats;
@@ -230,7 +235,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
     // 3. Determine Attack Type (Magic vs. Physical)
     if (isPlayerAttacking) {
         const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
-        const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
+        const template = weapon ? allTemplates.find(t => t.id === weapon.templateId) : null;
         if (template && template.isMagical && template.magicAttackType) {
             const manaCost = template.manaCost ? (template.manaCost.min + template.manaCost.max) / 2 : 0;
             if (attacker.currentMana >= manaCost) {
@@ -480,6 +485,7 @@ const performTeamAttack = (
     const defender = isBossAttacking ? activePlayer : state.enemy;
     const attackerStats = isBossAttacking ? state.enemy.stats : activePlayer.stats;
     const defenderStats = isBossAttacking ? activePlayer.stats : state.enemy.stats;
+    const allTemplates = gameData.itemTemplates || [];
 
     const attackerName = isBossAttacking ? state.enemy.name : activePlayer.data.name;
     const defenderName = isBossAttacking ? activePlayer.data.name : state.enemy.name;
@@ -514,7 +520,7 @@ const performTeamAttack = (
      // Determine Attack Type & Calc Damage
      if (!isBossAttacking) {
          const weapon = activePlayer.data.equipment.mainHand || activePlayer.data.equipment.twoHand;
-         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
+         const template = weapon ? allTemplates.find(t => t.id === weapon.templateId) : null;
          if (template && template.isMagical && template.magicAttackType) {
              const manaCost = template.manaCost ? (template.manaCost.min + template.manaCost.max) / 2 : 0;
              if (activePlayer.currentMana >= manaCost) {

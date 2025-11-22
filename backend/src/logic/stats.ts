@@ -3,6 +3,9 @@ import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Ra
 
 export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[]): PlayerCharacter => {
     
+    const safeItemTemplates = itemTemplates || [];
+    const safeAffixes = affixes || [];
+
     const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
         if (value === undefined || value === null) return 0;
         if (typeof value === 'number') return value;
@@ -56,7 +59,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     for (const slot in character.equipment) {
         const itemInstance = character.equipment[slot as EquipmentSlot];
         if (itemInstance) {
-            const template = itemTemplates.find(t => t.id === itemInstance.templateId);
+            const template = safeItemTemplates.find(t => t.id === itemInstance.templateId);
             const upgradeLevel = itemInstance.upgradeLevel || 0;
             const upgradeBonusFactor = upgradeLevel * 0.1;
 
@@ -130,7 +133,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     }
     
     const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
-    const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+    const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
     const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
 
