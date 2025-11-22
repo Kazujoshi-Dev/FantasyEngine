@@ -1,6 +1,7 @@
 
+
 import React, { useState } from 'react';
-import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats } from '../../../types';
+import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 
 interface BossEditorProps {
@@ -33,6 +34,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
         return {
             lootTable: [],
             resourceLootTable: [],
+            specialAttacks: [],
             isBoss: true, // Forced
             ...boss,
             rewards: boss.rewards || { minGold: 100, maxGold: 200, minExperience: 100, maxExperience: 200 },
@@ -82,6 +84,16 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
 
     const addResourceLoot = () => setFormData(prev => ({ ...prev, resourceLootTable: [...(prev.resourceLootTable || []), { resource: EssenceType.Common, min: 1, max: 1, chance: 0 }] }));
     const removeResourceLoot = (index: number) => setFormData(prev => ({ ...prev, resourceLootTable: prev.resourceLootTable?.filter((_, i) => i !== index) }));
+    
+    const handleSpecialAttackChange = (index: number, key: keyof BossSpecialAttack, value: string | number) => {
+        const updatedAttacks = [...(formData.specialAttacks || [])];
+        (updatedAttacks[index] as any)[key] = typeof value === 'string' ? value : (parseInt(String(value), 10) || 0);
+        setFormData(prev => ({ ...prev, specialAttacks: updatedAttacks }));
+    };
+
+    const addSpecialAttack = () => setFormData(prev => ({ ...prev, specialAttacks: [...(prev.specialAttacks || []), { type: SpecialAttackType.Stun, chance: 10, uses: 1 }] }));
+    const removeSpecialAttack = (index: number) => setFormData(prev => ({ ...prev, specialAttacks: prev.specialAttacks?.filter((_, i) => i !== index) }));
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -159,6 +171,22 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                 <div><label>{t('admin.enemy.magicAttackManaCost')}:<input name="magicAttackManaCost" type="number" value={formData.stats?.magicAttackManaCost ?? 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                  <div className="md:col-span-2"><label>{t('admin.enemy.magicAttackType')}:<select name="magicAttackType" value={formData.stats?.magicAttackType || ''} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.general.none')} --</option>{Object.values(MagicAttackType).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
              </fieldset>
+            
+            {/* Special Attacks */}
+            <fieldset className="border p-4 rounded-md border-slate-700">
+                <legend className="px-2 font-semibold">Ataki Specjalne</legend>
+                 {(formData.specialAttacks || []).map((attack, index) => (
+                     <div key={index} className="flex items-center gap-2 mb-2 p-2 bg-slate-800/50 rounded-md">
+                        <select value={attack.type} onChange={e => handleSpecialAttackChange(index, 'type', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md">
+                            {Object.values(SpecialAttackType).map(type => <option key={type} value={type}>{t(`specialAttacks.${type}`)}</option>)}
+                        </select>
+                        <input type="number" placeholder="Szansa (%)" value={attack.chance} onChange={e => handleSpecialAttackChange(index, 'chance', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
+                        <input type="number" placeholder="Użycia" value={attack.uses} onChange={e => handleSpecialAttackChange(index, 'uses', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
+                        <button type="button" onClick={() => removeSpecialAttack(index)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">X</button>
+                    </div>
+                ))}
+                <button type="button" onClick={addSpecialAttack} className="px-3 py-1 text-sm rounded bg-sky-700 hover:bg-sky-600">+</button>
+            </fieldset>
 
             {/* Rewards */}
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">

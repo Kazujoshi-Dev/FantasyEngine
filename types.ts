@@ -1,4 +1,5 @@
 
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -121,6 +122,22 @@ export interface ResourceDrop {
     chance: number; // Percentage
 }
 
+// --- Boss Special Attacks ---
+export enum SpecialAttackType {
+    Stun = 'Stun',
+    ArmorPierce = 'ArmorPierce',
+    DeathTouch = 'DeathTouch',
+    EmpoweredStrikes = 'EmpoweredStrikes',
+    Earthquake = 'Earthquake'
+}
+
+export interface BossSpecialAttack {
+    type: SpecialAttackType;
+    chance: number; // Percentage
+    uses: number; // Max uses per combat
+}
+// --------------------------
+
 export interface Enemy {
   id: string; // Template ID
   uniqueId?: string; // Runtime instance ID for expeditions
@@ -132,6 +149,7 @@ export interface Enemy {
   resourceLootTable?: ResourceDrop[];
   isBoss?: boolean;
   image?: string; // Boss portrait
+  specialAttacks?: BossSpecialAttack[];
 }
 
 export interface ExpeditionEnemy {
@@ -192,6 +210,9 @@ export interface CombatLogEntry {
   enemyStats?: EnemyStats;
   enemyDescription?: string;
   weaponName?: string;
+  specialAttackType?: SpecialAttackType;
+  stunnedPlayer?: string;
+  affectedPlayers?: string[];
 }
 
 export interface ActiveExpedition {

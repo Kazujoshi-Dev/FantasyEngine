@@ -299,7 +299,13 @@ export default {
         notEnoughMana: 'Za mało many! Użyto zwykłego ataku fizycznego.',
         skipAnimation: 'Pomiń do wyniku',
         shamanPower: 'używa mocy szamana na',
-        noEnemiesEncountered: 'Nie napotkano żadnych wrogów na tej wyprawie.'
+        noEnemiesEncountered: 'Nie napotkano żadnych wrogów na tej wyprawie.',
+        specialAttackLog: '{attacker} używa {specialAttack}!',
+        stunLog: '{defender} jest ogłuszony i nie może działać!',
+        armorPierceLog: '{defender} traci cały pancerz w tej turze!',
+        deathTouchLog: '{defender} traci połowę swojego zdrowia!',
+        empoweredStrikesLog: '{attacker} wzmacnia swoje ciosy!',
+        earthquakeLog: '{attacker} wywołuje trzęsienie ziemi, raniąc wszystkich!'
     },
     camp: {
         title: 'Obóz',
@@ -700,6 +706,13 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         passive: 'Umiejętności Pasywne',
         active: 'Umiejętności Aktywne',
         noSkills: 'Nie nauczono się jeszcze żadnych umiejętności.'
+    },
+    specialAttacks: {
+        Stun: 'Ogłuszenie',
+        ArmorPierce: 'Przebicie Pancerza',
+        DeathTouch: 'Dotyk Śmierci',
+        EmpoweredStrikes: 'Wzmocnienie Uderzeń',
+        Earthquake: 'Trzęsienie Ziemi'
     },
     admin: {
         title: 'Panel Admina',
