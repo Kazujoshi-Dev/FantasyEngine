@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -14,6 +13,15 @@ interface BossEditorProps {
 
 export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, isEditing, allItemTemplates }) => {
     const { t } = useTranslation();
+
+    const specialAttackDescriptions: Record<SpecialAttackType, string> = {
+        [SpecialAttackType.Stun]: t('specialAttacks.StunDesc'),
+        [SpecialAttackType.ArmorPierce]: t('specialAttacks.ArmorPierceDesc'),
+        [SpecialAttackType.DeathTouch]: t('specialAttacks.DeathTouchDesc'),
+        [SpecialAttackType.EmpoweredStrikes]: t('specialAttacks.EmpoweredStrikesDesc'),
+        [SpecialAttackType.Earthquake]: t('specialAttacks.EarthquakeDesc'),
+    };
+
     const [formData, setFormData] = useState<Partial<Enemy>>(() => {
         const defaultStats: EnemyStats = {
             maxHealth: 100,
@@ -176,13 +184,25 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
             <fieldset className="border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">Ataki Specjalne</legend>
                  {(formData.specialAttacks || []).map((attack, index) => (
-                     <div key={index} className="flex items-center gap-2 mb-2 p-2 bg-slate-800/50 rounded-md">
-                        <select value={attack.type} onChange={e => handleSpecialAttackChange(index, 'type', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md">
-                            {Object.values(SpecialAttackType).map(type => <option key={type} value={type}>{t(`specialAttacks.${type}`)}</option>)}
-                        </select>
-                        <input type="number" placeholder="Szansa (%)" value={attack.chance} onChange={e => handleSpecialAttackChange(index, 'chance', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
-                        <input type="number" placeholder="Użycia" value={attack.uses} onChange={e => handleSpecialAttackChange(index, 'uses', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
-                        <button type="button" onClick={() => removeSpecialAttack(index)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">X</button>
+                     <div key={index} className="p-3 bg-slate-800/50 rounded-md mb-3 border border-slate-700/50">
+                        <div className="flex items-end gap-4">
+                            <div className="flex-grow">
+                                <label className="block text-xs font-medium text-gray-400 mb-1">{t('admin.bossEditor.attackType')}</label>
+                                <select value={attack.type} onChange={e => handleSpecialAttackChange(index, 'type', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md">
+                                    {Object.values(SpecialAttackType).map(type => <option key={type} value={type}>{t(`specialAttacks.${type}`)}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">{t('admin.bossEditor.chance')}</label>
+                                <input type="number" value={attack.chance} onChange={e => handleSpecialAttackChange(index, 'chance', e.target.value)} className="w-24 bg-slate-700 p-2 rounded-md" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">{t('admin.bossEditor.uses')}</label>
+                                <input type="number" value={attack.uses} onChange={e => handleSpecialAttackChange(index, 'uses', e.target.value)} className="w-24 bg-slate-700 p-2 rounded-md" />
+                            </div>
+                            <button type="button" onClick={() => removeSpecialAttack(index)} className="px-3 py-2 text-sm rounded bg-red-800 hover:bg-red-700 self-end">X</button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 italic">{specialAttackDescriptions[attack.type]}</p>
                     </div>
                 ))}
                 <button type="button" onClick={addSpecialAttack} className="px-3 py-1 text-sm rounded bg-sky-700 hover:bg-sky-600">+</button>

@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -673,6 +674,7 @@ export default {
     news: {
         title: 'Nowości i Ogłoszenia',
         content: 'Treść ogłoszenia',
+        close: 'Zamknij'
     },
     options: {
         title: 'Opcje',
@@ -709,10 +711,15 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
     },
     specialAttacks: {
         Stun: 'Ogłuszenie',
+        StunDesc: 'Na początku tury ogłusza jednego gracza, sprawiając, że nie atakuje w tej turze.',
         ArmorPierce: 'Przebicie Pancerza',
+        ArmorPierceDesc: 'Losowy gracz traci cały pancerz w tej turze.',
         DeathTouch: 'Dotyk Śmierci',
+        DeathTouchDesc: 'Losowy gracz traci połowę aktualnych punktów zdrowia.',
         EmpoweredStrikes: 'Wzmocnienie Uderzeń',
-        Earthquake: 'Trzęsienie Ziemi'
+        EmpoweredStrikesDesc: 'Boss do końca walki otrzymuje +15% szansy na trafienie krytyczne.',
+        Earthquake: 'Trzęsienie Ziemi',
+        EarthquakeDesc: 'Każdy gracz traci 20% swojego maksymalnego zdrowia.'
     },
     admin: {
         title: 'Panel Admina',
@@ -726,7 +733,15 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         lootTable: 'Tabela Łupów',
         resourceLootTable: 'Tabela Zasobów',
         manageItems: 'Zarządzaj Przedmiotami',
+        manageCharacters: 'Zarządzaj Postaciami',
+        noCharacters: 'Brak postaci do wyświetlenia.',
+        owner: 'Właściciel',
         saveSettings: 'Zapisz Ustawienia',
+        language: 'Język gry',
+        languages: {
+            pl: 'Polski',
+            en: 'Angielski'
+        },
         traderRefreshConfirm: 'Czy na pewno chcesz odświeżyć towary handlarza?',
         traderActions: 'Akcje Handlarza',
         forceTraderRefresh: 'Wymuś Odświeżenie',
@@ -740,6 +755,7 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             validationError: 'Temat i treść są wymagane.',
             sendSuccess: 'Wiadomość została wysłana do wszystkich graczy.'
         },
+        gameSettings: 'Ustawienia Gry',
         tabs: {
             general: 'Ogólne',
             users: 'Użytkownicy i Postacie',
@@ -782,6 +798,11 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             search: 'Szukaj...',
             searchByName: 'Szukaj po nazwie...',
             none: 'Brak'
+        },
+        bossEditor: {
+            attackType: 'Typ Ataku',
+            chance: 'Szansa (%)',
+            uses: 'Użycia'
         },
         affix: {
             manage: 'Zarządzaj Afiksami',
@@ -886,6 +907,13 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             lootTable: 'Tabela Łupów (Losowe)',
             repeatable: 'Liczba Powtórzeń',
             repeatableDesc: '0 = nieskończoność, 1 = jednorazowe, >1 = limit',
+        },
+        pvp: {
+            title: 'Ustawienia PvP',
+            actions: 'Akcje',
+            protectionDuration: 'Czas Ochrony po Ataku (minuty)',
+            protectionDurationDesc: 'Jak długo gracz jest chroniony przed atakami po tym, jak zostanie zaatakowany.',
+            resetCooldowns: 'Zresetuj wszystkie czasy odnowienia PvP'
         },
         db: {
             title: 'Edytor Bazy Danych',
