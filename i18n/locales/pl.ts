@@ -1,4 +1,3 @@
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -762,6 +761,7 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             locations: 'Lokacje',
             expeditions: 'Ekspedycje',
             enemies: 'Wrogowie',
+            bosses: 'Bossowie',
             items: 'Przedmioty',
             affixes: 'Afiksy',
             quests: 'Zadania',

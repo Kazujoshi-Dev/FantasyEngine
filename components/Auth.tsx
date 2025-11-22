@@ -99,7 +99,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                                 <img 
                                     src={settings.logoUrl} 
                                     alt="Logo" 
-                                    className="mx-auto max-h-24 w-auto object-contain mb-6"
+                                    className="mx-auto max-h-60 w-auto object-contain mb-6"
                                 />
                             )}
                             <h2 className="text-3xl font-bold text-center mb-2 text-indigo-400">

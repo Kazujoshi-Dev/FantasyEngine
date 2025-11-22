@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
