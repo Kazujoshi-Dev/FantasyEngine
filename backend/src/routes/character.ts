@@ -1,10 +1,8 @@
 
-
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -144,7 +142,48 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
             return acc;
         }, {} as GameData);
 
-        const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(character, gameData);
+        let updatedCharacter: PlayerCharacter = character;
+        let summary: ExpeditionRewardSummary;
+        let expeditionName = 'Wyprawa';
+
+        try {
+            // Attempt to process logic
+            const processingResult = processCompletedExpedition(character, gameData);
+            updatedCharacter = processingResult.updatedCharacter;
+            summary = processingResult.summary;
+            expeditionName = processingResult.expeditionName;
+        } catch (calcError: any) {
+            console.error("CRITICAL ERROR processing expedition:", calcError);
+            
+            // EMERGENCY FALLBACK:
+            // If logic fails (e.g. enemy not found, loot table error), we MUST release the character
+            // otherwise they get stuck in "On Expedition" state forever because the transaction rolls back.
+            
+            // 1. Force clear expedition
+            character.activeExpedition = null;
+            updatedCharacter = character;
+
+            // 2. Create a dummy error report
+            summary = {
+                rewardBreakdown: [],
+                totalGold: 0,
+                totalExperience: 0,
+                combatLog: [{
+                    turn: 0,
+                    attacker: 'System',
+                    defender: 'Player',
+                    action: 'Wystąpił błąd krytyczny podczas obliczania wyników wyprawy. Postać została bezpiecznie przywołana do obozu.',
+                    playerHealth: 0,
+                    playerMana: 0,
+                    enemyHealth: 0,
+                    enemyMana: 0
+                }],
+                isVictory: false,
+                itemsFound: [],
+                essencesFound: {},
+            };
+            expeditionName = "Błąd Wyprawy";
+        }
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
@@ -152,7 +191,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         const messageRes = await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
              VALUES ($1, 'System', 'expedition_report', $2, $3) RETURNING id`,
-            [req.user!.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
+            [req.user!.id, `Raport: ${expeditionName}`, JSON.stringify(summary)]
         );
         const messageId = messageRes.rows[0].id;
 
@@ -161,7 +200,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
 
     } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error('Error completing expedition:', err);
+        console.error('Error completing expedition (Transaction Rollback):', err);
         res.status(500).json({ message: err.message || 'Failed to complete expedition.' });
     } finally {
         client.release();

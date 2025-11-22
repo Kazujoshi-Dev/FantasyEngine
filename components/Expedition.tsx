@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -17,7 +18,7 @@ interface ExpeditionProps {
     onStartExpedition: (expeditionId: string) => void;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
-    onCompletion: () => void; // Now purely for visual/immediate UI feedback, but authoritative logic is in App.tsx
+    onCompletion: () => Promise<void>; // Updated signature to allow async promise handling
 }
 
 const formatDuration = (seconds: number): string => {
@@ -671,7 +672,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
                 <div className="flex items-center gap-4 mt-4 flex-shrink-0">
                     <button
-                        onClick={onClose}
+                        onClick={async () => {
+                            // Simple click handler to close normally
+                            onClose();
+                        }}
                         disabled={!isAnimationComplete}
                         className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-indigo-700 transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
                     >
@@ -744,12 +748,13 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 const ActiveExpeditionPanel: React.FC<{
     character: PlayerCharacter;
     expeditions: ExpeditionType[];
-    onCompletion: () => void;
+    onCompletion: () => Promise<void>;
 }> = ({ character, expeditions, onCompletion }) => {
     const { t } = useTranslation();
     const activeExpeditionDetails = expeditions.find(e => e.id === character.activeExpedition?.expeditionId);
     const [timeLeft, setTimeLeft] = useState(0);
     const completionCalledRef = useRef(false);
+    const [isForceClaiming, setIsForceClaiming] = useState(false);
 
     useEffect(() => {
         if (character.activeExpedition) {
@@ -774,6 +779,16 @@ const ActiveExpeditionPanel: React.FC<{
 
     const isFinished = timeLeft <= 0;
 
+    const handleForceClaim = async () => {
+        if (isForceClaiming) return;
+        setIsForceClaiming(true);
+        try {
+            await onCompletion();
+        } finally {
+            setIsForceClaiming(false);
+        }
+    }
+
     return (
         <div className="bg-slate-900/40 p-8 rounded-xl text-center">
             <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
@@ -786,10 +801,11 @@ const ActiveExpeditionPanel: React.FC<{
                  <div className="mt-8 flex flex-col items-center justify-center gap-4">
                     <p className="text-lg text-gray-300 animate-pulse">{t('expedition.generatingReport')}</p>
                     <button 
-                        onClick={onCompletion}
-                        className="px-6 py-2 bg-green-700 hover:bg-green-600 text-white font-bold rounded-lg shadow-lg transition-colors"
+                        onClick={handleForceClaim}
+                        disabled={isForceClaiming}
+                        className={`px-6 py-2 text-white font-bold rounded-lg shadow-lg transition-colors ${isForceClaiming ? 'bg-slate-600 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600'}`}
                     >
-                        Odbierz Raport (Wymuś)
+                        {isForceClaiming ? "Przetwarzanie..." : "Odbierz Raport (Wymuś)"}
                     </button>
                     <p className="text-xs text-gray-500">Kliknij, jeśli raport nie pojawi się automatycznie.</p>
                 </div>
