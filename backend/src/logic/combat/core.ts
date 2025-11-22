@@ -35,14 +35,19 @@ export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameDat
 };
 
 // Logika pojedynczego ataku
-export const performAttack = (
-    attacker: AttackerState,
-    defender: DefenderState,
+// FIX: Use generics to preserve the specific types of attacker and defender states.
+// This prevents TypeScript from widening the types to a union, fixing errors in simulations.ts.
+export const performAttack = <
+    TAttacker extends AttackerState,
+    TDefender extends DefenderState
+>(
+    attacker: TAttacker,
+    defender: TDefender,
     turn: number,
     gameData: GameData,
     isBossAttacking: boolean = false,
     turnEffects: any = {}
-): { logEntry: CombatLogEntry, attackerState: AttackerState, defenderState: DefenderState } => {
+): { logEntry: CombatLogEntry, attackerState: TAttacker, defenderState: TDefender } => {
 
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;

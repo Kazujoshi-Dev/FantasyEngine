@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName } from './core.js';
 
@@ -45,7 +44,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         if (playerAttacksFirst) {
             const result = performAttack(playerState, enemyState, turn, gameData);
             log.push(result.logEntry);
-            // Fix: Manual property updates to avoid type widening from spread syntax
             playerState.currentHealth = result.attackerState.currentHealth;
             playerState.currentMana = result.attackerState.currentMana;
             playerState.hardSkinTriggered = result.attackerState.hardSkinTriggered;
@@ -58,7 +56,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         // Enemy's turn
         const enemyTurnResult = performAttack(enemyState, playerState, turn, gameData);
         log.push(enemyTurnResult.logEntry);
-        // Fix: Manual property updates to avoid type widening from spread syntax which caused the error on line 34
         enemyState.currentHealth = enemyTurnResult.attackerState.currentHealth;
         enemyState.currentMana = enemyTurnResult.attackerState.currentMana;
         enemyState.hardSkinTriggered = enemyTurnResult.attackerState.hardSkinTriggered;
@@ -71,7 +68,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         if (!playerAttacksFirst) {
             const result = performAttack(playerState, enemyState, turn, gameData);
             log.push(result.logEntry);
-            // Fix: Manual property updates to avoid type widening from spread syntax
             playerState.currentHealth = result.attackerState.currentHealth;
             playerState.currentMana = result.attackerState.currentMana;
             playerState.hardSkinTriggered = result.attackerState.hardSkinTriggered;
@@ -97,6 +93,7 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         currentHealth: playerData.stats.currentHealth,
         currentMana: playerData.stats.currentMana,
         name: playerData.name,
+        hardSkinTriggered: false,
     };
 
     let enemiesState = enemiesData.map(e => ({
@@ -105,7 +102,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         currentMana: e.stats.maxMana || 0,
         name: e.name,
         uniqueId: e.uniqueId!,
-        // Fix: Ensure hardSkinTriggered property exists on enemy state objects
         hardSkinTriggered: false,
     }));
 
@@ -123,7 +119,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         turn++;
         
         // Player's turn
-        // Fix: Accessing attacksPerRound is now safe because playerState's type is preserved
         for (let i = 0; i < playerState.stats.attacksPerRound; i++) {
             const livingEnemies = enemiesState.filter(e => e.currentHealth > 0);
             if (livingEnemies.length === 0) break;
@@ -133,7 +128,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
 
             const { logEntry, attackerState, defenderState } = performAttack(playerState, target, turn, gameData);
             
-            // Fix: Manual property updates to avoid type widening from spread syntax which caused the error on line 100
             playerState.currentHealth = attackerState.currentHealth;
             playerState.currentMana = attackerState.currentMana;
             playerState.hardSkinTriggered = attackerState.hardSkinTriggered;
@@ -156,7 +150,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             const { logEntry, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData);
 
             const enemyIndex = enemiesState.findIndex(e => e.uniqueId === enemy.uniqueId);
-            // Fix: Manual property updates to avoid type widening from spread syntax
             enemiesState[enemyIndex].currentHealth = attackerState.currentHealth;
             enemiesState[enemyIndex].currentMana = attackerState.currentMana;
             enemiesState[enemyIndex].hardSkinTriggered = attackerState.hardSkinTriggered;
