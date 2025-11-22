@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -352,7 +353,9 @@ const MainApp: React.FC = () => {
 
     const calculateDerivedStats = (char: PlayerCharacter, data: GameData | null): PlayerCharacter => {
          if (!data) return char;
-         const { itemTemplates, affixes } = data;
+         // FIX: Default to empty arrays to prevent crash if DB is empty/corrupted
+         const itemTemplates = data.itemTemplates || [];
+         const affixes = data.affixes || [];
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
             if (value === undefined || value === null) return 0;
@@ -489,7 +492,10 @@ const MainApp: React.FC = () => {
         
         const mainHandItem = char.equipment[EquipmentSlot.MainHand] || char.equipment[EquipmentSlot.TwoHand];
         const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-        const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
+        
+        // Force numeric type to prevent string concatenation which causes .toFixed() error on strings
+        const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
+        
         const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
     
         const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
@@ -551,7 +557,7 @@ const MainApp: React.FC = () => {
     const handleEquipItem = async (item: ItemInstance) => {
         if (!character || !gameData) return;
 
-        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+        const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
         if (!template) return;
 
         if (template.slot === 'consumable') {
@@ -759,8 +765,8 @@ const MainApp: React.FC = () => {
                         
                         await handleCharacterUpdate(updatedChar, true);
                     }}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates || []}
+                    affixes={gameData.affixes || []}
                     onCompletion={handleExpeditionCompletion}
                 />;
             case Tab.Camp:
@@ -824,8 +830,8 @@ const MainApp: React.FC = () => {
                 />;
             case Tab.Messages:
                 return <Messages 
-                    itemTemplates={gameData.itemTemplates} 
-                    affixes={gameData.affixes} 
+                    itemTemplates={gameData.itemTemplates || []} 
+                    affixes={gameData.affixes || []} 
                     enemies={gameData.enemies}
                     currentPlayer={character} 
                     onCharacterUpdate={handleCharacterUpdate}
@@ -835,8 +841,8 @@ const MainApp: React.FC = () => {
                     character={character}
                     quests={gameData.quests}
                     enemies={gameData.enemies}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates || []}
+                    affixes={gameData.affixes || []}
                     onAcceptQuest={() => {}}
                     onCompleteQuest={async (id) => { await api.completeQuest(id); fetchCharacter(); }}
                 />;
@@ -844,8 +850,8 @@ const MainApp: React.FC = () => {
                 return <Trader 
                     character={derivedCharacter}
                     baseCharacter={character}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates || []}
+                    affixes={gameData.affixes || []}
                     settings={gameData.settings}
                     traderInventory={traderInventory.regularItems}
                     traderSpecialOfferItems={traderInventory.specialOfferItems}
@@ -862,8 +868,8 @@ const MainApp: React.FC = () => {
              case Tab.Blacksmith:
                 return <Blacksmith 
                     character={character}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates || []}
+                    affixes={gameData.affixes || []}
                     onDisenchantItem={async (item) => { 
                         const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
                         setCharacter(updatedCharacter);
@@ -900,8 +906,8 @@ const MainApp: React.FC = () => {
                 return <Hunting 
                     character={derivedCharacter}
                     enemies={gameData.enemies}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates || []}
+                    affixes={gameData.affixes || []}
                     gameData={gameData}
                 />;
             case Tab.Admin:
@@ -986,8 +992,8 @@ const MainApp: React.FC = () => {
                         messageId={expeditionReport.messageId}
                         onClose={() => setExpeditionReport(null)}
                         characterName={character.name}
-                        itemTemplates={gameData.itemTemplates}
-                        affixes={gameData.affixes}
+                        itemTemplates={gameData.itemTemplates || []}
+                        affixes={gameData.affixes || []}
                         initialEnemy={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? {
                             id: 'unknown', // Placeholder
                             name: expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender,

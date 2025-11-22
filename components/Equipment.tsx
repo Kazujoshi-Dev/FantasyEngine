@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -101,7 +102,7 @@ const ItemComparisonTooltip: React.FC<{
 }> = ({ hoveredItem, character, gameData }) => {
     const { t } = useTranslation();
     
-    const hoveredTemplate = gameData.itemTemplates.find(t => t.id === hoveredItem.templateId);
+    const hoveredTemplate = (gameData.itemTemplates || []).find(t => t.id === hoveredItem.templateId);
     if (!hoveredTemplate) return null;
 
     const equippedItemsToCompare: { item: ItemInstance | null, slotName: string }[] = [];
@@ -138,13 +139,13 @@ const ItemComparisonTooltip: React.FC<{
         <div className="fixed inset-0 z-30 flex justify-center items-center pointer-events-none animate-fade-in">
             <div className="flex gap-4">
                 {equippedItemsToCompare.map(({ item, slotName }, index) => {
-                    const equippedTemplate = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
+                    const equippedTemplate = item ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
                     return (
                         <div key={index} className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
                             <ItemDetailsPanel
                                 item={item}
                                 template={equippedTemplate}
-                                affixes={gameData.affixes}
+                                affixes={gameData.affixes || []}
                                 character={character}
                                 size="small"
                                 title={item ? `${t('equipment.equipped')}: ${slotName}` : slotName}
@@ -153,7 +154,7 @@ const ItemComparisonTooltip: React.FC<{
                     );
                 })}
                 <div className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
-                    <ItemDetailsPanel item={hoveredItem} template={hoveredTemplate} affixes={gameData.affixes} character={character} size="small" title={t('equipment.itemToEquip')} />
+                    <ItemDetailsPanel item={hoveredItem} template={hoveredTemplate} affixes={gameData.affixes || []} character={character} size="small" title={t('equipment.itemToEquip')} />
                 </div>
             </div>
         </div>
@@ -173,7 +174,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const backpackCapacity = getBackpackCapacity(character);
 
     const validInventoryCount = useMemo(() => 
-        character.inventory.filter(item => item && gameData.itemTemplates.find(t => t.id === item.templateId)).length,
+        character.inventory.filter(item => item && (gameData.itemTemplates || []).find(t => t.id === item.templateId)).length,
         [character.inventory, gameData.itemTemplates]
     );
 
@@ -187,7 +188,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     }, [t]);
 
     const meetsRequirements = useCallback((item: ItemInstance): boolean => {
-        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+        const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
         if (!template) return true; // Should not happen
 
         if (character.level < template.requiredLevel) {
@@ -208,7 +209,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const filteredInventory = useMemo(() => {
         return character.inventory.filter(item => {
             if (!item) return false;
-            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+            const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
             if (!template) return false;
 
             if (hideUnusable && !meetsRequirements(item)) {
@@ -252,7 +253,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
     const selectedTemplate = useMemo(() => {
         if (!selectedItem) return null;
-        return gameData.itemTemplates.find(t => t.id === selectedItem.item.templateId) || null;
+        return (gameData.itemTemplates || []).find(t => t.id === selectedItem.item.templateId) || null;
     }, [selectedItem, gameData.itemTemplates]);
 
     const handleDragStart = (e: React.DragEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
@@ -302,7 +303,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
-                            const template = (item && typeof item === 'object') ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
+                            const template = (item && typeof item === 'object') ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
                              if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) {
                                 return null;
                             }
@@ -321,17 +322,17 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         <ItemListItem
                                             item={item}
                                             template={template}
-                                            affixes={gameData.affixes}
+                                            affixes={gameData.affixes || []}
                                             isSelected={selectedItem?.item.uniqueId === item.uniqueId}
                                             onClick={() => handleItemClick(item, 'equipment', slot)}
                                             showPrimaryStat={false}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
                                         />
-                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes} />
+                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes || []} />
                                     </div>
                                 ) : (
-                                    <div onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
+                                    <div key={slot} onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
                                         <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
                                     </div>
                                 )
@@ -343,7 +344,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                 {/* Details/Stats Panel */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     {selectedItem ? (
-                        <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes} character={character} />
+                        <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes || []} character={character} />
                     ) : (
                         <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
                     )}
@@ -397,7 +398,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     </div>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredInventoryItem(null)} onDrop={(e) => handleDrop(e, 'inventory')} onDragOver={handleDragOver}>
                         {filteredInventory.map(item => {
-                            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+                            const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
                             if (!template) return null;
                             const isSelected = selectedItem?.item.uniqueId === item.uniqueId;
                             return (
@@ -409,7 +410,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                     <ItemListItem
                                         item={item}
                                         template={template}
-                                        affixes={gameData.affixes}
+                                        affixes={gameData.affixes || []}
                                         isSelected={isSelected}
                                         onClick={() => handleItemClick(item, 'inventory')}
                                         showPrimaryStat={false}
