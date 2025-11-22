@@ -1,4 +1,4 @@
-import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../types.js';
+import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../types.js';
 import { getGrammaticallyCorrectFullName } from './items.js';
 
 interface CombatState {
@@ -388,6 +388,9 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
 // ==========================================================================================
 //                                   TEAM COMBAT LOGIC
 // ==========================================================================================
+interface SpecialAttackState extends BossSpecialAttack {
+    remainingUses: number;
+}
 
 interface TeamCombatPlayerState {
     data: PlayerCharacter;
@@ -396,13 +399,26 @@ interface TeamCombatPlayerState {
     currentMana: number;
     hardSkinTriggered: boolean;
     isDead: boolean;
+    isStunned: boolean;
 }
 
 interface TeamCombatState {
     players: TeamCombatPlayerState[];
-    enemy: { stats: EnemyStats, currentHealth: number, currentMana: number, name: string, description?: string, hardSkinTriggered: boolean };
+    enemy: { 
+        stats: EnemyStats, 
+        currentHealth: number, 
+        currentMana: number, 
+        name: string, 
+        description?: string, 
+        hardSkinTriggered: boolean,
+        specialAttacks: SpecialAttackState[],
+        isEmpowered: boolean;
+    };
     log: CombatLogEntry[];
     turn: number;
+    turnEffects: {
+        armorPierceTargetId?: number;
+    };
 }
 
 export const simulateTeamCombat = (
@@ -428,7 +444,8 @@ export const simulateTeamCombat = (
             currentHealth: p.stats.currentHealth,
             currentMana: p.stats.currentMana,
             hardSkinTriggered: false,
-            isDead: false
+            isDead: false,
+            isStunned: false,
         })),
         enemy: {
             stats: { 
@@ -443,10 +460,13 @@ export const simulateTeamCombat = (
             currentMana: enemyData.stats.maxMana || 0,
             name: enemyData.name,
             description: enemyData.description,
-            hardSkinTriggered: false
+            hardSkinTriggered: false,
+            specialAttacks: (enemyData.specialAttacks || []).map(sa => ({ ...sa, remainingUses: sa.uses })),
+            isEmpowered: false,
         },
         log: [],
-        turn: 0
+        turn: 0,
+        turnEffects: {},
     };
 
     state.log.push({
@@ -464,12 +484,29 @@ export const simulateTeamCombat = (
 
     while (state.enemy.currentHealth > 0 && state.players.some(p => !p.isDead) && state.turn < 200) {
         state.turn++;
+        // Reset turn-based effects at the start of each full round
+        state.players.forEach(p => p.isStunned = false);
+        state.turnEffects = {};
 
         // Players Turn
         for (const playerState of state.players) {
             if (playerState.isDead || state.enemy.currentHealth <= 0) continue;
             
-            // Perform all attacks for the player
+            if (playerState.isStunned) {
+                state.log.push({
+                    turn: state.turn,
+                    attacker: playerState.data.name,
+                    defender: '',
+                    action: 'stun',
+                    stunnedPlayer: playerState.data.name,
+                    playerHealth: playerState.currentHealth,
+                    playerMana: playerState.currentMana,
+                    enemyHealth: state.enemy.currentHealth,
+                    enemyMana: state.enemy.currentMana,
+                });
+                continue;
+            }
+
             for (let i = 0; i < (playerState.stats.attacksPerRound || 1); i++) {
                  if (state.enemy.currentHealth <= 0) break;
                  performTeamAttack(state, playerState, safeGameData);
@@ -477,14 +514,21 @@ export const simulateTeamCombat = (
         }
         
         // Boss Turn
-        if (state.enemy.currentHealth > 0) {
-            // Boss performs all its attacks, picking a potentially new random target for each
+        if (state.enemy.currentHealth > 0 && state.players.some(p => !p.isDead)) {
+            // -- SPECIAL ATTACKS PHASE --
+            for (const special of state.enemy.specialAttacks) {
+                if (special.remainingUses > 0 && Math.random() * 100 < special.chance) {
+                    special.remainingUses--;
+                    performBossSpecialAttack(state, special);
+                }
+            }
+
+            // -- NORMAL ATTACKS PHASE --
             const totalBossAttacks = state.enemy.stats.attacksPerTurn || 1;
             for (let i = 0; i < totalBossAttacks; i++) {
                  const alivePlayers = state.players.filter(p => !p.isDead);
                  if (alivePlayers.length === 0) break;
                  
-                 // Boss attacks random player
                  const target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
                  performTeamAttack(state, target, safeGameData, true);
             }
@@ -493,6 +537,74 @@ export const simulateTeamCombat = (
 
     return { combatLog: state.log, finalPlayers: state.players };
 }
+
+const performBossSpecialAttack = (state: TeamCombatState, special: SpecialAttackState) => {
+    const alivePlayers = state.players.filter(p => !p.isDead);
+    if (alivePlayers.length === 0) return;
+
+    let target: TeamCombatPlayerState | undefined;
+    // Attacks that require a single target
+    if ([SpecialAttackType.Stun, SpecialAttackType.ArmorPierce, SpecialAttackType.DeathTouch].includes(special.type)) {
+        target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+    }
+    
+    // Generic log entry for using a special
+    state.log.push({
+        turn: state.turn, attacker: state.enemy.name, defender: 'Team', action: 'special_attack',
+        specialAttackType: special.type, playerHealth: 0, playerMana: 0,
+        enemyHealth: state.enemy.currentHealth, enemyMana: state.enemy.currentMana,
+    });
+
+    switch (special.type) {
+        case SpecialAttackType.Stun:
+            if (target) {
+                target.isStunned = true;
+                state.log.push({
+                    turn: state.turn, attacker: state.enemy.name, defender: target.data.name, action: 'stun',
+                    stunnedPlayer: target.data.name, playerHealth: target.currentHealth, playerMana: target.currentMana,
+                    enemyHealth: state.enemy.currentHealth, enemyMana: state.enemy.currentMana,
+                });
+            }
+            break;
+        case SpecialAttackType.ArmorPierce:
+            if (target) {
+                state.turnEffects.armorPierceTargetId = target.data.id;
+                state.log.push({
+                    turn: state.turn, attacker: state.enemy.name, defender: target.data.name, action: 'special_attack_effect',
+                    specialAttackType: special.type, playerHealth: target.currentHealth, playerMana: target.currentMana,
+                    enemyHealth: state.enemy.currentHealth, enemyMana: state.enemy.currentMana,
+                });
+            }
+            break;
+        case SpecialAttackType.DeathTouch:
+            if (target) {
+                const damage = Math.floor(target.currentHealth / 2);
+                target.currentHealth -= damage;
+                state.log.push({
+                    turn: state.turn, attacker: state.enemy.name, defender: target.data.name, action: 'attacks',
+                    damage: damage, specialAttackType: special.type, playerHealth: target.currentHealth, playerMana: target.currentMana,
+                    enemyHealth: state.enemy.currentHealth, enemyMana: state.enemy.currentMana,
+                });
+            }
+            break;
+        case SpecialAttackType.EmpoweredStrikes:
+            state.enemy.isEmpowered = true;
+            break;
+        case SpecialAttackType.Earthquake:
+            const affectedNames: string[] = [];
+            alivePlayers.forEach(p => {
+                const damage = Math.floor(p.stats.maxHealth * 0.2);
+                p.currentHealth = Math.max(0, p.currentHealth - damage);
+                affectedNames.push(p.data.name);
+                 state.log.push({
+                    turn: state.turn, attacker: state.enemy.name, defender: p.data.name, action: 'attacks',
+                    damage: damage, specialAttackType: special.type, playerHealth: p.currentHealth, playerMana: p.currentMana,
+                    enemyHealth: state.enemy.currentHealth, enemyMana: state.enemy.currentMana,
+                });
+            });
+            break;
+    }
+};
 
 const performTeamAttack = (
     state: TeamCombatState, 
@@ -592,6 +704,7 @@ const performTeamAttack = (
      } else {
          // Boss attacking player
          const bossStats = state.enemy.stats;
+         const critChance = bossStats.critChance + (state.enemy.isEmpowered ? 15 : 0);
          const manaCost = bossStats.magicAttackManaCost || 0;
          const willUseMagic = Math.random() * 100 < (bossStats.magicAttackChance || 0);
          if (willUseMagic && state.enemy.currentMana >= manaCost) {
@@ -606,13 +719,15 @@ const performTeamAttack = (
             damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
          } else {
              damage = Math.floor(Math.random() * (bossStats.maxDamage - bossStats.minDamage + 1)) + bossStats.minDamage;
-             if (Math.random() * 100 < bossStats.critChance) {
+             if (Math.random() * 100 < critChance) {
                  isCrit = true;
                  damage = Math.floor(damage * ((bossStats.critDamageModifier || 150) / 100));
              }
              
-             // Player Armor Reduction
-             const reduction = Math.min(damage, Math.floor(activePlayer.stats.armor));
+             // Player Armor Reduction with Armor Pierce check
+             const isArmorPierced = state.turnEffects.armorPierceTargetId === activePlayer.data.id;
+             const effectiveArmor = isArmorPierced ? 0 : activePlayer.stats.armor;
+             const reduction = Math.min(damage, Math.floor(effectiveArmor));
              damage -= reduction;
              damageReduced += reduction;
          }
