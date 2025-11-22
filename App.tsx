@@ -857,7 +857,7 @@ const MainApp: React.FC = () => {
                     enemies={gameData.enemies}
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
-                    onAcceptQuest={() => {}}
+                    onAcceptQuest={async (id) => { await api.acceptQuest(id); fetchCharacter(); }}
                     onCompleteQuest={async (id) => { await api.completeQuest(id); fetchCharacter(); }}
                 />;
             case Tab.Trader:

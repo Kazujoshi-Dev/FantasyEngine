@@ -229,6 +229,13 @@ export const api = {
         });
     },
 
+    async acceptQuest(questId: string): Promise<PlayerCharacter> {
+        return fetchApi('/character/accept-quest', {
+            method: 'POST',
+            body: JSON.stringify({ questId }),
+        });
+    },
+
     async completeQuest(questId: string): Promise<PlayerCharacter> {
         return fetchApi('/character/complete-quest', {
             method: 'POST',

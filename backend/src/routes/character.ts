@@ -412,6 +412,59 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
     }
 });
 
+router.post('/character/accept-quest', authenticateToken, async (req: any, res: any) => {
+    const { questId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        // Initialize arrays if they don't exist
+        if (!character.acceptedQuests) character.acceptedQuests = [];
+        if (!character.questProgress) character.questProgress = [];
+
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'quests'");
+        const quests = gameDataRes.rows[0]?.data || [];
+        const quest = quests.find((q: any) => q.id === questId);
+
+        if (!quest) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Quest not found.' });
+        }
+        if (!quest.locationIds.includes(character.currentLocationId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Quest not available in this location.' });
+        }
+        if (character.acceptedQuests.includes(questId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Quest already accepted.' });
+        }
+
+        const progress = character.questProgress.find(p => p.questId === questId);
+        if (quest.repeatable > 0 && progress && progress.completions >= quest.repeatable) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Quest has been fully completed.' });
+        }
+
+        character.acceptedQuests.push(questId);
+        if (!progress) {
+            character.questProgress.push({ questId, progress: 0, completions: 0 });
+        }
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error accepting quest:', err);
+        res.status(500).json({ message: 'Failed to accept quest.' });
+    } finally {
+        client.release();
+    }
+});
+
+
 router.post('/character/complete-quest', authenticateToken, async (req: any, res: any) => {
     const { questId } = req.body;
     const client = await pool.connect();

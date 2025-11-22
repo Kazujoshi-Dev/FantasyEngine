@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, Quest, QuestType, Enemy, ItemTemplate, EssenceType, ItemRarity, ItemInstance, Affix } from '../types';
@@ -50,10 +51,9 @@ const QuestCard: React.FC<{
     onComplete: (id: string) => void;
 }> = ({ quest, character, enemies, itemTemplates, affixes, isAccepted, onAccept, onComplete }) => {
     const { t } = useTranslation();
-    const progress = character.questProgress?.find(p => p.questId === quest.id) || { progress: 0, completions: 0 };
-    const canStillComplete = quest.repeatable === 0 || progress.completions < quest.repeatable;
+    const progressData = character.questProgress?.find(p => p.questId === quest.id) || { progress: 0, completions: 0 };
+    const canStillComplete = quest.repeatable === 0 || progressData.completions < quest.repeatable;
     
-    // Defensive check: Ensure objective exists
     if (!quest.objective) {
         return (
             <div className="bg-slate-900/40 p-6 rounded-xl border border-red-900/50">
@@ -63,24 +63,27 @@ const QuestCard: React.FC<{
         );
     }
 
-    const isObjectiveMet = quest.objective && (
-        quest.objective.type === QuestType.Kill ? progress.progress >= quest.objective.amount :
-        quest.objective.type === QuestType.Gather ? character.inventory.filter(i => i.templateId === quest.objective.targetId).length >= quest.objective.amount :
-        quest.objective.type === QuestType.GatherResource ? (character.resources[quest.objective.targetId as EssenceType] || 0) >= quest.objective.amount :
-        quest.objective.type === QuestType.PayGold ? character.resources.gold >= quest.objective.amount :
-        false
-    );
+    const { objective } = quest;
 
-    let canAfford = true;
-    if (quest.objective?.type === QuestType.Gather) {
-        canAfford = character.inventory.filter(i => i.templateId === quest.objective?.targetId).length >= (quest.objective?.amount ?? Infinity);
-    } else if (quest.objective?.type === QuestType.PayGold) {
-        canAfford = character.resources.gold >= (quest.objective?.amount ?? Infinity);
-    } else if (quest.objective?.type === QuestType.GatherResource) {
-        canAfford = (character.resources[quest.objective?.targetId as EssenceType] || 0) >= (quest.objective?.amount ?? Infinity);
-    }
+    const currentProgress = useMemo(() => {
+        if (!isAccepted) return 0;
+        switch (objective.type) {
+            case QuestType.Kill:
+                return progressData.progress;
+            case QuestType.Gather:
+                return character.inventory.filter(i => i.templateId === objective.targetId).length;
+            case QuestType.GatherResource:
+                return character.resources[objective.targetId as EssenceType] || 0;
+            case QuestType.PayGold:
+                return character.resources.gold;
+            default:
+                return 0;
+        }
+    }, [character, objective, isAccepted, progressData]);
 
-    const progressPercentage = quest.objective.amount > 0 ? (progress.progress / quest.objective.amount) * 100 : 0;
+    const isObjectiveMet = currentProgress >= objective.amount;
+
+    const progressPercentage = objective.amount > 0 ? (currentProgress / objective.amount) * 100 : 0;
     
     const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
         [EssenceType.Common]: ItemRarity.Common,
@@ -102,22 +105,21 @@ const QuestCard: React.FC<{
                 <div>
                     <h4 className="font-semibold text-gray-300 mb-2">{t('quests.objective')}</h4>
                     <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <p className="text-white">{getObjectiveText(quest, progress.progress, enemies, itemTemplates, t)}</p>
-                        {isAccepted && quest.objective?.type === QuestType.Kill && canStillComplete && (
+                        <p className="text-white">{getObjectiveText(quest, progressData.progress, enemies, itemTemplates, t)}</p>
+                        {isAccepted && canStillComplete && (
                              <div className="mt-2">
                                 <div className="w-full bg-slate-700 rounded-full h-2.5">
                                     <div className="bg-amber-400 h-2.5 rounded-full" style={{width: `${Math.min(100, progressPercentage)}%`}}></div>
                                 </div>
-                                <p className="text-right text-sm font-mono text-gray-400">{progress.progress} / {quest.objective.amount}</p>
+                                <p className="text-right text-sm font-mono text-gray-400">{Math.min(currentProgress, objective.amount)} / {objective.amount}</p>
                             </div>
                         )}
                     </div>
-                    {quest.repeatable !== 1 && <p className="text-xs text-gray-500 mt-2">{t('quests.completions', { count: progress.completions, total: quest.repeatable === 0 ? '∞' : quest.repeatable })}</p>}
+                    {quest.repeatable !== 1 && <p className="text-xs text-gray-500 mt-2">{t('quests.completions', { count: progressData.completions, total: quest.repeatable === 0 ? '∞' : quest.repeatable })}</p>}
                 </div>
                 <div>
                     <h4 className="font-semibold text-gray-300 mb-2">{t('quests.rewards')}</h4>
                     <div className="bg-slate-800/50 p-4 rounded-lg space-y-2">
-                        {/* Defensive checks for rewards being undefined */}
                         {(quest.rewards?.gold || 0) > 0 && (
                             <p className="flex items-center text-amber-400 font-semibold"><CoinsIcon className="h-5 w-5 mr-2"/> {quest.rewards.gold.toLocaleString()} {t('resources.gold')}</p>
                         )}
@@ -176,14 +178,14 @@ const QuestCard: React.FC<{
                     <>
                         <button
                             onClick={() => onComplete(quest.id)}
-                            disabled={!isObjectiveMet || !canStillComplete || !canAfford}
+                            disabled={!isObjectiveMet || !canStillComplete}
                             className="px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed"
                         >
                             {canStillComplete ? t('quests.complete') : t('quests.completed')}
                         </button>
-                        {!canAfford && quest.objective?.type === QuestType.Gather && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughItems')}</p>}
-                        {!canAfford && quest.objective?.type === QuestType.PayGold && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughGold')}</p>}
-                        {!canAfford && quest.objective?.type === QuestType.GatherResource && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughEssence')}</p>}
+                        {!isObjectiveMet && quest.objective?.type === QuestType.Gather && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughItems')}</p>}
+                        {!isObjectiveMet && quest.objective?.type === QuestType.PayGold && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughGold')}</p>}
+                        {!isObjectiveMet && quest.objective?.type === QuestType.GatherResource && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughEssence')}</p>}
                     </>
                 ) : (
                      <button
