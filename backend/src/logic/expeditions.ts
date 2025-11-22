@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulateCombat } from './combat.js';
 import { createItemInstance } from './items.js';
@@ -8,7 +7,6 @@ import { calculateDerivedStatsOnServer } from './stats.js';
 export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
     const expedition = gameData.expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expedition) {
-        // This case should ideally not happen if data is consistent
         character.activeExpedition = null;
         return { 
             updatedCharacter: character, 
@@ -37,64 +35,65 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     }
 
     // 2. Simulate combat and gather logs/results
-    // Pass fallback empty arrays for safe execution even if gameData is missing properties
     const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || []);
-    let playerHealth = characterWithStats.stats.currentHealth;
-    let playerMana = characterWithStats.stats.currentMana;
-    let isVictory = true;
-    const fullCombatLog: CombatLogEntry[] = [];
-    const rewardBreakdown: RewardSource[] = [];
+    
+    // FIX: Correctly simulate combat against multiple enemies sequentially.
+    let fullCombatLog: CombatLogEntry[] = [];
+    let currentCharacterForCombat = JSON.parse(JSON.stringify(characterWithStats));
 
     for (const enemy of encounteredEnemies) {
-        const combatCharacter = { ...characterWithStats, stats: { ...characterWithStats.stats, currentHealth: playerHealth, currentMana: playerMana }};
-        const combatLog = simulateCombat(combatCharacter, enemy, gameData);
-        fullCombatLog.push(...combatLog);
-        
-        const lastLog = combatLog[combatLog.length - 1];
-        playerHealth = lastLog.playerHealth;
-        playerMana = lastLog.playerMana;
-
-        if (playerHealth <= 0) {
-            isVictory = false;
-            break; // Player was defeated
+        if (currentCharacterForCombat.stats.currentHealth <= 0) {
+            break;
         }
-
-        // Add enemy rewards to breakdown
-        const minGold = enemy.rewards?.minGold ?? 0;
-        const maxGold = enemy.rewards?.maxGold ?? 0;
-        const goldReward = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
-        
-        const minExp = enemy.rewards?.minExperience ?? 0;
-        const maxExp = enemy.rewards?.maxExperience ?? 0;
-        const experienceReward = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
-        
-        rewardBreakdown.push({
-            source: `Pokonano: ${enemy.name}`,
-            gold: goldReward,
-            experience: experienceReward
-        });
-        
-        // Update kill quests
-        character.questProgress.forEach(qp => {
-            const quest = gameData.quests.find(q => q.id === qp.questId);
-            if(quest && quest.objective.type === QuestType.Kill && quest.objective.targetId === enemy.id && character.acceptedQuests.includes(quest.id)) {
-                qp.progress += 1;
-            }
-        });
+        const singleCombatLog = simulateCombat(currentCharacterForCombat, enemy, gameData);
+        fullCombatLog.push(...singleCombatLog);
+        if (singleCombatLog.length > 0) {
+            const lastLog = singleCombatLog[singleCombatLog.length - 1];
+            currentCharacterForCombat.stats.currentHealth = lastLog.playerHealth;
+            currentCharacterForCombat.stats.currentMana = lastLog.playerMana;
+        }
     }
+    const finalPlayerHealth = currentCharacterForCombat.stats.currentHealth;
+    const finalPlayerMana = currentCharacterForCombat.stats.currentMana;
+    const isVictory = finalPlayerHealth > 0;
 
     // 3. Calculate final rewards and update character state
     let finalCharacter = { ...character };
-    finalCharacter.stats.currentHealth = playerHealth;
-    finalCharacter.stats.currentMana = playerMana;
+    finalCharacter.stats.currentHealth = finalPlayerHealth;
+    finalCharacter.stats.currentMana = finalPlayerMana;
     
     let totalGold = 0;
     let totalExperience = 0;
     const itemsFound = [];
     const essencesFound: Partial<Record<EssenceType, number>> = {};
     let itemsLostCount = 0;
+    const rewardBreakdown: RewardSource[] = [];
 
     if (isVictory) {
+        // Enemy rewards
+        for (const enemy of encounteredEnemies) {
+            const minGold = enemy.rewards?.minGold ?? 0;
+            const maxGold = enemy.rewards?.maxGold ?? 0;
+            const goldReward = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
+            
+            const minExp = enemy.rewards?.minExperience ?? 0;
+            const maxExp = enemy.rewards?.maxExperience ?? 0;
+            const experienceReward = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
+            
+            rewardBreakdown.push({
+                source: `Pokonano: ${enemy.name}`,
+                gold: goldReward,
+                experience: experienceReward
+            });
+            
+            character.questProgress.forEach(qp => {
+                const quest = gameData.quests.find(q => q.id === qp.questId);
+                if(quest && quest.objective.type === QuestType.Kill && quest.objective.targetId === enemy.id && character.acceptedQuests.includes(quest.id)) {
+                    qp.progress += 1;
+                }
+            });
+        }
+
         // Base expedition rewards
         const baseGold = Math.floor(Math.random() * (expedition.maxBaseGoldReward - expedition.minBaseGoldReward + 1)) + expedition.minBaseGoldReward;
         const baseExperience = Math.floor(Math.random() * (expedition.maxBaseExperienceReward - expedition.minBaseExperienceReward + 1)) + expedition.minBaseExperienceReward;
@@ -115,16 +114,15 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         if(character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.20);
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
         
-        // Handle loot drops (from enemies and expedition)
+        // Handle loot drops
         const allLootTables = [
             ...(expedition.lootTable || []),
             ...encounteredEnemies.flatMap(e => e.lootTable || [])
         ];
 
         const backpackCapacity = getBackpackCapacity(finalCharacter);
-        const maxItems = expedition.maxItems; // Get the limit
+        const maxItems = expedition.maxItems;
         
-        // Class Bonus: Dungeon Hunter
         if(character.characterClass === CharacterClass.DungeonHunter) {
             if (Math.random() < 0.3) {
                  const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
@@ -137,9 +135,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
         
         for (const drop of allLootTables) {
-            // Check if we've already hit the expedition's item limit
             if (maxItems != null && maxItems > 0 && itemsFound.length >= maxItems) {
-                break; // Stop processing further loot drops if limit is reached
+                break;
             }
 
             if (Math.random() * 100 < drop.chance) {
@@ -170,16 +167,12 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             }
         }
 
-
-        // Update character
         finalCharacter.resources.gold = (Number(finalCharacter.resources.gold) || 0) + totalGold;
         finalCharacter.experience = (Number(finalCharacter.experience) || 0) + totalExperience;
         
-         // Class bonuses after fight
         if (character.characterClass === CharacterClass.Druid) {
             finalCharacter.stats.currentHealth = Math.min(finalCharacter.stats.maxHealth, finalCharacter.stats.currentHealth + finalCharacter.stats.maxHealth * 0.5);
         }
-
     }
 
     // Level up check
@@ -190,10 +183,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         finalCharacter.experienceToNextLevel = Math.floor(100 * Math.pow(finalCharacter.level, 1.3));
     }
     
-    // Reset expedition status
     finalCharacter.activeExpedition = null;
 
-    // 4. Create summary
     const summary: ExpeditionRewardSummary = {
         rewardBreakdown,
         totalGold,
@@ -202,7 +193,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         isVictory,
         itemsFound,
         essencesFound,
-        itemsLostCount: itemsLostCount > 0 ? itemsLostCount : undefined
+        itemsLostCount: itemsLostCount > 0 ? itemsLostCount : undefined,
+        encounteredEnemies: encounteredEnemies
     };
 
     return { updatedCharacter: finalCharacter, summary, expeditionName: expedition.name };

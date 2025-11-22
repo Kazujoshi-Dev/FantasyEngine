@@ -11,7 +11,6 @@ import { MailIcon } from './icons/MailIcon';
 interface RankingProps {
   ranking: RankingPlayer[];
   currentPlayer: PlayerCharacter;
-  onRefresh: () => void;
   isLoading: boolean;
   onAttack: (defenderId: number) => void;
   onComposeMessage: (recipientName: string) => void;
@@ -46,7 +45,7 @@ const CooldownTimer: React.FC<{ until: number }> = ({ until }) => {
     );
 };
 
-export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefresh, isLoading, onAttack, onComposeMessage }) => {
+export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoading, onAttack, onComposeMessage }) => {
   const { t } = useTranslation();
   
   const getAttackDisabledReason = (target: RankingPlayer): string | null => {
@@ -68,13 +67,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, onRefr
              <h3 className="text-xl font-bold text-indigo-400 flex items-center">
                 <TrophyIcon className="h-5 w-5 mr-2 text-amber-400"/> {t('ranking.header')}
              </h3>
-             <button 
-                onClick={onRefresh} 
-                disabled={isLoading}
-                className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white font-semibold transition-colors duration-200 disabled:opacity-50"
-             >
-                {isLoading ? t('ranking.refreshing') : t('ranking.refresh')}
-             </button>
+             {isLoading && <div className="text-sm text-gray-400">{t('ranking.refreshing')}</div>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">

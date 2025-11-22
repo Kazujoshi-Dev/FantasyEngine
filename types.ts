@@ -245,6 +245,7 @@ export interface ExpeditionRewardSummary {
   huntingMembers?: PartyMember[];
   allRewards?: Record<string, { gold: number; experience: number }>;
   bossId?: string;
+  encounteredEnemies?: Enemy[];
 }
 
 export interface PvpRewardSummary {

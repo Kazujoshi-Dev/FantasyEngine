@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -869,7 +868,6 @@ const MainApp: React.FC = () => {
                 return <Ranking 
                     ranking={ranking} 
                     currentPlayer={character} 
-                    onRefresh={fetchRanking} 
                     isLoading={isRankingLoading} 
                     onAttack={async (id) => { await api.attackPlayer(id); fetchCharacter(); }}
                     onComposeMessage={() => {}}
@@ -1050,14 +1048,8 @@ const MainApp: React.FC = () => {
                         characterName={character.name}
                         itemTemplates={gameData.itemTemplates || []}
                         affixes={gameData.affixes || []}
-                        initialEnemy={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? {
-                            id: 'unknown', // Placeholder
-                            name: expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender,
-                            description: expeditionReport.summary.combatLog[0].enemyDescription || '',
-                            stats: expeditionReport.summary.combatLog[0].enemyStats,
-                            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
-                            lootTable: []
-                        } : undefined}
+                        // FIX: Changed prop 'initialEnemies' to 'initialEnemy' and passed the first enemy.
+                        initialEnemy={expeditionReport.summary.encounteredEnemies?.[0]}
                         bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
                     />
                 )}
