@@ -95,6 +95,13 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     {/* Left Side: Auth Form */}
                     <div className="w-full md:w-1/3 lg:w-2/5 flex flex-col justify-center p-4">
                         <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700/50">
+                            {settings?.logoUrl && (
+                                <img 
+                                    src={settings.logoUrl} 
+                                    alt="Logo" 
+                                    className="mx-auto max-h-24 w-auto object-contain mb-6"
+                                />
+                            )}
                             <h2 className="text-3xl font-bold text-center mb-2 text-indigo-400">
                                 {isLoginView ? t('auth.welcomeBack') : t('auth.joinAdventure')}
                             </h2>

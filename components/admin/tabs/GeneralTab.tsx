@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameSettings, ItemRarity, Tab, Language, TraderSettings } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -167,6 +166,22 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
         <div className="border-t border-slate-700/50 pt-6">
             <h3 className="text-2xl font-bold text-indigo-400 mb-4">Ustawienia Wizualne</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Logo (URL)</label>
+                    <input
+                        type="text"
+                        name="logoUrl"
+                        value={settings.logoUrl || ''}
+                        onChange={handleSettingsChange}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/logo.png"
+                    />
+                    {settings.logoUrl && (
+                        <div className="mt-2 p-2 bg-slate-800/50 rounded-md inline-block">
+                             <img src={settings.logoUrl} alt="Podgląd logo" className="max-h-16 object-contain" />
+                        </div>
+                    )}
+                </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (URL)</label>
                     <input

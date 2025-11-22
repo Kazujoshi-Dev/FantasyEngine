@@ -641,6 +641,7 @@ export interface GameSettings {
     };
     loginBackground?: string;
     gameBackground?: string;
+    logoUrl?: string;
     newsContent?: string;
     newsLastUpdatedAt?: number;
     sidebarOrder?: Tab[];
