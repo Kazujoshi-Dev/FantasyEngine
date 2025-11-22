@@ -98,7 +98,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
     const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
 
     const validInventory = useMemo(() => 
-        character.inventory.filter(item => itemTemplates.find(t => t.id === item.templateId)),
+        (character.inventory || []).filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
         [character.inventory, itemTemplates]
     );
 
@@ -166,7 +166,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
         const isSpecial = traderSpecialOfferItems.some(i => i.uniqueId === item.uniqueId);
         const cost = isSpecial ? itemValue * 5 : itemValue * 2;
 
-        if (character.inventory.length >= backpackCapacity) {
+        if ((character.inventory || []).length >= backpackCapacity) {
             alert(t('trader.inventoryFull'));
             return;
         }
@@ -186,9 +186,10 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
     }
 
     const handleBulkSell = useCallback((raritiesToSell: ItemRarity[]) => {
-        if (!baseCharacter) return;
+        if (!baseCharacter || !baseCharacter.inventory) return;
 
         const itemsToSell = baseCharacter.inventory.filter(item => {
+            if (!item) return false;
             const template = itemTemplates.find(t => t.id === item.templateId);
             return template && raritiesToSell.includes(template.rarity);
         });

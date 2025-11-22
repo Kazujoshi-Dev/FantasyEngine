@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -387,7 +388,8 @@ const CreateListing: React.FC<{
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
 
     const filteredInventory = useMemo(() => {
-        return character.inventory.filter(item => {
+        return (character.inventory || []).filter(item => {
+            if (!item) return false;
             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
             if (!template) return false;
 

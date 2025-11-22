@@ -366,7 +366,7 @@ const MainApp: React.FC = () => {
     }, [character, gameData, handleCharacterUpdate, t]);
 
     const calculateDerivedStats = (char: PlayerCharacter, data: GameData | null): PlayerCharacter => {
-         if (!data) return char;
+         if (!data || !char.equipment) return char;
          // FIX: Default to empty arrays to prevent crash if DB is empty/corrupted
          const itemTemplates = data.itemTemplates || [];
          const affixes = data.affixes || [];
@@ -573,9 +573,11 @@ const MainApp: React.FC = () => {
 
         const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
         if (!template) return;
+        
+        const currentInventory = (character.inventory || []).filter(i => i);
 
         if (template.slot === 'consumable') {
-            const newInventory = character.inventory.filter(i => i.uniqueId !== item.uniqueId);
+            const newInventory = currentInventory.filter(i => i.uniqueId !== item.uniqueId);
             let newStats = { ...character.stats };
 
             if (item.templateId === 'health_potion') { // Example hardcoded logic
@@ -588,7 +590,7 @@ const MainApp: React.FC = () => {
         }
 
         const newEquipment = { ...character.equipment };
-        let newInventory = [...character.inventory];
+        let newInventory = [...currentInventory];
         const targetSlot = template.slot;
 
         const unequipToInventory = (slot: EquipmentSlot) => {
@@ -630,14 +632,15 @@ const MainApp: React.FC = () => {
 
     const handleUnequipItem = async (item: ItemInstance, slot: EquipmentSlot) => {
         if (!character) return;
+        const currentInventory = (character.inventory || []).filter(i => i);
         const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
-        if (character.inventory.length >= backpackCapacity) {
+        if (currentInventory.length >= backpackCapacity) {
             alert(t('equipment.backpackFull'));
             return;
         }
         
         const newEquipment = { ...character.equipment, [slot]: null };
-        const newInventory = [...character.inventory, item];
+        const newInventory = [...currentInventory, item];
         
         const newChar: PlayerCharacter = { ...character, equipment: newEquipment, inventory: newInventory };
         await handleCharacterUpdate(newChar, true);

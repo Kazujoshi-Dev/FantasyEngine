@@ -174,7 +174,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const backpackCapacity = getBackpackCapacity(character);
 
     const validInventoryCount = useMemo(() => 
-        character.inventory.filter(item => item && (gameData.itemTemplates || []).find(t => t.id === item.templateId)).length,
+        (character.inventory || []).filter(item => item && (gameData.itemTemplates || []).find(t => t.id === item.templateId)).length,
         [character.inventory, gameData.itemTemplates]
     );
 
@@ -207,7 +207,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     }, [character, gameData.itemTemplates]);
 
     const filteredInventory = useMemo(() => {
-        return character.inventory.filter(item => {
+        return (character.inventory || []).filter(item => {
             if (!item) return false;
             const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
             if (!template) return false;
@@ -274,7 +274,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
         let itemToMove: ItemInstance | null | undefined = null;
         if (source === 'inventory') {
-            itemToMove = character.inventory.find(i => i.uniqueId === itemUniqueId);
+            itemToMove = (character.inventory || []).find(i => i && i.uniqueId === itemUniqueId);
         } else if (source === 'equipment' && fromSlot) {
             itemToMove = character.equipment[fromSlot];
         }
@@ -305,12 +305,12 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
-                            const item = character.equipment[slot];
+                            const item = character.equipment ? character.equipment[slot] : null;
                             const template = (item && typeof item === 'object') ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
-                             if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) {
+                             if (slot === EquipmentSlot.TwoHand && character.equipment?.mainHand) {
                                 return null;
                             }
-                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) {
+                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment?.twoHand) {
                                 return null;
                             }
                             return (

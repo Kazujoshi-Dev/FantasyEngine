@@ -71,7 +71,7 @@ const QuestCard: React.FC<{
             case QuestType.Kill:
                 return progressData.progress;
             case QuestType.Gather:
-                return character.inventory.filter(i => i.templateId === objective.targetId).length;
+                return (character.inventory || []).filter(i => i && i.templateId === objective.targetId).length;
             case QuestType.GatherResource:
                 return character.resources[objective.targetId as EssenceType] || 0;
             case QuestType.PayGold:

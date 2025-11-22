@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -42,7 +43,7 @@ const DisenchantPanel: React.FC<{
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
 
     const validInventory = useMemo(() => 
-        character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
+        (character.inventory || []).filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
         [character.inventory, itemTemplates]
     );
     const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
@@ -236,19 +237,19 @@ const UpgradePanel: React.FC<{
     const [filterSlot, setFilterSlot] = useState<string>('all');
 
     const allItems = useMemo(() => [
-        ...Object.values(character.equipment)
+        ...Object.values(character.equipment || {})
             .filter((i): i is ItemInstance => i !== null)
             .filter(item => item && itemTemplates.find(t => t.id === item.templateId)),
-        ...character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId))
+        ...(character.inventory || []).filter(item => item && itemTemplates.find(t => t.id === item.templateId))
     ], [character.equipment, character.inventory, itemTemplates]);
 
     const validInventoryCount = useMemo(() => 
-        character.inventory.filter(item => item && itemTemplates.find(t => t.id === item.templateId)).length,
+        (character.inventory || []).filter(item => item && itemTemplates.find(t => t.id === item.templateId)).length,
         [character.inventory, itemTemplates]
     );
 
     const equippedItemIds = useMemo(() => 
-        new Set(Object.values(character.equipment).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
+        new Set(Object.values(character.equipment || {}).filter((i): i is ItemInstance => !!i).map(i => i.uniqueId)),
     [character.equipment]);
 
     const equipmentSlotOptions = useMemo(() => {
