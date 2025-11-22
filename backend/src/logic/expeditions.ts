@@ -122,6 +122,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         ];
 
         const backpackCapacity = getBackpackCapacity(finalCharacter);
+        const maxItems = expedition.maxItems; // Get the limit
         
         // Class Bonus: Dungeon Hunter
         if(character.characterClass === CharacterClass.DungeonHunter) {
@@ -136,6 +137,11 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
         
         for (const drop of allLootTables) {
+            // Check if we've already hit the expedition's item limit
+            if (maxItems != null && maxItems > 0 && itemsFound.length >= maxItems) {
+                break; // Stop processing further loot drops if limit is reached
+            }
+
             if (Math.random() * 100 < drop.chance) {
                 if (finalCharacter.inventory.length < backpackCapacity) {
                     const newItem = createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || []);

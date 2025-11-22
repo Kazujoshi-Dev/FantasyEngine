@@ -161,7 +161,7 @@ export const api = {
             experienceToNextLevel: 100,
             stats: initialStats,
             resources: { 
-                gold: 50,
+                gold: 500,
                 commonEssence: 0,
                 uncommonEssence: 0,
                 rareEssence: 0,

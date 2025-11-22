@@ -153,6 +153,7 @@ export interface Expedition {
   locationIds: string[];
   enemies: ExpeditionEnemy[];
   maxEnemies?: number;
+  maxItems?: number;
   lootTable: LootDrop[];
   resourceLootTable?: ResourceDrop[];
   image?: string;

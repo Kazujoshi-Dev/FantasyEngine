@@ -29,7 +29,7 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        const isNumeric = ['duration', 'goldCost', 'energyCost', 'minBaseGoldReward', 'maxBaseGoldReward', 'minBaseExperienceReward', 'maxBaseExperienceReward', 'maxEnemies'].includes(name);
+        const isNumeric = ['duration', 'goldCost', 'energyCost', 'minBaseGoldReward', 'maxBaseGoldReward', 'minBaseExperienceReward', 'maxBaseExperienceReward', 'maxEnemies', 'maxItems'].includes(name);
         setFormData(prev => ({ ...prev, [name]: isNumeric ? parseInt(value, 10) || 0 : value }));
     };
     
@@ -92,6 +92,7 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
             lootTable: formData.lootTable || [],
             resourceLootTable: formData.resourceLootTable || [],
             maxEnemies: formData.maxEnemies,
+            maxItems: formData.maxItems,
             image: formData.image,
         };
 
@@ -111,6 +112,11 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
                 <div><label>{t('admin.expedition.expeditionGoldCost')}:<input name="goldCost" type="number" value={formData.goldCost || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('admin.expedition.expeditionEnergyCost')}:<input name="energyCost" type="number" value={formData.energyCost || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('admin.expedition.maxEnemies')}:<input name="maxEnemies" type="number" value={formData.maxEnemies || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" title={t('admin.expedition.maxEnemiesDesc')!} /></label></div>
+                <div>
+                    <label>Maks. Przedmiotów do znalezienia:
+                        <input name="maxItems" type="number" value={formData.maxItems || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" title="Maksymalna liczba przedmiotów, które można znaleźć na tej wyprawie. Bonusy klasowe/rasowe są stosowane przed tym limitem. 0 lub puste pole oznacza brak limitu." />
+                    </label>
+                </div>
                 <div><label>{t('admin.expedition.rewardGold')} ({t('admin.min')}/{t('admin.max')}):<div className="flex gap-2"><input name="minBaseGoldReward" type="number" value={formData.minBaseGoldReward || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /><input name="maxBaseGoldReward" type="number" value={formData.maxBaseGoldReward || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></div></label></div>
                 <div><label>{t('admin.expedition.rewardExp')} ({t('admin.min')}/{t('admin.max')}):<div className="flex gap-2"><input name="minBaseExperienceReward" type="number" value={formData.minBaseExperienceReward || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /><input name="maxBaseExperienceReward" type="number" value={formData.maxBaseExperienceReward || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></div></label></div>
             </div>

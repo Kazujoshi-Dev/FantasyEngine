@@ -89,6 +89,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
             playerMana: state.player.currentMana,
             enemyHealth: state.enemy.currentHealth,
             enemyMana: state.enemy.currentMana,
+            playerStats: state.player.stats,
         });
          // Hunter's *additional* Turn 0 Ranged Attack
         if (playerData.characterClass === CharacterClass.Hunter && state.enemy.currentHealth > 0) {
@@ -110,6 +111,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 playerMana: state.player.currentMana,
                 enemyHealth: state.enemy.currentHealth,
                 enemyMana: state.enemy.currentMana,
+                playerStats: state.player.stats,
             });
         }
     }
@@ -142,6 +144,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                         playerMana: state.player.currentMana,
                         enemyHealth: state.enemy.currentHealth,
                         enemyMana: state.enemy.currentMana,
+                        playerStats: state.player.stats,
                     });
                 }
                  // Player mana regen
@@ -158,7 +161,8 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                             playerHealth: state.player.currentHealth,
                             playerMana: newMana,
                             enemyHealth: state.enemy.currentHealth,
-                            enemyMana: state.enemy.currentMana
+                            enemyMana: state.enemy.currentMana,
+                            playerStats: state.player.stats,
                         });
                         state.player.currentMana = newMana;
                     }
@@ -184,7 +188,8 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                             playerHealth: state.player.currentHealth,
                             playerMana: state.player.currentMana,
                             enemyHealth: state.enemy.currentHealth,
-                            enemyMana: newMana
+                            enemyMana: newMana,
+                            playerStats: state.player.stats,
                         });
                          state.enemy.currentMana = newMana;
                     }
@@ -226,6 +231,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
             playerMana: state.player.currentMana,
             enemyHealth: state.enemy.currentHealth,
             enemyMana: state.enemy.currentMana,
+            playerStats: state.player.stats,
         });
         return;
     }
@@ -258,6 +264,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
                     playerMana: state.player.currentMana,
                     enemyHealth: state.enemy.currentHealth,
                     enemyMana: state.enemy.currentMana,
+                    playerStats: state.player.stats,
                 });
             }
         }
@@ -373,6 +380,7 @@ const performAttack = (state: CombatState, attackerType: 'player' | 'enemy', gam
         playerMana: state.player.currentMana,
         enemyHealth: state.enemy.currentHealth,
         enemyMana: state.enemy.currentMana,
+        playerStats: state.player.stats,
     });
 };
 
@@ -517,6 +525,7 @@ const performTeamAttack = (
             playerMana: activePlayer.currentMana,
             enemyHealth: state.enemy.currentHealth,
             enemyMana: state.enemy.currentMana,
+            playerStats: activePlayer.stats,
         });
         return;
     }
@@ -632,7 +641,7 @@ const performTeamAttack = (
         playerMana: activePlayer.currentMana,
         enemyHealth: state.enemy.currentHealth,
         enemyMana: state.enemy.currentMana,
-        playerStats: !isBossAttacking ? activePlayer.stats : undefined // Pass stats on attack so UI can update
+        playerStats: activePlayer.stats,
     });
 
     // Handle death specifically to avoid "attacking dead player" logs
@@ -646,7 +655,8 @@ const performTeamAttack = (
             playerHealth: 0,
             playerMana: activePlayer.currentMana,
             enemyHealth: state.enemy.currentHealth,
-            enemyMana: state.enemy.currentMana
+            enemyMana: state.enemy.currentMana,
+            playerStats: activePlayer.stats,
         });
     }
 }
