@@ -1,5 +1,5 @@
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
-import { simulateCombat, simulateTeamCombat as simulateGroupCombat } from './combat.js';
+import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -44,16 +44,16 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
 
     if (encounteredEnemies.length > 1) {
         // Use group combat for multiple enemies
-        const { combatLog, finalPlayers } = simulateGroupCombat([characterWithStats], encounteredEnemies[0], gameData);
-        const finalPlayerState = finalPlayers[0];
+        const { combatLog } = simulate1vManyCombat(characterWithStats, encounteredEnemies, gameData);
         fullCombatLog = combatLog;
-        finalPlayerHealth = finalPlayerState.currentHealth;
-        finalPlayerMana = finalPlayerState.currentMana;
-        isVictory = !finalPlayerState.isDead && combatLog[combatLog.length - 1].enemyHealth <= 0;
+        const lastLog = combatLog[combatLog.length -1];
+        finalPlayerHealth = lastLog.playerHealth;
+        finalPlayerMana = lastLog.playerMana;
+        isVictory = finalPlayerHealth > 0 && (combatLog.length === 0 || !lastLog.allEnemiesHealth?.some(e => e.currentHealth > 0));
 
     } else if (encounteredEnemies.length === 1) {
         // Use single combat for one enemy
-        const singleCombatLog = simulateCombat(characterWithStats, encounteredEnemies[0], gameData);
+        const singleCombatLog = simulate1v1Combat(characterWithStats, encounteredEnemies[0], gameData);
         fullCombatLog = singleCombatLog;
         const lastLog = singleCombatLog.length > 0 ? singleCombatLog[singleCombatLog.length - 1] : null;
         if (lastLog) {

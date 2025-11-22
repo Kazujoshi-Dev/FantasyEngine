@@ -3,7 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
-import { simulateCombat } from '../logic/combat.js';
+import { simulate1v1Combat } from '../logic/combat/simulations.js';
 
 const router = express.Router();
 
@@ -64,7 +64,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             lootTable: [],
         };
 
-        const combatLog = simulateCombat(attackerWithStats, defenderAsEnemy, gameData);
+        const combatLog = simulate1v1Combat(attackerWithStats, defenderAsEnemy, gameData);
         const lastLog = combatLog[combatLog.length - 1];
         const isVictory = lastLog.enemyHealth <= 0;
 

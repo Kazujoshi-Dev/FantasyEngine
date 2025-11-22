@@ -2,7 +2,7 @@
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
-import { simulateTeamCombat } from './combat.js';
+import { simulateTeamVsBossCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 
@@ -48,7 +48,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     if (!bossTemplate) throw new Error('Boss not found');
 
     // 3. Simulate Combat using derived stats
-    const { combatLog, finalPlayers } = simulateTeamCombat(playerCombatants, bossTemplate, gameData);
+    const { combatLog, finalPlayers } = simulateTeamVsBossCombat(playerCombatants, bossTemplate, gameData);
     const lastEntry = combatLog[combatLog.length - 1];
     const isVictory = lastEntry.enemyHealth <= 0;
 
