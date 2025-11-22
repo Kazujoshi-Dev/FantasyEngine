@@ -32,25 +32,6 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const now = Date.now();
         let needsDbUpdate = false;
 
-        // --- Energy regeneration logic ---
-        const lastUpdate = character.lastEnergyUpdateTime || now;
-        const hoursPassed = Math.floor((now - lastUpdate) / (1000 * 60 * 60));
-
-        if (hoursPassed > 0 && character.stats.currentEnergy < character.stats.maxEnergy) {
-            const energyToRegen = Math.min(
-                hoursPassed,
-                character.stats.maxEnergy - character.stats.currentEnergy
-            );
-
-            if (energyToRegen > 0) {
-                character.stats.currentEnergy += energyToRegen;
-                // Correctly set the last update time to the beginning of the current hour.
-                const lastFullHourTimestamp = Math.floor(now / (1000 * 60 * 60)) * (1000 * 60 * 60);
-                character.lastEnergyUpdateTime = lastFullHourTimestamp;
-                needsDbUpdate = true;
-            }
-        }
-
         // --- Health Regeneration Logic (Resting) ---
         if (character.isResting) {
             // Fallback to 'now' if lastRestTime is missing/invalid to prevent NaN math
