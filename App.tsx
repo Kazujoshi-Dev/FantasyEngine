@@ -22,7 +22,7 @@ import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
@@ -787,6 +787,27 @@ const MainApp: React.FC = () => {
                     onCompletion={handleExpeditionCompletion}
                 />;
             case Tab.Camp:
+                const getCampUpgradeCost = (level: number) => {
+                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                    const essences: { type: EssenceType, amount: number }[] = [];
+                    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
+                    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
+                    return { gold, essences };
+                };
+                const getChestUpgradeCost = (level: number) => {
+                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                    const essences: { type: EssenceType, amount: number }[] = [];
+                    if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
+                    return { gold, essences };
+                };
+                const getBackpackUpgradeCost = (level: number) => {
+                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                    const essences: { type: EssenceType, amount: number }[] = [];
+                    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+                    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+                    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+                    return { gold, essences };
+                };
                 return <Camp 
                     character={derivedCharacter} 
                     baseCharacter={character} 
@@ -800,33 +821,41 @@ const MainApp: React.FC = () => {
                         }, true);
                     }}
                     onUpgradeCamp={() => {
-                        const cost = character.camp.level * 100;
-                        if ((character.resources?.gold || 0) >= cost) {
-                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost } as any };
+                        const cost = getCampUpgradeCost(character.camp.level);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                            const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                            cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: newResources as any };
                             handleCharacterUpdate(newChar, true);
                         }
                     }}
-                    getCampUpgradeCost={(lvl) => lvl * 100}
+                    getCampUpgradeCost={(lvl) => getCampUpgradeCost(lvl).gold}
                     onCharacterUpdate={handleCharacterUpdate}
                     onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
-                    onUpgradeChest={() => {
-                        const currentLevel = character.chest.level;
-                        const cost = { gold: currentLevel * 100, essences: [] }; // Simple cost for now
-                        if ((character.resources?.gold || 0) >= cost.gold) {
-                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost.gold } as any };
+                     onUpgradeChest={() => {
+                        const cost = getChestUpgradeCost(character.chest.level);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: character.chest.level + 1 }, resources: newResources as any };
                              handleCharacterUpdate(newChar, true);
                         }
                     }}
                     onUpgradeBackpack={() => {
-                         const currentLevel = character.backpack?.level || 1;
-                         const cost = { gold: currentLevel * 100, essences: [] };
-                         if ((character.resources?.gold || 0) >= cost.gold) {
-                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost.gold } as any };
+                        const currentLevel = character.backpack?.level || 1;
+                        const cost = getBackpackUpgradeCost(currentLevel);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: newResources as any };
                              handleCharacterUpdate(newChar, true);
-                         }
+                        }
                     }}
-                    getChestUpgradeCost={(lvl) => ({ gold: lvl * 100, essences: [] })}
-                    getBackpackUpgradeCost={(lvl) => ({ gold: lvl * 100, essences: [] })}
+                    getChestUpgradeCost={getChestUpgradeCost}
+                    getBackpackUpgradeCost={getBackpackUpgradeCost}
                 />;
             case Tab.Location:
                 return <Location 
