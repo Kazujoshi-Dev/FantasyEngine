@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -665,6 +666,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                             </div>
                                         </div>
                                     )}
+                                    {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                        <p className="text-sm italic text-red-400 mt-2">
+                                            {t('expedition.itemsLost', { count: reward.itemsLostCount })}
+                                        </p>
+                                    )}
                                     {Object.keys(reward.essencesFound).length > 0 && (
                                         <div className="border-t border-slate-700 my-3 pt-3">
                                             <h4 className="font-bold text-md text-white mb-2">{t('expedition.essencesFound')}:</h4>
@@ -695,6 +701,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
+                        // Fix: The function handleCopyLink does not take any arguments.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
