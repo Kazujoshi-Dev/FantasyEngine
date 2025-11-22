@@ -6,7 +6,7 @@ import { performAttack, AttackerState, DefenderState, getFullWeaponName } from '
 // ==========================================================================================
 export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy, gameData: GameData): CombatLogEntry[] => {
     
-    let playerState: AttackerState & {data: PlayerCharacter} = {
+    let playerState: Omit<AttackerState, 'stats'> & {data: PlayerCharacter; stats: CharacterStats} = {
         data: playerData,
         stats: playerData.stats,
         currentHealth: playerData.stats.currentHealth,
@@ -15,7 +15,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         hardSkinTriggered: false
     };
     
-    let enemyState: AttackerState & {description?: string} = {
+    let enemyState: Omit<AttackerState, 'stats'> & {description?: string; stats: EnemyStats} = {
         stats: enemyData.stats,
         currentHealth: enemyData.stats.maxHealth,
         currentMana: enemyData.stats.maxMana || 0,
@@ -87,7 +87,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
 //                                   1 vs MANY COMBAT
 // ==========================================================================================
 export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: Enemy[], gameData: GameData): { combatLog: CombatLogEntry[] } => {
-    let playerState: AttackerState & {data: PlayerCharacter} = {
+    let playerState: Omit<AttackerState, 'stats'> & {data: PlayerCharacter; stats: CharacterStats} = {
         data: playerData,
         stats: playerData.stats,
         currentHealth: playerData.stats.currentHealth,
@@ -96,7 +96,7 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         hardSkinTriggered: false,
     };
 
-    let enemiesState = enemiesData.map(e => ({
+    let enemiesState: (Omit<AttackerState, 'stats'> & { uniqueId: string, stats: EnemyStats })[] = enemiesData.map(e => ({
         stats: e.stats,
         currentHealth: e.stats.maxHealth,
         currentMana: e.stats.maxMana || 0,
