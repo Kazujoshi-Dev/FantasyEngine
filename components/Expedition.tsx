@@ -129,7 +129,9 @@ const CombatLogRow: React.FC<{ log: CombatLogEntry; characterName: string; bossN
             <p className="text-sm text-green-400 italic">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
                 {renderName(log.defender)}
-                <span> {t('expedition.dodge')}</span>
+                <span> {t('expedition.dodge')} </span>
+                {renderName(log.attacker)}
+                <span>!</span>
             </p>
         );
     }

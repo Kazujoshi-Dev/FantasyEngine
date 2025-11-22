@@ -16,6 +16,15 @@ router.post('/disenchant', authenticateToken, async (req: any, res: any) => {
         }
         let character: PlayerCharacter = charRes.rows[0].data;
 
+        // Defensive initialization to prevent data corruption
+        if (!character.resources) {
+            character.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+        }
+        if (!character.inventory) {
+            character.inventory = [];
+        }
+        character.inventory = character.inventory.filter(i => i); // Remove any nulls
+
         const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
         if (itemIndex === -1) {
             return res.status(404).json({ message: 'Item not found in inventory' });
@@ -78,9 +87,21 @@ router.post('/upgrade', authenticateToken, async (req: any, res: any) => {
         if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found' });
         
         let character: PlayerCharacter = charRes.rows[0].data;
+
+        // Defensive initialization to prevent data corruption
+        if (!character.resources) {
+            character.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+        }
+        if (!character.inventory) {
+            character.inventory = [];
+        }
+        if (!character.equipment) {
+            character.equipment = { head: null, chest: null, legs: null, feet: null, hands: null, waist: null, neck: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null };
+        }
+        character.inventory = character.inventory.filter(i => i); // Remove any nulls
         
         const itemLocation = ['inventory', ...Object.keys(character.equipment)].find(loc => {
-            if(loc === 'inventory') return character.inventory.some(i => i.uniqueId === itemId);
+            if(loc === 'inventory') return character.inventory.some(i => i && i.uniqueId === itemId);
             return (character.equipment as any)[loc]?.uniqueId === itemId;
         });
 

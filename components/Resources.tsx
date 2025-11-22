@@ -32,7 +32,7 @@ export const Resources: React.FC<ResourcesProps> = ({ character }) => {
                 <span className="text-xl font-semibold text-gray-300">{t('resources.gold')}</span>
             </div>
             <span className="font-mono text-2xl font-bold text-amber-400">
-                {character.resources.gold.toLocaleString()}
+                {(character.resources?.gold || 0).toLocaleString()}
             </span>
          </div>
 
@@ -46,7 +46,7 @@ export const Resources: React.FC<ResourcesProps> = ({ character }) => {
                          <div key={essenceKey} className="flex items-center justify-between py-2 px-4 rounded-lg hover:bg-slate-800/50">
                             <span className={`text-lg font-semibold ${colorClass}`}>{t(`resources.${essenceKey}`)}</span>
                             <span className="font-mono text-xl font-bold text-white">
-                                {character.resources[essenceKey]?.toLocaleString() || 0}
+                                {(character.resources?.[essenceKey] || 0).toLocaleString()}
                             </span>
                          </div>
                      )

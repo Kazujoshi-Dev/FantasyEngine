@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -89,7 +88,7 @@ const DisenchantPanel: React.FC<{
                 return;
             }
 
-            if (event.key === 'Enter' && selectedItem && character.resources.gold >= disenchantCost) {
+            if (event.key === 'Enter' && selectedItem && (character.resources?.gold || 0) >= disenchantCost) {
                 event.preventDefault(); 
                 handleDisenchantClick();
             }
@@ -100,7 +99,7 @@ const DisenchantPanel: React.FC<{
         return () => {
             document.removeEventListener('keydown', handleKeyPress);
         };
-    }, [selectedItem, character.resources.gold, disenchantCost, handleDisenchantClick]);
+    }, [selectedItem, character.resources, disenchantCost, handleDisenchantClick]);
     
     const [yieldAmount, yieldEssenceType] = selectedTemplate ? getPotentialYield(selectedTemplate.rarity) : ['', null];
     
@@ -209,7 +208,7 @@ const DisenchantPanel: React.FC<{
                                 <span className={`font-mono font-bold ${textColorClass}`}>{yieldAmount} {yieldEssenceType ? t(`resources.${yieldEssenceType}`) : ''}</span>
                              </div>
                          </div>
-                         <button onClick={handleDisenchantClick} disabled={character.resources.gold < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+                         <button onClick={handleDisenchantClick} disabled={(character.resources?.gold || 0) < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                             {t('blacksmith.disenchant')}
                          </button>
                          <p className="text-xs text-gray-500 mt-2">{t('blacksmith.pressEnter')}</p>
@@ -344,8 +343,8 @@ const UpgradePanel: React.FC<{
         };
     }, [selectedItem, selectedTemplate]);
     
-    const hasEnoughGold = cost ? character.resources.gold >= cost.gold : false;
-    const hasEnoughEssence = cost && cost.essenceType ? (character.resources[cost.essenceType] || 0) >= cost.essenceAmount : false;
+    const hasEnoughGold = cost ? (character.resources?.gold || 0) >= cost.gold : false;
+    const hasEnoughEssence = cost && cost.essenceType ? ((character.resources || {})[cost.essenceType] || 0) >= cost.essenceAmount : false;
     const hasEnoughResources = hasEnoughGold && hasEnoughEssence;
 
     return (
@@ -432,7 +431,7 @@ const UpgradePanel: React.FC<{
                                             <span className={`font-semibold ${rarityStyles[selectedTemplate.rarity].text}`}>{t(`resources.${cost.essenceType}`)}</span>
                                             <div className="flex items-baseline">
                                                 <span className={`font-mono font-bold ${rarityStyles[selectedTemplate.rarity].text} mr-2`}>x {cost.essenceAmount}</span>
-                                                <span className="text-xs text-gray-500">({t('blacksmith.upgrade.youHave')}: {character.resources[cost.essenceType] || 0})</span>
+                                                <span className="text-xs text-gray-500">({t('blacksmith.upgrade.youHave')}: {(character.resources || {})[cost.essenceType] || 0})</span>
                                             </div>
                                         </div>
                                     )}
@@ -494,7 +493,7 @@ export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates
                  <div className="flex-grow border-b border-slate-700"></div>
                  <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full mb-[-1px] border border-slate-700">
                      <CoinsIcon className="h-5 w-5 text-amber-400" />
-                     <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
+                     <span className="font-mono text-lg font-bold text-amber-400">{(character.resources?.gold || 0).toLocaleString()}</span>
                  </div>
             </div>
 

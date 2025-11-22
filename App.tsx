@@ -335,7 +335,7 @@ const MainApp: React.FC = () => {
             return;
         }
 
-        if (!isFreeReset && baseCharacter.resources.gold < resetCost) {
+        if (!isFreeReset && (baseCharacter.resources?.gold || 0) < resetCost) {
             alert(t('statistics.reset.notEnoughGold', { cost: resetCost }));
             return;
         }
@@ -356,8 +356,8 @@ const MainApp: React.FC = () => {
             },
             resources: {
                 ...baseCharacter.resources,
-                gold: isFreeReset ? baseCharacter.resources.gold : baseCharacter.resources.gold - resetCost,
-            },
+                gold: isFreeReset ? (baseCharacter.resources?.gold || 0) : (baseCharacter.resources?.gold || 0) - resetCost,
+            } as any,
             freeStatResetUsed: true,
         };
         
@@ -762,14 +762,14 @@ const MainApp: React.FC = () => {
                         const expedition = gameData.expeditions.find(e => e.id === expId);
                         if (!expedition) return;
 
-                        if (character.resources.gold < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost) {
+                        if ((character.resources?.gold || 0) < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost) {
                             alert(t('expedition.lackResources'));
                             return;
                         }
 
                         const updatedChar: PlayerCharacter = { 
                             ...character,
-                            resources: { ...character.resources, gold: character.resources.gold - expedition.goldCost },
+                            resources: { ...character.resources, gold: (character.resources?.gold || 0) - expedition.goldCost } as any,
                             stats: { ...character.stats, currentEnergy: character.stats.currentEnergy - expedition.energyCost },
                             activeExpedition: {
                                 expeditionId: expId,
@@ -801,8 +801,8 @@ const MainApp: React.FC = () => {
                     }}
                     onUpgradeCamp={() => {
                         const cost = character.camp.level * 100;
-                        if (character.resources.gold >= cost) {
-                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost } };
+                        if ((character.resources?.gold || 0) >= cost) {
+                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost } as any };
                             handleCharacterUpdate(newChar, true);
                         }
                     }}
@@ -812,16 +812,16 @@ const MainApp: React.FC = () => {
                     onUpgradeChest={() => {
                         const currentLevel = character.chest.level;
                         const cost = { gold: currentLevel * 100, essences: [] }; // Simple cost for now
-                        if (character.resources.gold >= cost.gold) {
-                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                        if ((character.resources?.gold || 0) >= cost.gold) {
+                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: currentLevel + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost.gold } as any };
                              handleCharacterUpdate(newChar, true);
                         }
                     }}
                     onUpgradeBackpack={() => {
                          const currentLevel = character.backpack?.level || 1;
                          const cost = { gold: currentLevel * 100, essences: [] };
-                         if (character.resources.gold >= cost.gold) {
-                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: character.resources.gold - cost.gold } };
+                         if ((character.resources?.gold || 0) >= cost.gold) {
+                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: { ...character.resources, gold: (character.resources?.gold || 0) - cost.gold } as any };
                              handleCharacterUpdate(newChar, true);
                          }
                     }}
@@ -888,14 +888,24 @@ const MainApp: React.FC = () => {
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
                     onDisenchantItem={async (item) => { 
-                        const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
-                        setCharacter(updatedCharacter);
-                        return result;
+                        try {
+                            const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
+                            setCharacter(updatedCharacter);
+                            return result;
+                        } catch (e) {
+                            alert(t('error.title') + ': ' + (e as Error).message);
+                            return { success: false };
+                        }
                     }}
                     onUpgradeItem={async (item) => { 
-                        const { updatedCharacter, result } = await api.upgradeItem(item.uniqueId);
-                        setCharacter(updatedCharacter);
-                        return result;
+                        try {
+                            const { updatedCharacter, result } = await api.upgradeItem(item.uniqueId);
+                            setCharacter(updatedCharacter);
+                            return result;
+                        } catch (e) {
+                            alert(t('error.title') + ': ' + (e as Error).message);
+                            return { success: false, messageKey: 'error.title' };
+                        }
                     }}
                 />;
             case Tab.Market:

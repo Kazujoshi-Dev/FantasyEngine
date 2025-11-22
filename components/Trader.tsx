@@ -170,7 +170,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             alert(t('trader.inventoryFull'));
             return;
         }
-        if (character.resources.gold < cost) {
+        if ((character.resources?.gold || 0) < cost) {
             alert(t('trader.notEnoughGold'));
             return;
         }
@@ -188,7 +188,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
     const handleBulkSell = useCallback((raritiesToSell: ItemRarity[]) => {
         if (!baseCharacter || !baseCharacter.inventory) return;
 
-        const itemsToSell = baseCharacter.inventory.filter(item => {
+        const itemsToSell = (baseCharacter.inventory || []).filter(item => {
             if (!item) return false;
             const template = itemTemplates.find(t => t.id === item.templateId);
             return template && raritiesToSell.includes(template.rarity);
@@ -321,7 +321,7 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
                             </div>
                             <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full">
                                 <CoinsIcon className="h-5 w-5 text-amber-400" />
-                                <span className="font-mono text-lg font-bold text-amber-400">{character.resources.gold.toLocaleString()}</span>
+                                <span className="font-mono text-lg font-bold text-amber-400">{(character.resources?.gold || 0).toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
