@@ -1,8 +1,8 @@
-
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
 
 export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[]): PlayerCharacter => {
     
+    // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
     const safeAffixes = affixes || [];
 
@@ -13,6 +13,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
         return 0;
     };
 
+    // Initialize base stats from character (ensure they are numbers)
     const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
         strength: Number(character.stats.strength) || 0, 
         agility: Number(character.stats.agility) || 0, 
@@ -58,8 +59,17 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
 
     for (const slot in character.equipment) {
         const itemInstance = character.equipment[slot as EquipmentSlot];
-        if (itemInstance) {
+        // Must check if itemInstance exists AND is an object (not null)
+        if (itemInstance && typeof itemInstance === 'object') {
             const template = safeItemTemplates.find(t => t.id === itemInstance.templateId);
+            
+            // CRITICAL FIX: If template is missing, skip this item entirely.
+            // This prevents the crash where code tries to access properties of undefined.
+            if (!template) {
+                console.warn(`[Stats] Missing template for item ${itemInstance.uniqueId} in slot ${slot}. Skipping.`);
+                continue;
+            }
+
             const upgradeLevel = itemInstance.upgradeLevel || 0;
             const upgradeBonusFactor = upgradeLevel * 0.1;
 
@@ -134,12 +144,18 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     
     const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-    const baseAttacksPerRound = mainHandTemplate?.attacksPerRound || 1;
-    const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
+    
+    // Ensure attacksPerRound is at least 1 and never NaN
+    const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
+    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound;
+    const attacksPerRound = !isNaN(calculatedAPR) ? parseFloat(calculatedAPR.toFixed(2)) : 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
 
-    const maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+    let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+    // Safety clamp for maxHealth to prevent 0 or negative
+    if (isNaN(maxHealth) || maxHealth < 1) maxHealth = 50;
+
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
     const maxMana = baseMana + totalPrimaryStats.intelligence * 10;
     
@@ -173,9 +189,10 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
     const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
 
-    const currentHealth = Math.min(character.stats.currentHealth, maxHealth);
-    const currentMana = Math.min(character.stats.currentMana, maxMana);
-    const currentEnergy = Math.min(character.stats.currentEnergy, maxEnergy);
+    // Ensure derived values are valid numbers
+    const currentHealth = Math.min(Number(character.stats.currentHealth) || maxHealth, maxHealth);
+    const currentMana = Math.min(Number(character.stats.currentMana) || maxMana, maxMana);
+    const currentEnergy = Math.min(Number(character.stats.currentEnergy) || maxEnergy, maxEnergy);
 
     return {
         ...character,

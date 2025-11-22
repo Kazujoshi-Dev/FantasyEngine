@@ -1,4 +1,3 @@
-
 import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, ItemCategory, EquipmentSlot } from '../types.js';
 import { randomUUID } from 'crypto';
 
@@ -87,6 +86,9 @@ export const rollTemplateStats = (template: ItemTemplate): RolledAffixStats => {
 };
 
 export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
+    // Critical Fix: If template is undefined (e.g. item deleted from DB), return placeholder
+    if (!template) return "Nieznany Przedmiot";
+
     const prefixAffix = affixes.find(a => a.id === item.prefixId);
     const suffixAffix = affixes.find(a => a.id === item.suffixId);
     

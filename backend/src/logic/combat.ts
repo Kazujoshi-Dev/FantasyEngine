@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../types.js';
 import { getGrammaticallyCorrectFullName } from './items.js';
 
@@ -24,6 +23,13 @@ const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): str
 
 // Existing single player combat simulation (kept for backward compatibility and single expeditions)
 export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, gameData: GameData): CombatLogEntry[] => {
+    
+    const safeGameData = {
+        ...gameData,
+        itemTemplates: gameData.itemTemplates || [],
+        affixes: gameData.affixes || []
+    };
+
     const state: CombatState = {
         player: {
             stats: playerData.stats,
@@ -58,8 +64,8 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
         enemyDescription: state.enemy.description
     });
     
-    const weaponName = getFullWeaponName(playerData, gameData);
-    const allTemplates = gameData.itemTemplates || [];
+    const weaponName = getFullWeaponName(playerData, safeGameData);
+    const allTemplates = safeGameData.itemTemplates;
     
     // ... (Previous turn 0 logic remains the same, abbreviated for brevity but assume it's here) ...
      // Turn 0 attacks for ranged weapons
@@ -160,7 +166,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 
                 for (let i = 0; i < state.player.stats.attacksPerRound; i++) {
                      if (state.enemy.currentHealth <= 0) break;
-                     performAttack(state, 'player', gameData, playerData, weaponName);
+                     performAttack(state, 'player', safeGameData, playerData, weaponName);
                 }
 
             } else {
@@ -186,7 +192,7 @@ export const simulateCombat = (playerData: PlayerCharacter, enemyData: Enemy, ga
                 
                 for (let i = 0; i < (state.enemy.stats.attacksPerTurn || 1); i++) {
                     if (state.player.currentHealth <= 0) break;
-                    performAttack(state, 'enemy', gameData, playerData);
+                    performAttack(state, 'enemy', safeGameData, playerData);
                 }
             }
         }
@@ -400,6 +406,13 @@ export const simulateTeamCombat = (
     const healthMultiplier = 1 + (playersData.length - 1) * 0.7; // e.g., 1 player = 1x, 5 players = 3.8x
     const damageMultiplier = 1 + (playersData.length - 1) * 0.10; // 10% damage increase per additional player
 
+    // SAFE FALLBACKS
+    const safeGameData = {
+        ...gameData,
+        itemTemplates: gameData.itemTemplates || [],
+        affixes: gameData.affixes || []
+    };
+
     const state: TeamCombatState = {
         players: playersData.map(p => ({
             data: p,
@@ -451,7 +464,7 @@ export const simulateTeamCombat = (
             // Perform all attacks for the player
             for (let i = 0; i < (playerState.stats.attacksPerRound || 1); i++) {
                  if (state.enemy.currentHealth <= 0) break;
-                 performTeamAttack(state, playerState, gameData);
+                 performTeamAttack(state, playerState, safeGameData);
             }
         }
         
@@ -465,7 +478,7 @@ export const simulateTeamCombat = (
                  
                  // Boss attacks random player
                  const target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-                 performTeamAttack(state, target, gameData, true);
+                 performTeamAttack(state, target, safeGameData, true);
             }
         }
     }
