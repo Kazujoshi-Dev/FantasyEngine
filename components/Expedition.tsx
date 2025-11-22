@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -461,6 +460,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     };
 
     useEffect(() => {
+        if (!reward.combatLog || reward.combatLog.length === 0) {
+            setIsAnimationComplete(true);
+            return;
+        }
+
         // Start animation loop
         const playAnimation = () => {
              if (displayedLogs.length < reward.combatLog.length) {
@@ -518,55 +522,62 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 </div>
                 
                 <div className="flex-grow overflow-y-auto min-h-0">
-                    <div className="flex gap-4 mb-6 min-h-[300px]">
-                        <div className="w-1/4 flex-shrink-0">
-                            {isHunting ? (
-                                <PartyMemberList 
-                                    members={partyMembersState} 
-                                    currentTurnActor={currentActor} 
-                                    onMemberHover={(data, rect) => setHoveredMember({ data, rect })}
-                                    onMemberLeave={() => setHoveredMember(null)}
-                                />
-                            ) : (
+                    {reward.combatLog && reward.combatLog.length > 0 ? (
+                        <div className="flex gap-4 mb-6 min-h-[300px]">
+                            <div className="w-1/4 flex-shrink-0">
+                                {isHunting ? (
+                                    <PartyMemberList 
+                                        members={partyMembersState} 
+                                        currentTurnActor={currentActor} 
+                                        onMemberHover={(data, rect) => setHoveredMember({ data, rect })}
+                                        onMemberLeave={() => setHoveredMember(null)}
+                                    />
+                                ) : (
+                                    <CombatantStatsPanel 
+                                        name={combatant1Name} 
+                                        stats={currentPlayerStats} 
+                                        currentHealth={currentPlayerStats?.currentHealth}
+                                        currentMana={currentPlayerStats?.currentMana}
+                                    />
+                                )}
+                            </div>
+                            
+                            <div ref={logContainerRef} className="bg-slate-900/50 p-4 rounded-lg flex-grow overflow-y-auto font-mono">
+                                <div className="space-y-1 text-left">
+                                    {displayedLogs.map((log, index) => {
+                                        const prevLog = index > 0 ? displayedLogs[index - 1] : null;
+                                        const isNewTurn = prevLog && log.turn !== prevLog.turn;
+                                        return (
+                                            <React.Fragment key={index}>
+                                                {isNewTurn && <div className="my-2 border-t border-slate-700/50"></div>}
+                                                <CombatLogRow 
+                                                    log={log} 
+                                                    characterName={characterName} 
+                                                    bossName={bossName || currentEnemy?.name}
+                                                    isParty={isHunting} 
+                                                />
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            
+                            <div className="w-1/4 flex-shrink-0">
                                 <CombatantStatsPanel 
-                                    name={combatant1Name} 
-                                    stats={currentPlayerStats} 
-                                    currentHealth={currentPlayerStats?.currentHealth}
-                                    currentMana={currentPlayerStats?.currentMana}
+                                    name={combatant2Name}
+                                    description={isPvp ? undefined : currentEnemy?.description}
+                                    stats={currentEnemy?.stats || null}
+                                    currentHealth={currentEnemy?.currentHealth}
+                                    currentMana={currentEnemy?.currentMana}
                                 />
-                            )}
-                        </div>
-                        
-                        <div ref={logContainerRef} className="bg-slate-900/50 p-4 rounded-lg flex-grow overflow-y-auto font-mono">
-                            <div className="space-y-1 text-left">
-                                {displayedLogs.map((log, index) => {
-                                    const prevLog = index > 0 ? displayedLogs[index - 1] : null;
-                                    const isNewTurn = prevLog && log.turn !== prevLog.turn;
-                                    return (
-                                        <React.Fragment key={index}>
-                                            {isNewTurn && <div className="my-2 border-t border-slate-700/50"></div>}
-                                            <CombatLogRow 
-                                                log={log} 
-                                                characterName={characterName} 
-                                                bossName={bossName || currentEnemy?.name}
-                                                isParty={isHunting} 
-                                            />
-                                        </React.Fragment>
-                                    );
-                                })}
                             </div>
                         </div>
-                        
-                        <div className="w-1/4 flex-shrink-0">
-                            <CombatantStatsPanel 
-                                name={combatant2Name}
-                                description={isPvp ? undefined : currentEnemy?.description}
-                                stats={currentEnemy?.stats || null}
-                                currentHealth={currentEnemy?.currentHealth}
-                                currentMana={currentEnemy?.currentMana}
-                            />
+                    ) : (
+                        <div className="flex items-center justify-center min-h-[300px] bg-slate-900/50 p-4 rounded-lg mb-6">
+                            <p className="text-gray-400 italic">{t('expedition.noEnemiesEncountered')}</p>
                         </div>
-                    </div>
+                    )}
+
 
                     {isAnimationComplete && (
                         <div className="animate-fade-in text-center">

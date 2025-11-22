@@ -84,9 +84,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
             
             {/* Basic Info */}
             <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
-                <legend className="px-2 font-semibold">Podstawowe Informacje</legend>
+                <legend className="px-2 font-semibold">{t('admin.item.basicInfo')}</legend>
                 <div className="md:col-span-2"><label>{t('item.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('item.slotLabel')}:<select name="slot" value={formData.slot || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}<option value="ring">ring</option></select></label></div>
+                <div><label>{t('item.slotLabel')}:<select name="slot" value={formData.slot || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`item.slot.${s}`)}</option>)}<option value="ring">{t('item.slot.ring')}</option></select></label></div>
                 <div className="md:col-span-3"><label>{t('item.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.category')}:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}</select></label></div>
                 <div><label>{t('item.rarity')}:<select name="rarity" value={formData.rarity || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}</select></label></div>
@@ -98,7 +98,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
 
             {/* Bonuses */}
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
-                <legend className="px-2 font-semibold">Bonusy</legend>
+                <legend className="px-2 font-semibold">{t('admin.item.bonuses')}</legend>
                 <MinMaxInput label={t('item.damageMin')} field="damageMin" />
                 <MinMaxInput label={t('item.damageMax')} field="damageMax" />
                 <div><label>{t('item.attacksPerRound')}:<input name="attacksPerRound" type="number" step="0.1" value={formData.attacksPerRound || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
@@ -139,7 +139,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
             </fieldset>
 
             <fieldset className="border p-4 rounded-md border-slate-700">
-                <legend className="px-2 font-semibold">{t('item.statBonuses')} (min-max)</legend>
+                <legend className="px-2 font-semibold">{t('item.statBonuses')}</legend>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {primaryStats.map(stat => {
                         const value = (formData.statsBonus as any)?.[stat] || {};

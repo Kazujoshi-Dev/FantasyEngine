@@ -1,5 +1,3 @@
-
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -167,7 +165,8 @@ export default {
         isMagical: 'Magiczny',
         isRanged: 'Dystansowy',
         magicAttackType: 'Typ Ataku',
-        statBonuses: 'Bonusy do Statystyk',
+        statBonuses: 'Bonusy do Statystyk (min-max)',
+        requiredStats: 'Wymagane Statystyki',
         category: 'Kategoria',
         rarity: 'Rzadkość',
         categories: {
@@ -300,6 +299,7 @@ export default {
         notEnoughMana: 'Za mało many! Użyto zwykłego ataku fizycznego.',
         skipAnimation: 'Pomiń do wyniku',
         shamanPower: 'używa mocy szamana na',
+        noEnemiesEncountered: 'Nie napotkano żadnych wrogów na tej wyprawie.'
     },
     camp: {
         title: 'Obóz',
@@ -854,6 +854,8 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             iconPath: 'Ścieżka Ikony (URL)',
             allRarities: 'Wszystkie Rzadkości',
             allSlots: 'Wszystkie Sloty',
+            basicInfo: 'Podstawowe Informacje',
+            bonuses: 'Bonusy',
         },
         quest: {
             manage: 'Zarządzaj Zadaniami',
