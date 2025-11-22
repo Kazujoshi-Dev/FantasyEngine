@@ -105,7 +105,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacte
           </div>
            {selectedRace && (
             <div className="animate-fade-in">
-                <h3 className="text-lg font-medium text-gray-300 mb-4">{t('characterCreation.availableClassesFor', { raceName: t(`race.${selectedRace}`) })}</h3>
+                <h3 className="text-lg font-medium text-gray-300 mb-2">{t('characterCreation.availableClassesFor', { raceName: t(`race.${selectedRace}`) })}</h3>
+                <p className="text-sm text-gray-400 italic mb-4">{t('characterCreation.classSelectionNote')}</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {raceClassMap[selectedRace].map(charClass => (
                         <div key={charClass} className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col">

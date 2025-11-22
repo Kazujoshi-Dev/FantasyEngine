@@ -25,7 +25,8 @@ export default {
         raceLabel: 'Wybierz Rasę',
         button: 'Stwórz Bohatera',
         creating: 'Tworzenie...',
-        availableClassesFor: 'Dostępne klasy dla rasy {raceName}'
+        availableClassesFor: 'Dostępne klasy dla rasy {raceName}',
+        classSelectionNote: 'Klasę postaci będzie można wybrać po osiągnięciu 10. poziomu.'
     },
     race: {
         Human: 'Człowiek',
