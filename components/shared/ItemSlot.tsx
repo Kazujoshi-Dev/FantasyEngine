@@ -53,6 +53,18 @@ export const ItemDetailsPanel: React.FC<{
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
     
+    const baseStatsSource = useMemo(() => {
+        if (!item || !template) return null;
+        if (item.rolledBaseStats) {
+            // Inject static stats from template that are not rolled but needed for display (like attacksPerRound)
+            return {
+                ...item.rolledBaseStats,
+                attacksPerRound: template.attacksPerRound
+            };
+        }
+        return template;
+    }, [item, template]);
+
     if (!item || !template) {
         return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
     }
@@ -74,13 +86,13 @@ export const ItemDetailsPanel: React.FC<{
     const prefixName = (prefix && typeof prefix.name === 'object') ? prefix.name[genderKey] : (prefix?.name as unknown as string);
     const suffixName = (suffix && typeof suffix.name === 'object') ? suffix.name[genderKey] : (suffix?.name as unknown as string);
 
-    const totalValue = useMemo(() => {
+    const totalValue = (() => {
         if (!template) return 0;
         let value = Number(template.value) || 0;
         if (prefix) value += Number(prefix.value) || 0;
         if (suffix) value += Number(suffix.value) || 0;
         return value;
-    }, [template, prefix, suffix]);
+    })();
 
     const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, isUpgrade: boolean}> = ({title, source, isUpgrade}) => {
         const bonusFactor = isUpgrade ? upgradeBonusFactor : 0;
@@ -136,7 +148,7 @@ export const ItemDetailsPanel: React.FC<{
                     </p>
                 </div>
 
-                <StatSection source={item.rolledBaseStats || template} isUpgrade={true} />
+                {baseStatsSource && <StatSection source={baseStatsSource} isUpgrade={true} />}
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isUpgrade={false} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isUpgrade={false} />}
 
