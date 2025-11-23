@@ -189,6 +189,7 @@ export enum MagicAttackType {
     Earthquake = 'Earthquake',
 }
 
+// FIX: Synchronized CombatLogEntry with the frontend 'types.ts' to include missing properties.
 export interface CombatLogEntry {
   turn: number;
   attacker: string;
@@ -214,6 +215,9 @@ export interface CombatLogEntry {
   affectedPlayers?: string[];
   defenderUniqueId?: string;
   allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
+  effectApplied?: string; // e.g., 'burning', 'frozen'
+  aoeDamage?: { target: string, damage: number }[];
+  chainTargets?: string[];
 }
 
 export interface ActiveExpedition {

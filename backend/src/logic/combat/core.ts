@@ -62,6 +62,14 @@ export const performAttack = <
     const logs: CombatLogEntry[] = [];
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;
+    
+    const getHealthState = (currentAttacker: TAttacker, currentDefender: TDefender) => ({
+        playerHealth: defenderIsPlayer ? currentDefender.currentHealth : currentAttacker.currentHealth,
+        playerMana: defenderIsPlayer ? currentDefender.currentMana : currentAttacker.currentMana,
+        enemyHealth: defenderIsPlayer ? currentAttacker.currentHealth : currentDefender.currentHealth,
+        enemyMana: defenderIsPlayer ? currentAttacker.currentMana : currentDefender.currentMana,
+    });
+
 
     let damage = 0;
     let isCrit = false;
@@ -81,10 +89,7 @@ export const performAttack = <
         return {
             logs: [{
                 turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true,
-                playerHealth: defenderIsPlayer ? defender.currentHealth : attacker.currentHealth,
-                playerMana: defenderIsPlayer ? defender.currentMana : attacker.currentMana,
-                enemyHealth: defenderIsPlayer ? attacker.currentHealth : defender.currentHealth,
-                enemyMana: defenderIsPlayer ? attacker.currentMana : defender.currentMana,
+                ...getHealthState(attacker, defender)
             }],
             attackerState: attacker,
             defenderState: defender,
@@ -107,13 +112,13 @@ export const performAttack = <
                     const maxMana = (attacker.stats as CharacterStats).maxMana;
                     attacker.currentMana = maxMana;
                     
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'manaSurge', /*...*/ } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'manaSurge', ...getHealthState(attacker, defender) });
                     
                     useMagicAttack = true;
                     magicAttackType = template.magicAttackType;
                     attacker.currentMana -= manaCost;
                 } else {
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'notEnoughMana', /*...*/ } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'notEnoughMana', ...getHealthState(attacker, defender) });
                     useMagicAttack = false;
                 }
             } else {
@@ -179,13 +184,13 @@ export const performAttack = <
             case MagicAttackType.Fireball:
                 if (Math.random() * 100 < 25) {
                     defender.statusEffects.push({ type: 'burning', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'burning' } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'burning', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.LightningStrike:
                 if (Math.random() * 100 < 15) {
                      defender.statusEffects.push({ type: 'reduced_attacks', duration: Infinity, amount: 1 });
-                     logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'reduced_attacks' } as CombatLogEntry);
+                     logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'reduced_attacks', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.ShadowBolt:
@@ -193,26 +198,26 @@ export const performAttack = <
                     attacker.shadowBoltStacks = Math.min(5, (attacker.shadowBoltStacks || 0) + 1);
                     const bonus = 1 + (attacker.shadowBoltStacks * 0.05);
                     damage = Math.floor(damage * bonus);
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'shadowBoltStack' } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'shadowBoltStack', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.FrostWave:
                 if (Math.random() * 100 < 20) {
                     defender.statusEffects.push({ type: 'frozen_no_dodge', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_dodge' } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_dodge', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.IceLance:
                 if (Math.random() * 100 < 10) {
                     defender.statusEffects.push({ type: 'frozen_no_attack', duration: 1 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_attack' } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.ArcaneMissile:
                 if (attackerIsPlayer) {
                     const bonusDamage = Math.floor((attacker.stats as CharacterStats).maxMana * 0.5);
                     damage += bonusDamage;
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'arcaneMissileBonus', damage: bonusDamage } as CombatLogEntry);
+                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'arcaneMissileBonus', damage: bonusDamage, ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.LifeDrain:
@@ -256,10 +261,7 @@ export const performAttack = <
         healthGained: healthGained > 0 ? healthGained : undefined,
         manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined,
         magicAttackType, weaponName,
-        playerHealth: defenderIsPlayer ? defender.currentHealth : attacker.currentHealth,
-        playerMana: defenderIsPlayer ? defender.currentMana : attacker.currentMana,
-        enemyHealth: defenderIsPlayer ? attacker.currentHealth : defender.currentHealth,
-        enemyMana: defenderIsPlayer ? attacker.currentMana : defender.currentMana,
+        ...getHealthState(attacker, defender),
     };
     logs.push(finalLogEntry);
 
