@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -72,7 +73,8 @@ export default {
         tabs: {
             stats: 'Statystyki',
             developmentPath: 'Ścieżka rozwoju',
-            skills: 'Umiejętności'
+            skills: 'Umiejętności',
+            knowledge: 'Wiedza'
         },
         title: 'Statystyki Postaci',
         level: 'Poziom',
@@ -202,6 +204,18 @@ export default {
             LifeDrain: 'Wyssanie Życia',
             MeteorSwarm: 'Deszcz Meteorów',
             Earthquake: 'Trzęsienie Ziemi',
+        },
+        magicDescriptions: {
+            Fireball: 'Zadaje obrażenia od ognia. Ma 25% szans na podpalenie celu, które zadaje obrażenia przez 2 tury.',
+            LightningStrike: 'Zadaje obrażenia od błyskawic. Ma 15% szans na spowolnienie celu, co redukuje jego liczbę ataków na turę.',
+            ShadowBolt: 'Zadaje obrażenia od cienia. Każde kolejne użycie tego ataku w tej samej walce zwiększa jego obrażenia o 5%.',
+            FrostWave: 'Zadaje obrażenia od zimna. Ma 20% szans na nałożenie efektu mrozu, który uniemożliwia celowi uniki przez 2 tury.',
+            ChainLightning: 'Uderza w cel, a następnie ma 25% szansy na przeskoczenie na maksymalnie 2 dodatkowe cele, zadając im 75% obrażeń.',
+            IceLance: 'Zadaje potężne obrażenia od lodu. Ma 10% szans na zamrożenie celu na 1 turę, uniemożliwiając mu atak.',
+            ArcaneMissile: 'Zadaje obrażenia magiczne plus dodatkowe obrażenia równe 50% maksymalnej many rzucającego.',
+            LifeDrain: 'Zadaje obrażenia i leczy rzucającego za 25% zadanych obrażeń.',
+            MeteorSwarm: 'Potężny atak obszarowy, który zadaje obrażenia wszystkim wrogom (mechanika niezaimplementowana).',
+            Earthquake: 'Uderza w cel, a następnie zadaje 20% obrażeń rozpryskowych wszystkim pozostałym wrogom.',
         }
     },
     equipment: {

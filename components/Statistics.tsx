@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass } from '../types';
+import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType } from '../types';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import { MinusCircleIcon } from './icons/MinusCircleIcon';
 import { InfoIcon } from './icons/InfoIcon';
@@ -110,7 +110,8 @@ const StatRow: React.FC<{
 export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData, onResetAttributes, onSelectClass }) => {
   const { t } = useTranslation();
   
-  const [activeTab, setActiveTab] = useState<'stats' | 'development' | 'skills'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'development' | 'skills' | 'knowledge'>('stats');
+  const [knowledgeTab, setKnowledgeTab] = useState<'magicAttacks'>('magicAttacks');
   const [pendingStats, setPendingStats] = useState(baseCharacter.stats);
   const [spentPoints, setSpentPoints] = useState(0);
   const [nextEnergyCountdown, setNextEnergyCountdown] = useState('');
@@ -194,10 +195,11 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
   const resetCost = 100 * baseCharacter.level;
   const canAffordReset = isFreeReset || baseCharacter.resources.gold >= resetCost;
 
-  const TABS: { id: 'stats' | 'development' | 'skills', label: string }[] = [
+  const TABS: { id: 'stats' | 'development' | 'skills' | 'knowledge', label: string }[] = [
       { id: 'stats', label: t('statistics.tabs.stats') },
       { id: 'development', label: t('statistics.tabs.developmentPath') },
       { id: 'skills', label: t('statistics.tabs.skills') },
+      { id: 'knowledge', label: t('statistics.tabs.knowledge') },
   ];
 
   const classOptions: Record<Race, CharacterClass[]> = {
@@ -442,6 +444,30 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
             })()}
         </div>
       )}
+
+        {activeTab === 'knowledge' && (
+            <div className="animate-fade-in">
+                <div className="flex border-b border-slate-800 mb-6">
+                    <button
+                        onClick={() => setKnowledgeTab('magicAttacks')}
+                        className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'magicAttacks' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        Ataki Magiczne
+                    </button>
+                    {/* Future tabs can be added here */}
+                </div>
+                {knowledgeTab === 'magicAttacks' && (
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Object.values(MagicAttackType).map(attack => (
+                            <div key={attack} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                <h4 className="font-bold text-lg text-purple-400 mb-2">{t(`item.magic.${attack}`)}</h4>
+                                <p className="text-sm text-gray-300">{t(`item.magicDescriptions.${attack}`)}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )}
     </ContentPanel>
   );
 };
