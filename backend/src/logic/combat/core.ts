@@ -94,11 +94,12 @@ export const performAttack = <
 
                 if (canUseManaSurge) {
                     attacker.manaSurgeUsed = true;
-                    const manaRestored = attacker.stats.maxMana - attacker.currentMana;
-                    attacker.currentMana = attacker.stats.maxMana;
+                    const maxMana = (attacker.stats as CharacterStats).maxMana;
+                    const manaRestored = maxMana - attacker.currentMana;
+                    attacker.currentMana = maxMana;
                     
                     logs.push({
-                        turn, attacker: attacker.name, defender: '', action: 'manaRegen', manaGained: manaRestored,
+                        turn, attacker: attacker.name, defender: '', action: 'manaSurge',
                         playerHealth: attacker.currentHealth, playerMana: attacker.currentMana,
                         enemyHealth: defender.currentHealth, enemyMana: defender.currentMana,
                     });
