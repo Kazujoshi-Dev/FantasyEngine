@@ -12,7 +12,8 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         currentHealth: playerData.stats.currentHealth,
         currentMana: playerData.stats.currentMana,
         name: playerData.name,
-        hardSkinTriggered: false
+        hardSkinTriggered: false,
+        manaSurgeUsed: false,
     };
     
     let enemyState: Omit<AttackerState, 'stats'> & {description?: string; stats: EnemyStats} = {
@@ -71,38 +72,26 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
 
         // Player's turn
         if (playerAttacksFirst) {
-            const result = performAttack(playerState, enemyState, turn, gameData);
-            log.push(result.logEntry);
-            playerState.currentHealth = result.attackerState.currentHealth;
-            playerState.currentMana = result.attackerState.currentMana;
-            playerState.hardSkinTriggered = result.attackerState.hardSkinTriggered;
-            enemyState.currentHealth = result.defenderState.currentHealth;
-            enemyState.currentMana = result.defenderState.currentMana;
-            enemyState.hardSkinTriggered = result.defenderState.hardSkinTriggered;
+            const { logs, attackerState, defenderState } = performAttack(playerState, enemyState, turn, gameData);
+            log.push(...logs);
+            playerState = attackerState;
+            enemyState = defenderState;
             if (enemyState.currentHealth <= 0) break;
         }
 
         // Enemy's turn
-        const enemyTurnResult = performAttack(enemyState, playerState, turn, gameData);
-        log.push(enemyTurnResult.logEntry);
-        enemyState.currentHealth = enemyTurnResult.attackerState.currentHealth;
-        enemyState.currentMana = enemyTurnResult.attackerState.currentMana;
-        enemyState.hardSkinTriggered = enemyTurnResult.attackerState.hardSkinTriggered;
-        playerState.currentHealth = enemyTurnResult.defenderState.currentHealth;
-        playerState.currentMana = enemyTurnResult.defenderState.currentMana;
-        playerState.hardSkinTriggered = enemyTurnResult.defenderState.hardSkinTriggered;
+        const { logs: enemyLogs, attackerState: enemyAttacker, defenderState: playerDefender } = performAttack(enemyState, playerState, turn, gameData);
+        log.push(...enemyLogs);
+        enemyState = enemyAttacker;
+        playerState = playerDefender;
         if (playerState.currentHealth <= 0) break;
         
         // Player's turn if they didn't go first
         if (!playerAttacksFirst) {
-            const result = performAttack(playerState, enemyState, turn, gameData);
-            log.push(result.logEntry);
-            playerState.currentHealth = result.attackerState.currentHealth;
-            playerState.currentMana = result.attackerState.currentMana;
-            playerState.hardSkinTriggered = result.attackerState.hardSkinTriggered;
-            enemyState.currentHealth = result.defenderState.currentHealth;
-            enemyState.currentMana = result.defenderState.currentMana;
-            enemyState.hardSkinTriggered = result.defenderState.hardSkinTriggered;
+            const { logs, attackerState, defenderState } = performAttack(playerState, enemyState, turn, gameData);
+            log.push(...logs);
+            playerState = attackerState;
+            enemyState = defenderState;
         }
         
         playerAttacksFirst = playerState.stats.agility >= enemyState.stats.agility;
@@ -123,6 +112,7 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         currentMana: playerData.stats.currentMana,
         name: playerData.name,
         hardSkinTriggered: false,
+        manaSurgeUsed: false,
     };
     
     const nameCounts = new Map<string, number>();
@@ -205,18 +195,15 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             const targetIndex = enemiesState.findIndex(e => e.uniqueId === target.uniqueId);
             const healthBeforeAttack = target.currentHealth;
 
-            const { logEntry, attackerState, defenderState } = performAttack(playerState, target, turn, gameData);
+            const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData);
             
-            playerState.currentHealth = attackerState.currentHealth;
-            playerState.currentMana = attackerState.currentMana;
-            playerState.hardSkinTriggered = attackerState.hardSkinTriggered;
-
-            enemiesState[targetIndex].currentHealth = defenderState.currentHealth;
-            enemiesState[targetIndex].currentMana = defenderState.currentMana;
-            enemiesState[targetIndex].hardSkinTriggered = defenderState.hardSkinTriggered;
-
-            logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
-            log.push(logEntry);
+            playerState = attackerState;
+            enemiesState[targetIndex] = { ...enemiesState[targetIndex], ...defenderState };
+            
+            attackLogs.forEach(logEntry => {
+                logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
+                log.push(logEntry);
+            });
 
             if (defenderState.currentHealth <= 0 && healthBeforeAttack > 0) {
                 log.push({
@@ -236,30 +223,27 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             if (playerState.currentHealth <= 0) break;
             const healthBeforeAttack = playerState.currentHealth;
 
-            const { logEntry, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData);
+            const { logs: enemyLogs, attackerState: enemyAttacker, defenderState: playerDefender } = performAttack(enemy, playerState, turn, gameData);
 
             const enemyIndex = enemiesState.findIndex(e => e.uniqueId === enemy.uniqueId);
-            enemiesState[enemyIndex].currentHealth = attackerState.currentHealth;
-            enemiesState[enemyIndex].currentMana = attackerState.currentMana;
-            enemiesState[enemyIndex].hardSkinTriggered = attackerState.hardSkinTriggered;
-
-            playerState.currentHealth = defenderState.currentHealth;
-            playerState.currentMana = defenderState.currentMana;
-            playerState.hardSkinTriggered = defenderState.hardSkinTriggered;
+            enemiesState[enemyIndex] = { ...enemiesState[enemyIndex], ...enemyAttacker };
+            playerState = playerDefender;
             
-            logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
-            log.push(logEntry);
+            enemyLogs.forEach(logEntry => {
+                 logEntry.allEnemiesHealth = enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }));
+                 log.push(logEntry);
+            });
             
             if (playerState.currentHealth <= 0 && healthBeforeAttack > 0) {
                  log.push({
                     turn,
-                    attacker: attackerState.name,
-                    defender: defenderState.name,
+                    attacker: enemyAttacker.name,
+                    defender: playerDefender.name,
                     action: 'death',
                     playerHealth: 0,
-                    playerMana: defenderState.currentMana,
-                    enemyHealth: attackerState.currentHealth,
-                    enemyMana: attackerState.currentMana,
+                    playerMana: playerDefender.currentMana,
+                    enemyHealth: enemyAttacker.currentHealth,
+                    enemyMana: enemyAttacker.currentMana,
                     allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
                 });
             }

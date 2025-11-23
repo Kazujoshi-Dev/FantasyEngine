@@ -9,6 +9,7 @@ export interface AttackerState {
     name: string;
     hardSkinTriggered?: boolean;
     isEmpowered?: boolean;
+    manaSurgeUsed?: boolean;
 }
 
 export interface DefenderState {
@@ -47,8 +48,9 @@ export const performAttack = <
     gameData: GameData,
     isBossAttacking: boolean = false,
     turnEffects: any = {}
-): { logEntry: CombatLogEntry, attackerState: TAttacker, defenderState: TDefender } => {
+): { logs: CombatLogEntry[], attackerState: TAttacker, defenderState: TDefender } => {
 
+    const logs: CombatLogEntry[] = [];
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;
 
@@ -57,7 +59,7 @@ export const performAttack = <
     let isCrit = false;
     let damageReduced = 0;
     let healthGained = 0;
-    let manaGained = 0;
+    let manaGainedFromSteal = 0;
     let magicAttackType: MagicAttackType | undefined = undefined;
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
@@ -66,13 +68,13 @@ export const performAttack = <
     const dodgeChance = 'dodgeChance' in defender.stats ? defender.stats.dodgeChance : 0;
     if (Math.random() * 100 < dodgeChance) {
         return {
-            logEntry: {
+            logs: [{
                 turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true,
                 playerHealth: defenderIsPlayer ? defender.currentHealth : attacker.currentHealth,
                 playerMana: defenderIsPlayer ? defender.currentMana : attacker.currentMana,
                 enemyHealth: defenderIsPlayer ? attacker.currentHealth : defender.currentHealth,
                 enemyMana: defenderIsPlayer ? attacker.currentMana : defender.currentMana,
-            },
+            }],
             attackerState: attacker,
             defenderState: defender,
         };
@@ -87,7 +89,32 @@ export const performAttack = <
 
         if (template?.isMagical && template.magicAttackType) {
             const manaCost = template.manaCost ? (template.manaCost.min + template.manaCost.max) / 2 : 0;
-            if (attacker.currentMana >= manaCost) {
+            if (attacker.currentMana < manaCost) {
+                const canUseManaSurge = (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) && !attacker.manaSurgeUsed;
+
+                if (canUseManaSurge) {
+                    attacker.manaSurgeUsed = true;
+                    const manaRestored = attacker.stats.maxMana - attacker.currentMana;
+                    attacker.currentMana = attacker.stats.maxMana;
+                    
+                    logs.push({
+                        turn, attacker: attacker.name, defender: '', action: 'manaRegen', manaGained: manaRestored,
+                        playerHealth: attacker.currentHealth, playerMana: attacker.currentMana,
+                        enemyHealth: defender.currentHealth, enemyMana: defender.currentMana,
+                    });
+                    
+                    useMagicAttack = true;
+                    magicAttackType = template.magicAttackType;
+                    attacker.currentMana -= manaCost;
+                } else {
+                    logs.push({
+                        turn, attacker: attacker.name, defender: '', action: 'notEnoughMana',
+                        playerHealth: attacker.currentHealth, playerMana: attacker.currentMana,
+                        enemyHealth: defender.currentHealth, enemyMana: defender.currentMana,
+                    });
+                    useMagicAttack = false;
+                }
+            } else {
                 useMagicAttack = true;
                 magicAttackType = template.magicAttackType;
                 attacker.currentMana -= manaCost;
@@ -161,7 +188,7 @@ export const performAttack = <
         const manaSteal = Math.floor(damage * (playerStats.manaStealPercent / 100)) + playerStats.manaStealFlat;
         if (manaSteal > 0) {
             const newMana = Math.min(playerStats.maxMana, attacker.currentMana + manaSteal);
-            manaGained = newMana - attacker.currentMana;
+            manaGainedFromSteal = newMana - attacker.currentMana;
             attacker.currentMana = newMana;
         }
     }
@@ -169,19 +196,20 @@ export const performAttack = <
     // --- Krok 6: Zadanie obrażeń ---
     defender.currentHealth = Math.max(0, defender.currentHealth - damage);
 
-    const logEntry: CombatLogEntry = {
+    const finalLogEntry: CombatLogEntry = {
         turn, attacker: attacker.name, defender: defender.name,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
         damage, isCrit,
         damageReduced: damageReduced > 0 ? damageReduced : undefined,
         healthGained: healthGained > 0 ? healthGained : undefined,
-        manaGained: manaGained > 0 ? manaGained : undefined,
+        manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined,
         magicAttackType, weaponName,
         playerHealth: defenderIsPlayer ? defender.currentHealth : attacker.currentHealth,
         playerMana: defenderIsPlayer ? defender.currentMana : attacker.currentMana,
         enemyHealth: defenderIsPlayer ? attacker.currentHealth : defender.currentHealth,
         enemyMana: defenderIsPlayer ? attacker.currentMana : defender.currentMana,
     };
+    logs.push(finalLogEntry);
 
-    return { logEntry, attackerState: attacker, defenderState: defender };
+    return { logs, attackerState: attacker, defenderState: defender };
 };

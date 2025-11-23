@@ -1,4 +1,3 @@
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -299,6 +298,7 @@ export default {
         healed: 'i leczy się o',
         manaStolen: 'i odnawia',
         notEnoughMana: 'Za mało many! Użyto zwykłego ataku fizycznego.',
+        manaSurge: 'w przypływie magicznej mocy w pełni odnawia swoją manę!',
         skipAnimation: 'Pomiń do wyniku',
         shamanPower: 'używa mocy szamana na',
         noEnemiesEncountered: 'Nie napotkano żadnych wrogów na tej wyprawie.',
