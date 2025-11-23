@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -297,8 +296,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     return (
         <ContentPanel title={t('equipment.title')}>
             <div 
-                className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]" 
-                onClick={() => setSelectedItem(null)} // Neutral click to deselect
+                className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]"
             >
                 {/* Equipped Items */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
