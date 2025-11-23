@@ -186,6 +186,7 @@ const DisenchantPanel: React.FC<{
                             <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
                                 {finalDamageMin !== 0 && finalDamageMax !== 0 && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
                                 {manaCost && <p className="flex justify-between text-cyan-300"><span>{t('item.manaCost')}:</span> <span className="font-mono">{manaCost.min === manaCost.max ? manaCost.min : `${manaCost.min}-${manaCost.max}`}</span></p>}
+                                {selectedTemplate.magicAttackType && <p className="flex justify-between text-purple-300"><span>{t('item.magicAttackType')}:</span> <span className="font-semibold">{t(`item.magic.${selectedTemplate.magicAttackType}`)}</span></p>}
                                 {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
                                 {finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
                                 {finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}

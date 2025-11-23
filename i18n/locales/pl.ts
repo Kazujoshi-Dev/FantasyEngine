@@ -165,7 +165,7 @@ export default {
         magicProperties: 'Właściwości Magiczne',
         isMagical: 'Magiczny',
         isRanged: 'Dystansowy',
-        magicAttackType: 'Typ Ataku',
+        magicAttackType: 'Typ Ataku Magicznego',
         statBonuses: 'Bonusy do Statystyk (min-max)',
         requiredStats: 'Wymagane Statystyki',
         category: 'Kategoria',
@@ -309,6 +309,21 @@ export default {
         empoweredStrikesLog: '{attacker} wzmacnia swoje ciosy!',
         earthquakeLog: '{attacker} wywołuje trzęsienie ziemi, raniąc wszystkich!',
         lowHealthWarning: 'Twoje zdrowie jest poniżej 15%. Czy na pewno chcesz wyruszyć? Ryzyko porażki jest wysokie.',
+        combatLog: {
+            effect: {
+                applied: '{defender} zostaje {effect}!',
+                burningTarget: '{target} płonie, tracąc {damage} HP.',
+                frozen_no_attack: '{target} jest zamrożony i nie może atakować!',
+                frozen_no_dodge: 'zamrożony',
+                burning: 'podpalony',
+                reduced_attacks_effect: 'spowolniony',
+                shadowBoltStack: 'Moc Pocisku Cienia wzrasta!',
+                arcaneMissileBonus: 'Magiczny Pocisk zadaje dodatkowe {damage} obrażeń od many!',
+                chainLightningJump: 'Błyskawica przeskakuje na {target}, zadając {damage} obrażeń!',
+                earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',
+                reduced_attacks: 'Ataki {target} zostały spowolnione!'
+            }
+        }
     },
     camp: {
         title: 'Obóz',

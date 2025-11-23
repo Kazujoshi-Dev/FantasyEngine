@@ -150,6 +150,14 @@ export const ItemDetailsPanel: React.FC<{
                 </div>
 
                 {baseStatsSource && <StatSection source={baseStatsSource} isUpgrade={true} />}
+                {template.magicAttackType && (
+                    <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
+                         <p className={`flex justify-between text-purple-300`}>
+                            <span>{t('item.magicAttackType')}:</span>
+                            <span className="font-semibold">{t(`item.magic.${template.magicAttackType}`)}</span>
+                        </p>
+                    </div>
+                )}
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isUpgrade={false} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isUpgrade={false} />}
 

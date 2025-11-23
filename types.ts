@@ -215,6 +215,9 @@ export interface CombatLogEntry {
   affectedPlayers?: string[];
   defenderUniqueId?: string;
   allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
+  effectApplied?: string; // e.g., 'burning', 'frozen'
+  aoeDamage?: { target: string, damage: number }[];
+  chainTargets?: string[];
 }
 
 export interface ActiveExpedition {
