@@ -106,7 +106,7 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries } = useMemo(() => {
+    const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { 
             upgradeLevel: 0,
             finalDamageMin: 0,
@@ -114,7 +114,8 @@ const DisenchantPanel: React.FC<{
             finalCritChanceBonus: 0,
             attacksPerRound: undefined,
             finalArmorBonus: 0,
-            statBonusEntries: []
+            statBonusEntries: [],
+            manaCost: undefined
         };
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
@@ -147,6 +148,7 @@ const DisenchantPanel: React.FC<{
             statBonusEntries: Object.entries(selectedTemplate.statsBonus || {})
                 .filter(([, value]) => value)
                 .map(([key, value]) => ({ key, value: calculateUpgradedStat(getMaxValue(value as any)) })),
+            manaCost: selectedTemplate.manaCost
         };
     }, [selectedItem, selectedTemplate]);
 
@@ -183,6 +185,7 @@ const DisenchantPanel: React.FC<{
 
                             <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
                                 {finalDamageMin !== 0 && finalDamageMax !== 0 && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
+                                {manaCost && <p className="flex justify-between text-cyan-300"><span>{t('item.manaCost')}:</span> <span className="font-mono">{manaCost.min === manaCost.max ? manaCost.min : `${manaCost.min}-${manaCost.max}`}</span></p>}
                                 {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
                                 {finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
                                 {finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}

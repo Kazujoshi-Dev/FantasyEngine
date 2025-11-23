@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -59,7 +58,8 @@ export const ItemDetailsPanel: React.FC<{
             // Inject static stats from template that are not rolled but needed for display (like attacksPerRound)
             return {
                 ...item.rolledBaseStats,
-                attacksPerRound: template.attacksPerRound
+                attacksPerRound: template.attacksPerRound,
+                manaCost: template.manaCost
             };
         }
         return template;
@@ -113,6 +113,7 @@ export const ItemDetailsPanel: React.FC<{
             (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${s.lifeStealFlat || 0}`},
             (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
             (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
+            (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
             (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
         ].filter(Boolean);
 
@@ -233,7 +234,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
                     {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </p>
                 <div className="flex justify-between items-center text-xs mt-1">
-                    {/* Use equipment.slot translations here as well */}
+                    {/* Use equipment.slot translations here */}
                     <span className="text-gray-400">{t(`equipment.slot.${template.slot}`)}</span>
                     {price !== undefined && <span className="font-mono text-amber-400 flex items-center">{price} <CoinsIcon className="h-3 w-3 ml-1"/></span>}
                     {isEquipped && <span className="text-sky-400 font-semibold">{t('equipment.equipped')}</span>}
