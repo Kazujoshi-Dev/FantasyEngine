@@ -506,7 +506,16 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                  setCurrentPlayerStats({ ...pvpData.attacker.stats, currentHealth: log.playerHealth, currentMana: log.playerMana });
                  setCurrentEnemy({ name: pvpData.defender.name, stats: pvpData.defender.stats, currentHealth: log.enemyHealth, currentMana: log.enemyMana });
              } else {
-                 if (log.playerStats) setCurrentPlayerStats({ ...log.playerStats, currentHealth: log.playerHealth, currentMana: log.playerMana });
+                 setCurrentPlayerStats(prev => {
+                    if (log.playerStats) { // If log provides full stats (turn 0), use them as the base
+                        return { ...log.playerStats, currentHealth: log.playerHealth, currentMana: log.playerMana };
+                    }
+                    if (prev) { // For subsequent turns, just update health/mana on existing state
+                        return { ...prev, currentHealth: log.playerHealth, currentMana: log.playerMana };
+                    }
+                    return null; // Fallback
+                 });
+
                  // Logic to init enemy if missing
                  if (!currentEnemy && log.enemyStats && (reward.encounteredEnemies || []).length <= 1) {
                       setCurrentEnemy({
