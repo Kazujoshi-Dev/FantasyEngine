@@ -43,7 +43,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         turn, attacker: playerState.name, defender: enemyState.name, action: 'starts a fight with',
         playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
         enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana,
-        // FIX: Cast playerState.stats to CharacterStats to resolve type mismatch.
         playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats, enemyDescription: enemyState.description
     });
     
@@ -52,10 +51,10 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        const healthState = {
-            playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
-            enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
-        };
+        const getHealthState = (pState: typeof playerState, eState: typeof enemyState) => ({
+            playerHealth: pState.currentHealth, playerMana: pState.currentMana,
+            enemyHealth: eState.currentHealth, enemyMana: eState.currentMana
+        });
         
         // --- Turn Start Effects & Mana Regen ---
         const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
@@ -67,7 +66,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 const manaGained = newMana - combatant.currentMana;
                 if(manaGained > 0) {
                     combatant.currentMana = newMana;
-                    log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...healthState });
+                    log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...getHealthState(playerState, enemyState) });
                 }
             }
             // Burning Effect
@@ -75,7 +74,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             if (burningEffect) {
                 const burnDamage = Math.floor(combatant.stats.maxHealth * 0.05);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
-                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burning', damage: burnDamage, ...healthState });
+                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState(playerState, enemyState) });
             }
             // Decrement status effect durations
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
@@ -92,19 +91,17 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
             
             if (attacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
-                log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...healthState });
+                log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                  for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
                     const { logs: attackLogs, attackerState, defenderState } = performAttack(attacker, defender, turn, gameData, []);
                     log.push(...attackLogs);
-                    // Reassign states
-                    // FIX: Use explicit type assertions to prevent TypeScript from complaining about assigning a union type.
                     if (playerAttacksFirst) {
-                        playerState = attackerState as AttackerState & { data: PlayerCharacter };
-                        enemyState = defenderState as AttackerState & { description?: string };
+                        playerState = attackerState as typeof playerState;
+                        enemyState = defenderState as typeof enemyState;
                     } else {
-                        enemyState = attackerState as AttackerState & { description?: string };
-                        playerState = defenderState as AttackerState & { data: PlayerCharacter };
+                        enemyState = attackerState as typeof enemyState;
+                        playerState = defenderState as typeof playerState;
                     }
                 }
             }
@@ -118,19 +115,17 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
 
              if (defender.statusEffects.some(e => e.type === 'frozen_no_attack')) {
-                log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...healthState });
+                log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
                     const { logs: attackLogs, attackerState, defenderState } = performAttack(defender, attacker, turn, gameData, []);
                     log.push(...attackLogs);
-                    // Reassign states (opposite of above)
-                    // FIX: Use explicit type assertions to prevent TypeScript from complaining about assigning a union type.
                     if (playerAttacksFirst) {
-                        enemyState = attackerState as AttackerState & { description?: string };
-                        playerState = defenderState as AttackerState & { data: PlayerCharacter };
+                        enemyState = attackerState as typeof enemyState;
+                        playerState = defenderState as typeof playerState;
                     } else {
-                        playerState = attackerState as AttackerState & { data: PlayerCharacter };
-                        enemyState = defenderState as AttackerState & { description?: string };
+                        playerState = attackerState as typeof playerState;
+                        enemyState = defenderState as typeof enemyState;
                     }
                 }
             }
@@ -182,7 +177,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         turn, attacker: playerState.name, defender: 'Grupa wrogów', action: 'starts a fight with',
         playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
         enemyHealth: 0, enemyMana: 0, 
-        // FIX: Cast playerState.stats to CharacterStats to satisfy the type.
         playerStats: playerState.stats as CharacterStats,
         allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
     });
@@ -192,7 +186,8 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         
         const getHealthState = () => ({
             playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
-            enemyHealth: 0, enemyMana: 0, // Not applicable in 1vMany
+            enemyHealth: 0, // Not applicable in 1vMany
+            enemyMana: 0,
             allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
         });
 
@@ -208,13 +203,12 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             if (burningEffect) {
                 const burnDamage = Math.floor(combatant.stats.maxHealth * 0.05);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
-                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burning', damage: burnDamage, ...getHealthState() });
+                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState() });
             }
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
         }
 
         // Player's turn
-        // FIX: Cast playerState.stats to CharacterStats to access 'attacksPerRound'.
         const attacks = (playerState.stats as CharacterStats).attacksPerRound;
         const reducedAttacks = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').length;
         const finalPlayerAttacks = Math.max(1, attacks - reducedAttacks);
@@ -261,7 +255,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
                 }
 
                 if (defenderState.currentHealth <= 0 && healthBeforeAttack > 0) {
-                    // FIX: Added missing 'attacker' property to the log entry.
                     log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
                 }
             }
@@ -271,7 +264,6 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
         for (const enemy of enemiesState.filter(e => e.currentHealth > 0)) {
             if (playerState.currentHealth <= 0) break;
 
-            // FIX: Cast enemy.stats to EnemyStats to access 'attacksPerTurn'.
             const attacks = (enemy.stats as EnemyStats).attacksPerTurn || 1;
             const reducedAttacks = enemy.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalEnemyAttacks = Math.max(1, attacks - reducedAttacks);

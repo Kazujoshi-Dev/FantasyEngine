@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -82,6 +81,88 @@ const CombatLogRow: React.FC<{
             </>
         );
     };
+    
+    if (log.action === 'effectApplied') {
+// @FIX: Changed `effectText` to be of type `React.ReactNode` to support JSX.
+        let effectText: React.ReactNode = '';
+        let textColor = 'text-yellow-400 italic';
+        switch (log.effectApplied) {
+            case 'burning':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const defenderNode = renderName(log.defender);
+                const effectStr = t('expedition.combatLog.effect.burning');
+                const template = t('expedition.combatLog.effect.applied').replace('{effect}', effectStr);
+                const parts = template.split('{defender}');
+                effectText = <>{parts[0]}{defenderNode}{parts[1]}</>;
+                textColor = 'text-orange-500 italic';
+                break;
+            case 'burningTarget':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const targetNode = renderName(log.defender);
+                const template2 = t('expedition.combatLog.effect.burningTarget').replace('{damage}', String(log.damage));
+                const parts2 = template2.split('{target}');
+                effectText = <>{parts2[0]}{targetNode}{parts2[1]}</>;
+                textColor = 'text-orange-400 italic';
+                break;
+            case 'frozen_no_attack':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const attackerNode = renderName(log.attacker);
+                const template3 = t('expedition.combatLog.effect.frozen_no_attack');
+                const parts3 = template3.split('{target}');
+                effectText = <>{parts3[0]}{attackerNode}{parts3[1]}</>;
+                textColor = 'text-cyan-400 italic';
+                break;
+            case 'frozen_no_dodge':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const defenderNode4 = renderName(log.defender);
+                const effectStr4 = t('expedition.combatLog.effect.frozen_no_dodge');
+                const template4 = t('expedition.combatLog.effect.applied').replace('{effect}', effectStr4);
+                const parts4 = template4.split('{defender}');
+                effectText = <>{parts4[0]}{defenderNode4}{parts4[1]}</>;
+                textColor = 'text-cyan-500 italic';
+                break;
+            case 'reduced_attacks':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const targetNode5 = renderName(log.defender);
+                const template5 = t('expedition.combatLog.effect.reduced_attacks');
+                const parts5 = template5.split('{target}');
+                effectText = <>{parts5[0]}{targetNode5}{parts5[1]}</>;
+                textColor = 'text-gray-400 italic';
+                break;
+            case 'shadowBoltStack':
+                effectText = t('expedition.combatLog.effect.shadowBoltStack');
+                textColor = 'text-purple-400 italic';
+                break;
+            case 'arcaneMissileBonus':
+                effectText = t('expedition.combatLog.effect.arcaneMissileBonus', { damage: log.damage });
+                textColor = 'text-pink-400 italic';
+                break;
+            case 'chainLightningJump':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const targetNode6 = renderName(log.defender);
+                const template6 = t('expedition.combatLog.effect.chainLightningJump').replace('{damage}', String(log.damage));
+                const parts6 = template6.split('{target}');
+                effectText = <>{parts6[0]}{targetNode6}{parts6[1]}</>;
+                textColor = 'text-blue-400 italic';
+                break;
+            case 'earthquakeSplash':
+// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
+                const targetNode7 = renderName(log.defender);
+                const template7 = t('expedition.combatLog.effect.earthquakeSplash').replace('{damage}', String(log.damage));
+                const parts7 = template7.split('{target}');
+                effectText = <>{parts7[0]}{targetNode7}{parts7[1]}</>;
+                 textColor = 'text-yellow-600 italic';
+                break;
+            default:
+                effectText = `${log.attacker} applies ${log.effectApplied} to ${log.defender}`;
+        }
+        return (
+            <p className={`text-sm ${textColor}`}>
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {effectText}
+            </p>
+        );
+    }
 
     if (log.action === 'starts a fight with') {
         return (
@@ -380,7 +461,6 @@ export interface ExpeditionSummaryModalProps {
     initialEnemy?: Enemy;
     bossName?: string;
     messageId?: number | null;
-    // Fix: Add encounteredEnemies prop to match usage in App.tsx and PublicReportViewer.tsx
     encounteredEnemies?: Enemy[];
 }
 
@@ -410,12 +490,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>([]);
 
     const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(() => {
-        // Prioritize log data for stats initialization (scaled values)
         const startLog = reward.combatLog && reward.combatLog.length > 0 ? reward.combatLog[0] : null;
 
         if (initialEnemy) {
-             // If we have a start log with enemy stats, use those (they are the scaled ones from the server)
-             // Otherwise fall back to the template stats
              const effectiveStats = (startLog && startLog.enemyStats) ? startLog.enemyStats : initialEnemy.stats;
 
              return {
@@ -430,24 +507,18 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     });
 
     useEffect(() => {
-        // If this is a hunt report and the members from props don't have stats,
-        // it means we are viewing a saved report (from Messages). We need to reconstruct the stats
-        // from the combat log to ensure tooltips work correctly.
         if (isHunting && huntingMembers.length > 0 && !huntingMembers[0].stats) {
             const statsMap = new Map<string, CharacterStats>();
-            // Find the first instance of each player's stats in the log
             for (const log of reward.combatLog) {
                 if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
                     statsMap.set(log.attacker, log.playerStats);
                 }
             }
-            // Rebuild the members array with their reconstructed stats
             setPartyMembersState(huntingMembers.map(member => ({
                 ...member,
                 stats: statsMap.get(member.characterName)
             })));
         } else {
-            // Otherwise (live view from Hunting tab), the stats are already present.
             setPartyMembersState(huntingMembers);
         }
     }, [isHunting, huntingMembers, reward.combatLog]);
@@ -456,7 +527,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const tooltipTimeoutRef = useRef<number | null>(null);
     
-    // Member tooltip state
     const [hoveredMember, setHoveredMember] = useState<{ data: PartyMember, rect: DOMRect } | null>(null);
     const [hoveredEnemy, setHoveredEnemy] = useState<{ data: Enemy, rect: DOMRect } | null>(null);
 
@@ -492,7 +562,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const updateCombatantState = (log: CombatLogEntry) => {
          if (isHunting) {
              setPartyMembersState(prev => prev.map(m => {
-                 // Only update if stats object exists to avoid errors.
                  if (!m.stats) return m; 
                  
                  if (m.characterName === log.attacker || m.characterName === log.defender) {
@@ -501,22 +570,20 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                  return m;
              }));
          } else {
-             // Standard PvE / PvP logic
              if (isPvp && pvpData) {
                  setCurrentPlayerStats({ ...pvpData.attacker.stats, currentHealth: log.playerHealth, currentMana: log.playerMana });
                  setCurrentEnemy({ name: pvpData.defender.name, stats: pvpData.defender.stats, currentHealth: log.enemyHealth, currentMana: log.enemyMana });
              } else {
                  setCurrentPlayerStats(prev => {
-                    if (log.playerStats) { // If log provides full stats (turn 0), use them as the base
+                    if (log.playerStats) {
                         return { ...log.playerStats, currentHealth: log.playerHealth, currentMana: log.playerMana };
                     }
-                    if (prev) { // For subsequent turns, just update health/mana on existing state
+                    if (prev) {
                         return { ...prev, currentHealth: log.playerHealth, currentMana: log.playerMana };
                     }
-                    return null; // Fallback
+                    return null;
                  });
 
-                 // Logic to init enemy if missing
                  if (!currentEnemy && log.enemyStats && (reward.encounteredEnemies || []).length <= 1) {
                       setCurrentEnemy({
                         name: log.defender,
@@ -537,7 +604,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             clearTimeout(animationTimerRef.current);
         }
         setDisplayedLogs(reward.combatLog);
-        // Set final state based on last log
         const lastLog = reward.combatLog[reward.combatLog.length - 1];
         if (lastLog) updateCombatantState(lastLog);
         setIsAnimationComplete(true);
@@ -549,7 +615,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             return;
         }
 
-        // Start animation loop
         const playAnimation = () => {
              if (displayedLogs.length < reward.combatLog.length) {
                 const nextLog = reward.combatLog[displayedLogs.length];
@@ -562,7 +627,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             }
         };
 
-        // Only start the timeout if not already completed and if not currently scheduled
         if (!isAnimationComplete && !animationTimerRef.current) {
              playAnimation();
         }
@@ -589,7 +653,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const latestLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : null;
     const currentEnemiesHealth = latestLog?.allEnemiesHealth;
 
-    // Current actor for highlighting
     const currentActor = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1].attacker : '';
 
     return (
@@ -697,7 +760,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
                             {!isPvp && reward.isVictory && (
                                 <div className="bg-slate-900/50 p-4 rounded-lg mb-6">
-                                    {/* Hunting Rewards Table */}
                                     {isHunting && allRewards && (
                                         <div className="mb-4">
                                             <h4 className="font-bold text-white mb-2">Nagrody Drużynowe</h4>
@@ -786,7 +848,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 <div className="flex items-center gap-4 mt-4 flex-shrink-0">
                     <button
                         onClick={async () => {
-                            // Simple click handler to close normally
                             onClose();
                         }}
                         disabled={!isAnimationComplete}
@@ -795,15 +856,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
-                        // Fix: The function handleCopyLink does not take any arguments.
-                        <button onClick={() => handleCopyLink()} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
+// @FIX: Changed the onClick handler to call `handleCopyLink` without arguments, as it already has access to `messageId` from its scope.
+                        <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
                     )}
                 </div>
             </div>
             
-            {/* Hovered Member Tooltip */}
             {hoveredMember && hoveredMember.data && (
                 <div 
                     className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
@@ -837,7 +897,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 </div>
             )}
             
-            {/* Hovered Enemy Tooltip */}
             {hoveredEnemy && hoveredEnemy.data && (
                 <div 
                     className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
@@ -937,7 +996,6 @@ const ActiveExpeditionPanel: React.FC<{
             <p className="text-lg text-gray-400 mb-6">{isFinished ? t('expedition.finalizing') : t('expedition.endsIn')}</p>
             <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
             
-            {/* Fallback button for when automation fails */}
             {isFinished && (
                  <div className="mt-8 flex flex-col items-center justify-center gap-4">
                     <p className="text-lg text-gray-300 animate-pulse">{t('expedition.generatingReport')}</p>
@@ -991,7 +1049,6 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
       {availableExpeditions.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {availableExpeditions.map(exp => {
-              // fix: Use Number() to ensure values are treated as numbers
               const canAfford = (Number(character.resources.gold) || 0) >= exp.goldCost && (Number(character.stats.currentEnergy) || 0) >= exp.energyCost;
               const potentialEnemies = exp.enemies
                 .map(expEnemy => enemies.find(e => e.id === expEnemy.enemyId))
@@ -1066,7 +1123,6 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
 
   return (
     <>
-        {/* ExpeditionSummaryModal is now handled globally in App.tsx */}
         {content}
     </>
   );

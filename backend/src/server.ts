@@ -1,4 +1,5 @@
 
+
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -124,6 +125,5 @@ initializeDatabase().then(() => {
     });
 }).catch((err: Error) => {
     console.error('Failed to start server:', err);
-    // fix: Cast process to any to resolve type conflict with browser/webworker environments.
     (process as any).exit(1);
 });

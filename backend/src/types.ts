@@ -1,5 +1,6 @@
 
 
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -148,6 +149,7 @@ export interface Enemy {
   lootTable: LootDrop[];
   resourceLootTable?: ResourceDrop[];
   isBoss?: boolean;
+  image?: string; // Boss portrait
   specialAttacks?: BossSpecialAttack[];
 }
 
@@ -189,7 +191,6 @@ export enum MagicAttackType {
     Earthquake = 'Earthquake',
 }
 
-// FIX: Synchronized CombatLogEntry with the frontend 'types.ts' to include missing properties.
 export interface CombatLogEntry {
   turn: number;
   attacker: string;
@@ -562,7 +563,7 @@ export interface PartyMember {
     race: Race;
     characterClass?: CharacterClass;
     status: PartyMemberStatus;
-    stats?: CharacterStats;
+    stats?: CharacterStats; // Only for UI during combat
 }
 
 export interface HuntingParty {
