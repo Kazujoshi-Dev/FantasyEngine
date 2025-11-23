@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -306,7 +307,8 @@ export default {
         armorPierceLog: '{defender} traci cały pancerz w tej turze!',
         deathTouchLog: '{defender} traci połowę swojego zdrowia!',
         empoweredStrikesLog: '{attacker} wzmacnia swoje ciosy!',
-        earthquakeLog: '{attacker} wywołuje trzęsienie ziemi, raniąc wszystkich!'
+        earthquakeLog: '{attacker} wywołuje trzęsienie ziemi, raniąc wszystkich!',
+        lowHealthWarning: 'Twoje zdrowie jest poniżej 15%. Czy na pewno chcesz wyruszyć? Ryzyko porażki jest wysokie.',
     },
     camp: {
         title: 'Obóz',

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -951,6 +952,16 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
   const { t } = useTranslation();
   const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
 
+  const handleStartExpedition = (expId: string) => {
+        const healthPercent = (character.stats.currentHealth / character.stats.maxHealth) * 100;
+        if (healthPercent < 15) {
+            if (!window.confirm(t('expedition.lowHealthWarning'))) {
+                return;
+            }
+        }
+        onStartExpedition(expId);
+  };
+
   const content = character.activeExpedition ? (
       <ContentPanel title={t('expedition.inProgressTitle')}>
           <ActiveExpeditionPanel 
@@ -1029,7 +1040,7 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
                         </div>
                     </div>
                     <button
-                        onClick={() => onStartExpedition(exp.id)}
+                        onClick={() => handleStartExpedition(exp.id)}
                         disabled={!canAfford || character.isResting || !!character.activeTravel}
                         className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200"
                     >
