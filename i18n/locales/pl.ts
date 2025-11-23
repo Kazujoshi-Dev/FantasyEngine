@@ -191,6 +191,18 @@ export default {
              mainHand: 'Główna ręka',
              offHand: 'Druga ręka',
              twoHand: 'Dwuręczna'
+        },
+        magic: {
+            Fireball: 'Kula Ognia',
+            LightningStrike: 'Piorun',
+            ShadowBolt: 'Pocisk Cienia',
+            FrostWave: 'Fala Mrozu',
+            ChainLightning: 'Łańcuch Błyskawic',
+            IceLance: 'Lodowa Lanca',
+            ArcaneMissile: 'Magiczny Pocisk',
+            LifeDrain: 'Wyssanie Życia',
+            MeteorSwarm: 'Deszcz Meteorów',
+            Earthquake: 'Trzęsienie Ziemi',
         }
     },
     equipment: {
@@ -229,18 +241,6 @@ export default {
             offHand: 'Druga ręka',
             twoHand: 'Dwuręczna',
             consumable: 'Użytkowy'
-        },
-        magic: {
-            Fireball: 'Kula Ognia',
-            LightningStrike: 'Piorun',
-            ShadowBolt: 'Pocisk Cienia',
-            FrostWave: 'Fala Mrozu',
-            ChainLightning: 'Łańcuch Błyskawic',
-            IceLance: 'Lodowa Lanca',
-            ArcaneMissile: 'Magiczny Pocisk',
-            LifeDrain: 'Wyssanie Życia',
-            MeteorSwarm: 'Deszcz Meteorów',
-            Earthquake: 'Trzęsienie Ziemi',
         }
     },
     rarity: {

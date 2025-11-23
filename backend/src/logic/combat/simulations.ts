@@ -40,6 +40,35 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
+        // --- Turn Start: Mana Regeneration ---
+        const playerManaRegen = playerState.stats.manaRegen || 0;
+        if (playerManaRegen > 0) {
+            const newMana = Math.min(playerState.stats.maxMana, playerState.currentMana + playerManaRegen);
+            const manaGained = newMana - playerState.currentMana;
+            if (manaGained > 0) {
+                playerState.currentMana = newMana;
+                log.push({
+                    turn, attacker: playerState.name, defender: '', action: 'manaRegen', manaGained,
+                    playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+                    enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana,
+                });
+            }
+        }
+
+        const enemyManaRegen = enemyState.stats.manaRegen || 0;
+        if (enemyManaRegen > 0) {
+            const newMana = Math.min(enemyState.stats.maxMana || 0, enemyState.currentMana + enemyManaRegen);
+            const manaGained = newMana - enemyState.currentMana;
+            if (manaGained > 0) {
+                enemyState.currentMana = newMana;
+                log.push({
+                    turn, attacker: enemyState.name, defender: '', action: 'manaRegen', manaGained,
+                    playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+                    enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana,
+                });
+            }
+        }
+
         // Player's turn
         if (playerAttacksFirst) {
             const result = performAttack(playerState, enemyState, turn, gameData);
@@ -132,6 +161,41 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
     while (playerState.currentHealth > 0 && enemiesState.some(e => e.currentHealth > 0) && turn < 100) {
         turn++;
         
+        // --- Turn Start: Mana Regeneration ---
+        const playerManaRegen = playerState.stats.manaRegen || 0;
+        if (playerManaRegen > 0) {
+            const newMana = Math.min(playerState.stats.maxMana, playerState.currentMana + playerManaRegen);
+            const manaGained = newMana - playerState.currentMana;
+            if (manaGained > 0) {
+                playerState.currentMana = newMana;
+                log.push({
+                    turn, attacker: playerState.name, defender: '', action: 'manaRegen', manaGained,
+                    playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+                    enemyHealth: -1, enemyMana: -1, // Not relevant for this log type
+                    allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
+                });
+            }
+        }
+
+        enemiesState.forEach(enemyState => {
+            if (enemyState.currentHealth > 0) {
+                const enemyManaRegen = enemyState.stats.manaRegen || 0;
+                if (enemyManaRegen > 0) {
+                    const newMana = Math.min(enemyState.stats.maxMana || 0, enemyState.currentMana + enemyManaRegen);
+                    const manaGained = newMana - enemyState.currentMana;
+                    if (manaGained > 0) {
+                        enemyState.currentMana = newMana;
+                        log.push({
+                            turn, attacker: enemyState.name, defender: '', action: 'manaRegen', manaGained,
+                            playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+                            enemyHealth: -1, enemyMana: -1,
+                            allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
+                        });
+                    }
+                }
+            }
+        });
+
         // Player's turn
         for (let i = 0; i < playerState.stats.attacksPerRound; i++) {
             const livingEnemies = enemiesState.filter(e => e.currentHealth > 0);

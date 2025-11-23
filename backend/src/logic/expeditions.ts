@@ -37,6 +37,16 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     // 2. Simulate combat and gather logs/results
     const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || []);
     
+    // Create a combat-ready version of the character with full mana for the simulation.
+    // Health carries over from the character's state before the expedition.
+    const combatReadyCharacter = {
+        ...characterWithStats,
+        stats: {
+            ...characterWithStats.stats,
+            currentMana: characterWithStats.stats.maxMana
+        }
+    };
+    
     let fullCombatLog: CombatLogEntry[] = [];
     let finalPlayerHealth: number;
     let finalPlayerMana: number;
@@ -44,7 +54,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
 
     if (encounteredEnemies.length > 1) {
         // Use group combat for multiple enemies
-        const { combatLog } = simulate1vManyCombat(characterWithStats, encounteredEnemies, gameData);
+        const { combatLog } = simulate1vManyCombat(combatReadyCharacter, encounteredEnemies, gameData);
         fullCombatLog = combatLog;
         const lastLog = combatLog[combatLog.length -1];
         finalPlayerHealth = lastLog.playerHealth;
@@ -53,7 +63,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
 
     } else if (encounteredEnemies.length === 1) {
         // Use single combat for one enemy
-        const singleCombatLog = simulate1v1Combat(characterWithStats, encounteredEnemies[0], gameData);
+        const singleCombatLog = simulate1v1Combat(combatReadyCharacter, encounteredEnemies[0], gameData);
         fullCombatLog = singleCombatLog;
         const lastLog = singleCombatLog.length > 0 ? singleCombatLog[singleCombatLog.length - 1] : null;
         if (lastLog) {
