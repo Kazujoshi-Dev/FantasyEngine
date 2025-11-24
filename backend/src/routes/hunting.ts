@@ -68,14 +68,14 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
         
-        // Step 2: After any potential changes, check if party is null. If so, exit.
-        if (!party) {
+        // Step 2: After any potential changes, assign to a const and check for null.
+        // This pattern helps TypeScript's control flow analysis.
+        const currentParty = party;
+        if (!currentParty) {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
 
-        // Step 3: All subsequent logic is now safe.
-        const currentParty: HuntingParty = party;
-
+        // Step 3: All subsequent logic is now safe and uses the narrowed `currentParty`.
         if (currentParty.status === PartyStatus.Finished) {
             const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [currentParty.id]);
             const rewardsRaw = rewardsRes.rows[0]?.rewards;
