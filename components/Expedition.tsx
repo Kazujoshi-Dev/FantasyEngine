@@ -83,12 +83,10 @@ const CombatLogRow: React.FC<{
     };
     
     if (log.action === 'effectApplied') {
-// @FIX: Changed `effectText` to be of type `React.ReactNode` to support JSX.
         let effectText: React.ReactNode = '';
         let textColor = 'text-yellow-400 italic';
         switch (log.effectApplied) {
             case 'burning':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const defenderNode = renderName(log.defender);
                 const effectStr = t('expedition.combatLog.effect.burning');
                 const template = t('expedition.combatLog.effect.applied').replace('{effect}', effectStr);
@@ -97,7 +95,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-orange-500 italic';
                 break;
             case 'burningTarget':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const targetNode = renderName(log.defender);
                 const template2 = t('expedition.combatLog.effect.burningTarget').replace('{damage}', String(log.damage));
                 const parts2 = template2.split('{target}');
@@ -105,7 +102,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-orange-400 italic';
                 break;
             case 'frozen_no_attack':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const attackerNode = renderName(log.attacker);
                 const template3 = t('expedition.combatLog.effect.frozen_no_attack');
                 const parts3 = template3.split('{target}');
@@ -113,7 +109,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-cyan-400 italic';
                 break;
             case 'frozen_no_dodge':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const defenderNode4 = renderName(log.defender);
                 const effectStr4 = t('expedition.combatLog.effect.frozen_no_dodge');
                 const template4 = t('expedition.combatLog.effect.applied').replace('{effect}', effectStr4);
@@ -122,7 +117,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-cyan-500 italic';
                 break;
             case 'reduced_attacks':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const targetNode5 = renderName(log.defender);
                 const template5 = t('expedition.combatLog.effect.reduced_attacks');
                 const parts5 = template5.split('{target}');
@@ -138,7 +132,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-pink-400 italic';
                 break;
             case 'chainLightningJump':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const targetNode6 = renderName(log.defender);
                 const template6 = t('expedition.combatLog.effect.chainLightningJump').replace('{damage}', String(log.damage));
                 const parts6 = template6.split('{target}');
@@ -146,7 +139,6 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-blue-400 italic';
                 break;
             case 'earthquakeSplash':
-// @FIX: Restructured to build JSX outside of the `t` function to avoid passing an element as a parameter.
                 const targetNode7 = renderName(log.defender);
                 const template7 = t('expedition.combatLog.effect.earthquakeSplash').replace('{damage}', String(log.damage));
                 const parts7 = template7.split('{target}');
@@ -856,7 +848,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
-// @FIX: Changed the onClick handler to call `handleCopyLink` without arguments, as it already has access to `messageId` from its scope.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
