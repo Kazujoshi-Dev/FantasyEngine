@@ -48,25 +48,27 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         let party = await getPartyByMember(req.user.id);
 
         // Handle combat processing which might change the party state or make it null
-        if (party && party.status === PartyStatus.Preparing && party.startTime) {
+        if (party && party.status === PartyStatus.Preparing) {
             const partyInPreparation = party;
-            const gameData = await getGameData();
-            const boss = gameData.enemies.find(e => e.id === partyInPreparation.bossId);
-            const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
-            const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
-            const fightStartTime = new Date(partyInPreparation.startTime).getTime() + PREPARATION_DURATION_MS;
+            if (partyInPreparation.startTime) {
+                const gameData = await getGameData();
+                const boss = gameData.enemies.find(e => e.id === partyInPreparation.bossId);
+                const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
+                const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
+                const fightStartTime = new Date(partyInPreparation.startTime).getTime() + PREPARATION_DURATION_MS;
              
-            if (new Date().getTime() >= fightStartTime) {
-                const lockResult = await pool.query(
-                    "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
-                    [partyInPreparation.id]
-                );
-                if (lockResult.rowCount === 1) {
-                    // Re-assign the outer 'let' variable with the result
-                    party = await processPartyCombat(partyInPreparation, gameData);
-                } else {
-                    // Re-assign the outer 'let' variable, which might become null
-                    party = await getPartyByMember(req.user.id);
+                if (new Date().getTime() >= fightStartTime) {
+                    const lockResult = await pool.query(
+                        "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
+                        [partyInPreparation.id]
+                    );
+                    if (lockResult.rowCount === 1) {
+                        // Re-assign the outer 'let' variable with the result
+                        party = await processPartyCombat(partyInPreparation, gameData);
+                    } else {
+                        // Re-assign the outer 'let' variable, which might become null
+                        party = await getPartyByMember(req.user.id);
+                    }
                 }
             }
         }
