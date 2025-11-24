@@ -196,13 +196,22 @@ export const performAttack = <
             case MagicAttackType.ShadowBolt:
                 if (attackerIsPlayer) {
                     const currentStacks = attacker.shadowBoltStacks || 0;
-                    if (currentStacks > 0) {
-                        const bonus = 1 + (currentStacks * 0.05);
-                        damage = Math.floor(damage * bonus);
-                    }
+                    
+                    // Apply bonus damage based on current stacks (for THIS hit)
+                    const bonus = 1 + (currentStacks * 0.05);
+                    damage = Math.floor(damage * bonus);
+                    
+                    // Increment stacks for the NEXT attack and push the log message
                     if (currentStacks < 5) {
                         attacker.shadowBoltStacks = currentStacks + 1;
-                        logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'shadowBoltStack', ...getHealthState(attacker, defender) });
+                        logs.push({
+                            turn,
+                            attacker: attacker.name,
+                            defender: '',
+                            action: 'effectApplied',
+                            effectApplied: 'shadowBoltStack',
+                            ...getHealthState(attacker, defender)
+                        });
                     }
                 }
                 break;
