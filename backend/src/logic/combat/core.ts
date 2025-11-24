@@ -80,7 +80,7 @@ export const performAttack = <
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
 
-    let tempDodgeChance = 'dodgeChance' in defender.stats ? defender.stats.dodgeChance : 0;
+    let tempDodgeChance = defender.stats.dodgeChance || 0;
     if (defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
     }
