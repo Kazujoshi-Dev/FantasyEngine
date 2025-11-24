@@ -59,7 +59,8 @@ export const ItemDetailsPanel: React.FC<{
             return {
                 ...item.rolledBaseStats,
                 attacksPerRound: template.attacksPerRound,
-                manaCost: template.manaCost
+                manaCost: template.manaCost,
+                magicAttackType: template.magicAttackType
             };
         }
         return template;
@@ -114,6 +115,7 @@ export const ItemDetailsPanel: React.FC<{
             (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${s.manaStealFlat || 0}`},
             (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
             (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
+            (s.magicAttackType !== undefined) && {label: t('item.magicAttackType'), value: t(`item.magic.${s.magicAttackType}`), color: 'text-purple-300', valueClass: 'font-semibold'},
             (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
         ].filter(Boolean);
 
@@ -122,7 +124,12 @@ export const ItemDetailsPanel: React.FC<{
         return (
              <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
                 {title && <h5 className={`font-semibold text-gray-400 ${isSmall ? 'text-sm' : 'text-base'}`}>{title}</h5>}
-                {entries.map((e, i) => <p key={i} className={`flex justify-between ${(e as { color?: string }).color || ''}`}><span>{e.label}:</span> <span className="font-mono">{e.value}</span></p>)}
+                {entries.map((e, i) => (
+                    <p key={i} className={`flex justify-between ${(e as { color?: string }).color || ''}`}>
+                        <span>{e.label}:</span> 
+                        <span className={`${(e as { valueClass?: string }).valueClass || 'font-mono'}`}>{e.value}</span>
+                    </p>
+                ))}
             </div>
         )
     }
@@ -150,14 +157,6 @@ export const ItemDetailsPanel: React.FC<{
                 </div>
 
                 {baseStatsSource && <StatSection source={baseStatsSource} isUpgrade={true} />}
-                {template.magicAttackType && (
-                    <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
-                         <p className={`flex justify-between text-purple-300`}>
-                            <span>{t('item.magicAttackType')}:</span>
-                            <span className="font-semibold">{t(`item.magic.${template.magicAttackType}`)}</span>
-                        </p>
-                    </div>
-                )}
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isUpgrade={false} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isUpgrade={false} />}
 

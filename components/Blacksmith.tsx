@@ -106,11 +106,13 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    const { upgradeLevel, finalDamageMin, finalDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost } = useMemo(() => {
+    const { upgradeLevel, finalDamageMin, finalDamageMax, finalMagicDamageMin, finalMagicDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { 
             upgradeLevel: 0,
             finalDamageMin: 0,
             finalDamageMax: 0,
+            finalMagicDamageMin: 0,
+            finalMagicDamageMax: 0,
             finalCritChanceBonus: 0,
             attacksPerRound: undefined,
             finalArmorBonus: 0,
@@ -142,6 +144,8 @@ const DisenchantPanel: React.FC<{
             upgradeLevel,
             finalDamageMin: calculateUpgradedStat(getMaxValue(selectedTemplate.damageMin as any)),
             finalDamageMax: calculateUpgradedStat(getMaxValue(selectedTemplate.damageMax as any)),
+            finalMagicDamageMin: calculateUpgradedStat(getMaxValue(selectedTemplate.magicDamageMin as any)),
+            finalMagicDamageMax: calculateUpgradedStat(getMaxValue(selectedTemplate.magicDamageMax as any)),
             finalCritChanceBonus: calculateUpgradedFloatStat(getMaxValue(selectedTemplate.critChanceBonus as any)),
             attacksPerRound: selectedTemplate.attacksPerRound,
             finalArmorBonus: calculateUpgradedStat(getMaxValue(selectedTemplate.armorBonus as any)),
@@ -185,6 +189,7 @@ const DisenchantPanel: React.FC<{
 
                             <div className="space-y-1 text-sm border-t border-slate-700/50 pt-2">
                                 {finalDamageMin !== 0 && finalDamageMax !== 0 && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
+                                {finalMagicDamageMin !== 0 && finalMagicDamageMax !== 0 && <p className="flex justify-between text-purple-300"><span>{t('statistics.magicDamage')}:</span> <span className="font-mono">{finalMagicDamageMin}-{finalMagicDamageMax}</span></p>}
                                 {manaCost && <p className="flex justify-between text-cyan-300"><span>{t('item.manaCost')}:</span> <span className="font-mono">{manaCost.min === manaCost.max ? manaCost.min : `${manaCost.min}-${manaCost.max}`}</span></p>}
                                 {selectedTemplate.magicAttackType && <p className="flex justify-between text-purple-300"><span>{t('item.magicAttackType')}:</span> <span className="font-semibold">{t(`item.magic.${selectedTemplate.magicAttackType}`)}</span></p>}
                                 {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
