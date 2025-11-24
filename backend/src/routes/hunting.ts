@@ -83,6 +83,11 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
              }
         }
         
+        // Ensure party is not null before proceeding
+        if (!party) {
+            return res.json({ party: null, serverTime: new Date().toISOString() });
+        }
+
         // Inject rewards specific to this user if finished
         if (party.status === PartyStatus.Finished) {
             // Re-fetch rewards if we came from the "lost race" branch above to ensure we have the data
@@ -96,7 +101,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             
             // All rewards summary (for leaderboard)
             if (rewardsRaw) {
-                 const allRewards: Record<string, { gold: number, experience: number }> = {};
+                 const allRewards: Record<string, { gold: number; experience: number }> = {};
                  party.members.forEach(member => {
                      if(rewardsRaw[member.userId]) {
                          allRewards[member.characterName] = {
