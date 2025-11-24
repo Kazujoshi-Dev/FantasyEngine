@@ -232,7 +232,6 @@ export const performAttack = <
             case MagicAttackType.ArcaneMissile:
                 if (attackerIsPlayer) {
                     const bonusDamage = Math.floor((attacker.stats as CharacterStats).maxMana * 0.5);
-                    damage += bonusDamage;
                     arcaneMissileBonusDamage = bonusDamage;
                     logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'arcaneMissileBonus', damage: bonusDamage, ...getHealthState(attacker, defender) });
                 }
@@ -268,12 +267,13 @@ export const performAttack = <
         }
     }
     
-    defender.currentHealth = Math.max(0, defender.currentHealth - damage);
+    const totalDamage = damage + arcaneMissileBonusDamage;
+    defender.currentHealth = Math.max(0, defender.currentHealth - totalDamage);
 
     const finalLogEntry: CombatLogEntry = {
         turn, attacker: attacker.name, defender: defender.name,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
-        damage: damage - arcaneMissileBonusDamage,
+        damage: damage,
         isCrit,
         damageReduced: damageReduced > 0 ? damageReduced : undefined,
         healthGained: healthGained > 0 ? healthGained : undefined,
