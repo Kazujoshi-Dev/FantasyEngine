@@ -79,6 +79,7 @@ export const performAttack = <
     let magicAttackType: MagicAttackType | undefined = undefined;
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
+    let arcaneMissileBonusDamage = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
@@ -232,6 +233,7 @@ export const performAttack = <
                 if (attackerIsPlayer) {
                     const bonusDamage = Math.floor((attacker.stats as CharacterStats).maxMana * 0.5);
                     damage += bonusDamage;
+                    arcaneMissileBonusDamage = bonusDamage;
                     logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'arcaneMissileBonus', damage: bonusDamage, ...getHealthState(attacker, defender) });
                 }
                 break;
@@ -271,7 +273,8 @@ export const performAttack = <
     const finalLogEntry: CombatLogEntry = {
         turn, attacker: attacker.name, defender: defender.name,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
-        damage, isCrit,
+        damage: damage - arcaneMissileBonusDamage,
+        isCrit,
         damageReduced: damageReduced > 0 ? damageReduced : undefined,
         healthGained: healthGained > 0 ? healthGained : undefined,
         manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined,
