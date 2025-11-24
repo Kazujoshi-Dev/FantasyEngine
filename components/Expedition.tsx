@@ -127,6 +127,10 @@ const CombatLogRow: React.FC<{
                 effectText = t('expedition.combatLog.effect.shadowBoltStack');
                 textColor = 'text-purple-400 italic';
                 break;
+            case 'shadowBoltMaxStacks':
+                effectText = t('expedition.combatLog.effect.shadowBoltMaxStacks');
+                textColor = 'text-purple-300 font-bold italic';
+                break;
             case 'arcaneMissileBonus':
                 effectText = t('expedition.combatLog.effect.arcaneMissileBonus', { damage: log.damage });
                 textColor = 'text-pink-400 italic';
