@@ -205,7 +205,7 @@ export default {
             Earthquake: 'Trzęsienie Ziemi',
         },
         magicDescriptions: {
-            Fireball: 'Zadaje obrażenia od ognia. Ma 25% szans na podpalenie celu, które zadaje obrażenia przez 2 tury.',
+            Fireball: 'Zadaje obrażenia od ognia. Ma 25% szans na podpalenie celu, które zadaje obrażenia przez 2 tury w postaci 5% maksymalnego zdrowia celu.',
             LightningStrike: 'Zadaje obrażenia od błyskawic. Ma 15% szans na spowolnienie celu, co redukuje jego liczbę ataków na turę.',
             ShadowBolt: 'Zadaje obrażenia od cienia. Każde kolejne użycie tego ataku w tej samej walce zwiększa jego obrażenia o 5%.',
             FrostWave: 'Zadaje obrażenia od zimna. Ma 20% szans na nałożenie efektu mrozu, który uniemożliwia celowi uniki przez 2 tury.',
