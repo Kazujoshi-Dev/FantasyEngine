@@ -108,6 +108,14 @@ const CombatLogRow: React.FC<{
                 effectText = <>{parts3[0]}{attackerNode}{parts3[1]}</>;
                 textColor = 'text-cyan-400 italic';
                 break;
+            case 'frozen':
+                const defenderNodeFreeze = renderName(log.defender);
+                const effectStrFreeze = t('expedition.combatLog.effect.frozen');
+                const templateFreeze = t('expedition.combatLog.effect.applied').replace('{effect}', effectStrFreeze);
+                const partsFreeze = templateFreeze.split('{defender}');
+                effectText = <>{partsFreeze[0]}{defenderNodeFreeze}{partsFreeze[1]}</>;
+                textColor = 'text-cyan-400 italic';
+                break;
             case 'frozen_no_dodge':
                 const defenderNode4 = renderName(log.defender);
                 const effectStr4 = t('expedition.combatLog.effect.frozen_no_dodge');

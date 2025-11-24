@@ -327,6 +327,7 @@ export default {
                 applied: '{defender} zostaje {effect}!',
                 burningTarget: '{target} płonie, tracąc {damage} HP.',
                 frozen_no_attack: '{target} jest zamrożony i nie może atakować!',
+                frozen: 'zamrożony',
                 frozen_no_dodge: 'zamrożony',
                 burning: 'podpalony',
                 reduced_attacks_effect: 'spowolniony',
