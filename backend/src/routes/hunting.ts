@@ -49,7 +49,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
 
         // Handle combat processing which might change the party state or make it null
         if (party && party.status === PartyStatus.Preparing && party.startTime) {
-            const partyInPreparation = party; // Use a const for type safety within this block
+            const partyInPreparation = party;
             const gameData = await getGameData();
             const boss = gameData.enemies.find(e => e.id === partyInPreparation.bossId);
             const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
