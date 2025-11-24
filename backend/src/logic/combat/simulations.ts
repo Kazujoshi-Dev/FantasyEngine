@@ -55,6 +55,26 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             playerHealth: pState.currentHealth, playerMana: pState.currentMana,
             enemyHealth: eState.currentHealth, enemyMana: eState.currentMana
         });
+
+        // --- Shaman Class Power ---
+        if (playerData.characterClass === CharacterClass.Shaman && turn > 0) {
+            const damage = Math.floor(playerState.currentMana);
+            if (damage > 0) {
+                enemyState.currentHealth = Math.max(0, enemyState.currentHealth - damage);
+                log.push({
+                    turn,
+                    attacker: playerState.name,
+                    defender: enemyState.name,
+                    action: 'shaman_power',
+                    damage,
+                    ...getHealthState(playerState, enemyState)
+                });
+                if (enemyState.currentHealth <= 0) {
+                    log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...getHealthState(playerState, enemyState) });
+                    break; 
+                }
+            }
+        }
         
         // --- Turn Start Effects & Mana Regen ---
         const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
@@ -190,6 +210,31 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
             enemyMana: 0,
             allEnemiesHealth: enemiesState.map(e => ({ uniqueId: e.uniqueId, name: e.name, currentHealth: e.currentHealth, maxHealth: e.stats.maxHealth }))
         });
+
+        // --- Shaman Class Power ---
+        if (playerData.characterClass === CharacterClass.Shaman && turn > 0) {
+            const livingEnemies = enemiesState.filter(e => e.currentHealth > 0);
+            if (livingEnemies.length > 0) {
+                const damage = Math.floor(playerState.currentMana);
+                if (damage > 0) {
+                    const target = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
+                    const targetIndex = enemiesState.findIndex(e => e.uniqueId === target.uniqueId);
+                    
+                    enemiesState[targetIndex].currentHealth = Math.max(0, enemiesState[targetIndex].currentHealth - damage);
+                    log.push({
+                        turn,
+                        attacker: playerState.name,
+                        defender: enemiesState[targetIndex].name,
+                        action: 'shaman_power',
+                        damage,
+                        ...getHealthState()
+                    });
+                     if (enemiesState[targetIndex].currentHealth <= 0) {
+                        log.push({ turn, attacker: playerState.name, defender: enemiesState[targetIndex].name, action: 'enemy_death', ...getHealthState() });
+                    }
+                }
+            }
+        }
 
         // --- Turn Start Effects & Mana Regen for all combatants ---
         const allCombatants: (AttackerState | (AttackerState & { uniqueId: string }))[] = [playerState, ...enemiesState.filter(e => e.currentHealth > 0)];
