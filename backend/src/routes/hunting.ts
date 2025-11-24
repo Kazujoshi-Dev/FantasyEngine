@@ -1,5 +1,3 @@
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -63,43 +61,36 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
              const fightStartTime = new Date(party.startTime).getTime() + PREPARATION_DURATION_MS;
              
              if (new Date().getTime() >= fightStartTime) {
-                 // Atomic Lock: Try to update status to FIGHTING. 
-                 // Only one request will succeed (rowCount === 1).
                  const lockResult = await pool.query(
                      "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
                      [party.id]
                  );
 
                  if (lockResult.rowCount === 1) {
-                     // We won the race. Process combat.
-                     // processPartyCombat updates DB to FINISHED at the end.
                      party = await processPartyCombat(party, gameData);
                  } else {
-                     // We lost the race (someone else is processing) or it's already finished.
-                     // Fetch the updated state from DB.
-                     const updatedParty = await getPartyByMember(req.user.id);
-                     if (updatedParty) party = updatedParty;
+                     // Re-fetch the party state, as another process has handled it.
+                     // This can result in `party` becoming `null` if the party was deleted/finished.
+                     party = await getPartyByMember(req.user.id);
                  }
              }
         }
         
-        // Ensure party is not null before proceeding
+        // Definitive fix: After the block where `party` can be reassigned, check for null.
+        // This ensures TypeScript knows `party` is not null for all subsequent code.
         if (!party) {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
 
-        // Inject rewards specific to this user if finished
+        // Now `party` is guaranteed to be a valid object here.
         if (party.status === PartyStatus.Finished) {
-            // Re-fetch rewards if we came from the "lost race" branch above to ensure we have the data
             const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id]);
             const rewardsRaw = rewardsRes.rows[0]?.rewards;
             
-            // Personal rewards
             if (rewardsRaw && rewardsRaw[req.user.id]) {
                 party.myRewards = rewardsRaw[req.user.id];
             }
             
-            // All rewards summary (for leaderboard)
             if (rewardsRaw) {
                  const allRewards: Record<string, { gold: number; experience: number }> = {};
                  party.members.forEach(member => {
@@ -115,8 +106,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         }
 
         // Hydrate members with derived stats for Tooltips
-        // We need to fetch the current character state for each member to calculate accurate stats
-        // Note: This adds DB load but is necessary for the UI to show correct values.
         for (const member of party.members) {
             const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
             if (charRes.rows.length > 0) {
@@ -215,8 +204,6 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
         
         if (action === 'reject' || action === 'kick') {
             members = members.filter(m => m.userId !== userId);
-            // If full and someone kicked, ensure status is FORMING (in case it was PREPARING)
-            // Though PREPARING usually implies full accepted.
         } else if (action === 'accept') {
             const memberIndex = members.findIndex(m => m.userId === userId);
             if (memberIndex !== -1) {
@@ -233,7 +220,6 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
             newStatus = 'PREPARING';
             startTime = new Date().toISOString();
         } else if (acceptedCount < party.max_members && party.status === 'PREPARING') {
-            // Someone left/kicked during countdown
             newStatus = 'FORMING';
             startTime = null;
         }
@@ -262,20 +248,16 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
         const isLeader = party.leader_id === req.user.id;
         const isFinished = party.status === 'FINISHED';
 
-        // Leader leaves a FORMING or PREPARING party -> Dissolve
         if (isLeader && !isFinished) {
             await pool.query('DELETE FROM hunting_parties WHERE id = $1', [party.id]);
         } else {
-            // Member leaves, OR Leader leaves a FINISHED party
             let members = party.members.filter((m: any) => m.userId !== req.user.id);
 
             if (members.length === 0) {
-                // Last member is leaving, delete the party record.
                 await pool.query('DELETE FROM hunting_parties WHERE id = $1', [party.id]);
             } else {
                 let newStatus = party.status;
                 let startTime = party.start_time;
-                // If a member leaves during PREPARING, revert to FORMING.
                 if (party.status === 'PREPARING') {
                      newStatus = 'FORMING';
                      startTime = null;
@@ -291,6 +273,5 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
         res.status(500).json({ message: 'Failed to leave party' });
     }
 });
-
 
 export default router;
