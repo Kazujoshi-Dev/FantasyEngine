@@ -46,54 +46,47 @@ router.get('/parties', authenticateToken, async (req: any, res: any) => {
 router.get('/my-party', authenticateToken, async (req: any, res: any) => {
     try {
         let party = await getPartyByMember(req.user.id);
-        
-        if (!party) {
-            return res.json({ party: null, serverTime: new Date().toISOString() });
-        }
-        
-        const gameData = await getGameData();
-        const boss = gameData.enemies.find(e => e.id === party.bossId);
-        const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30; // Default 30s
-        const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
 
-        // Check if fight should start (Logic check on read)
-        if (party.status === PartyStatus.Preparing && party.startTime) {
-             const fightStartTime = new Date(party.startTime).getTime() + PREPARATION_DURATION_MS;
+        // Step 1: Handle combat processing which might change the party state or make it null
+        if (party && party.status === PartyStatus.Preparing && party.startTime) {
+            const gameData = await getGameData();
+            const boss = gameData.enemies.find(e => e.id === party.bossId);
+            const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
+            const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
+            const fightStartTime = new Date(party.startTime).getTime() + PREPARATION_DURATION_MS;
              
-             if (new Date().getTime() >= fightStartTime) {
-                 const lockResult = await pool.query(
-                     "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
-                     [party.id]
-                 );
-
-                 if (lockResult.rowCount === 1) {
-                     party = await processPartyCombat(party, gameData);
-                 } else {
-                     // Re-fetch the party state, as another process has handled it.
-                     // This can result in `party` becoming `null` if the party was deleted/finished.
-                     party = await getPartyByMember(req.user.id);
-                 }
-             }
+            if (new Date().getTime() >= fightStartTime) {
+                const lockResult = await pool.query(
+                    "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
+                    [party.id]
+                );
+                if (lockResult.rowCount === 1) {
+                    party = await processPartyCombat(party, gameData);
+                } else {
+                    party = await getPartyByMember(req.user.id);
+                }
+            }
         }
         
-        // Definitive fix: After the block where `party` can be reassigned, check for null.
-        // This ensures TypeScript knows `party` is not null for all subsequent code.
+        // Step 2: After any potential changes, check if party is null. If so, exit.
         if (!party) {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
 
-        // Now `party` is guaranteed to be a valid object here.
-        if (party.status === PartyStatus.Finished) {
-            const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id]);
+        // Step 3: All subsequent logic is now safe.
+        const currentParty: HuntingParty = party;
+
+        if (currentParty.status === PartyStatus.Finished) {
+            const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [currentParty.id]);
             const rewardsRaw = rewardsRes.rows[0]?.rewards;
             
             if (rewardsRaw && rewardsRaw[req.user.id]) {
-                party.myRewards = rewardsRaw[req.user.id];
+                currentParty.myRewards = rewardsRaw[req.user.id];
             }
             
             if (rewardsRaw) {
                  const allRewards: Record<string, { gold: number; experience: number }> = {};
-                 party.members.forEach(member => {
+                 currentParty.members.forEach(member => {
                      if(rewardsRaw[member.userId]) {
                          allRewards[member.characterName] = {
                              gold: rewardsRaw[member.userId].gold,
@@ -101,12 +94,13 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                          }
                      }
                  });
-                 party.allRewards = allRewards;
+                 currentParty.allRewards = allRewards;
             }
         }
 
         // Hydrate members with derived stats for Tooltips
-        for (const member of party.members) {
+        const gameData = await getGameData();
+        for (const member of currentParty.members) {
             const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
             if (charRes.rows.length > 0) {
                 const rawChar: PlayerCharacter = charRes.rows[0].data;
@@ -115,12 +109,13 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
 
-        res.json({ party, serverTime: new Date().toISOString() });
+        res.json({ party: currentParty, serverTime: new Date().toISOString() });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch party status' });
     }
 });
+
 
 // POST /api/hunting/create - Create a new party
 router.post('/create', authenticateToken, async (req: any, res: any) => {
