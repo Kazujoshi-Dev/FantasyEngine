@@ -224,7 +224,7 @@ export const performAttack = <
                 break;
             case MagicAttackType.IceLance:
                 if (Math.random() * 100 < 10) {
-                    defender.statusEffects.push({ type: 'frozen_no_attack', duration: 1 });
+                    defender.statusEffects.push({ type: 'frozen_no_attack', duration: 2 });
                     logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(attacker, defender) });
                 }
                 break;
