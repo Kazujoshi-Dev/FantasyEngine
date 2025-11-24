@@ -195,10 +195,15 @@ export const performAttack = <
                 break;
             case MagicAttackType.ShadowBolt:
                 if (attackerIsPlayer) {
-                    attacker.shadowBoltStacks = Math.min(5, (attacker.shadowBoltStacks || 0) + 1);
-                    const bonus = 1 + (attacker.shadowBoltStacks * 0.05);
-                    damage = Math.floor(damage * bonus);
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'shadowBoltStack', ...getHealthState(attacker, defender) });
+                    const currentStacks = attacker.shadowBoltStacks || 0;
+                    if (currentStacks > 0) {
+                        const bonus = 1 + (currentStacks * 0.05);
+                        damage = Math.floor(damage * bonus);
+                    }
+                    if (currentStacks < 5) {
+                        attacker.shadowBoltStacks = currentStacks + 1;
+                        logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'shadowBoltStack', ...getHealthState(attacker, defender) });
+                    }
                 }
                 break;
             case MagicAttackType.FrostWave:
