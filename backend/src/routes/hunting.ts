@@ -47,7 +47,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
     try {
         let party = await getPartyByMember(req.user.id);
 
-        // Step 1: Handle combat processing which might change the party state or make it null
+        // Handle combat processing which might change the party state or make it null
         if (party && party.status === PartyStatus.Preparing && party.startTime) {
             const gameData = await getGameData();
             const boss = gameData.enemies.find(e => e.id === party.bossId);
@@ -68,25 +68,23 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
         
-        // Step 2: After any potential changes, assign to a const and check for null.
-        // This pattern helps TypeScript's control flow analysis.
-        const currentParty = party;
-        if (!currentParty) {
+        // After potential changes, check for null. This narrows the type for the rest of the function.
+        if (!party) {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
 
-        // Step 3: All subsequent logic is now safe and uses the narrowed `currentParty`.
-        if (currentParty.status === PartyStatus.Finished) {
-            const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [currentParty.id]);
+        // All subsequent logic is now safe.
+        if (party.status === PartyStatus.Finished) {
+            const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id]);
             const rewardsRaw = rewardsRes.rows[0]?.rewards;
             
             if (rewardsRaw && rewardsRaw[req.user.id]) {
-                currentParty.myRewards = rewardsRaw[req.user.id];
+                party.myRewards = rewardsRaw[req.user.id];
             }
             
             if (rewardsRaw) {
                  const allRewards: Record<string, { gold: number; experience: number }> = {};
-                 currentParty.members.forEach(member => {
+                 party.members.forEach(member => {
                      if(rewardsRaw[member.userId]) {
                          allRewards[member.characterName] = {
                              gold: rewardsRaw[member.userId].gold,
@@ -94,13 +92,13 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                          }
                      }
                  });
-                 currentParty.allRewards = allRewards;
+                 party.allRewards = allRewards;
             }
         }
 
         // Hydrate members with derived stats for Tooltips
         const gameData = await getGameData();
-        for (const member of currentParty.members) {
+        for (const member of party.members) {
             const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
             if (charRes.rows.length > 0) {
                 const rawChar: PlayerCharacter = charRes.rows[0].data;
@@ -109,7 +107,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
 
-        res.json({ party: currentParty, serverTime: new Date().toISOString() });
+        res.json({ party: party, serverTime: new Date().toISOString() });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch party status' });
