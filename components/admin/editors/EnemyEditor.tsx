@@ -21,6 +21,7 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
             critChance: 5,
             critDamageModifier: 150,
             agility: 5,
+            dodgeChance: 0,
             maxMana: 0,
             manaRegen: 0,
             magicDamageMin: 0,
@@ -127,6 +128,7 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
                 <div><label>Szansa na Kryt. (%):<input name="critChance" type="number" step="0.1" value={formData.stats?.critChance || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>Modyfikator Obr. Kryt. (%):<input name="critDamageModifier" type="number" value={formData.stats?.critDamageModifier || 150} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>Zręczność:<input name="agility" type="number" value={formData.stats?.agility || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>Szansa na Unik (%):<input name="dodgeChance" type="number" step="0.1" value={formData.stats?.dodgeChance ?? 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>Ataki/turę:<input name="attacksPerTurn" type="number" step="0.1" value={formData.stats?.attacksPerTurn || 1} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </fieldset>
 

@@ -54,6 +54,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
                 critChance: defenderWithStats.stats.critChance,
                 critDamageModifier: defenderWithStats.stats.critDamageModifier,
                 agility: defenderWithStats.stats.agility,
+                dodgeChance: defenderWithStats.stats.dodgeChance,
                 maxMana: defenderWithStats.stats.maxMana,
                 manaRegen: defenderWithStats.stats.manaRegen,
                 magicDamageMin: defenderWithStats.stats.magicDamageMin,

@@ -30,6 +30,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
             critChance: 10,
             critDamageModifier: 200,
             agility: 10,
+            dodgeChance: 0,
             maxMana: 50,
             manaRegen: 5,
             magicDamageMin: 0,
@@ -162,6 +163,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                         <div><label>Szansa Kryt. (%):<input name="critChance" type="number" step="0.1" value={formData.stats?.critChance || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                         <div><label>Modyfikator Kryt (%):<input name="critDamageModifier" type="number" value={formData.stats?.critDamageModifier || 150} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                         <div><label>Zręczność:<input name="agility" type="number" value={formData.stats?.agility || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                        <div><label>Szansa na Unik (%):<input name="dodgeChance" type="number" step="0.1" value={formData.stats?.dodgeChance ?? 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                         <div><label>Ataki/turę:<input name="attacksPerTurn" type="number" step="0.1" value={formData.stats?.attacksPerTurn || 1} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     </fieldset>
                 </div>

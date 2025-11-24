@@ -1,6 +1,5 @@
 
 
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -85,6 +84,7 @@ export interface EnemyStats {
   critChance: number;
   critDamageModifier?: number;
   agility: number;
+  dodgeChance?: number;
   // New magic properties for enemies
   maxMana?: number;
   manaRegen?: number;
