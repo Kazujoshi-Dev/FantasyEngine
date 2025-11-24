@@ -219,8 +219,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
     const bosses = enemies.filter(e => e.isBoss);
     const selectedBoss = bosses.find(b => b.id === createBossId);
-    const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
-
+    
     const scaledBossStats = useMemo(() => {
         if (!selectedBoss) return null;
         const count = createMembers;
@@ -285,7 +284,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     if (myParty) {
         const isLeader = myParty.leaderId === character.id;
         const boss = enemies.find(e => e.id === myParty.bossId);
-        const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + durationMinutes * 60 * 1000).toISOString() : '';
+        const PREPARATION_DURATION_SECONDS = 30;
+        const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + PREPARATION_DURATION_SECONDS * 1000).toISOString() : '';
 
         return (
             <ContentPanel title={t('hunting.title')}>

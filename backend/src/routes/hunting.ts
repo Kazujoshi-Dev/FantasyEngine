@@ -54,13 +54,13 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         }
         
         const gameData = await getGameData();
+        const PREPARATION_DURATION_MS = 30000; // 30 seconds
 
         // Check if fight should start (Logic check on read)
         if (party.status === PartyStatus.Preparing && party.startTime) {
-             const durationMinutes = gameData.settings?.huntingDurationMinutes || 5;
-             const fightStartTime = new Date(party.startTime).getTime() + durationMinutes * 60 * 1000;
+             const fightStartTime = new Date(party.startTime).getTime() + PREPARATION_DURATION_MS;
              
-             if (new Date().getTime() > fightStartTime) {
+             if (new Date().getTime() >= fightStartTime) {
                  // Atomic Lock: Try to update status to FIGHTING. 
                  // Only one request will succeed (rowCount === 1).
                  const lockResult = await pool.query(
