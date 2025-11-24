@@ -251,7 +251,7 @@ const CombatLogRow: React.FC<{
         : t('expedition.attacks');
         
     const stealText = [];
-    if (log.action === 'attacks' && log.healthGained && log.healthGained > 0) {
+    if ((log.action === 'attacks' || log.action === 'magicAttack') && log.healthGained && log.healthGained > 0) {
         stealText.push(<span key="heal"> {t('expedition.healed')} <span className="font-bold text-green-400">{log.healthGained.toFixed(0)}</span> {t('expedition.healthPoints')}</span>);
     }
     if (log.action === 'attacks' && log.manaGained && log.manaGained > 0) {
