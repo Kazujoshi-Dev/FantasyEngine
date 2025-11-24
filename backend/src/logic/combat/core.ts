@@ -80,7 +80,7 @@ export const performAttack = <
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
 
-    let tempDodgeChance = defender.stats.dodgeChance || 0;
+    let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
     }
@@ -225,7 +225,6 @@ export const performAttack = <
             case MagicAttackType.IceLance:
                 if (Math.random() * 100 < 10) {
                     defender.statusEffects.push({ type: 'frozen_no_attack', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(attacker, defender) });
                 }
                 break;
             case MagicAttackType.ArcaneMissile:
