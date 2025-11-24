@@ -47,38 +47,52 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
     try {
         let party = await getPartyByMember(req.user.id);
 
-        // Handle combat processing which might change the party state or make it null
-        if (party && party.status === PartyStatus.Preparing) {
-            const partyInPreparation = party;
-            if (partyInPreparation.startTime) {
-                const gameData = await getGameData();
-                const boss = gameData.enemies.find(e => e.id === partyInPreparation.bossId);
-                const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
-                const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
-                const fightStartTime = new Date(partyInPreparation.startTime).getTime() + PREPARATION_DURATION_MS;
-             
-                if (new Date().getTime() >= fightStartTime) {
-                    const lockResult = await pool.query(
-                        "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING'",
-                        [partyInPreparation.id]
+        if (party && party.status === PartyStatus.Preparing && party.startTime) {
+            const gameData = await getGameData();
+            const boss = gameData.enemies.find(e => e.id === party.bossId);
+            const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
+            const fightStartTime = new Date(party.startTime).getTime() + preparationTimeSeconds * 1000;
+
+            if (Date.now() >= fightStartTime) {
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    // Lock the party to prevent race conditions from multiple polls
+                    const lockResult = await client.query(
+                        "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING' RETURNING *",
+                        [party.id]
                     );
+
                     if (lockResult.rowCount === 1) {
-                        // Re-assign the outer 'let' variable with the result
-                        party = await processPartyCombat(partyInPreparation, gameData);
+                        // We acquired the lock, process the combat.
+                        try {
+                            party = await processPartyCombat(party, gameData);
+                        } catch (combatError) {
+                            console.error(`CRITICAL: processPartyCombat failed for party ${party.id}. Forcing FINISHED status.`, combatError);
+                            // Emergency fallback: If combat processing fails, we MUST mark it as finished to avoid getting stuck.
+                            await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
+                            party.status = PartyStatus.Finished; // Update in-memory object
+                        }
                     } else {
-                        // Re-assign the outer 'let' variable, which might become null
+                        // Another process got the lock, just refetch the latest state.
                         party = await getPartyByMember(req.user.id);
                     }
+                    await client.query('COMMIT');
+                } catch (err) {
+                    await client.query('ROLLBACK');
+                    console.error("Error during party combat transition:", err);
+                    // Re-fetch the party state to ensure client has the latest info even on error
+                    party = await getPartyByMember(req.user.id);
+                } finally {
+                    client.release();
                 }
             }
         }
         
-        // After potential changes, check for null. This narrows the type for the rest of the function.
         if (!party) {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
 
-        // All subsequent logic can now safely assume 'party' is not null.
         if (party.status === PartyStatus.Finished) {
             const rewardsRes = await pool.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id]);
             const rewardsRaw = rewardsRes.rows[0]?.rewards;
@@ -101,7 +115,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
 
-        // Hydrate members with derived stats for Tooltips
         const gameData = await getGameData();
         for (const member of party.members) {
             const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);

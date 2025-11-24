@@ -217,7 +217,6 @@ export interface CombatLogEntry {
   affectedPlayers?: string[];
   defenderUniqueId?: string;
   allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
-  // @FIX: Add allPlayersHealth to support team combat logs and fix a TypeScript error.
   allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number }[];
   effectApplied?: string; // e.g., 'burning', 'frozen'
   aoeDamage?: { target: string, damage: number }[];
