@@ -213,7 +213,7 @@ export default {
             IceLance: 'Zadaje potężne obrażenia od lodu. Ma 10% szans na zamrożenie celu na 1 turę, uniemożliwiając mu atak.',
             ArcaneMissile: 'Zadaje obrażenia magiczne plus dodatkowe obrażenia równe 50% maksymalnej many rzucającego.',
             LifeDrain: 'Zadaje obrażenia i leczy rzucającego za 25% zadanych obrażeń.',
-            MeteorSwarm: 'Potężny atak obszarowy, który zadaje obrażenia wszystkim wrogom (mechanika niezaimplementowana).',
+            MeteorSwarm: 'Potężny atak obszarowy, który zadaje obrażenia magiczne głównemu celowi oraz wszystkim pozostałym wrogom.',
             Earthquake: 'Uderza w cel, a następnie zadaje 20% obrażeń rozpryskowych wszystkim pozostałym wrogom.',
         }
     },
@@ -335,6 +335,7 @@ export default {
                 arcaneMissileBonus: 'Magiczny Pocisk zadaje dodatkowe {damage} obrażeń od many!',
                 chainLightningJump: 'Błyskawica przeskakuje na {target}, zadając {damage} obrażeń!',
                 earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',
+                meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'
             }
         }

@@ -153,6 +153,13 @@ const CombatLogRow: React.FC<{
                 effectText = <>{parts7[0]}{targetNode7}{parts7[1]}</>;
                  textColor = 'text-yellow-600 italic';
                 break;
+            case 'meteorSwarmSplash':
+                const targetNode8 = renderName(log.defender);
+                const template8 = t('expedition.combatLog.effect.meteorSwarmSplash').replace('{damage}', String(log.damage));
+                const parts8 = template8.split('{target}');
+                effectText = <>{parts8[0]}{targetNode8}{parts8[1]}</>;
+                textColor = 'text-orange-600 italic';
+                break;
             default:
                 effectText = `${log.attacker} applies ${log.effectApplied} to ${log.defender}`;
         }

@@ -242,6 +242,9 @@ export const performAttack = <
                 healthGained += newHealth - attacker.currentHealth;
                 attacker.currentHealth = newHealth;
                 break;
+            case MagicAttackType.MeteorSwarm:
+                aoeData = { type: 'meteor_swarm', baseDamage: damage };
+                break;
             case MagicAttackType.Earthquake:
                 aoeData = { type: 'earthquake', baseDamage: damage, splashPercent: 0.20 };
                 break;

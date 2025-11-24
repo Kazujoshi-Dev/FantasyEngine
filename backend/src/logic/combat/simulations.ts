@@ -276,14 +276,40 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
                 
                 log.push(...attackLogs);
 
-                // Handle AoE
+                // Handle AoE for METEOR SWARM
+                if (aoeData?.type === 'meteor_swarm') {
+                    const aoeDamage = aoeData.baseDamage;
+                    livingEnemies.filter(e => e.uniqueId !== target.uniqueId).forEach(otherEnemy => {
+                        const healthBefore = otherEnemy.currentHealth;
+                        otherEnemy.currentHealth = Math.max(0, otherEnemy.currentHealth - aoeDamage);
+                        log.push({ 
+                            turn, 
+                            attacker: playerState.name, 
+                            defender: otherEnemy.name, 
+                            action: 'effectApplied', 
+                            effectApplied: 'meteorSwarmSplash',
+                            damage: aoeDamage, 
+                            ...getHealthState() 
+                        });
+                        if (otherEnemy.currentHealth <= 0 && healthBefore > 0) {
+                            log.push({ turn, attacker: playerState.name, defender: otherEnemy.name, action: 'enemy_death', ...getHealthState() });
+                        }
+                    });
+                }
+                
+                // Handle AoE for EARTHQUAKE
                 if (aoeData?.type === 'earthquake') {
                     const splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
                     livingEnemies.filter(e => e.uniqueId !== target.uniqueId).forEach(otherEnemy => {
+                        const healthBefore = otherEnemy.currentHealth;
                         otherEnemy.currentHealth = Math.max(0, otherEnemy.currentHealth - splashDamage);
                         log.push({ turn, attacker: playerState.name, defender: otherEnemy.name, action: 'effectApplied', effectApplied: 'earthquakeSplash', damage: splashDamage, ...getHealthState() });
+                        if (otherEnemy.currentHealth <= 0 && healthBefore > 0) {
+                            log.push({ turn, attacker: playerState.name, defender: otherEnemy.name, action: 'enemy_death', ...getHealthState() });
+                        }
                     });
                 }
+
                 if (chainData?.type === 'chain_lightning' && Math.random() * 100 < chainData.chance) {
                     let chainedTargets = [target.uniqueId];
                     for (let j = 0; j < chainData.maxJumps; j++) {
@@ -294,8 +320,12 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
                         chainedTargets.push(chainTarget.uniqueId);
                         
                         const chainDamage = Math.floor(chainData.damage * 0.75); // Chain hits are weaker
+                        const healthBefore = chainTarget.currentHealth;
                         chainTarget.currentHealth = Math.max(0, chainTarget.currentHealth - chainDamage);
                         log.push({ turn, attacker: playerState.name, defender: chainTarget.name, action: 'effectApplied', effectApplied: 'chainLightningJump', damage: chainDamage, ...getHealthState() });
+                        if (chainTarget.currentHealth <= 0 && healthBefore > 0) {
+                            log.push({ turn, attacker: playerState.name, defender: chainTarget.name, action: 'enemy_death', ...getHealthState() });
+                        }
                     }
                 }
 
