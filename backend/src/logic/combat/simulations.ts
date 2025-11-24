@@ -1,12 +1,17 @@
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
-import { performAttack, AttackerState, DefenderState, getFullWeaponName } from './core.js';
+import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 
 export interface TeamCombatPlayerState {
   data: PlayerCharacter;
   currentHealth: number;
   currentMana: number;
   isDead: boolean;
+  statusEffects: StatusEffect[];
+  hardSkinTriggered?: boolean;
+  manaSurgeUsed?: boolean;
+  shadowBoltStacks?: number;
 }
+
 
 // ==========================================================================================
 //                                   1 vs 1 COMBAT
@@ -372,11 +377,143 @@ export const simulate1vManyCombat = (playerData: PlayerCharacter, enemiesData: E
 };
 
 export const simulateTeamVsBossCombat = (
-    playersData: PlayerCharacter[], 
-    enemyData: Enemy, 
+    playersData: PlayerCharacter[],
+    enemyData: Enemy,
     gameData: GameData
 ): { combatLog: CombatLogEntry[], finalPlayers: TeamCombatPlayerState[] } => {
-    // This logic is complex and will be moved here from hunting.ts later if needed.
-    // For now, the expedition logic is the primary focus.
-    return { combatLog: [], finalPlayers: [] };
+
+    let playersState: TeamCombatPlayerState[] = playersData.map(p => ({
+        data: p,
+        currentHealth: p.stats.currentHealth,
+        currentMana: p.stats.currentMana,
+        isDead: p.stats.currentHealth <= 0,
+        statusEffects: [],
+        hardSkinTriggered: false,
+        manaSurgeUsed: false,
+        shadowBoltStacks: 0,
+    }));
+
+    let bossState: AttackerState & { description?: string; specialAttacksUsed: Record<string, number> } = {
+        stats: enemyData.stats,
+        currentHealth: enemyData.stats.maxHealth,
+        currentMana: enemyData.stats.maxMana || 0,
+        name: enemyData.name,
+        description: enemyData.description,
+        statusEffects: [],
+        specialAttacksUsed: {},
+    };
+    (enemyData.specialAttacks || []).forEach(sa => { bossState.specialAttacksUsed[sa.type] = 0; });
+
+    const log: CombatLogEntry[] = [];
+    let turn = 0;
+
+    const getHealthStateForLog = () => ({
+        playerHealth: 0, // Placeholder
+        playerMana: 0,   // Placeholder
+        enemyHealth: bossState.currentHealth,
+        enemyMana: bossState.currentMana,
+        // Custom field for team combat
+        allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth }))
+    });
+
+    log.push({
+        turn, attacker: 'Drużyna', defender: bossState.name, action: 'starts a fight with',
+        ...getHealthStateForLog(), playerStats: playersData[0]?.stats, enemyStats: bossState.stats, enemyDescription: bossState.description
+    });
+    
+    while (playersState.some(p => !p.isDead) && bossState.currentHealth > 0 && turn < 100) {
+        turn++;
+        
+        // --- Turn Start Effects & Mana Regen ---
+        const allCombatants: any[] = [...playersState, bossState];
+        for (const combatant of allCombatants) {
+            const manaRegen = combatant.stats.manaRegen || 0;
+            if (manaRegen > 0 && combatant.currentMana < (combatant.stats.maxMana || 0)) {
+                combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
+            }
+        }
+        
+        // --- Players' Turn ---
+        const livingPlayers = playersState.filter(p => !p.isDead);
+        for (const player of livingPlayers) {
+            if (bossState.currentHealth <= 0) break;
+
+            const playerAsAttacker: AttackerState & { data: PlayerCharacter } = {
+                data: player.data, stats: player.data.stats, currentHealth: player.currentHealth, currentMana: player.currentMana,
+                name: player.data.name, hardSkinTriggered: player.hardSkinTriggered, manaSurgeUsed: player.manaSurgeUsed,
+                shadowBoltStacks: player.shadowBoltStacks, statusEffects: player.statusEffects
+            };
+            
+            const bossAsDefender: DefenderState = {
+                stats: bossState.stats, currentHealth: bossState.currentHealth, currentMana: bossState.currentMana,
+                name: bossState.name, statusEffects: bossState.statusEffects
+            };
+
+            const attacks = player.data.stats.attacksPerRound;
+            for (let i = 0; i < attacks; i++) {
+                if (bossState.currentHealth <= 0) break;
+                const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, turn, gameData, []);
+                
+                player.currentHealth = attackerState.currentHealth;
+                player.currentMana = attackerState.currentMana;
+                player.statusEffects = attackerState.statusEffects;
+                player.shadowBoltStacks = attackerState.shadowBoltStacks;
+
+                bossState.currentHealth = defenderState.currentHealth;
+                bossState.currentMana = defenderState.currentMana;
+                bossState.statusEffects = defenderState.statusEffects;
+                
+                log.push(...attackLogs);
+            }
+        }
+        
+        if (bossState.currentHealth <= 0) {
+            log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
+            break;
+        }
+
+        // --- Boss's Turn ---
+        const livingPlayersForTargeting = playersState.filter(p => !p.isDead);
+        if (livingPlayersForTargeting.length > 0) {
+            const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
+            for (let i = 0; i < bossAttacks; i++) {
+                const stillLiving = playersState.filter(p => !p.isDead);
+                if (stillLiving.length === 0) break;
+                
+                const targetPlayerState = stillLiving[Math.floor(Math.random() * stillLiving.length)];
+                
+                const bossAsAttacker: AttackerState = { ...bossState };
+                const playerAsDefender: DefenderState & { data: PlayerCharacter } = {
+                    data: targetPlayerState.data, stats: targetPlayerState.data.stats, currentHealth: targetPlayerState.currentHealth, 
+                    currentMana: targetPlayerState.currentMana, name: targetPlayerState.data.name,
+                    hardSkinTriggered: targetPlayerState.hardSkinTriggered, statusEffects: targetPlayerState.statusEffects
+                };
+                
+                const { logs: attackLogs, attackerState, defenderState } = performAttack(bossAsAttacker, playerAsDefender, turn, gameData, []);
+                    
+                bossState.currentHealth = attackerState.currentHealth;
+                bossState.currentMana = attackerState.currentMana;
+                
+                targetPlayerState.currentHealth = defenderState.currentHealth;
+                targetPlayerState.currentMana = defenderState.currentMana;
+                targetPlayerState.statusEffects = defenderState.statusEffects;
+                
+                log.push(...attackLogs);
+
+                if (targetPlayerState.currentHealth <= 0 && !targetPlayerState.isDead) {
+                    targetPlayerState.isDead = true;
+                    log.push({ turn, attacker: bossState.name, defender: targetPlayerState.data.name, action: 'death', ...getHealthStateForLog() });
+                }
+            }
+        }
+    }
+
+    log.forEach(l => {
+        const states = getHealthStateForLog();
+        l.allPlayersHealth = states.allPlayersHealth;
+        l.enemyHealth = states.enemyHealth;
+        l.enemyMana = states.enemyMana;
+    });
+
+    return { combatLog: log, finalPlayers: playersState };
 };
