@@ -14,6 +14,7 @@ type NotificationType = { message: string; type: 'success' | 'error' };
 
 interface BlacksmithProps {
     character: PlayerCharacter;
+    baseCharacter: PlayerCharacter;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     onDisenchantItem: (item: ItemInstance) => Promise<{ success: boolean; amount?: number; essenceType?: EssenceType }>;
@@ -33,11 +34,12 @@ const getPotentialYield = (rarity: ItemRarity): [string, EssenceType | null] => 
 
 const DisenchantPanel: React.FC<{
     character: PlayerCharacter;
+    baseCharacter: PlayerCharacter;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     onDisenchantItem: BlacksmithProps['onDisenchantItem'];
     setNotification: (notification: NotificationType | null) => void;
-}> = ({ character, itemTemplates, affixes, onDisenchantItem, setNotification }) => {
+}> = ({ character, baseCharacter, itemTemplates, affixes, onDisenchantItem, setNotification }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
 
@@ -88,7 +90,7 @@ const DisenchantPanel: React.FC<{
                 return;
             }
 
-            if (event.key === 'Enter' && selectedItem && (character.resources?.gold || 0) >= disenchantCost) {
+            if (event.key === 'Enter' && selectedItem && (baseCharacter.resources?.gold || 0) >= disenchantCost) {
                 event.preventDefault(); 
                 handleDisenchantClick();
             }
@@ -99,7 +101,7 @@ const DisenchantPanel: React.FC<{
         return () => {
             document.removeEventListener('keydown', handleKeyPress);
         };
-    }, [selectedItem, character.resources, disenchantCost, handleDisenchantClick]);
+    }, [selectedItem, baseCharacter.resources, disenchantCost, handleDisenchantClick]);
     
     const [yieldAmount, yieldEssenceType] = selectedTemplate ? getPotentialYield(selectedTemplate.rarity) : ['', null];
     
@@ -217,7 +219,7 @@ const DisenchantPanel: React.FC<{
                                 <span className={`font-mono font-bold ${textColorClass}`}>{yieldAmount} {yieldEssenceType ? t(`resources.${yieldEssenceType}`) : ''}</span>
                              </div>
                          </div>
-                         <button onClick={handleDisenchantClick} disabled={(character.resources?.gold || 0) < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
+                         <button onClick={handleDisenchantClick} disabled={(baseCharacter.resources?.gold || 0) < disenchantCost} className="w-full mt-6 bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed">
                             {t('blacksmith.disenchant')}
                          </button>
                          <p className="text-xs text-gray-500 mt-2">{t('blacksmith.pressEnter')}</p>
@@ -235,11 +237,12 @@ const DisenchantPanel: React.FC<{
 
 const UpgradePanel: React.FC<{
     character: PlayerCharacter;
+    baseCharacter: PlayerCharacter;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     onUpgradeItem: BlacksmithProps['onUpgradeItem'];
     setNotification: (notification: NotificationType | null) => void;
-}> = ({ character, itemTemplates, affixes, onUpgradeItem, setNotification }) => {
+}> = ({ character, baseCharacter, itemTemplates, affixes, onUpgradeItem, setNotification }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
@@ -352,8 +355,8 @@ const UpgradePanel: React.FC<{
         };
     }, [selectedItem, selectedTemplate]);
     
-    const hasEnoughGold = cost ? (character.resources?.gold || 0) >= cost.gold : false;
-    const hasEnoughEssence = cost && cost.essenceType ? ((character.resources || {})[cost.essenceType] || 0) >= cost.essenceAmount : false;
+    const hasEnoughGold = cost ? (baseCharacter.resources?.gold || 0) >= cost.gold : false;
+    const hasEnoughEssence = cost && cost.essenceType ? ((baseCharacter.resources || {})[cost.essenceType] || 0) >= cost.essenceAmount : false;
     const hasEnoughResources = hasEnoughGold && hasEnoughEssence;
 
     return (
@@ -440,7 +443,7 @@ const UpgradePanel: React.FC<{
                                             <span className={`font-semibold ${rarityStyles[selectedTemplate.rarity].text}`}>{t(`resources.${cost.essenceType}`)}</span>
                                             <div className="flex items-baseline">
                                                 <span className={`font-mono font-bold ${rarityStyles[selectedTemplate.rarity].text} mr-2`}>x {cost.essenceAmount}</span>
-                                                <span className="text-xs text-gray-500">({t('blacksmith.upgrade.youHave')}: {(character.resources || {})[cost.essenceType] || 0})</span>
+                                                <span className="text-xs text-gray-500">({t('blacksmith.upgrade.youHave')}: {(baseCharacter.resources || {})[cost.essenceType] || 0})</span>
                                             </div>
                                         </div>
                                     )}
@@ -474,7 +477,7 @@ const UpgradePanel: React.FC<{
     );
 };
 
-export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates, affixes, onDisenchantItem, onUpgradeItem }) => {
+export const Blacksmith: React.FC<BlacksmithProps> = ({ character, baseCharacter, itemTemplates, affixes, onDisenchantItem, onUpgradeItem }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<BlacksmithTab>('upgrade');
     const [notification, setNotification] = useState<NotificationType | null>(null);
@@ -502,7 +505,7 @@ export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates
                  <div className="flex-grow border-b border-slate-700"></div>
                  <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-1 rounded-full mb-[-1px] border border-slate-700">
                      <CoinsIcon className="h-5 w-5 text-amber-400" />
-                     <span className="font-mono text-lg font-bold text-amber-400">{(character.resources?.gold || 0).toLocaleString()}</span>
+                     <span className="font-mono text-lg font-bold text-amber-400">{(baseCharacter.resources?.gold || 0).toLocaleString()}</span>
                  </div>
             </div>
 
@@ -512,8 +515,8 @@ export const Blacksmith: React.FC<BlacksmithProps> = ({ character, itemTemplates
                 </div>
             )}
             
-            {activeTab === 'disenchant' && <DisenchantPanel character={character} itemTemplates={itemTemplates} affixes={affixes} onDisenchantItem={onDisenchantItem} setNotification={setNotification} />}
-            {activeTab === 'upgrade' && <UpgradePanel character={character} itemTemplates={itemTemplates} affixes={affixes} onUpgradeItem={onUpgradeItem} setNotification={setNotification} />}
+            {activeTab === 'disenchant' && <DisenchantPanel character={character} baseCharacter={baseCharacter} itemTemplates={itemTemplates} affixes={affixes} onDisenchantItem={onDisenchantItem} setNotification={setNotification} />}
+            {activeTab === 'upgrade' && <UpgradePanel character={character} baseCharacter={baseCharacter} itemTemplates={itemTemplates} affixes={affixes} onUpgradeItem={onUpgradeItem} setNotification={setNotification} />}
 
         </ContentPanel>
     );

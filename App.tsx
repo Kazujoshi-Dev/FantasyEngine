@@ -911,7 +911,8 @@ const MainApp: React.FC = () => {
                 />;
              case Tab.Blacksmith:
                 return <Blacksmith 
-                    character={character}
+                    character={derivedCharacter}
+                    baseCharacter={character}
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
                     onDisenchantItem={async (item) => { 
