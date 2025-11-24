@@ -151,6 +151,7 @@ export interface Enemy {
   isBoss?: boolean;
   image?: string; // Boss portrait
   specialAttacks?: BossSpecialAttack[];
+  preparationTimeSeconds?: number;
 }
 
 export interface ExpeditionEnemy {
@@ -641,7 +642,6 @@ export interface GameSettings {
     language: Language;
     traderSettings?: TraderSettings;
     pvpProtectionMinutes?: number;
-    huntingDurationMinutes?: number;
     titleScreen?: {
         description: string;
         images: string[];

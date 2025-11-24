@@ -52,7 +52,8 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const isNumeric = ['preparationTimeSeconds'].includes(name);
+        setFormData(prev => ({ ...prev, [name]: isNumeric ? parseInt(value, 10) || 0 : value }));
     };
 
     const handleStatsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -132,6 +133,13 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                     <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} rows={4} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     
+                    <div>
+                        <label>Czas przygotowania (sekundy):
+                            <input name="preparationTimeSeconds" type="number" value={formData.preparationTimeSeconds ?? 30} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">Czas odliczany od momentu zebrania pełnej grupy do startu walki.</p>
+                    </div>
+
                     {/* Image URL */}
                     <div>
                          <label className="block text-sm font-medium text-gray-300 mb-1">Portret Bossa (URL)</label>

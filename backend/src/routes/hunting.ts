@@ -54,7 +54,9 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         }
         
         const gameData = await getGameData();
-        const PREPARATION_DURATION_MS = 30000; // 30 seconds
+        const boss = gameData.enemies.find(e => e.id === party.bossId);
+        const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30; // Default 30s
+        const PREPARATION_DURATION_MS = preparationTimeSeconds * 1000;
 
         // Check if fight should start (Logic check on read)
         if (party.status === PartyStatus.Preparing && party.startTime) {

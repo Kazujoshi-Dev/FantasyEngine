@@ -284,8 +284,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     if (myParty) {
         const isLeader = myParty.leaderId === character.id;
         const boss = enemies.find(e => e.id === myParty.bossId);
-        const PREPARATION_DURATION_SECONDS = 30;
-        const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + PREPARATION_DURATION_SECONDS * 1000).toISOString() : '';
+        const preparationTime = boss?.preparationTimeSeconds ?? 30;
+        const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + preparationTime * 1000).toISOString() : '';
 
         return (
             <ContentPanel title={t('hunting.title')}>
