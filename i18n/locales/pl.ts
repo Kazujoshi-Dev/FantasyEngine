@@ -331,7 +331,6 @@ export default {
                 burning: 'podpalony',
                 reduced_attacks_effect: 'spowolniony',
                 shadowBoltStack: 'Moc Pocisku Cienia wzrasta!',
-                shadowBoltMaxStacks: 'Pocisk Cienia osiągnął maksymalną moc!',
                 arcaneMissileBonus: 'Magiczny Pocisk zadaje dodatkowe {damage} obrażeń od many!',
                 chainLightningJump: 'Błyskawica przeskakuje na {target}, zadając {damage} obrażeń!',
                 earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',

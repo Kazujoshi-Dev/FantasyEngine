@@ -201,21 +201,19 @@ export const performAttack = <
                     const bonus = 1 + (currentStacks * 0.05);
                     damage = Math.floor(damage * bonus);
                     
-                    // Increment stacks for the NEXT attack, if not at cap
-                    if (currentStacks < 10) {
-                        currentStacks++;
-                        attacker.shadowBoltStacks = currentStacks;
-                        
-                        // Push a log message about the stack change
-                        logs.push({
-                            turn,
-                            attacker: attacker.name,
-                            defender: '',
-                            action: 'effectApplied',
-                            effectApplied: currentStacks === 10 ? 'shadowBoltMaxStacks' : 'shadowBoltStack',
-                            ...getHealthState(attacker, defender)
-                        });
-                    }
+                    // Increment stacks for the NEXT attack (no cap)
+                    currentStacks++;
+                    attacker.shadowBoltStacks = currentStacks;
+                    
+                    // Push a log message about the stack change
+                    logs.push({
+                        turn,
+                        attacker: attacker.name,
+                        defender: '',
+                        action: 'effectApplied',
+                        effectApplied: 'shadowBoltStack',
+                        ...getHealthState(attacker, defender)
+                    });
                 }
                 break;
             case MagicAttackType.FrostWave:

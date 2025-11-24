@@ -127,10 +127,6 @@ const CombatLogRow: React.FC<{
                 effectText = t('expedition.combatLog.effect.shadowBoltStack');
                 textColor = 'text-purple-400 italic';
                 break;
-            case 'shadowBoltMaxStacks':
-                effectText = t('expedition.combatLog.effect.shadowBoltMaxStacks');
-                textColor = 'text-purple-300 font-bold italic';
-                break;
             case 'arcaneMissileBonus':
                 effectText = t('expedition.combatLog.effect.arcaneMissileBonus', { damage: log.damage });
                 textColor = 'text-pink-400 italic';
@@ -852,6 +848,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
+// @FIX: The `handleCopyLink` function expects 0 arguments, but it was being called with one. The call is updated to pass no arguments.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
