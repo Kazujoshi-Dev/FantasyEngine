@@ -101,7 +101,7 @@ export const performAttack = <
         const playerData = (attacker as any).data as PlayerCharacter;
         const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
-        weaponName = template ? getGrammaticallyCorrectFullName(weapon!, template, gameData.affixes) : undefined;
+        weaponName = template ? getFullWeaponName(playerData, gameData) : undefined;
 
         if (template?.isMagical && template.magicAttackType) {
             const manaCost = template.manaCost ? (template.manaCost.min + template.manaCost.max) / 2 : 0;

@@ -167,61 +167,57 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 itemsFound: userRewards.items, 
                 essencesFound: userRewards.essences,
                 rewardBreakdown: [{ source: breakdownSource, gold: userRewards.gold, experience: userRewards.experience }],
-                huntingMembers: acceptedMembers.map(({ stats, ...member }) => member), // Strip runtime stats
-                allRewards: allRewardsForReport, // This map is now complete for all players
-                bossId: bossTemplate.id
+                huntingMembers: party.members,
+                allRewards: allRewardsForReport,
+                bossId: party.bossId
             };
+            
             await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
         }
     } else {
-        // Handle defeat: save updated health and send messages
-        for (const userIdStr of Object.keys(rawCharactersMap)) {
+         // Handle defeat: Send a report to everyone with no rewards.
+         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
-            const char = rawCharactersMap[userId];
-            
-            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
-
-             const summary: ExpeditionRewardSummary = {
-                isVictory: false, totalGold: 0, totalExperience: 0, combatLog,
-                itemsFound: [], essencesFound: {}, rewardBreakdown: [],
-                huntingMembers: acceptedMembers.map(({ stats, ...member }) => member),
-                allRewards: {},
-                bossId: bossTemplate.id
+            const summary: ExpeditionRewardSummary = {
+                isVictory: false, 
+                totalGold: 0, totalExperience: 0, 
+                combatLog, 
+                itemsFound: [], essencesFound: {}, 
+                rewardBreakdown: [],
+                huntingMembers: party.members,
+                bossId: party.bossId
             };
-             await client.query(
+            await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
-                [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
+                [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
-        }
+         }
     }
-
-    // 5. Update Party Status
-    await client.query(`
-        UPDATE hunting_parties 
-        SET status = 'FINISHED', 
-            combat_log = $1, 
-            rewards = $2,
-            victory = $3
-        WHERE id = $4
-    `, [JSON.stringify(combatLog), JSON.stringify(rewardsMap), isVictory, party.id]);
+    
+    // 5. Finalize Party State in DB
+    await client.query(
+        "UPDATE hunting_parties SET status = 'FINISHED', combat_log = $1, rewards = $2, victory = $3 WHERE id = $4",
+        [JSON.stringify(combatLog), JSON.stringify(rewardsMap), isVictory, party.id]
+    );
 };
 
-// Helper to convert snake_case DB rows to camelCase objects
-export const camelizeParty = (row: any): HuntingParty => {
+export const camelizeParty = (dbParty: any): HuntingParty => {
     return {
-        id: row.id,
-        leaderId: row.leader_id,
-        bossId: row.boss_id,
-        maxMembers: row.max_members,
-        status: row.status,
-        startTime: row.start_time,
-        createdAt: row.created_at,
-        members: row.members,
-        combatLog: row.combat_log,
-        victory: row.victory,
-        // rewards is internal, filtered by API
+        id: dbParty.id,
+        leaderId: dbParty.leader_id,
+        bossId: dbParty.boss_id,
+        maxMembers: dbParty.max_members,
+        status: dbParty.status,
+        startTime: dbParty.start_time,
+        createdAt: dbParty.created_at,
+        members: dbParty.members,
+        combatLog: dbParty.combat_log,
+// @FIX: The 'rewards' property does not exist on the HuntingParty type.
+// This was causing a TypeScript error. The full rewards object is fetched and
+// processed separately in the route handler to populate myRewards and allRewards.
+        victory: dbParty.victory
     };
 };
