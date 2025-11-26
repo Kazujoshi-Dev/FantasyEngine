@@ -215,6 +215,8 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         createdAt: dbParty.created_at,
         members: dbParty.members,
         combatLog: dbParty.combat_log,
+        // @FIX: The 'rewards' property does not exist on the HuntingParty type.
+        // The logic in the routes fetches this data separately.
         victory: dbParty.victory
     };
 };

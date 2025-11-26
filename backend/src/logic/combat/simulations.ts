@@ -404,7 +404,7 @@ export const simulateTeamVsBossCombat = (
     let turn = 0;
 
     const getHealthStateForLog = () => ({
-        playerHealth: 0,
+        playerHealth: 0, // Not directly applicable for individual log entries
         playerMana: 0,
         enemyHealth: bossState.currentHealth,
         enemyMana: bossState.currentMana,
@@ -419,6 +419,7 @@ export const simulateTeamVsBossCombat = (
     while (playersState.some(p => !p.isDead) && bossState.currentHealth > 0 && turn < 100) {
         turn++;
         
+        // --- Turn Start & Mana Regen ---
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         for (const combatant of allCombatants) {
             const manaRegen = combatant.stats.manaRegen || 0;
@@ -428,6 +429,7 @@ export const simulateTeamVsBossCombat = (
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
         
+        // --- Players' Turn ---
         const livingPlayers = playersState.filter(p => !p.isDead);
         for (const player of livingPlayers) {
             if (bossState.currentHealth <= 0) break;
@@ -447,8 +449,10 @@ export const simulateTeamVsBossCombat = (
                 if (bossState.currentHealth <= 0) break;
                 const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, turn, gameData, []);
                 
+                // Update player state
                 player.currentHealth = attackerState.currentHealth;
                 player.currentMana = attackerState.currentMana;
+                // Update boss state
                 bossState.currentHealth = defenderState.currentHealth;
                 
                 log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
@@ -460,6 +464,7 @@ export const simulateTeamVsBossCombat = (
             break;
         }
         
+        // --- Boss's Turn ---
         let bossUsedSpecial = false;
         for (const special of (enemyData.specialAttacks || [])) {
             if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
@@ -470,20 +475,19 @@ export const simulateTeamVsBossCombat = (
                 const livingTargets = playersState.filter(p => !p.isDead);
                 if (livingTargets.length === 0) continue;
                 const randomTarget = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                const randomTargetIndex = playersState.findIndex(p => p.data.id === randomTarget.data.id);
                 
                 switch(special.type) {
                     case SpecialAttackType.Stun:
                         randomTarget.statusEffects.push({ type: 'stunned', duration: 2 }); // Duration 2 means it will activate on the next turn.
                         break;
                     case SpecialAttackType.ArmorPierce:
-                        const { logs: apLogs, defenderState: apDefender } = performAttack({ ...bossState }, { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name }, turn, gameData, [], true, { ignoreArmor: true });
-                        const apTargetIndex = playersState.findIndex(p => p.data.id === randomTarget.data.id);
-                        if (apTargetIndex !== -1) {
-                            const target = playersState[apTargetIndex];
-                            target.currentHealth = apDefender.currentHealth;
-                            target.currentMana = apDefender.currentMana;
-                            target.statusEffects = apDefender.statusEffects;
-                        }
+                        const bossAsAttackerAP = { ...bossState };
+                        const playerAsDefenderAP = { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name };
+                        const { logs: apLogs, defenderState: apDefender } = performAttack(bossAsAttackerAP, playerAsDefenderAP, turn, gameData, [], true, { ignoreArmor: true });
+                        
+                        playersState[randomTargetIndex].currentHealth = apDefender.currentHealth;
+                        
                         log.push(...apLogs.map(l => ({...l, ...getHealthStateForLog()})));
                         break;
                     case SpecialAttackType.DeathTouch:
@@ -518,10 +522,10 @@ export const simulateTeamVsBossCombat = (
                     
                     const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
                     if (targetIndex !== -1) {
-                        const target = playersState[targetIndex];
-                        target.currentHealth = defenderState.currentHealth;
-                        target.currentMana = defenderState.currentMana;
-                        target.statusEffects = defenderState.statusEffects;
+                         // CRITICAL FIX: Only update the state of the targeted player
+                         playersState[targetIndex].currentHealth = defenderState.currentHealth;
+                         playersState[targetIndex].currentMana = defenderState.currentMana;
+                         playersState[targetIndex].statusEffects = defenderState.statusEffects;
                     }
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
@@ -537,11 +541,20 @@ export const simulateTeamVsBossCombat = (
         });
     }
 
+    // Final state update for logs
     log.forEach(l => {
         const states = getHealthStateForLog();
         l.allPlayersHealth = states.allPlayersHealth;
         l.enemyHealth = states.enemyHealth;
         l.enemyMana = states.enemyMana;
+        // This log was missing mana updates
+        const playerLogState = states.allPlayersHealth.find(p => p.name === l.attacker || p.name === l.defender);
+        if (playerLogState) {
+            const playerState = playersState.find(p => p.data.name === playerLogState.name);
+            if(playerState) {
+                l.playerMana = playerState.currentMana;
+            }
+        }
     });
 
     return { combatLog: log, finalPlayers: playersState };

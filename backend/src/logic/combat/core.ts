@@ -276,7 +276,7 @@ export const performAttack = <
     const finalLogEntry: CombatLogEntry = {
         turn, attacker: attacker.name, defender: defender.name,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
-        damage: damage,
+        damage: totalDamage,
         isCrit,
         damageReduced: damageReduced > 0 ? damageReduced : undefined,
         healthGained: healthGained > 0 ? healthGained : undefined,
