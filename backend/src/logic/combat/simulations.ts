@@ -426,7 +426,7 @@ export const simulateTeamVsBossCombat = (
              const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
              
              const lastLog = attackLogs[attackLogs.length - 1];
-             if (lastLog.damage && !lastLog.isDodge) {
+             if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
                 const reducedDamage = Math.floor(lastLog.damage * 0.5);
                 const damageDiff = lastLog.damage - reducedDamage;
                 bossState.currentHealth = defenderState.currentHealth + damageDiff;

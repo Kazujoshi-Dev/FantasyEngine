@@ -51,7 +51,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 3.5 Update player health from combat results
     for (const finalPlayerState of finalPlayers) {
-        // @FIX: Property 'data' does not exist on type 'PartyMember'. Use 'userId' instead.
         const member = acceptedMembers.find(m => m.userId === finalPlayerState.data.id);
         if(member) {
             const charToUpdate = rawCharactersMap[member.userId];
@@ -197,7 +196,6 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         createdAt: dbParty.created_at,
         members: dbParty.members,
         combatLog: dbParty.combat_log,
-        // @FIX: Property 'rewards' does not exist on type 'HuntingParty'. Map to 'allRewards'.
         allRewards: dbParty.rewards,
         victory: dbParty.victory
     };
