@@ -256,10 +256,15 @@ export const simulateTeamVsBossCombat = (
         // --- 3.1. Start of Turn Phase ---
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         for (const combatant of allCombatants) {
+            // Fix for mixed types (Player vs Boss) - correctly extract stats
+            const stats = combatant.stats || (combatant.data ? combatant.data.stats : undefined);
+
             // Mana Regen
-            const manaRegen = combatant.stats.manaRegen || 0;
-            if (manaRegen > 0) {
-                combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
+            if (stats) {
+                const manaRegen = stats.manaRegen || 0;
+                if (manaRegen > 0) {
+                    combatant.currentMana = Math.min(stats.maxMana || 0, combatant.currentMana + manaRegen);
+                }
             }
             // Status Effects
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
