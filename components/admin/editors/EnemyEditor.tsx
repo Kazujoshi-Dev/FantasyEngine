@@ -36,7 +36,7 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
             isBoss: false,
             ...enemy,
             rewards: enemy.rewards || { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
-            stats: { ...defaultStats, ...enemy.stats },
+            stats: { ...defaultStats, ...(enemy.stats || {}) },
         };
     });
 
