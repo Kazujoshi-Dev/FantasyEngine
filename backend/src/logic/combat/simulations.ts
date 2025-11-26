@@ -352,10 +352,15 @@ export const simulateTeamVsBossCombat = (
                         break;
                     }
                     case SpecialAttackType.Earthquake: {
+                        const damageDetails: { target: string, damage: number }[] = [];
                         playersState.forEach(p => {
-                            if (!p.isDead) p.currentHealth = Math.max(0, p.currentHealth - Math.floor(p.data.stats.maxHealth * 0.2));
+                            if (!p.isDead) {
+                                const dmg = Math.floor(p.data.stats.maxHealth * 0.2);
+                                p.currentHealth = Math.max(0, p.currentHealth - dmg);
+                                damageDetails.push({ target: p.data.name, damage: dmg });
+                            }
                         });
-                        log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, aoeDamage: damageDetails, ...getHealthStateForLog() });
                         break;
                     }
                     case SpecialAttackType.ArmorPierce: {
@@ -370,7 +375,7 @@ export const simulateTeamVsBossCombat = (
                         const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
                         const damage = Math.floor(playersState[targetIndex].currentHealth * 0.5);
                         playersState[targetIndex].currentHealth -= damage;
-                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, damage, ...getHealthStateForLog() });
                         break;
                     }
                     case SpecialAttackType.EmpoweredStrikes: {

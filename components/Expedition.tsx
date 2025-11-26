@@ -85,19 +85,17 @@ const CombatLogRow: React.FC<{
     
     if (log.action === 'specialAttackLog' && log.specialAttackType) {
         const key = `expedition.${log.specialAttackType.charAt(0).toLowerCase() + log.specialAttackType.slice(1)}Log`;
-        // Fallback translation handling in case key doesn't match exactly
-        const translationKey = `expedition.${log.specialAttackType}Log` as any;
-        
-        // Try lowercase first char (e.g. stunLog), then try direct mapping if needed. 
-        // Based on types, keys in pl.ts are 'stunLog', 'armorPierceLog', etc.
-        // We need to construct the translation string manually or use t() with replacements.
         
         const attackerName = <span className="font-bold text-red-400">{log.attacker}</span>;
         const defenderName = log.defender ? <span className="font-bold text-sky-400">{log.defender}</span> : null;
         const specialName = <span className="font-bold text-purple-400">{t(`specialAttacks.${log.specialAttackType}`)}</span>;
 
-        // Construct the message manually to insert React nodes for colors
-        let messageContent: React.ReactNode = t(key, { attacker: log.attacker, defender: log.defender, specialAttack: t(`specialAttacks.${log.specialAttackType}`) });
+        let messageContent: React.ReactNode = t(key, { 
+            attacker: log.attacker, 
+            defender: log.defender, 
+            specialAttack: t(`specialAttacks.${log.specialAttackType}`),
+            damage: log.damage // Pass damage if present
+        });
 
         // Override with styled components for specific keys if possible
         if (log.specialAttackType === 'Stun') {
@@ -105,7 +103,10 @@ const CombatLogRow: React.FC<{
         } else if (log.specialAttackType === 'ArmorPierce') {
              messageContent = <>{defenderName} {t('expedition.armorPierceLog').replace('{defender}', '')}</>;
         } else if (log.specialAttackType === 'DeathTouch') {
-             messageContent = <>{defenderName} {t('expedition.deathTouchLog').replace('{defender}', '')}</>;
+             // DeathTouch now uses damage value
+             const text = t('expedition.deathTouchLog', { damage: log.damage || 0 });
+             const parts = text.split('{defender}');
+             messageContent = <>{parts[0] ? parts[0] : null}{defenderName}{parts[1] ? parts[1] : null}</>;
         } else if (log.specialAttackType === 'EmpoweredStrikes') {
              messageContent = <>{attackerName} {t('expedition.empoweredStrikesLog').replace('{attacker}', '')}</>;
         } else if (log.specialAttackType === 'Earthquake') {
@@ -116,11 +117,22 @@ const CombatLogRow: React.FC<{
         }
 
         return (
-            <div className="text-center my-2 py-1 bg-purple-900/20 rounded border border-purple-500/30">
+            <div className="text-center my-2 py-2 bg-purple-900/20 rounded border border-purple-500/30">
                 <p className="font-bold text-sm text-purple-300">
                     <span className="font-mono text-gray-500 mr-2 text-xs">Tura {log.turn}:</span>
                     {messageContent}
                 </p>
+                {/* Render AoE damage details if present */}
+                {log.aoeDamage && log.aoeDamage.length > 0 && (
+                    <div className="mt-1 text-xs text-purple-200/80 space-y-0.5">
+                        {log.aoeDamage.map((hit, idx) => (
+                            <p key={idx} className="flex justify-center gap-2">
+                                <span className="text-sky-300 font-semibold">{hit.target}:</span>
+                                <span className="font-mono text-red-400">-{hit.damage} HP</span>
+                            </p>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     }

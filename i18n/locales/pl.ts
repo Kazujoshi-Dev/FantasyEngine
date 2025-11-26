@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -318,9 +319,9 @@ export default {
         specialAttackLog: '{attacker} używa {specialAttack}!',
         stunLog: '{defender} jest ogłuszony i nie może działać!',
         armorPierceLog: '{defender} traci cały pancerz w tej turze!',
-        deathTouchLog: '{defender} traci połowę swojego zdrowia!',
+        deathTouchLog: '{defender} traci połowę zdrowia (-{damage} HP)!',
         empoweredStrikesLog: '{attacker} wzmacnia swoje ciosy!',
-        earthquakeLog: '{attacker} wywołuje trzęsienie ziemi, raniąc wszystkich!',
+        earthquakeLog: '{attacker} wywołuje trzęsienie ziemi!',
         lowHealthWarning: 'Twoje zdrowie jest poniżej 15%. Czy na pewno chcesz wyruszyć? Ryzyko porażki jest wysokie.',
         combatLog: {
             effect: {
