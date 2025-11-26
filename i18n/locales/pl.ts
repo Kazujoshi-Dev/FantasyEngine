@@ -1,4 +1,5 @@
 
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -323,6 +324,7 @@ export default {
         empoweredStrikesLog: '{attacker} wzmacnia swoje ciosy!',
         earthquakeLog: '{attacker} wywołuje trzęsienie ziemi!',
         lowHealthWarning: 'Twoje zdrowie jest poniżej 15%. Czy na pewno chcesz wyruszyć? Ryzyko porażki jest wysokie.',
+        forMana: '(za {amount} many)',
         combatLog: {
             effect: {
                 applied: '{defender} zostaje {effect}!',

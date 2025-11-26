@@ -198,6 +198,7 @@ export interface CombatLogEntry {
   defender: string;
   action: string;
   damage?: number;
+  manaSpent?: number;
   manaGained?: number;
   healthGained?: number;
   playerHealth: number;

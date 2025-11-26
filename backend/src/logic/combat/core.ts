@@ -1,4 +1,5 @@
 
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 
@@ -85,6 +86,7 @@ export const performAttack = <
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
     let arcaneMissileBonusDamage = 0;
+    let manaSpent = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
@@ -123,6 +125,7 @@ export const performAttack = <
                     useMagicAttack = true;
                     magicAttackType = template.magicAttackType;
                     attacker.currentMana -= manaCost;
+                    manaSpent = manaCost;
                 } else {
                     logs.push({ turn, attacker: attacker.name, defender: '', action: 'notEnoughMana', ...getHealthState(attacker, defender) });
                     useMagicAttack = false;
@@ -131,6 +134,7 @@ export const performAttack = <
                 useMagicAttack = true;
                 magicAttackType = template.magicAttackType;
                 attacker.currentMana -= manaCost;
+                manaSpent = manaCost;
             }
         }
     } else {
@@ -140,6 +144,7 @@ export const performAttack = <
             useMagicAttack = true;
             magicAttackType = enemyStats.magicAttackType;
             attacker.currentMana -= manaCost;
+            manaSpent = manaCost;
         }
     }
 
@@ -293,6 +298,7 @@ export const performAttack = <
         healthGained: healthGained > 0 ? healthGained : undefined,
         manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined,
         magicAttackType, weaponName,
+        manaSpent: manaSpent > 0 ? manaSpent : undefined,
         ...getHealthState(attacker, defender),
     };
     logs.push(finalLogEntry);
