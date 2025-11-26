@@ -33,12 +33,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
             const rawChar = res.rows[0].data;
-            // FIX: Add the user ID to the character object for combat simulation to correctly identify players.
             rawChar.id = member.userId;
-            // Deep copy raw char to ensure we have a clean version to save back to DB later
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
-
-            // Create a derived version ONLY for combat simulation
             const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
             playerCombatants.push(combatChar);
         }
@@ -48,7 +44,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const bossTemplate = gameData.enemies.find(e => e.id === party.bossId);
     if (!bossTemplate) throw new Error('Boss not found');
 
-    // 3. Simulate Combat using derived stats
+    // 3. Simulate Combat
     const { combatLog, finalPlayers } = simulateTeamVsBossCombat(playerCombatants, bossTemplate, gameData);
     const lastEntry = combatLog[combatLog.length - 1];
     const isVictory = lastEntry.enemyHealth <= 0;
@@ -59,39 +55,28 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         if(member) {
             const charToUpdate = rawCharactersMap[member.userId];
             if (charToUpdate) {
-                // Apply the final health from the combat simulation. Ensure it's not negative.
                 charToUpdate.stats.currentHealth = Math.max(0, finalPlayerState.currentHealth);
                 charToUpdate.stats.currentMana = Math.max(0, finalPlayerState.currentMana);
             }
         }
     }
 
-    // 4. Calculate Rewards and Save State (Individually)
+    // 4. Calculate Rewards and Save State
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
     const allRewardsForReport: Record<string, { gold: number; experience: number }> = {};
 
     if (isVictory) {
-        // Reward Logic: Total Pool = BaseReward * PlayerCount * 1.5
         const bossBonusMultiplier = 1.5; 
-
-        const minGold = bossTemplate.rewards.minGold;
-        const maxGold = bossTemplate.rewards.maxGold;
-        const rolledGold = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
+        const rolledGold = Math.floor(Math.random() * (bossTemplate.rewards.maxGold - bossTemplate.rewards.minGold + 1)) + bossTemplate.rewards.minGold;
         const totalPoolGold = rolledGold * playerCombatants.length * bossBonusMultiplier;
-
-        const minExp = bossTemplate.rewards.minExperience;
-        const maxExp = bossTemplate.rewards.maxExperience;
-        const rolledExp = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
+        const rolledExp = Math.floor(Math.random() * (bossTemplate.rewards.maxExperience - bossTemplate.rewards.minExperience + 1)) + bossTemplate.rewards.minExperience;
         const totalPoolExp = rolledExp * playerCombatants.length * bossBonusMultiplier;
-
         const splitGold = Math.floor(totalPoolGold / playerCombatants.length);
         const splitExp = Math.floor(totalPoolExp / playerCombatants.length);
 
-        // FIRST LOOP: Calculate rewards for all members and update their characters in DB.
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
-
             const finalState = finalPlayers.find(p => p.data.name === char.name);
             const isDefeated = !finalState || finalState.isDead;
             const rewardMultiplier = isDefeated ? 0.5 : 1.0;
@@ -104,12 +89,25 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             if (char.characterClass === 'Thief') finalGold = Math.floor(finalGold * 1.25);
             if (char.race === 'Human') finalExp = Math.floor(finalExp * 1.1);
             
-            // Loot is only for survivors
             const itemsFound: ItemInstance[] = [];
             const essencesFound: Partial<Record<EssenceType, number>> = {};
             if (!isDefeated) {
                 const backpackCap = getBackpackCapacity(char);
-                for (const drop of (bossTemplate.lootTable || [])) {
+                const combinedLootTable = [...(bossTemplate.lootTable || [])];
+
+                // Dungeon Hunter Bonus Loot
+                if (char.characterClass === CharacterClass.DungeonHunter && combinedLootTable.length > 0) {
+                    if (Math.random() < 0.3) {
+                         const extraDrop = combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)];
+                         if(extraDrop) combinedLootTable.push(extraDrop);
+                    }
+                     if (Math.random() < 0.15) {
+                         const extraDrop = combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)];
+                         if(extraDrop) combinedLootTable.push(extraDrop);
+                    }
+                }
+                
+                for (const drop of combinedLootTable) {
                     if (Math.random() * 100 < drop.chance) {
                         if (char.inventory.length + itemsFound.length < backpackCap) {
                             itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
@@ -128,7 +126,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             rewardsMap[userId] = { gold: finalGold, experience: finalExp, items: itemsFound, essences: essencesFound };
             allRewardsForReport[char.name] = { gold: finalGold, experience: finalExp };
 
-            // Update Character object in memory
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
             char.experience = (Number(char.experience) || 0) + finalExp;
             char.inventory.push(...itemsFound);
@@ -136,7 +133,11 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                  char.resources[key as EssenceType] = (char.resources[key as EssenceType] || 0) + (val as number);
             }
             
-            // Level Up Check
+            if (char.characterClass === CharacterClass.Druid) {
+                const derivedAfterCombat = calculateDerivedStatsOnServer(char, gameData.itemTemplates, gameData.affixes);
+                char.stats.currentHealth = Math.min(derivedAfterCombat.stats.maxHealth, char.stats.currentHealth + derivedAfterCombat.stats.maxHealth * 0.5);
+            }
+            
             while (char.experience >= char.experienceToNextLevel) {
                 char.experience -= char.experienceToNextLevel;
                 char.level += 1;
@@ -147,48 +148,26 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
         }
         
-        // SECOND LOOP: Now that allRewardsForReport is complete, send the same report to everyone.
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
-            const char = rawCharactersMap[userId];
-            const finalState = finalPlayers.find(p => p.data.name === char.name);
-            const isDefeated = !finalState || finalState.isDead;
             const userRewards = rewardsMap[userId];
-            
-            const breakdownSource = isDefeated 
-                ? `Polowanie na Bossa: ${bossTemplate.name} (Pokonany, 50% nagrody)`
-                : `Polowanie na Bossa: ${bossTemplate.name}`;
-            
             const summary: ExpeditionRewardSummary = {
-                isVictory: true, 
-                totalGold: userRewards.gold, 
-                totalExperience: userRewards.experience, 
-                combatLog,
-                itemsFound: userRewards.items, 
-                essencesFound: userRewards.essences,
-                rewardBreakdown: [{ source: breakdownSource, gold: userRewards.gold, experience: userRewards.experience }],
-                huntingMembers: party.members,
-                allRewards: allRewardsForReport,
-                bossId: party.bossId
+                isVictory: true, totalGold: userRewards.gold, totalExperience: userRewards.experience, combatLog,
+                itemsFound: userRewards.items, essencesFound: userRewards.essences,
+                rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: userRewards.gold, experience: userRewards.experience }],
+                huntingMembers: party.members, allRewards: allRewardsForReport, bossId: party.bossId
             };
-            
             await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
         }
     } else {
-         // Handle defeat: Send a report to everyone with no rewards.
          for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const summary: ExpeditionRewardSummary = {
-                isVictory: false, 
-                totalGold: 0, totalExperience: 0, 
-                combatLog, 
-                itemsFound: [], essencesFound: {}, 
-                rewardBreakdown: [],
-                huntingMembers: party.members,
-                bossId: party.bossId
+                isVictory: false, totalGold: 0, totalExperience: 0, combatLog, itemsFound: [], essencesFound: {}, 
+                rewardBreakdown: [], huntingMembers: party.members, bossId: party.bossId
             };
             await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
@@ -197,7 +176,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
          }
     }
     
-    // 5. Finalize Party State in DB
     await client.query(
         "UPDATE hunting_parties SET status = 'FINISHED', combat_log = $1, rewards = $2, victory = $3 WHERE id = $4",
         [JSON.stringify(combatLog), JSON.stringify(rewardsMap), isVictory, party.id]
@@ -215,8 +193,6 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         createdAt: dbParty.created_at,
         members: dbParty.members,
         combatLog: dbParty.combat_log,
-        // @FIX: The 'rewards' property does not exist on the HuntingParty type.
-        // The logic in the routes fetches this data separately.
         victory: dbParty.victory
     };
 };

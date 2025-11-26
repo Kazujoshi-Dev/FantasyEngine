@@ -416,6 +416,27 @@ export const simulateTeamVsBossCombat = (
         ...getHealthStateForLog(), playerStats: playersData[0]?.stats, enemyStats: bossState.stats, enemyDescription: bossState.description
     });
     
+    // Hunter Bonus Attack (Turn 0)
+    for (const player of playersState) {
+        const weapon = player.data.equipment.mainHand || player.data.equipment.twoHand;
+        const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
+        if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
+             const playerAsAttacker = { ...player, stats: player.data.stats, name: player.data.name };
+             const bossAsDefender = { ...bossState, stats: bossState.stats, name: bossState.name };
+             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
+             
+             // Apply 50% damage reduction
+             const lastLog = attackLogs[attackLogs.length - 1];
+             if (lastLog.damage) {
+                const reducedDamage = Math.floor(lastLog.damage * 0.5);
+                const damageDiff = lastLog.damage - reducedDamage;
+                bossState.currentHealth = defenderState.currentHealth + damageDiff;
+                lastLog.damage = reducedDamage;
+             }
+             log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+        }
+    }
+
     while (playersState.some(p => !p.isDead) && bossState.currentHealth > 0 && turn < 100) {
         turn++;
         
@@ -447,15 +468,36 @@ export const simulateTeamVsBossCombat = (
             const attacks = player.data.stats.attacksPerRound;
             for (let i = 0; i < attacks; i++) {
                 if (bossState.currentHealth <= 0) break;
-                const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, turn, gameData, []);
                 
-                // Update player state
+                let attackOptions = {};
+                if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
+                    // Temporarily boost crit chance for the guaranteed crit
+                    playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
+                }
+
+                const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, turn, gameData, [], false, attackOptions);
+                
+                // Reset temporary stats
+                if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
+                    playerAsAttacker.stats = player.data.stats;
+                }
+
                 player.currentHealth = attackerState.currentHealth;
                 player.currentMana = attackerState.currentMana;
-                // Update boss state
                 bossState.currentHealth = defenderState.currentHealth;
                 
                 log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
+            }
+            
+            // Berserker Bonus Attack
+            if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3) {
+                 if (bossState.currentHealth > 0) {
+                     const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, turn, gameData, []);
+                     player.currentHealth = attackerState.currentHealth;
+                     player.currentMana = attackerState.currentMana;
+                     bossState.currentHealth = defenderState.currentHealth;
+                     log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
+                 }
             }
         }
         
@@ -479,15 +521,11 @@ export const simulateTeamVsBossCombat = (
                 
                 switch(special.type) {
                     case SpecialAttackType.Stun:
-                        randomTarget.statusEffects.push({ type: 'stunned', duration: 2 }); // Duration 2 means it will activate on the next turn.
+                        randomTarget.statusEffects.push({ type: 'stunned', duration: 2 });
                         break;
                     case SpecialAttackType.ArmorPierce:
-                        const bossAsAttackerAP = { ...bossState };
-                        const playerAsDefenderAP = { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name };
-                        const { logs: apLogs, defenderState: apDefender } = performAttack(bossAsAttackerAP, playerAsDefenderAP, turn, gameData, [], true, { ignoreArmor: true });
-                        
+                        const { logs: apLogs, defenderState: apDefender } = performAttack({ ...bossState }, { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name }, turn, gameData, [], true, { ignoreArmor: true });
                         playersState[randomTargetIndex].currentHealth = apDefender.currentHealth;
-                        
                         log.push(...apLogs.map(l => ({...l, ...getHealthStateForLog()})));
                         break;
                     case SpecialAttackType.DeathTouch:
@@ -522,7 +560,6 @@ export const simulateTeamVsBossCombat = (
                     
                     const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
                     if (targetIndex !== -1) {
-                         // CRITICAL FIX: Only update the state of the targeted player
                          playersState[targetIndex].currentHealth = defenderState.currentHealth;
                          playersState[targetIndex].currentMana = defenderState.currentMana;
                          playersState[targetIndex].statusEffects = defenderState.statusEffects;
@@ -547,13 +584,9 @@ export const simulateTeamVsBossCombat = (
         l.allPlayersHealth = states.allPlayersHealth;
         l.enemyHealth = states.enemyHealth;
         l.enemyMana = states.enemyMana;
-        // This log was missing mana updates
-        const playerLogState = states.allPlayersHealth.find(p => p.name === l.attacker || p.name === l.defender);
-        if (playerLogState) {
-            const playerState = playersState.find(p => p.data.name === playerLogState.name);
-            if(playerState) {
-                l.playerMana = playerState.currentMana;
-            }
+        const playerInLog = playersState.find(p => p.data.name === l.attacker || p.data.name === l.defender);
+        if (playerInLog) {
+            l.playerMana = playerInLog.currentMana;
         }
     });
 
