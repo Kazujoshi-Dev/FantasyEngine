@@ -1,5 +1,4 @@
 
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 
@@ -73,6 +72,41 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats, enemyDescription: enemyState.description
     });
     
+    // --- Turn 0: Ranged Weapons Logic ---
+    const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
+    const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
+
+    if (template?.isRanged && enemyState.currentHealth > 0) {
+        // 1. Standard Ranged Attack (Everyone with ranged weapon)
+        const { logs: attackLogs, defenderState } = performAttack(playerState, enemyState, 0, gameData, []);
+        log.push(...attackLogs);
+        enemyState = defenderState as typeof enemyState; // Sync state
+
+        // 2. Hunter Bonus Attack (Only Hunters, 50% damage)
+        if (playerData.characterClass === CharacterClass.Hunter && enemyState.currentHealth > 0) {
+             const { logs: hunterLogs, defenderState: hunterDefenderState } = performAttack(playerState, enemyState, 0, gameData, []);
+             
+             // Apply 50% damage reduction logic manually to the log and state
+             const lastLog = hunterLogs[hunterLogs.length - 1];
+             if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
+                const originalDamage = lastLog.damage;
+                const reducedDamage = Math.floor(originalDamage * 0.5);
+                const diff = originalDamage - reducedDamage;
+                
+                // Correct the log
+                lastLog.damage = reducedDamage;
+                // Correct the actual health state (heal back the difference)
+                hunterDefenderState.currentHealth += diff;
+                // Sync local variable
+                enemyState = hunterDefenderState as typeof enemyState;
+                
+                // Update health in log entry to match new state
+                lastLog.enemyHealth = enemyState.currentHealth;
+             }
+             log.push(...hunterLogs);
+        }
+    }
+
     let playerAttacksFirst = (playerData.race === Race.Elf) || (playerState.stats.agility >= enemyState.stats.agility);
 
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
@@ -181,6 +215,21 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         playerAttacksFirst = playerState.stats.agility >= enemyState.stats.agility;
     }
     
+    // Final death check if loop exited due to HP <= 0 but no death log was pushed (e.g. Turn 0 kill)
+    if (enemyState.currentHealth <= 0 && !log.some(l => l.action === 'enemy_death')) {
+         log.push({ 
+             turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', 
+             playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+             enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
+         });
+    } else if (playerState.currentHealth <= 0 && !log.some(l => l.action === 'death')) {
+         log.push({ 
+             turn, attacker: enemyState.name, defender: playerState.name, action: 'death', 
+             playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+             enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
+         });
+    }
+    
     return log;
 };
 
@@ -242,23 +291,38 @@ export const simulateTeamVsBossCombat = (
         partyMemberStats: partyStats
     });
     
-    // --- 2. Turn 0: Hunter Bonus Attack ---
+    // --- 2. Turn 0: Ranged Weapon Logic ---
     for (const player of playersState) {
-        // FIX: Optional chaining to prevent crash if equipment is missing.
         const weapon = player.data.equipment?.mainHand || player.data.equipment?.twoHand;
         const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
-        if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
+        
+        if (template?.isRanged && bossState.currentHealth > 0) {
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
              const bossAsDefender: DefenderState = { ...bossState, stats: bossState.stats, name: bossState.name };
-             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
              
-             const lastLog = attackLogs[attackLogs.length - 1];
-             if (lastLog?.damage !== undefined && !lastLog.isDodge) {
-                const reducedDamage = Math.floor(lastLog.damage * 0.5);
-                bossState.currentHealth = defenderState.currentHealth + (lastLog.damage - reducedDamage);
-                lastLog.damage = reducedDamage;
-             }
+             // 1. Standard Ranged Attack (Everyone with ranged weapon)
+             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
+             bossState.currentHealth = defenderState.currentHealth; // Sync Boss HP
              log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+
+             // 2. Hunter Bonus Attack (Only Hunters, 50% damage)
+             if (player.data.characterClass === CharacterClass.Hunter && bossState.currentHealth > 0) {
+                 const { logs: hunterLogs, defenderState: hunterBossState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
+                 
+                 const lastLog = hunterLogs[hunterLogs.length - 1];
+                 if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
+                    const originalDamage = lastLog.damage;
+                    const reducedDamage = Math.floor(originalDamage * 0.5);
+                    const diff = originalDamage - reducedDamage;
+                    
+                    lastLog.damage = reducedDamage;
+                    hunterBossState.currentHealth += diff; // Restore HP
+                    lastLog.enemyHealth = hunterBossState.currentHealth;
+                    
+                    bossState.currentHealth = hunterBossState.currentHealth; // Sync Boss HP
+                 }
+                 log.push(...hunterLogs.map(l => ({...l, ...getHealthStateForLog()})));
+             }
         }
     }
 
