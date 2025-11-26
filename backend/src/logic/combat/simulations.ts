@@ -425,11 +425,19 @@ export const simulateTeamVsBossCombat = (
             if (manaRegen > 0 && combatant.currentMana < (combatant.stats.maxMana || 0)) {
                 combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
             }
+            combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
         
         const livingPlayers = playersState.filter(p => !p.isDead);
         for (const player of livingPlayers) {
             if (bossState.currentHealth <= 0) break;
+            
+            const stunEffectIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
+            if (stunEffectIndex > -1) {
+                player.statusEffects.splice(stunEffectIndex, 1); // Stun is consumed
+                continue; // Skip this player's turn
+            }
+
             const playerAsAttacker = { ...player, stats: player.data.stats, name: player.data.name };
             const bossAsDefender = { ...bossState, stats: bossState.stats, name: bossState.name };
             
@@ -465,9 +473,30 @@ export const simulateTeamVsBossCombat = (
                 switch(special.type) {
                     case SpecialAttackType.Stun:
                         log.push({ turn, attacker: bossState.name, defender: randomTarget.data.name, action: 'stunLog', stunnedPlayer: randomTarget.data.name, ...getHealthStateForLog() });
+                        randomTarget.statusEffects.push({ type: 'stunned', duration: 2 });
                         break;
                     case SpecialAttackType.ArmorPierce:
                         log.push({ turn, attacker: bossState.name, defender: randomTarget.data.name, action: 'armorPierceLog', ...getHealthStateForLog() });
+                        const bossAsAttackerAP = { ...bossState };
+                        const playerAsDefenderAP = { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name };
+                        const { logs: apLogs, attackerState: apAttacker, defenderState: apDefender } = performAttack(bossAsAttackerAP, playerAsDefenderAP, turn, gameData, [], true, { ignoreArmor: true });
+                        
+                        bossState.currentHealth = apAttacker.currentHealth;
+                        bossState.currentMana = apAttacker.currentMana;
+                        
+                        const apTargetIndex = playersState.findIndex(p => p.data.id === randomTarget.data.id);
+                        if (apTargetIndex !== -1) {
+                             playersState[apTargetIndex].currentHealth = apDefender.currentHealth;
+                             playersState[apTargetIndex].currentMana = apDefender.currentMana;
+                             playersState[apTargetIndex].statusEffects = apDefender.statusEffects;
+                        }
+
+                        log.push(...apLogs);
+                        
+                        if (playersState[apTargetIndex].currentHealth <= 0 && !playersState[apTargetIndex].isDead) {
+                            playersState[apTargetIndex].isDead = true;
+                            log.push({ turn, attacker: bossState.name, defender: playersState[apTargetIndex].data.name, action: 'death', ...getHealthStateForLog() });
+                        }
                         break;
                     case SpecialAttackType.DeathTouch:
                         randomTarget.currentHealth = Math.floor(randomTarget.currentHealth / 2);

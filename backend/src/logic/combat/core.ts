@@ -1,7 +1,7 @@
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 
-export type StatusEffectType = 'burning' | 'frozen_no_attack' | 'frozen_no_dodge' | 'reduced_attacks';
+export type StatusEffectType = 'burning' | 'frozen_no_attack' | 'frozen_no_dodge' | 'reduced_attacks' | 'stunned';
 
 export interface StatusEffect {
     type: StatusEffectType;
@@ -56,7 +56,7 @@ export const performAttack = <
     gameData: GameData,
     allEnemies: DefenderState[],
     isBossAttacking: boolean = false,
-    turnEffects: any = {}
+    options: { ignoreArmor?: boolean } = {}
 ): { logs: CombatLogEntry[], attackerState: TAttacker, defenderState: TDefender, aoeData?: any, chainData?: any } => {
 
     const logs: CombatLogEntry[] = [];
@@ -162,7 +162,7 @@ export const performAttack = <
         const armorPenPercent = 'armorPenetrationPercent' in attacker.stats ? (attacker.stats as any).armorPenetrationPercent : 0;
         const armorPenFlat = 'armorPenetrationFlat' in attacker.stats ? (attacker.stats as any).armorPenetrationFlat : 0;
         
-        const effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
+        const effectiveArmor = options.ignoreArmor ? 0 : Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
         const armorReduction = Math.min(damage, Math.floor(effectiveArmor));
         damage -= armorReduction;
         damageReduced += armorReduction;

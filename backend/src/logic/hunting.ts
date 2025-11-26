@@ -33,6 +33,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
             const rawChar = res.rows[0].data;
+            // FIX: Add the user ID to the character object for combat simulation to correctly identify players.
+            rawChar.id = member.userId;
             // Deep copy raw char to ensure we have a clean version to save back to DB later
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
 
