@@ -33,7 +33,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
             const rawChar = res.rows[0].data;
-            rawChar.id = member.userId;
+            rawChar.id = member.userId; // CRITICAL FIX: Ensure user ID is attached for combat simulation
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
             const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
             playerCombatants.push(combatChar);
@@ -51,7 +51,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 3.5 Update player health from combat results
     for (const finalPlayerState of finalPlayers) {
-        const member = acceptedMembers.find(m => m.characterName === finalPlayerState.data.name);
+        // @FIX: Property 'data' does not exist on type 'PartyMember'. Use 'userId' instead.
+        const member = acceptedMembers.find(m => m.userId === finalPlayerState.data.id);
         if(member) {
             const charToUpdate = rawCharactersMap[member.userId];
             if (charToUpdate) {
@@ -77,7 +78,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
-            const finalState = finalPlayers.find(p => p.data.name === char.name);
+            const finalState = finalPlayers.find(p => p.data.id === char.id);
             const isDefeated = !finalState || finalState.isDead;
             const rewardMultiplier = isDefeated ? 0.5 : 1.0;
             
@@ -165,6 +166,9 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     } else {
          for (const userIdStr of Object.keys(rawCharactersMap)) {
             const userId = parseInt(userIdStr, 10);
+            const charToUpdate = rawCharactersMap[userId];
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [charToUpdate, userId]);
+
             const summary: ExpeditionRewardSummary = {
                 isVictory: false, totalGold: 0, totalExperience: 0, combatLog, itemsFound: [], essencesFound: {}, 
                 rewardBreakdown: [], huntingMembers: party.members, bossId: party.bossId
@@ -178,7 +182,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     
     await client.query(
         "UPDATE hunting_parties SET status = 'FINISHED', combat_log = $1, rewards = $2, victory = $3 WHERE id = $4",
-        [JSON.stringify(combatLog), JSON.stringify(rewardsMap), isVictory, party.id]
+        [JSON.stringify(combatLog), JSON.stringify(allRewardsForReport), isVictory, party.id]
     );
 };
 
@@ -193,6 +197,8 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         createdAt: dbParty.created_at,
         members: dbParty.members,
         combatLog: dbParty.combat_log,
+        // @FIX: Property 'rewards' does not exist on type 'HuntingParty'. Map to 'allRewards'.
+        allRewards: dbParty.rewards,
         victory: dbParty.victory
     };
 };
