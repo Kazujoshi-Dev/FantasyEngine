@@ -12,6 +12,24 @@ export interface TeamCombatPlayerState {
   shadowBoltStacks?: number;
 }
 
+const defaultEnemyStats: EnemyStats = {
+    maxHealth: 1,
+    minDamage: 1,
+    maxDamage: 1,
+    armor: 0,
+    critChance: 0,
+    agility: 1,
+    attacksPerTurn: 1,
+    critDamageModifier: 150,
+    dodgeChance: 0,
+    magicAttackChance: 0,
+    magicAttackManaCost: 0,
+    magicDamageMax: 0,
+    magicDamageMin: 0,
+    manaRegen: 0,
+    maxMana: 0,
+};
+
 
 // ==========================================================================================
 //                                   1 vs 1 COMBAT
@@ -30,10 +48,12 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         statusEffects: [],
     };
     
+    const effectiveEnemyStats = { ...defaultEnemyStats, ...(enemyData.stats || {}) };
+
     let enemyState: AttackerState & {description?: string} = {
-        stats: enemyData.stats,
-        currentHealth: enemyData.stats.maxHealth,
-        currentMana: enemyData.stats.maxMana || 0,
+        stats: effectiveEnemyStats,
+        currentHealth: effectiveEnemyStats.maxHealth,
+        currentMana: effectiveEnemyStats.maxMana || 0,
         name: enemyData.name,
         description: enemyData.description,
         hardSkinTriggered: false,
@@ -182,10 +202,12 @@ export const simulateTeamVsBossCombat = (
         shadowBoltStacks: 0
     }));
 
+    const effectiveBossStats = { ...defaultEnemyStats, ...(bossData.stats || {}) };
+
     let bossState: AttackerState & { specialAttacksUsed: Record<string, number> } = {
-        stats: bossData.stats,
-        currentHealth: bossData.stats.maxHealth,
-        currentMana: bossData.stats.maxMana || 0,
+        stats: effectiveBossStats,
+        currentHealth: effectiveBossStats.maxHealth,
+        currentMana: effectiveBossStats.maxMana || 0,
         name: bossData.name,
         statusEffects: [],
         specialAttacksUsed: (bossData.specialAttacks || []).reduce((acc, sa) => ({ ...acc, [sa.type]: 0 }), {}),
@@ -209,6 +231,7 @@ export const simulateTeamVsBossCombat = (
     
     // --- 2. Turn 0: Hunter Bonus Attack ---
     for (const player of playersState) {
+        // FIX: Optional chaining to prevent crash if equipment is missing.
         const weapon = player.data.equipment?.mainHand || player.data.equipment?.twoHand;
         const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
         if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
@@ -234,8 +257,9 @@ export const simulateTeamVsBossCombat = (
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         for (const combatant of allCombatants) {
             // Mana Regen
-            if (combatant.stats.manaRegen > 0) {
-                combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + combatant.stats.manaRegen);
+            const manaRegen = combatant.stats.manaRegen || 0;
+            if (manaRegen > 0) {
+                combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
             }
             // Status Effects
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
