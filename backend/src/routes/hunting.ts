@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, GameData, PlayerCharacter } from '../types.js';
-import { getPartyByLeader, getPartyByMember, processPartyCombat } from '../logic/hunting.js';
+import { getPartyByLeader, getPartyByMember, processPartyCombat, camelizeParty } from '../logic/hunting.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 
 const router = express.Router();
@@ -44,67 +44,53 @@ router.get('/parties', authenticateToken, async (req: any, res: any) => {
 
 // GET /api/hunting/my-party - Get current user's party status
 router.get('/my-party', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    let finalPartyObject: HuntingParty | null = null;
+
     try {
-        let party = await getPartyByMember(req.user.id);
+        await client.query('BEGIN');
+        
+        const partyRes = await client.query(`
+            SELECT p.* FROM hunting_parties p, jsonb_array_elements(p.members) AS member 
+            WHERE (member->>'userId')::int = $1 FOR UPDATE
+        `, [req.user.id]);
 
-        if (party && party.status === PartyStatus.Preparing) {
-            const partyInPreparation = party;
-            if (partyInPreparation.startTime) {
-                const gameData = await getGameData();
-                const boss = gameData.enemies.find(e => e.id === partyInPreparation.bossId);
-                const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
-                const fightStartTime = new Date(partyInPreparation.startTime).getTime() + preparationTimeSeconds * 1000;
+        if (partyRes.rows.length === 0) {
+            await client.query('COMMIT');
+            return res.json({ party: null, serverTime: new Date().toISOString() });
+        }
+        
+        let party = camelizeParty(partyRes.rows[0]);
 
-                if (Date.now() >= fightStartTime) {
-                    const client = await pool.connect();
-                    try {
-                        await client.query('BEGIN');
-                        const lockResult = await client.query(
-                            "UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1 AND status = 'PREPARING' RETURNING *",
-                            [partyInPreparation.id]
-                        );
+        if (party.status === PartyStatus.Preparing && party.startTime) {
+            const gameData = await getGameData();
+            const boss = gameData.enemies.find(e => e.id === party.bossId);
+            const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
+            const fightStartTime = new Date(party.startTime).getTime() + preparationTimeSeconds * 1000;
 
-                        if (lockResult.rowCount === 1) {
-                            try {
-                                await processPartyCombat(partyInPreparation, gameData, client);
-                            } catch (combatError) {
-                                console.error(`CRITICAL: processPartyCombat failed for party ${partyInPreparation.id}. Forcing FINISHED status.`, combatError);
-                                await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [partyInPreparation.id]);
-                            }
-                        }
-                        await client.query('COMMIT');
-                        // After combat is processed and committed, refetch the party to get the final state.
-                        party = await getPartyByMember(req.user.id);
-                    } catch (err) {
-                        await client.query('ROLLBACK');
-                        console.error("Error during party combat transition:", err);
-                        party = await getPartyByMember(req.user.id);
-                    } finally {
-                        client.release();
-                    }
+            if (Date.now() >= fightStartTime) {
+                // The "FIGHTING" status acts as a sub-lock to ensure combat is processed only once.
+                await client.query("UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1", [party.id]);
+                
+                try {
+                    await processPartyCombat(party, gameData, client);
+                } catch (combatError) {
+                    console.error(`CRITICAL: processPartyCombat failed for party ${party.id}. Forcing FINISHED status.`, combatError);
+                    await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
+                }
+                
+                // Re-fetch the party to get the final 'FINISHED' state with all data
+                const finalPartyRes = await client.query('SELECT * FROM hunting_parties WHERE id = $1', [party.id]);
+                if (finalPartyRes.rows.length > 0) {
+                    party = camelizeParty(finalPartyRes.rows[0]);
                 }
             }
         }
         
-        // Final guard clause to ensure party is not null for the rest of the function
-        if (!party) {
-            return res.json({ party: null, serverTime: new Date().toISOString() });
-        }
-        
-        // This block will now correctly execute for any finished party,
-        // whether it just finished or was already finished.
         if (party.status === PartyStatus.Finished) {
-            const rewardsRes = await pool.query('SELECT rewards, combat_log FROM hunting_parties WHERE id = $1', [party.id]);
-            const dbRow = rewardsRes.rows[0];
-            
-            party.combatLog = dbRow?.combat_log;
-            const rewardsRaw = dbRow?.rewards;
-            
-            if (rewardsRaw && rewardsRaw[req.user.id]) {
-                party.myRewards = rewardsRaw[req.user.id];
-            }
-            
-            if (rewardsRaw) {
+             const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
+             if (rewardsRaw) {
+                 party.myRewards = rewardsRaw[req.user.id];
                  const allRewards: Record<string, { gold: number; experience: number }> = {};
                  party.members.forEach(member => {
                      if(rewardsRaw[member.userId]) {
@@ -115,23 +101,20 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                      }
                  });
                  party.allRewards = allRewards;
-            }
+             }
         }
+        
+        finalPartyObject = party;
+        await client.query('COMMIT');
 
-        const gameData = await getGameData();
-        for (const member of party.members) {
-            const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
-            if (charRes.rows.length > 0) {
-                const rawChar: PlayerCharacter = charRes.rows[0].data;
-                const derivedChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
-                member.stats = derivedChar.stats;
-            }
-        }
+        res.json({ party: finalPartyObject, serverTime: new Date().toISOString() });
 
-        res.json({ party: party, serverTime: new Date().toISOString() });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch party status' });
+    } finally {
+        client.release();
     }
 });
 

@@ -208,7 +208,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 };
 
 // Helper to convert snake_case DB rows to camelCase objects
-const camelizeParty = (row: any): HuntingParty => {
+export const camelizeParty = (row: any): HuntingParty => {
     return {
         id: row.id,
         leaderId: row.leader_id,
