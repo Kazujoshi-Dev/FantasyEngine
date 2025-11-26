@@ -209,7 +209,7 @@ export const simulateTeamVsBossCombat = (
     
     // --- 2. Turn 0: Hunter Bonus Attack ---
     for (const player of playersState) {
-        const weapon = player.data.equipment.mainHand || player.data.equipment.twoHand;
+        const weapon = player.data.equipment?.mainHand || player.data.equipment?.twoHand;
         const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
         if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
