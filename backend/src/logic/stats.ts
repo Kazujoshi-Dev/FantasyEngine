@@ -5,6 +5,8 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
     const safeAffixes = affixes || [];
+    // FIX: Ensure equipment object exists on character to prevent crash on iteration
+    const safeEquipment = character.equipment || {};
 
     const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
         if (value === undefined || value === null) return 0;
@@ -57,8 +59,8 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
         bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
     };
 
-    for (const slot in character.equipment) {
-        const itemInstance = character.equipment[slot as EquipmentSlot];
+    for (const slot in safeEquipment) {
+        const itemInstance = safeEquipment[slot as EquipmentSlot];
         // Must check if itemInstance exists AND is an object (not null)
         if (itemInstance && typeof itemInstance === 'object') {
             const template = safeItemTemplates.find(t => t.id === itemInstance.templateId);
@@ -142,7 +144,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
         }
     }
     
-    const mainHandItem = character.equipment[EquipmentSlot.MainHand] || character.equipment[EquipmentSlot.TwoHand];
+    const mainHandItem = safeEquipment[EquipmentSlot.MainHand] || safeEquipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     
     // Ensure attacksPerRound is at least 1 and never NaN

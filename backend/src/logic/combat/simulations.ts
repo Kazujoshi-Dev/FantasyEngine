@@ -404,7 +404,7 @@ export const simulateTeamVsBossCombat = (
     let turn = 0;
 
     const getHealthStateForLog = () => ({
-        playerHealth: 0, // Not directly applicable for individual log entries
+        playerHealth: 0, 
         playerMana: 0,
         enemyHealth: bossState.currentHealth,
         enemyMana: bossState.currentMana,
@@ -423,10 +423,9 @@ export const simulateTeamVsBossCombat = (
         if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
              const bossAsDefender: DefenderState = { ...bossState, stats: bossState.stats, name: bossState.name };
-             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, [], false, {});
+             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
              
              const lastLog = attackLogs[attackLogs.length - 1];
-             // CRITICAL FIX: Only apply damage reduction if the attack was not a dodge and dealt damage.
              if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
                 const reducedDamage = Math.floor(lastLog.damage * 0.5);
                 const damageDiff = lastLog.damage - reducedDamage;
@@ -587,6 +586,7 @@ export const simulateTeamVsBossCombat = (
         const playerInLog = playersState.find(p => p.data.name === l.attacker || p.data.name === l.defender);
         if (playerInLog) {
             l.playerMana = playerInLog.currentMana;
+            l.playerHealth = playerInLog.currentHealth;
         }
     });
 

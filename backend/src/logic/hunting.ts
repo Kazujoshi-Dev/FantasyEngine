@@ -33,7 +33,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
             const rawChar = res.rows[0].data;
-            rawChar.id = member.userId; // CRITICAL FIX: Ensure user ID is attached for combat simulation
+            rawChar.id = member.userId; 
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
             const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
             playerCombatants.push(combatChar);
