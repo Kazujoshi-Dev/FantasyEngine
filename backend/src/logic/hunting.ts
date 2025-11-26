@@ -32,7 +32,12 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     for (const member of acceptedMembers) {
         const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
-            const rawChar = res.rows[0].data;
+            // Ensure character has necessary fields to prevent crashes
+            const rawChar: PlayerCharacter = {
+                inventory: [],
+                resources: { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 },
+                ...res.rows[0].data,
+            };
             rawChar.id = member.userId; 
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
             const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates, gameData.affixes);
@@ -41,7 +46,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     }
 
     // 2. Get Boss Data
-    const bossTemplate = gameData.enemies.find(e => e.id === party.bossId);
+    const bossTemplate = (gameData.enemies || []).find(e => e.id === party.bossId);
     if (!bossTemplate) throw new Error('Boss not found');
 
     // 3. Simulate Combat
@@ -109,7 +114,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 
                 for (const drop of combinedLootTable) {
                     if (Math.random() * 100 < drop.chance) {
-                        if (char.inventory.length + itemsFound.length < backpackCap) {
+                        if ((char.inventory || []).length + itemsFound.length < backpackCap) {
                             itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
                         }
                     }
