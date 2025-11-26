@@ -321,7 +321,6 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
         for (const key of Object.keys(skill.requirements) as (keyof SkillRequirements)[]) {
             if ((derivedStats[key as keyof typeof derivedStats] || 0) < (skill.requirements[key]!)) {
                 await client.query('ROLLBACK');
-// @FIX: Fix implicit symbol to string conversion errors by explicitly casting keys to strings in template literals.
                 return res.status(400).json({ message: `Requirement not met: ${String(key)}` });
             }
         }
@@ -330,7 +329,6 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
         for (const key of Object.keys(skill.cost) as (keyof SkillCost)[]) {
             if ((character.resources[key as keyof typeof character.resources] || 0) < (skill.cost[key]!)) {
                 await client.query('ROLLBACK');
-// @FIX: Fix implicit symbol to string conversion errors by explicitly casting keys to strings in template literals.
                 return res.status(400).json({ message: `Not enough resources: ${String(key)}` });
             }
         }

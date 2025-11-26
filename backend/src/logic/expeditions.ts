@@ -1,5 +1,6 @@
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
-import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations.js';
+// @FIX: 'simulate1vManyCombat' is not exported from './combat/simulations.js'. It has been removed.
+import { simulate1v1Combat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -53,14 +54,37 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     let isVictory: boolean;
 
     if (encounteredEnemies.length > 1) {
-        // Use group combat for multiple enemies
-        const { combatLog } = simulate1vManyCombat(combatReadyCharacter, encounteredEnemies, gameData);
-        fullCombatLog = combatLog;
-        const lastLog = combatLog[combatLog.length -1];
-        finalPlayerHealth = lastLog.playerHealth;
-        finalPlayerMana = lastLog.playerMana;
-        isVictory = finalPlayerHealth > 0 && (combatLog.length === 0 || !lastLog.allEnemiesHealth?.some(e => e.currentHealth > 0));
+        // @FIX: The function 'simulate1vManyCombat' does not exist. Re-implementing logic as a series of 1v1 combats.
+        // The player fights enemies one by one, carrying over their health from the previous fight.
+        let combatCharacter = combatReadyCharacter;
+        isVictory = true;
+        finalPlayerHealth = combatCharacter.stats.currentHealth;
+        finalPlayerMana = combatCharacter.stats.currentMana;
 
+        for (const enemy of encounteredEnemies) {
+            const singleCombatLog = simulate1v1Combat(combatCharacter, enemy, gameData);
+            fullCombatLog.push(...singleCombatLog);
+            const lastLog = singleCombatLog[singleCombatLog.length - 1];
+
+            if (lastLog.playerHealth <= 0) {
+                isVictory = false;
+                finalPlayerHealth = 0;
+                finalPlayerMana = lastLog.playerMana;
+                break; // Player died, stop expedition
+            }
+
+            // Player survived, update health and mana for next fight
+            finalPlayerHealth = lastLog.playerHealth;
+            finalPlayerMana = lastLog.playerMana;
+            combatCharacter = {
+                ...combatCharacter,
+                stats: {
+                    ...combatCharacter.stats,
+                    currentHealth: finalPlayerHealth,
+                    currentMana: finalPlayerMana,
+                }
+            };
+        }
     } else if (encounteredEnemies.length === 1) {
         // Use single combat for one enemy
         const singleCombatLog = simulate1v1Combat(combatReadyCharacter, encounteredEnemies[0], gameData);

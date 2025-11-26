@@ -44,7 +44,7 @@ router.put('/', authenticateToken, async (req: any, res: any) => {
 // @FIX: Fix implicit symbol to string conversion error by explicitly casting the key to a string in the template literal.
         res.status(200).json({ message: `Game data for '${String(key)}' updated successfully.` });
     } catch (err) {
-        console.error(`Error updating game data for key ${key}:`, err);
+        console.error(`Error updating game data for key ${String(key)}:`, err);
         res.status(500).json({ message: 'Failed to update game data.' });
     }
 });
