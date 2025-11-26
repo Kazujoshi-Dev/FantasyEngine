@@ -423,9 +423,10 @@ export const simulateTeamVsBossCombat = (
         if (player.data.characterClass === CharacterClass.Hunter && template?.isRanged) {
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
              const bossAsDefender: DefenderState = { ...bossState, stats: bossState.stats, name: bossState.name };
-             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
+             const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, [], false, {});
              
              const lastLog = attackLogs[attackLogs.length - 1];
+             // CRITICAL FIX: Only apply damage reduction if the attack was not a dodge and dealt damage.
              if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
                 const reducedDamage = Math.floor(lastLog.damage * 0.5);
                 const damageDiff = lastLog.damage - reducedDamage;

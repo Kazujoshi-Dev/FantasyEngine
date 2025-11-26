@@ -77,8 +77,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                     await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
                 }
                 
-                // Manually construct the final party object for the response instead of re-fetching the whole row.
-                // This is more explicit and avoids potential transaction visibility issues.
                 const finalDataRes = await client.query('SELECT combat_log, rewards, victory FROM hunting_parties WHERE id = $1', [party.id]);
                 if (finalDataRes.rows.length > 0) {
                     const finalData = finalDataRes.rows[0];
@@ -88,37 +86,24 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
 
                     const rewardsRaw = finalData.rewards;
                     if (rewardsRaw) {
-                        party.myRewards = rewardsRaw[req.user.id];
-                        const allRewards: Record<string, { gold: number; experience: number }> = {};
-                        party.members.forEach(member => {
-                            if(rewardsRaw[member.userId]) {
-                                allRewards[member.characterName] = {
-                                    gold: rewardsRaw[member.userId].gold,
-                                    experience: rewardsRaw[member.userId].experience
-                                }
-                            }
-                        });
-                        party.allRewards = allRewards;
+                        const myName = party.members.find(m => m.userId === req.user.id)?.characterName;
+                        if (myName) {
+                            party.myRewards = rewardsRaw[myName];
+                        }
+                        party.allRewards = rewardsRaw;
                     }
                 }
             }
         }
         
-        // This block is now partially redundant but safe; it handles subsequent polls for a FINISHED party.
         if (party.status === PartyStatus.Finished && !party.myRewards) {
              const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
              if (rewardsRaw) {
-                 party.myRewards = rewardsRaw[req.user.id];
-                 const allRewards: Record<string, { gold: number; experience: number }> = {};
-                 party.members.forEach(member => {
-                     if(rewardsRaw[member.userId]) {
-                         allRewards[member.characterName] = {
-                             gold: rewardsRaw[member.userId].gold,
-                             experience: rewardsRaw[member.userId].experience
-                         }
-                     }
-                 });
-                 party.allRewards = allRewards;
+                 const myName = party.members.find(m => m.userId === req.user.id)?.characterName;
+                 if (myName) {
+                     party.myRewards = rewardsRaw[myName];
+                 }
+                 party.allRewards = rewardsRaw;
              }
         }
         
