@@ -34,6 +34,10 @@ export interface DefenderState {
 }
 
 export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
+    // CRITICAL FIX: Ensure equipment object exists before access.
+    if (!playerData.equipment) {
+        return undefined;
+    }
     const weaponInstance = playerData.equipment.mainHand || playerData.equipment.twoHand;
     if (weaponInstance) {
         const templates = gameData.itemTemplates || [];
@@ -99,7 +103,7 @@ export const performAttack = <
 
     if (attackerIsPlayer) {
         const playerData = (attacker as any).data as PlayerCharacter;
-        const weapon = playerData.equipment.mainHand || playerData.equipment.twoHand;
+        const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
         weaponName = template ? getFullWeaponName(playerData, gameData) : undefined;
 
