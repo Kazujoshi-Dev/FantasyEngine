@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -81,6 +82,48 @@ const CombatLogRow: React.FC<{
             </>
         );
     };
+    
+    if (log.action === 'specialAttackLog' && log.specialAttackType) {
+        const key = `expedition.${log.specialAttackType.charAt(0).toLowerCase() + log.specialAttackType.slice(1)}Log`;
+        // Fallback translation handling in case key doesn't match exactly
+        const translationKey = `expedition.${log.specialAttackType}Log` as any;
+        
+        // Try lowercase first char (e.g. stunLog), then try direct mapping if needed. 
+        // Based on types, keys in pl.ts are 'stunLog', 'armorPierceLog', etc.
+        // We need to construct the translation string manually or use t() with replacements.
+        
+        const attackerName = <span className="font-bold text-red-400">{log.attacker}</span>;
+        const defenderName = log.defender ? <span className="font-bold text-sky-400">{log.defender}</span> : null;
+        const specialName = <span className="font-bold text-purple-400">{t(`specialAttacks.${log.specialAttackType}`)}</span>;
+
+        // Construct the message manually to insert React nodes for colors
+        let messageContent: React.ReactNode = t(key, { attacker: log.attacker, defender: log.defender, specialAttack: t(`specialAttacks.${log.specialAttackType}`) });
+
+        // Override with styled components for specific keys if possible
+        if (log.specialAttackType === 'Stun') {
+             messageContent = <>{defenderName} {t('expedition.stunLog').replace('{defender}', '')}</>;
+        } else if (log.specialAttackType === 'ArmorPierce') {
+             messageContent = <>{defenderName} {t('expedition.armorPierceLog').replace('{defender}', '')}</>;
+        } else if (log.specialAttackType === 'DeathTouch') {
+             messageContent = <>{defenderName} {t('expedition.deathTouchLog').replace('{defender}', '')}</>;
+        } else if (log.specialAttackType === 'EmpoweredStrikes') {
+             messageContent = <>{attackerName} {t('expedition.empoweredStrikesLog').replace('{attacker}', '')}</>;
+        } else if (log.specialAttackType === 'Earthquake') {
+             messageContent = <>{attackerName} {t('expedition.earthquakeLog').replace('{attacker}', '')}</>;
+        } else {
+             // Fallback generic
+             messageContent = <>{attackerName} używa {specialName}!</>;
+        }
+
+        return (
+            <div className="text-center my-2 py-1 bg-purple-900/20 rounded border border-purple-500/30">
+                <p className="font-bold text-sm text-purple-300">
+                    <span className="font-mono text-gray-500 mr-2 text-xs">Tura {log.turn}:</span>
+                    {messageContent}
+                </p>
+            </div>
+        );
+    }
     
     if (log.action === 'effectApplied') {
         let effectText: React.ReactNode = '';
@@ -573,6 +616,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                  
                  if (m.characterName === log.attacker || m.characterName === log.defender) {
                       return { ...m, stats: { ...m.stats, currentHealth: log.playerHealth, currentMana: log.playerMana } };
+                 }
+                 // Also update stunned players or other targets from special attacks if specified
+                 if (log.stunnedPlayer && m.characterName === log.stunnedPlayer) {
+                      // Could add visual stun indicator here in future
                  }
                  return m;
              }));

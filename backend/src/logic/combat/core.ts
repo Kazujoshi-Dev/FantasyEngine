@@ -1,7 +1,8 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 
-export type StatusEffectType = 'burning' | 'frozen_no_attack' | 'frozen_no_dodge' | 'reduced_attacks' | 'stunned';
+export type StatusEffectType = 'burning' | 'frozen_no_attack' | 'frozen_no_dodge' | 'reduced_attacks' | 'stunned' | 'armor_broken';
 
 export interface StatusEffect {
     type: StatusEffectType;
@@ -166,7 +167,13 @@ export const performAttack = <
         const armorPenPercent = 'armorPenetrationPercent' in attacker.stats ? (attacker.stats as any).armorPenetrationPercent : 0;
         const armorPenFlat = 'armorPenetrationFlat' in attacker.stats ? (attacker.stats as any).armorPenetrationFlat : 0;
         
-        const effectiveArmor = options.ignoreArmor ? 0 : Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
+        let effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
+        
+        // Apply armor break status effect or explicit ignore option
+        if (options.ignoreArmor || defender.statusEffects.some(e => e.type === 'armor_broken')) {
+            effectiveArmor = 0;
+        }
+
         const armorReduction = Math.min(damage, Math.floor(effectiveArmor));
         damage -= armorReduction;
         damageReduced += armorReduction;

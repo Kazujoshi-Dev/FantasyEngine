@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 
@@ -211,6 +212,7 @@ export const simulateTeamVsBossCombat = (
         name: bossData.name,
         statusEffects: [],
         specialAttacksUsed: (bossData.specialAttacks || []).reduce((acc, sa) => ({ ...acc, [sa.type]: 0 }), {}),
+        isEmpowered: false,
     };
 
     const log: CombatLogEntry[] = [];
@@ -254,10 +256,16 @@ export const simulateTeamVsBossCombat = (
         turn++;
         
         // --- 3.1. Start of Turn Phase ---
+        // CRITICAL FIX: Use `any` or a specific union type to handle both Player and Boss states correctly in the loop.
+        // The previous crash was caused by accessing `combatant.stats` on a Player object where stats are nested in `data`.
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
+        
         for (const combatant of allCombatants) {
-            // Fix for mixed types (Player vs Boss) - correctly extract stats
-            const stats = combatant.stats || (combatant.data ? combatant.data.stats : undefined);
+            // Access stats safely: Player has `data.stats`, Boss has direct `stats`.
+            let stats: CharacterStats | EnemyStats | undefined = combatant.stats;
+            if (!stats && combatant.data && combatant.data.stats) {
+                stats = combatant.data.stats;
+            }
 
             // Mana Regen
             if (stats) {
@@ -287,8 +295,7 @@ export const simulateTeamVsBossCombat = (
             // Stun Check
             const stunIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
             if (stunIndex > -1) {
-                playersState[playerIndex].statusEffects.splice(stunIndex, 1);
-                log.push({ turn, attacker: bossState.name, defender: player.data.name, action: 'specialAttackLog', specialAttackType: SpecialAttackType.Stun, stunnedPlayer: player.data.name, ...getHealthStateForLog() });
+                // Stun consumes the turn
                 continue;
             }
 
@@ -328,17 +335,20 @@ export const simulateTeamVsBossCombat = (
         let bossUsedSpecial = false;
         for (const special of (bossData.specialAttacks || [])) {
             if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
-                bossUsedSpecial = true;
-                bossState.specialAttacksUsed[special.type]++;
                 const livingTargets = playersState.filter(p => !p.isDead);
                 if (livingTargets.length === 0) continue;
+                
+                bossState.specialAttacksUsed[special.type]++;
+                bossUsedSpecial = true; // Consume turn action with special attack (usually)
                 
                 switch(special.type) {
                     case SpecialAttackType.Stun: {
                         const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
                         const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                        // Apply stunned effect. Duration 2 means "this turn" (decremented at end of boss turn) and "next player turn".
+                        // Actually status update happens at START of turn. So applying now means it exists for player's next turn.
                         playersState[targetIndex].statusEffects.push({ type: 'stunned', duration: 2 });
-                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, stunnedPlayer: target.data.name, ...getHealthStateForLog() });
                         break;
                     }
                     case SpecialAttackType.Earthquake: {
@@ -348,9 +358,30 @@ export const simulateTeamVsBossCombat = (
                         log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
                         break;
                     }
-                    // Implement other special attacks similarly...
+                    case SpecialAttackType.ArmorPierce: {
+                        const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                        const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                        playersState[targetIndex].statusEffects.push({ type: 'armor_broken', duration: 2 });
+                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        break;
+                    }
+                    case SpecialAttackType.DeathTouch: {
+                        const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                        const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                        const damage = Math.floor(playersState[targetIndex].currentHealth * 0.5);
+                        playersState[targetIndex].currentHealth -= damage;
+                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        break;
+                    }
+                    case SpecialAttackType.EmpoweredStrikes: {
+                        bossState.isEmpowered = true;
+                        log.push({ turn, attacker: bossState.name, defender: '', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                        // Does not consume attack action, boss still attacks
+                        bossUsedSpecial = false; 
+                        break;
+                    }
                 }
-                break; 
+                if (bossUsedSpecial) break; // Only one action-consuming special per turn
             }
         }
         
