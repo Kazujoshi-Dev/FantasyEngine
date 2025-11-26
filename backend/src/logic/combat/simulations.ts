@@ -450,28 +450,73 @@ export const simulateTeamVsBossCombat = (
             log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
             break;
         }
+        
+        let bossUsedSpecial = false;
+        for (const special of (enemyData.specialAttacks || [])) {
+            if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
+                bossUsedSpecial = true;
+                bossState.specialAttacksUsed[special.type]++;
+                log.push({ turn, attacker: bossState.name, defender: '', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
 
-        const livingTargets = playersState.filter(p => !p.isDead);
-        if (livingTargets.length > 0) {
-            const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
-            for (let i = 0; i < bossAttacks; i++) {
-                if (playersState.every(p => p.isDead)) break;
+                const livingTargets = playersState.filter(p => !p.isDead);
+                if (livingTargets.length === 0) continue;
+                const randomTarget = livingTargets[Math.floor(Math.random() * livingTargets.length)];
                 
-                const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                const bossAsAttacker = { ...bossState };
-                const playerAsDefender = { ...targetPlayer, stats: targetPlayer.data.stats, name: targetPlayer.data.name };
+                switch(special.type) {
+                    case SpecialAttackType.Stun:
+                        log.push({ turn, attacker: bossState.name, defender: randomTarget.data.name, action: 'stunLog', stunnedPlayer: randomTarget.data.name, ...getHealthStateForLog() });
+                        break;
+                    case SpecialAttackType.ArmorPierce:
+                        log.push({ turn, attacker: bossState.name, defender: randomTarget.data.name, action: 'armorPierceLog', ...getHealthStateForLog() });
+                        break;
+                    case SpecialAttackType.DeathTouch:
+                        randomTarget.currentHealth = Math.floor(randomTarget.currentHealth / 2);
+                        log.push({ turn, attacker: bossState.name, defender: randomTarget.data.name, action: 'deathTouchLog', ...getHealthStateForLog() });
+                        break;
+                    case SpecialAttackType.EmpoweredStrikes:
+                        bossState.isEmpowered = true;
+                        log.push({ turn, attacker: bossState.name, defender: '', action: 'empoweredStrikesLog', ...getHealthStateForLog() });
+                        break;
+                    case SpecialAttackType.Earthquake:
+                        playersState.forEach(p => {
+                            if (!p.isDead) p.currentHealth = Math.max(0, p.currentHealth - Math.floor(p.data.stats.maxHealth * 0.2));
+                        });
+                        log.push({ turn, attacker: bossState.name, defender: '', action: 'earthquakeLog', affectedPlayers: playersState.map(p => p.data.name), ...getHealthStateForLog() });
+                        break;
+                }
+                break; 
+            }
+        }
+        
+        if (!bossUsedSpecial) {
+            const livingTargets = playersState.filter(p => !p.isDead);
+            if (livingTargets.length > 0) {
+                const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
+                for (let i = 0; i < bossAttacks; i++) {
+                    if (playersState.every(p => p.isDead)) break;
+                    
+                    const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                    const bossAsAttacker = { ...bossState };
+                    const playerAsDefender = { ...targetPlayer, stats: targetPlayer.data.stats, name: targetPlayer.data.name };
 
-                const { logs, attackerState, defenderState } = performAttack(bossAsAttacker, playerAsDefender, turn, gameData, []);
-                
-                bossState.currentHealth = attackerState.currentHealth;
-                bossState.currentMana = attackerState.currentMana;
-                targetPlayer.currentHealth = defenderState.currentHealth;
-                
-                log.push(...logs);
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(bossAsAttacker, playerAsDefender, turn, gameData, []);
+                    
+                    bossState.currentHealth = attackerState.currentHealth;
+                    bossState.currentMana = attackerState.currentMana;
+                    
+                    const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
+                    if (targetIndex !== -1) {
+                         playersState[targetIndex].currentHealth = defenderState.currentHealth;
+                         playersState[targetIndex].currentMana = defenderState.currentMana;
+                         playersState[targetIndex].statusEffects = defenderState.statusEffects;
+                    }
 
-                if (targetPlayer.currentHealth <= 0) {
-                    targetPlayer.isDead = true;
-                    log.push({ turn, attacker: bossState.name, defender: targetPlayer.data.name, action: 'death', ...getHealthStateForLog() });
+                    log.push(...attackLogs);
+
+                    if (playersState[targetIndex].currentHealth <= 0 && !playersState[targetIndex].isDead) {
+                        playersState[targetIndex].isDead = true;
+                        log.push({ turn, attacker: bossState.name, defender: playersState[targetIndex].data.name, action: 'death', ...getHealthStateForLog() });
+                    }
                 }
             }
         }
