@@ -1,4 +1,3 @@
-
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -24,14 +23,14 @@ export const getPartyByMember = async (userId: number): Promise<HuntingParty | n
     return camelizeParty(res.rows[0]);
 };
 
-export const processPartyCombat = async (party: HuntingParty, gameData: GameData): Promise<HuntingParty> => {
+export const processPartyCombat = async (party: HuntingParty, gameData: GameData, client: any): Promise<void> => {
     // 1. Gather Character Data
     const acceptedMembers = party.members.filter(m => m.status !== PartyMemberStatus.Pending);
     const playerCombatants: PlayerCharacter[] = [];
     const rawCharactersMap: Record<number, PlayerCharacter> = {};
     
     for (const member of acceptedMembers) {
-        const res = await pool.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
+        const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
         if (res.rows.length > 0) {
             const rawChar = res.rows[0].data;
             // Deep copy raw char to ensure we have a clean version to save back to DB later
@@ -143,7 +142,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 char.experienceToNextLevel = Math.floor(100 * Math.pow(char.level, 1.3));
             }
 
-            await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
         }
         
         // SECOND LOOP: Now that allRewardsForReport is complete, send the same report to everyone.
@@ -170,7 +169,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 allRewards: allRewardsForReport, // This map is now complete for all players
                 bossId: bossTemplate.id
             };
-            await pool.query(
+            await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]
             );
@@ -181,7 +180,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             const userId = parseInt(userIdStr, 10);
             const char = rawCharactersMap[userId];
             
-            await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
              const summary: ExpeditionRewardSummary = {
                 isVictory: false, totalGold: 0, totalExperience: 0, combatLog,
@@ -190,7 +189,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 allRewards: {},
                 bossId: bossTemplate.id
             };
-             await pool.query(
+             await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`,
                 [userId, `Raport z Polowania: ${bossTemplate.name} (Porażka)`, JSON.stringify(summary)]
             );
@@ -198,7 +197,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     }
 
     // 5. Update Party Status
-    await pool.query(`
+    await client.query(`
         UPDATE hunting_parties 
         SET status = 'FINISHED', 
             combat_log = $1, 
@@ -206,13 +205,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             victory = $3
         WHERE id = $4
     `, [JSON.stringify(combatLog), JSON.stringify(rewardsMap), isVictory, party.id]);
-
-    return {
-        ...party,
-        status: PartyStatus.Finished,
-        combatLog: combatLog,
-        victory: isVictory,
-    };
 };
 
 // Helper to convert snake_case DB rows to camelCase objects

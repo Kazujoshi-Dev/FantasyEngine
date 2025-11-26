@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -67,16 +66,15 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
 
                         if (lockResult.rowCount === 1) {
                             try {
-                                party = await processPartyCombat(partyInPreparation, gameData);
+                                await processPartyCombat(partyInPreparation, gameData, client);
                             } catch (combatError) {
                                 console.error(`CRITICAL: processPartyCombat failed for party ${partyInPreparation.id}. Forcing FINISHED status.`, combatError);
                                 await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [partyInPreparation.id]);
-                                party = { ...partyInPreparation, status: PartyStatus.Finished };
                             }
-                        } else {
-                            party = await getPartyByMember(req.user.id);
                         }
                         await client.query('COMMIT');
+                        // After combat is processed and committed, refetch the party to get the final state.
+                        party = await getPartyByMember(req.user.id);
                     } catch (err) {
                         await client.query('ROLLBACK');
                         console.error("Error during party combat transition:", err);
@@ -93,7 +91,8 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
         
-        // This block must run AFTER any potential combat processing to attach reward data
+        // This block will now correctly execute for any finished party,
+        // whether it just finished or was already finished.
         if (party.status === PartyStatus.Finished) {
             const rewardsRes = await pool.query('SELECT rewards, combat_log FROM hunting_parties WHERE id = $1', [party.id]);
             const dbRow = rewardsRes.rows[0];
