@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -569,17 +570,32 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     });
 
     useEffect(() => {
-        if (isHunting && huntingMembers.length > 0 && !huntingMembers[0].stats) {
-            const statsMap = new Map<string, CharacterStats>();
-            for (const log of reward.combatLog) {
-                if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
-                    statsMap.set(log.attacker, log.playerStats);
+        if (isHunting && huntingMembers.length > 0) {
+            // 1. Try getting explicit snapshot from start log
+            const startLog = reward.combatLog?.find(l => l.action === 'starts a fight with');
+            
+            if (startLog && startLog.partyMemberStats) {
+                 setPartyMembersState(huntingMembers.map(member => ({
+                    ...member,
+                    stats: startLog.partyMemberStats![member.characterName] || member.stats
+                })));
+            } else {
+                // 2. Fallback: Scrape logs if stats are missing (legacy support)
+                if (!huntingMembers[0].stats) {
+                    const statsMap = new Map<string, CharacterStats>();
+                    for (const log of reward.combatLog) {
+                        if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
+                            statsMap.set(log.attacker, log.playerStats);
+                        }
+                    }
+                    setPartyMembersState(huntingMembers.map(member => ({
+                        ...member,
+                        stats: statsMap.get(member.characterName)
+                    })));
+                } else {
+                    setPartyMembersState(huntingMembers);
                 }
             }
-            setPartyMembersState(huntingMembers.map(member => ({
-                ...member,
-                stats: statsMap.get(member.characterName)
-            })));
         } else {
             setPartyMembersState(huntingMembers);
         }

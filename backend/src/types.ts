@@ -221,6 +221,7 @@ export interface CombatLogEntry {
   effectApplied?: string; // e.g., 'burning', 'frozen'
   aoeDamage?: { target: string, damage: number }[];
   chainTargets?: string[];
+  partyMemberStats?: Record<string, CharacterStats>;
 }
 
 export interface ActiveExpedition {

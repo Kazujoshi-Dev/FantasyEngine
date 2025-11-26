@@ -1,4 +1,5 @@
 
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 
@@ -226,9 +227,19 @@ export const simulateTeamVsBossCombat = (
         allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth }))
     });
 
+    // Calculate stats for all players for the log to fix tooltips
+    const partyStats: Record<string, CharacterStats> = {};
+    playersState.forEach(p => {
+        partyStats[p.data.name] = p.data.stats;
+    });
+
     log.push({
         turn, attacker: 'Drużyna', defender: bossState.name, action: 'starts a fight with',
-        ...getHealthStateForLog(), playerStats: playersData[0]?.stats, enemyStats: bossState.stats, enemyDescription: bossData.description
+        ...getHealthStateForLog(), 
+        playerStats: playersData[0]?.stats, 
+        enemyStats: bossState.stats, 
+        enemyDescription: bossData.description,
+        partyMemberStats: partyStats
     });
     
     // --- 2. Turn 0: Hunter Bonus Attack ---
