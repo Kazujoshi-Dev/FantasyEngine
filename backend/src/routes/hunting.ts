@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -92,6 +93,7 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             return res.json({ party: null, serverTime: new Date().toISOString() });
         }
         
+        // This block must run AFTER any potential combat processing to attach reward data
         if (party.status === PartyStatus.Finished) {
             const rewardsRes = await pool.query('SELECT rewards, combat_log FROM hunting_parties WHERE id = $1', [party.id]);
             const dbRow = rewardsRes.rows[0];
