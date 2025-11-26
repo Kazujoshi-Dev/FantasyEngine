@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterChest, EssenceType, ItemRarity } from '../types';
@@ -14,7 +13,6 @@ interface CampProps {
     baseCharacter: PlayerCharacter;
     onToggleResting: () => void;
     onUpgradeCamp: () => void;
-    // Fix: Updated prop type to match the object returned from App.tsx, which includes gold and essences.
     getCampUpgradeCost: (level: number) => { gold: number; essences: { type: EssenceType; amount: number }[] };
     onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
     onHealToFull: () => void;
@@ -211,7 +209,6 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
     const maxLevel = 10;
     const isMaxLevel = camp.level >= maxLevel;
 
-    // Fix: Handle the object returned by getCampUpgradeCost and check both gold and essences for affordability.
     const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getCampUpgradeCost(camp.level);
     const canAffordUpgrade = !isMaxLevel && (baseCharacter.resources.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
     

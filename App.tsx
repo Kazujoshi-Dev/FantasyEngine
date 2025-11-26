@@ -912,7 +912,7 @@ const MainApp: React.FC = () => {
              case Tab.Blacksmith:
                 return <Blacksmith 
                     character={derivedCharacter}
-                    baseCharacter={character}
+                    baseCharacter={character} 
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
                     onDisenchantItem={async (item) => { 
