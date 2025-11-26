@@ -15,7 +15,7 @@ const router = express.Router();
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query(
-            'SELECT c.user_id, c.data, u.username FROM characters c JOIN users u ON c.user_id = u.id WHERE c.user_id = $1',
+            'SELECT c.user_id, c.data, u.username, c.created_at FROM characters c JOIN users u ON c.user_id = u.id WHERE c.user_id = $1',
             [req.user!.id]
         );
         
@@ -32,6 +32,33 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         
         const now = Date.now();
         let needsDbUpdate = false;
+
+        // --- Energy Regeneration "Catch-up" Logic ---
+        // Checks if the player missed energy updates (e.g. server was down during cron)
+        
+        // Default to created_at time if lastEnergyUpdateTime is missing (migration path)
+        const lastEnergyUpdate = character.lastEnergyUpdateTime || new Date(row.created_at).getTime();
+        
+        // Calculate how many full hours have passed since the last update
+        const msPerHour = 60 * 60 * 1000;
+        const hoursPassed = Math.floor((now - lastEnergyUpdate) / msPerHour);
+
+        if (hoursPassed > 0) {
+            const maxEnergy = character.stats.maxEnergy;
+            const currentEnergy = character.stats.currentEnergy;
+
+            if (currentEnergy < maxEnergy) {
+                // Add 1 energy per hour passed, capped at max
+                character.stats.currentEnergy = Math.min(maxEnergy, currentEnergy + hoursPassed);
+                needsDbUpdate = true;
+            }
+            
+            // Update the timestamp to the most recent full hour relative to now
+            // We don't set it to 'now' to avoid drifting.
+            // E.g., if last was 10:00 and now is 12:15, we add 2 energy and set time to 12:00.
+            character.lastEnergyUpdateTime = lastEnergyUpdate + (hoursPassed * msPerHour);
+            needsDbUpdate = true;
+        }
 
         // --- Health Regeneration Logic (Resting) ---
         if (character.isResting) {

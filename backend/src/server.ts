@@ -108,17 +108,18 @@ initializeDatabase().then(() => {
         try {
             const result = await pool.query(`
                 UPDATE characters
-                SET data = jsonb_set(
-                    data,
-                    '{stats,currentEnergy}',
-                    LEAST(
-                        (data#>'{stats,maxEnergy}')::int,
-                        (data#>'{stats,currentEnergy}')::int + 1
-                    )::text::jsonb
-                )
-                WHERE (data#>'{stats,currentEnergy}')::int < (data#>'{stats,maxEnergy}')::int;
+                SET data = (
+                    jsonb_set(
+                        data,
+                        '{stats,currentEnergy}',
+                        LEAST(
+                            (data#>'{stats,maxEnergy}')::int,
+                            (data#>'{stats,currentEnergy}')::int + 1
+                        )::text::jsonb
+                    ) || jsonb_build_object('lastEnergyUpdateTime', (extract(epoch from now()) * 1000)::bigint)
+                );
             `);
-            console.log(`Energy regenerated for ${result.rowCount} characters.`);
+            console.log(`Energy regenerated and timestamps updated for ${result.rowCount} characters.`);
         } catch (err) {
             console.error('Error during hourly energy regeneration:', err);
         }

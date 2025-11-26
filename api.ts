@@ -1,4 +1,5 @@
 
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
 // Helper to determine API URL based on environment
@@ -176,6 +177,7 @@ export const api = {
             backpack: { level: 1 },
             isResting: false,
             restStartHealth: 0,
+            lastRestTime: undefined,
             lastEnergyUpdateTime: lastFullHourTimestamp,
             equipment: {
                 [EquipmentSlot.Head]: null,
