@@ -479,7 +479,10 @@ export const simulateTeamVsBossCombat = (
                         const { logs: apLogs, defenderState: apDefender } = performAttack({ ...bossState }, { ...randomTarget, stats: randomTarget.data.stats, name: randomTarget.data.name }, turn, gameData, [], true, { ignoreArmor: true });
                         const apTargetIndex = playersState.findIndex(p => p.data.id === randomTarget.data.id);
                         if (apTargetIndex !== -1) {
-                             playersState[apTargetIndex] = { ...playersState[apTargetIndex], ...apDefender };
+                            const target = playersState[apTargetIndex];
+                            target.currentHealth = apDefender.currentHealth;
+                            target.currentMana = apDefender.currentMana;
+                            target.statusEffects = apDefender.statusEffects;
                         }
                         log.push(...apLogs.map(l => ({...l, ...getHealthStateForLog()})));
                         break;
@@ -515,7 +518,10 @@ export const simulateTeamVsBossCombat = (
                     
                     const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
                     if (targetIndex !== -1) {
-                         playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
+                        const target = playersState[targetIndex];
+                        target.currentHealth = defenderState.currentHealth;
+                        target.currentMana = defenderState.currentMana;
+                        target.statusEffects = defenderState.statusEffects;
                     }
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }

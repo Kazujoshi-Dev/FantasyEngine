@@ -215,9 +215,6 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         createdAt: dbParty.created_at,
         members: dbParty.members,
         combatLog: dbParty.combat_log,
-// @FIX: The 'rewards' property does not exist on the HuntingParty type.
-// This was causing a TypeScript error. The full rewards object is fetched and
-// processed separately in the route handler to populate myRewards and allRewards.
         victory: dbParty.victory
     };
 };
