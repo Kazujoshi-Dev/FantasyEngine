@@ -129,14 +129,11 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         try {
             const { party, serverTime } = await api.getMyParty();
 
-            // If the party is finished and we haven't "frozen" the report yet, do it now.
-            // This captures the state at the moment of finishing.
-            if (party?.status === PartyStatus.Finished && !finalReportData) {
+            // Latch onto the final report state ONLY if it's complete, to prevent getting stuck.
+            if (party?.status === PartyStatus.Finished && party.combatLog && !finalReportData) {
                 setFinalReportData(party);
             }
 
-            // If the party has disappeared entirely (e.g., user left from another tab),
-            // ensure the report modal is also cleared.
             if (!party) {
                 setFinalReportData(null);
             }

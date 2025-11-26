@@ -45,7 +45,6 @@ router.get('/parties', authenticateToken, async (req: any, res: any) => {
 // GET /api/hunting/my-party - Get current user's party status
 router.get('/my-party', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
-    let finalPartyObject: HuntingParty | null = null;
 
     try {
         await client.query('BEGIN');
@@ -69,7 +68,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             const fightStartTime = new Date(party.startTime).getTime() + preparationTimeSeconds * 1000;
 
             if (Date.now() >= fightStartTime) {
-                // The "FIGHTING" status acts as a sub-lock to ensure combat is processed only once.
                 await client.query("UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1", [party.id]);
                 
                 try {
@@ -79,15 +77,35 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                     await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
                 }
                 
-                // Re-fetch the party to get the final 'FINISHED' state with all data
-                const finalPartyRes = await client.query('SELECT * FROM hunting_parties WHERE id = $1', [party.id]);
-                if (finalPartyRes.rows.length > 0) {
-                    party = camelizeParty(finalPartyRes.rows[0]);
+                // Manually construct the final party object for the response instead of re-fetching the whole row.
+                // This is more explicit and avoids potential transaction visibility issues.
+                const finalDataRes = await client.query('SELECT combat_log, rewards, victory FROM hunting_parties WHERE id = $1', [party.id]);
+                if (finalDataRes.rows.length > 0) {
+                    const finalData = finalDataRes.rows[0];
+                    party.status = PartyStatus.Finished;
+                    party.combatLog = finalData.combat_log;
+                    party.victory = finalData.victory;
+
+                    const rewardsRaw = finalData.rewards;
+                    if (rewardsRaw) {
+                        party.myRewards = rewardsRaw[req.user.id];
+                        const allRewards: Record<string, { gold: number; experience: number }> = {};
+                        party.members.forEach(member => {
+                            if(rewardsRaw[member.userId]) {
+                                allRewards[member.characterName] = {
+                                    gold: rewardsRaw[member.userId].gold,
+                                    experience: rewardsRaw[member.userId].experience
+                                }
+                            }
+                        });
+                        party.allRewards = allRewards;
+                    }
                 }
             }
         }
         
-        if (party.status === PartyStatus.Finished) {
+        // This block is now partially redundant but safe; it handles subsequent polls for a FINISHED party.
+        if (party.status === PartyStatus.Finished && !party.myRewards) {
              const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
              if (rewardsRaw) {
                  party.myRewards = rewardsRaw[req.user.id];
@@ -104,10 +122,9 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
              }
         }
         
-        finalPartyObject = party;
         await client.query('COMMIT');
 
-        res.json({ party: finalPartyObject, serverTime: new Date().toISOString() });
+        res.json({ party, serverTime: new Date().toISOString() });
 
     } catch (err) {
         await client.query('ROLLBACK');
