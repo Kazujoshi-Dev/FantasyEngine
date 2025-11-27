@@ -5,11 +5,13 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api, getAuthToken } from '../api';
-import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType, GuildArmoryItem, ItemInstance, ItemTemplate, Affix } from '../types';
+import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType, GuildArmoryItem, ItemInstance, ItemTemplate, Affix, ItemRarity, EquipmentSlot } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
@@ -28,7 +30,7 @@ const rolePriority = {
     [GuildRole.RECRUIT]: 0
 };
 
-// ... (GuildChat component remains same) ...
+// ... (GuildChat component with link parsing) ...
 const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMessageReceived: (msg: GuildChatMessage) => void }> = ({ guildId, messages, onMessageReceived }) => {
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -53,7 +55,7 @@ const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMes
         return () => {
             newSocket.disconnect();
         };
-    }, [guildId]); // Removed onMessageReceived dependency to prevent reconnect loops if parent function reference changes unsteadily (though usually fine)
+    }, [guildId]); 
 
     useEffect(() => {
         if(scrollRef.current) {
@@ -69,6 +71,18 @@ const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMes
         setNewMessage('');
     };
 
+    const renderContentWithLinks = (content: string) => {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = content.split(urlRegex);
+        
+        return parts.map((part, index) => {
+            if (part.match(urlRegex)) {
+                return <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{part}</a>;
+            }
+            return <span key={index}>{part}</span>;
+        });
+    };
+
     return (
         <div className="flex flex-col h-[500px] bg-slate-900/50 rounded-lg border border-slate-700">
             <div className="flex-grow overflow-y-auto p-4 space-y-2" ref={scrollRef}>
@@ -77,7 +91,7 @@ const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMes
                         <span className={`font-bold ${msg.role === GuildRole.LEADER ? 'text-amber-400' : msg.role === GuildRole.OFFICER ? 'text-indigo-400' : 'text-gray-300'}`}>
                             {msg.characterName}:
                         </span>
-                        <span className="text-gray-200 ml-2 break-all">{msg.content}</span>
+                        <span className="text-gray-200 ml-2 break-all">{renderContentWithLinks(msg.content)}</span>
                         <span className="text-xs text-gray-600 ml-2">{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
                 ))}
@@ -549,6 +563,8 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
     const [loading, setLoading] = useState(false);
     const [myItems, setMyItems] = useState<ItemInstance[]>([]);
     const [userId, setUserId] = useState<number | null>(null);
+    const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
+    const [filterSlot, setFilterSlot] = useState<string>('all');
 
     useEffect(() => {
         setLoading(true);
@@ -563,6 +579,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
     }, [guild.id]); // Refresh when guild ID changes (or mount)
 
     const canManage = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
+    const isLeader = guild.myRole === GuildRole.LEADER;
     const armoryLevel = guild.buildings?.armory || 0;
     const capacity = 10 + armoryLevel;
 
@@ -608,20 +625,57 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
         }
     };
 
+    const handleDelete = async (armoryId: number) => {
+        if (!confirm('Czy na pewno chcesz usunąć ten przedmiot? Ta akcja jest nieodwracalna.')) return;
+        try {
+            await api.deleteFromArmory(armoryId);
+            const armory = await api.getGuildArmory();
+            setArmoryData(armory);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    }
+
+    const filteredItems = useMemo(() => {
+        if (!armoryData) return [];
+        return armoryData.armoryItems.filter(entry => {
+            const template = templates.find(t => t.id === entry.item.templateId);
+            if (!template) return false;
+            
+            const rarityMatch = filterRarity === 'all' || template.rarity === filterRarity;
+            const slotMatch = filterSlot === 'all' || template.slot === filterSlot;
+            
+            return rarityMatch && slotMatch;
+        });
+    }, [armoryData, filterRarity, filterSlot, templates]);
+
     if (loading || !armoryData) return <p className="text-gray-400">Ładowanie zbrojowni...</p>;
 
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Armory Contents */}
-                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[500px]">
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2"><ShieldIcon className="h-5 w-5 text-indigo-400"/> Zbrojownia</h3>
                         <span className="text-sm text-gray-400">{armoryData.armoryItems.length} / {capacity}</span>
                     </div>
+                    
+                    {/* Filters */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                        <select className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white" value={filterRarity} onChange={(e) => setFilterRarity(e.target.value as ItemRarity | 'all')}>
+                            <option value="all">Wszystkie Rzadkości</option>
+                            {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                        </select>
+                        <select className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white" value={filterSlot} onChange={(e) => setFilterSlot(e.target.value)}>
+                            <option value="all">Wszystkie Typy</option>
+                            {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
+                        </select>
+                    </div>
+
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                        {armoryData.armoryItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Zbrojownia jest pusta.</p>}
-                        {armoryData.armoryItems.map(entry => {
+                        {filteredItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów spełniających kryteria.</p>}
+                        {filteredItems.map(entry => {
                             const template = templates.find(t => t.id === entry.item.templateId);
                             if (!template) return null;
                             const tax = Math.ceil((template.value || 0) * 0.1);
@@ -632,9 +686,16 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                                         <ItemListItem item={entry.item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
                                         <div className="flex flex-col items-end gap-1">
                                             <span className="text-xs text-gray-500">od {entry.ownerName}</span>
-                                            <button onClick={() => handleBorrow(entry.id, entry.item)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
-                                                Wypożycz ({tax}g)
-                                            </button>
+                                            <div className="flex gap-1">
+                                                <button onClick={() => handleBorrow(entry.id, entry.item)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
+                                                    Wypożycz ({tax}g)
+                                                </button>
+                                                {isLeader && (
+                                                    <button onClick={() => handleDelete(entry.id)} className="px-2 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white" title="Usuń trwale">
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <ItemTooltip instance={entry.item} template={template} affixes={affixes} />
@@ -645,7 +706,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                 </div>
 
                 {/* My Backpack (Deposit) */}
-                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[500px]">
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
                     <h3 className="text-lg font-bold text-gray-300 mb-4">Mój Plecak (Depozyt)</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                         {myItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów do zdeponowania.</p>}
@@ -657,7 +718,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                                     <div className="flex justify-between items-center">
                                         <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
                                         <button onClick={() => handleDeposit(item)} className="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold text-white ml-2">
-                                            Włóż
+                                            Zdeponuj
                                         </button>
                                     </div>
                                     <ItemTooltip instance={item} template={template} affixes={affixes} />
@@ -688,8 +749,9 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                                     
                                     return (
                                         <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                                            <td className="p-2">
+                                            <td className="p-2 relative group cursor-help">
                                                 {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
+                                                {template && <ItemTooltip instance={entry.item} template={template} affixes={affixes} />}
                                             </td>
                                             <td className="p-2 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>

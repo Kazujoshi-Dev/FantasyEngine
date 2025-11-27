@@ -10,6 +10,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -428,6 +430,37 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
         res.status(400).json({ message: e.message });
     } finally {
         client.release();
+    }
+});
+
+// DELETE /api/guilds/armory/:id
+router.delete('/armory/:id', authenticateToken, async (req: any, res: any) => {
+    const armoryId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Verify guild and role
+        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        
+        const { guild_id, role } = memberRes.rows[0];
+        
+        if (role !== GuildRole.LEADER) {
+            return res.status(403).json({ message: 'Only Leader can delete items from armory' });
+        }
+
+        // Verify item belongs to this guild
+        const itemRes = await pool.query('SELECT 1 FROM guild_armory_items WHERE id = $1 AND guild_id = $2', [armoryId, guild_id]);
+        if (itemRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Item not found in your armory' });
+        }
+
+        await pool.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
+        res.json({ message: 'Item deleted' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to delete item' });
     }
 });
 
