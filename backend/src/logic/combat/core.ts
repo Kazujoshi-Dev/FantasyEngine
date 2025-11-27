@@ -1,7 +1,8 @@
 
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
+import { spellRegistry } from './spells/registry.js';
+import { SpellContext } from './spells/types.js';
 
 export type StatusEffectType = 'burning' | 'frozen_no_attack' | 'frozen_no_dodge' | 'reduced_attacks' | 'stunned' | 'armor_broken';
 
@@ -36,7 +37,6 @@ export interface DefenderState {
 }
 
 export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
-    // CRITICAL FIX: Ensure equipment object exists before access.
     if (!playerData.equipment) {
         return undefined;
     }
@@ -193,80 +193,30 @@ export const performAttack = <
         damageReduced += reduction;
     }
 
-    // --- Apply Magic Effects ---
+    // --- Apply Magic Effects via Registry ---
     let aoeData;
     let chainData;
+    
     if (useMagicAttack && magicAttackType) {
-        switch(magicAttackType) {
-            case MagicAttackType.Fireball:
-                if (Math.random() * 100 < 25) {
-                    defender.statusEffects.push({ type: 'burning', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'burning', ...getHealthState(attacker, defender) });
-                }
-                break;
-            case MagicAttackType.LightningStrike:
-                if (Math.random() * 100 < 15) {
-                     defender.statusEffects.push({ type: 'reduced_attacks', duration: Infinity, amount: 1 });
-                     logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'reduced_attacks', ...getHealthState(attacker, defender) });
-                }
-                break;
-            case MagicAttackType.ShadowBolt:
-                if (attackerIsPlayer) {
-                    let currentStacks = attacker.shadowBoltStacks || 0;
-                    
-                    // Apply bonus damage based on current stacks
-                    const bonus = 1 + (currentStacks * 0.05);
-                    damage = Math.floor(damage * bonus);
-                    
-                    // Increment stacks for the NEXT attack (no cap)
-                    currentStacks++;
-                    attacker.shadowBoltStacks = currentStacks;
-                    
-                    // Push a log message about the stack change
-                    logs.push({
-                        turn,
-                        attacker: attacker.name,
-                        defender: '',
-                        action: 'effectApplied',
-                        effectApplied: 'shadowBoltStack',
-                        ...getHealthState(attacker, defender)
-                    });
-                }
-                break;
-            case MagicAttackType.FrostWave:
-                if (Math.random() * 100 < 20) {
-                    defender.statusEffects.push({ type: 'frozen_no_dodge', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen_no_dodge', ...getHealthState(attacker, defender) });
-                }
-                break;
-            case MagicAttackType.IceLance:
-                if (Math.random() * 100 < 10) {
-                    defender.statusEffects.push({ type: 'frozen_no_attack', duration: 2 });
-                    logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'effectApplied', effectApplied: 'frozen', ...getHealthState(attacker, defender) });
-                }
-                break;
-            case MagicAttackType.ArcaneMissile:
-                if (attackerIsPlayer) {
-                    const bonusDamage = Math.floor((attacker.stats as CharacterStats).maxMana * 0.5);
-                    arcaneMissileBonusDamage = bonusDamage;
-                    // Removed log entry here, moved to bonusDamage field in main log
-                }
-                break;
-            case MagicAttackType.LifeDrain:
-                const drained = Math.floor(damage * 0.25);
-                const newHealth = Math.min(attacker.stats.maxHealth, attacker.currentHealth + drained);
-                healthGained += newHealth - attacker.currentHealth;
-                attacker.currentHealth = newHealth;
-                break;
-            case MagicAttackType.MeteorSwarm:
-                aoeData = { type: 'meteor_swarm', baseDamage: damage };
-                break;
-            case MagicAttackType.Earthquake:
-                aoeData = { type: 'earthquake', baseDamage: damage, splashPercent: 0.20 };
-                break;
-            case MagicAttackType.ChainLightning:
-                chainData = { type: 'chain_lightning', chance: 25, maxJumps: 2, damage: damage };
-                break;
+        const spellLogic = spellRegistry[magicAttackType];
+        if (spellLogic) {
+            const context: SpellContext = {
+                attacker,
+                defender,
+                turn,
+                baseDamage: damage,
+                allEnemies
+            };
+            const result = spellLogic(context);
+            
+            // Merge spell logs with health context
+            logs.push(...result.logs.map(log => ({ ...log, ...getHealthState(attacker, defender) })));
+            
+            if (result.bonusDamage) arcaneMissileBonusDamage = result.bonusDamage;
+            if (result.healthGained) healthGained += result.healthGained;
+            if (result.damageMultiplier) damage = Math.floor(damage * result.damageMultiplier);
+            if (result.aoeData) aoeData = result.aoeData;
+            if (result.chainData) chainData = result.chainData;
         }
     }
     
