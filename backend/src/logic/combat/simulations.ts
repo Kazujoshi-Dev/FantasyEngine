@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 import { randomUUID } from 'crypto';
@@ -386,126 +385,124 @@ export const simulate1vManyCombat = (
 
         // --- Player Turn ---
         if (playerState.currentHealth > 0) {
-            // Find first living target
-            const targetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
-            
-            if (targetIndex !== -1) {
-                const target = enemiesState[targetIndex];
-                
-                // Check Player CC
-                const isFrozen = playerState.statusEffects.some(e => e.type === 'frozen_no_attack');
-                
-                if (isFrozen) {
-                     log.push({ turn, attacker: playerState.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
-                } else {
-                    // Shaman Power
-                    if (playerData.characterClass === CharacterClass.Shaman && playerState.currentMana > 0) {
+            // Check Player CC
+            const isFrozen = playerState.statusEffects.some(e => e.type === 'frozen_no_attack');
+
+            if (isFrozen) {
+                 log.push({ turn, attacker: playerState.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
+            } else {
+                // Shaman Power (Once per turn)
+                if (playerData.characterClass === CharacterClass.Shaman && playerState.currentMana > 0) {
+                    const shamanTargetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
+                    if (shamanTargetIndex !== -1) {
+                        const sTarget = enemiesState[shamanTargetIndex];
                         const damage = Math.floor(playerState.currentMana);
-                        target.currentHealth = Math.max(0, target.currentHealth - damage);
-                        log.push({ turn, attacker: playerState.name, defender: target.name, action: 'shaman_power', damage, ...getHealthState() });
-                        
-                        if (target.currentHealth <= 0) {
-                            log.push({ turn, attacker: playerState.name, defender: target.name, action: 'enemy_death', ...getHealthState() });
+                        sTarget.currentHealth = Math.max(0, sTarget.currentHealth - damage);
+                        log.push({ turn, attacker: playerState.name, defender: sTarget.name, action: 'shaman_power', damage, ...getHealthState() });
+
+                        if (sTarget.currentHealth <= 0) {
+                            log.push({ turn, attacker: playerState.name, defender: sTarget.name, action: 'enemy_death', ...getHealthState() });
                         }
                     }
+                }
 
-                    if (target.currentHealth > 0) {
-                        const attacks = (playerState.stats as CharacterStats).attacksPerRound;
-                        const reducedAttacks = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').length;
-                        const finalAttacks = Math.max(1, attacks - reducedAttacks);
+                // Standard Attacks Loop
+                const attacks = (playerState.stats as CharacterStats).attacksPerRound || 1;
+                const reducedAttacks = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').length;
+                const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
 
-                        for(let i = 0; i < finalAttacks; i++) {
-                            if (target.currentHealth <= 0) break; // Re-check if dead from multi-hit
-                            
-                            const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState);
-                            
-                            // Update states
-                            playerState = attackerState as typeof playerState;
-                            enemiesState[targetIndex] = defenderState as typeof target;
-                            
-                            log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
+                for(let i = 0; i < finalAttacks; i++) {
+                    // DYNAMICALLY FIND TARGET inside the loop
+                    const targetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
+                    if (targetIndex === -1) break; // All enemies dead
 
-                            if (defenderState.currentHealth <= 0) {
-                                log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
-                            }
+                    const target = enemiesState[targetIndex];
 
-                            // Handle AoE
-                            if (aoeData) {
-                                const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
-                                const splashDamageDetails: { target: string, damage: number }[] = [];
+                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState);
+
+                    // Update states
+                    playerState = attackerState as typeof playerState;
+                    enemiesState[targetIndex] = defenderState as typeof target;
+
+                    log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
+
+                    if (defenderState.currentHealth <= 0) {
+                        log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
+                    }
+
+                    // Handle AoE
+                    if (aoeData) {
+                        const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
+                        const splashDamageDetails: { target: string, damage: number }[] = [];
+                        
+                        if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
+                            let splashDamage = 0;
+                            if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
+                            if (aoeData.type === 'meteor_swarm') splashDamage = aoeData.baseDamage;
+
+                            otherEnemies.forEach(enemy => {
+                                const wasAlive = enemy.currentHealth > 0;
+                                enemy.currentHealth = Math.max(0, enemy.currentHealth - splashDamage);
+                                splashDamageDetails.push({ target: enemy.name, damage: splashDamage });
                                 
-                                if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
-                                    let splashDamage = 0;
-                                    if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
-                                    if (aoeData.type === 'meteor_swarm') splashDamage = aoeData.baseDamage; // Full damage for meteor
-
-                                    otherEnemies.forEach(enemy => {
-                                        const wasAlive = enemy.currentHealth > 0;
-                                        enemy.currentHealth = Math.max(0, enemy.currentHealth - splashDamage);
-                                        splashDamageDetails.push({ target: enemy.name, damage: splashDamage });
-                                        
-                                        if (wasAlive && enemy.currentHealth <= 0) {
-                                            log.push({ turn, attacker: playerState.name, defender: enemy.name, action: 'enemy_death', ...getHealthState() });
-                                        }
-                                    });
-                                    
-                                    if (splashDamageDetails.length > 0) {
-                                        const effectName = aoeData.type === 'earthquake' ? 'earthquakeSplash' : 'meteorSwarmSplash';
-                                        log.push({ 
-                                            turn, 
-                                            attacker: playerState.name, 
-                                            defender: 'Enemies', 
-                                            action: 'effectApplied', 
-                                            effectApplied: effectName, 
-                                            damage: splashDamage, // Show one dmg number for simplicity or list details
-                                            aoeDamage: splashDamageDetails,
-                                            ...getHealthState() 
-                                        });
-                                    }
+                                if (wasAlive && enemy.currentHealth <= 0) {
+                                    log.push({ turn, attacker: playerState.name, defender: enemy.name, action: 'enemy_death', ...getHealthState() });
                                 }
-                            }
+                            });
                             
-                            // Handle Chain Lightning
-                            if (chainData && chainData.type === 'chain_lightning') {
-                                const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
-                                let jumps = 0;
-                                const chainDamageDetails: { target: string, damage: number }[] = [];
-                                
-                                // Simple chain logic: hit up to maxJumps random OTHER enemies
-                                while(jumps < chainData.maxJumps && otherEnemies.length > 0) {
-                                    if (Math.random() * 100 < chainData.chance) {
-                                        const jumpTargetIndex = Math.floor(Math.random() * otherEnemies.length);
-                                        const jumpTarget = otherEnemies[jumpTargetIndex];
-                                        const dmg = Math.floor(chainData.damage * 0.75);
-                                        
-                                        const wasAlive = jumpTarget.currentHealth > 0;
-                                        jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - dmg);
-                                        chainDamageDetails.push({ target: jumpTarget.name, damage: dmg });
-                                        
-                                        if (wasAlive && jumpTarget.currentHealth <= 0) {
-                                            log.push({ turn, attacker: playerState.name, defender: jumpTarget.name, action: 'enemy_death', ...getHealthState() });
-                                        }
-
-                                        // Remove from pool so we don't hit same guy twice in one chain (optional rule)
-                                        otherEnemies.splice(jumpTargetIndex, 1);
-                                        jumps++;
-                                    } else {
-                                        break; // Chain fizzled
-                                    }
-                                }
-                                
-                                if (chainDamageDetails.length > 0) {
-                                     log.push({ 
-                                        turn, 
-                                        attacker: playerState.name, 
-                                        defender: 'Enemies', 
-                                        action: 'effectApplied', 
-                                        effectApplied: 'chainLightningJump', 
-                                        aoeDamage: chainDamageDetails,
-                                        ...getHealthState() 
-                                    });
-                                }
+                            if (splashDamageDetails.length > 0) {
+                                const effectName = aoeData.type === 'earthquake' ? 'earthquakeSplash' : 'meteorSwarmSplash';
+                                log.push({ 
+                                    turn, 
+                                    attacker: playerState.name, 
+                                    defender: 'Enemies', 
+                                    action: 'effectApplied', 
+                                    effectApplied: effectName, 
+                                    damage: splashDamage, 
+                                    aoeDamage: splashDamageDetails,
+                                    ...getHealthState() 
+                                });
                             }
+                        }
+                    }
+                    
+                    // Handle Chain Lightning
+                    if (chainData && chainData.type === 'chain_lightning') {
+                        const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
+                        let jumps = 0;
+                        const chainDamageDetails: { target: string, damage: number }[] = [];
+                        
+                        while(jumps < chainData.maxJumps && otherEnemies.length > 0) {
+                            if (Math.random() * 100 < chainData.chance) {
+                                const jumpTargetIndex = Math.floor(Math.random() * otherEnemies.length);
+                                const jumpTarget = otherEnemies[jumpTargetIndex];
+                                const dmg = Math.floor(chainData.damage * 0.75);
+                                
+                                const wasAlive = jumpTarget.currentHealth > 0;
+                                jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - dmg);
+                                chainDamageDetails.push({ target: jumpTarget.name, damage: dmg });
+                                
+                                if (wasAlive && jumpTarget.currentHealth <= 0) {
+                                    log.push({ turn, attacker: playerState.name, defender: jumpTarget.name, action: 'enemy_death', ...getHealthState() });
+                                }
+
+                                otherEnemies.splice(jumpTargetIndex, 1);
+                                jumps++;
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        if (chainDamageDetails.length > 0) {
+                                log.push({ 
+                                turn, 
+                                attacker: playerState.name, 
+                                defender: 'Enemies', 
+                                action: 'effectApplied', 
+                                effectApplied: 'chainLightningJump', 
+                                aoeDamage: chainDamageDetails,
+                                ...getHealthState() 
+                            });
                         }
                     }
                 }
