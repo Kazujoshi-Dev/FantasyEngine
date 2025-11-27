@@ -108,7 +108,7 @@ const DisenchantPanel: React.FC<{
     const yieldRarity = yieldEssenceType ? essenceToRarityMap[yieldEssenceType] : null;
     const textColorClass = yieldRarity ? rarityStyles[yieldRarity].text : 'text-gray-300';
 
-    const { upgradeLevel, finalDamageMin, finalDamageMax, finalMagicDamageMin, finalMagicDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost } = useMemo(() => {
+    const { upgradeLevel, finalDamageMin, finalDamageMax, finalMagicDamageMin, finalMagicDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost, finalCritDamageModifier } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { 
             upgradeLevel: 0,
             finalDamageMin: 0,
@@ -119,7 +119,8 @@ const DisenchantPanel: React.FC<{
             attacksPerRound: undefined,
             finalArmorBonus: 0,
             statBonusEntries: [],
-            manaCost: undefined
+            manaCost: undefined,
+            finalCritDamageModifier: 0
         };
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
@@ -154,7 +155,8 @@ const DisenchantPanel: React.FC<{
             statBonusEntries: Object.entries(selectedTemplate.statsBonus || {})
                 .filter(([, value]) => value)
                 .map(([key, value]) => ({ key, value: calculateUpgradedStat(getMaxValue(value as any)) })),
-            manaCost: selectedTemplate.manaCost
+            manaCost: selectedTemplate.manaCost,
+            finalCritDamageModifier: calculateUpgradedStat(getMaxValue(selectedTemplate.critDamageModifierBonus as any))
         };
     }, [selectedItem, selectedTemplate]);
 
@@ -197,6 +199,7 @@ const DisenchantPanel: React.FC<{
                                 {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
                                 {finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
                                 {finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}
+                                {finalCritDamageModifier > 0 && <p className="flex justify-between"><span>{t('statistics.critDamageModifier')}:</span> <span className="font-mono">+{finalCritDamageModifier}%</span></p>}
                                 {statBonusEntries?.map(({ key, value }) => {
                                     if (value === 0) return null;
                                     return <p key={key} className="flex justify-between text-green-300/80"><span>{t(`statistics.${key}`)}</span> <span className="font-mono">+{value}</span></p>

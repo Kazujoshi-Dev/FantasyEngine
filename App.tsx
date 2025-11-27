@@ -455,13 +455,14 @@ const MainApp: React.FC = () => {
                     bonusMaxHealth += applyUpgrade(baseStats.maxHealthBonus);
                     bonusCritChance += (Number(baseStats.critChanceBonus) || 0) + ((Number(baseStats.critChanceBonus) || 0) * upgradeBonusFactor);
                     
-                    bonusCritDamageModifier += Number(baseStats.critDamageModifierBonus) || 0;
+                    bonusCritDamageModifier += applyUpgrade(baseStats.critDamageModifierBonus);
+                    bonusArmorPenetrationFlat += applyUpgrade(baseStats.armorPenetrationFlat);
+                    bonusLifeStealFlat += applyUpgrade(baseStats.lifeStealFlat);
+                    bonusManaStealFlat += applyUpgrade(baseStats.manaStealFlat);
+
                     bonusArmorPenetrationPercent += Number(baseStats.armorPenetrationPercent) || 0;
-                    bonusArmorPenetrationFlat += Number(baseStats.armorPenetrationFlat) || 0;
                     bonusLifeStealPercent += Number(baseStats.lifeStealPercent) || 0;
-                    bonusLifeStealFlat += Number(baseStats.lifeStealFlat) || 0;
                     bonusManaStealPercent += Number(baseStats.manaStealPercent) || 0;
-                    bonusManaStealFlat += Number(baseStats.manaStealFlat) || 0;
     
                 } else if (template) {
                      if (template.statsBonus) {
@@ -489,13 +490,19 @@ const MainApp: React.FC = () => {
                     bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
                     bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
                     
-                    bonusCritDamageModifier += getMaxValue(template.critDamageModifierBonus as any);
+                    const getBaseAndUpgrade = (prop: any) => {
+                        const base = getMaxValue(prop);
+                        return base + Math.round(base * upgradeBonusFactor);
+                    }
+
+                    bonusCritDamageModifier += getBaseAndUpgrade(template.critDamageModifierBonus);
+                    bonusArmorPenetrationFlat += getBaseAndUpgrade(template.armorPenetrationFlat);
+                    bonusLifeStealFlat += getBaseAndUpgrade(template.lifeStealFlat);
+                    bonusManaStealFlat += getBaseAndUpgrade(template.manaStealFlat);
+
                     bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
-                    bonusArmorPenetrationFlat += getMaxValue(template.armorPenetrationFlat as any);
                     bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
-                    bonusLifeStealFlat += getMaxValue(template.lifeStealFlat as any);
                     bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
-                    bonusManaStealFlat += getMaxValue(template.manaStealFlat as any);
                 }
     
                 if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
