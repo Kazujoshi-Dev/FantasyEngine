@@ -308,6 +308,10 @@ export const simulate1vManyCombat = (
             
             log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
 
+            if (defenderState.currentHealth <= 0) {
+                log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
+            }
+
             // 2. Hunter Bonus Attack
             if (playerData.characterClass === CharacterClass.Hunter && defenderState.currentHealth > 0) {
                  const { logs: hunterLogs, defenderState: hunterDefender } = performAttack(playerState, defenderState, 0, gameData, enemiesState);
@@ -325,6 +329,10 @@ export const simulate1vManyCombat = (
                     enemiesState[targetIndex] = hunterDefender as typeof target;
                  }
                  log.push(...hunterLogs.map(l => ({...l, ...getHealthState()})));
+
+                 if (hunterDefender.currentHealth <= 0) {
+                    log.push({ turn, attacker: playerState.name, defender: hunterDefender.name, action: 'enemy_death', ...getHealthState() });
+                }
             }
         }
     }
@@ -350,6 +358,10 @@ export const simulate1vManyCombat = (
                 const burnDamage = Math.floor(combatant.stats.maxHealth * 0.05);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
                 log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState() });
+                
+                if (combatant.currentHealth <= 0 && combatant !== playerState) {
+                    log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'enemy_death', ...getHealthState() });
+                }
             }
             // Tick statuses
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
@@ -374,6 +386,10 @@ export const simulate1vManyCombat = (
                         const damage = Math.floor(playerState.currentMana);
                         target.currentHealth = Math.max(0, target.currentHealth - damage);
                         log.push({ turn, attacker: playerState.name, defender: target.name, action: 'shaman_power', damage, ...getHealthState() });
+                        
+                        if (target.currentHealth <= 0) {
+                            log.push({ turn, attacker: playerState.name, defender: target.name, action: 'enemy_death', ...getHealthState() });
+                        }
                     }
 
                     if (target.currentHealth > 0) {
@@ -392,6 +408,10 @@ export const simulate1vManyCombat = (
                             
                             log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
 
+                            if (defenderState.currentHealth <= 0) {
+                                log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
+                            }
+
                             // Handle AoE
                             if (aoeData) {
                                 const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
@@ -403,8 +423,13 @@ export const simulate1vManyCombat = (
                                     if (aoeData.type === 'meteor_swarm') splashDamage = aoeData.baseDamage; // Full damage for meteor
 
                                     otherEnemies.forEach(enemy => {
+                                        const wasAlive = enemy.currentHealth > 0;
                                         enemy.currentHealth = Math.max(0, enemy.currentHealth - splashDamage);
                                         splashDamageDetails.push({ target: enemy.name, damage: splashDamage });
+                                        
+                                        if (wasAlive && enemy.currentHealth <= 0) {
+                                            log.push({ turn, attacker: playerState.name, defender: enemy.name, action: 'enemy_death', ...getHealthState() });
+                                        }
                                     });
                                     
                                     if (splashDamageDetails.length > 0) {
@@ -436,9 +461,14 @@ export const simulate1vManyCombat = (
                                         const jumpTarget = otherEnemies[jumpTargetIndex];
                                         const dmg = Math.floor(chainData.damage * 0.75);
                                         
+                                        const wasAlive = jumpTarget.currentHealth > 0;
                                         jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - dmg);
                                         chainDamageDetails.push({ target: jumpTarget.name, damage: dmg });
                                         
+                                        if (wasAlive && jumpTarget.currentHealth <= 0) {
+                                            log.push({ turn, attacker: playerState.name, defender: jumpTarget.name, action: 'enemy_death', ...getHealthState() });
+                                        }
+
                                         // Remove from pool so we don't hit same guy twice in one chain (optional rule)
                                         otherEnemies.splice(jumpTargetIndex, 1);
                                         jumps++;
@@ -497,19 +527,6 @@ export const simulate1vManyCombat = (
                 log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
             }
         }
-        
-        // Death Logs for Enemies
-        enemiesState.forEach(e => {
-            if (e.currentHealth <= 0) {
-                // Check if we already logged death for this turn? No, simple check is fine.
-                // To avoid duplicates if it died in previous turn, we could track it, 
-                // but this loop handles death *during* this turn.
-                // The UI handles filtering.
-                // Ideally, we log death exactly when it happens in the loop above, 
-                // but doing it here catches all cases (AoE, DoTs).
-                // Just need to make sure we don't spam.
-            }
-        });
     }
     
     // Post-combat cleanup logs
