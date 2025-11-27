@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -1088,6 +1090,17 @@ const ActiveExpeditionPanel: React.FC<{
         <div className="bg-slate-900/40 p-8 rounded-xl text-center">
             <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
             <p className="text-4xl font-extrabold text-white mb-4">{activeExpeditionDetails.name}</p>
+            
+            {activeExpeditionDetails.image && (
+                <div className="mb-6 flex justify-center">
+                    <img 
+                        src={activeExpeditionDetails.image} 
+                        alt={activeExpeditionDetails.name} 
+                        className="rounded-lg shadow-lg border border-slate-700/50 max-w-full h-auto max-h-[50vh] object-contain"
+                    />
+                </div>
+            )}
+
             <p className="text-lg text-gray-400 mb-6">{isFinished ? t('expedition.finalizing') : t('expedition.endsIn')}</p>
             <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
             
