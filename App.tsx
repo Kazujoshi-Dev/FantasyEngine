@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -20,6 +21,7 @@ import { Market } from './components/Market';
 import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
+import { Guild } from './components/Guild';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
 import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType } from './types';
@@ -974,6 +976,8 @@ const MainApp: React.FC = () => {
                     affixes={gameData.affixes || []}
                     gameData={gameData}
                 />;
+            case Tab.Guild:
+                return <Guild />;
             case Tab.Admin:
                 return <AdminPanel 
                     gameData={gameData}

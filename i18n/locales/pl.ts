@@ -4,6 +4,7 @@
 
 
 
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -72,7 +73,8 @@ export default {
         buyCoffee: 'Postaw kawę twórcy',
         news: 'Nowości',
         university: 'Uniwersytet',
-        hunting: 'Polowanie'
+        hunting: 'Polowanie',
+        guild: 'Gildia',
     },
     statistics: {
         tabs: {
@@ -1048,5 +1050,8 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             MEMBER: 'Członek',
             PENDING: 'Oczekuje'
         }
+    },
+    guild: {
+        title: 'Gildia'
     }
 };

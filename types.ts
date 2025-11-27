@@ -18,6 +18,7 @@ export enum Tab {
   Options,
   University,
   Hunting,
+  Guild,
 }
 
 export enum Race {

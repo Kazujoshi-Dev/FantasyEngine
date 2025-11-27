@@ -21,6 +21,7 @@ import { SparklesIcon } from './icons/SparklesIcon';
 import { ScaleIcon } from './icons/ScaleIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
+import { UsersIcon } from './icons/UsersIcon';
 
 interface SidebarProps {
   activeTab: Tab;
@@ -45,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
       [Tab.Quests]: { label: t('sidebar.quests'), icon: <QuestIcon className="h-5 w-5" /> },
       [Tab.Hunting]: { label: t('sidebar.hunting'), icon: <CrossedSwordsIcon className="h-5 w-5" />, alwaysVisible: true },
       [Tab.Tavern]: { label: t('sidebar.tavern'), icon: <MessageSquareIcon className="h-5 w-5" />, alwaysVisible: true, notification: hasNewTavernMessages },
+      [Tab.Guild]: { label: t('sidebar.guild'), icon: <UsersIcon className="h-5 w-5" />, alwaysVisible: true },
       [Tab.Trader]: { label: t('sidebar.trader'), icon: <HandshakeIcon className="h-5 w-5" /> },
       [Tab.Blacksmith]: { label: t('sidebar.blacksmith'), icon: <AnvilIcon className="h-5 w-5" /> },
       [Tab.Market]: { label: t('sidebar.market'), icon: <ScaleIcon className="h-5 w-5" />, alwaysVisible: true },
@@ -59,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
   };
 
   const defaultOrder: Tab[] = [
-      Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Hunting, Tab.Tavern, Tab.Trader,
+      Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Quests, Tab.Hunting, Tab.Tavern, Tab.Guild, Tab.Trader,
       Tab.Blacksmith, Tab.Market, Tab.Camp, Tab.Location, Tab.Resources, Tab.Ranking,
       Tab.University, Tab.Messages, Tab.Options, Tab.Admin
   ];
@@ -71,6 +73,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
       const adminIndex = order.indexOf(Tab.Admin);
       if (adminIndex !== -1) order.splice(adminIndex, 0, Tab.Hunting);
       else order.push(Tab.Hunting);
+  }
+
+  // Check if Guild is in the order, append if missing before admin (or after Tavern if possible)
+  if (!order.includes(Tab.Guild)) {
+      const tavernIndex = order.indexOf(Tab.Tavern);
+      if (tavernIndex !== -1) {
+          order.splice(tavernIndex + 1, 0, Tab.Guild);
+      } else {
+          const adminIndex = order.indexOf(Tab.Admin);
+          if (adminIndex !== -1) order.splice(adminIndex, 0, Tab.Guild);
+          else order.push(Tab.Guild);
+      }
   }
 
   const visibleMenuItems = order
