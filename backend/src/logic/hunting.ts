@@ -55,7 +55,9 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 3. Simulate Combat
     const { combatLog, finalPlayers } = simulateTeamVsBossCombat(playerCombatants, bossTemplate, gameData);
-    const isVictory = bossTemplate ? !finalPlayers.some(p => p.isDead) && combatLog[combatLog.length - 1]?.enemyHealth <= 0 : false;
+    
+    // FIX: Victory depends ONLY on boss health being <= 0. Previous condition required no players to be dead.
+    const isVictory = bossTemplate ? combatLog[combatLog.length - 1]?.enemyHealth <= 0 : false;
 
     // 4. Update player health and mana from combat results
     for (const finalPlayerState of finalPlayers) {
