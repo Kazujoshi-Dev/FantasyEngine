@@ -7,11 +7,13 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api, getAuthToken } from '../api';
-import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType, GuildArmoryItem, ItemInstance, ItemTemplate, Affix, ItemRarity, EquipmentSlot } from '../types';
+import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType, GuildArmoryItem, ItemInstance, ItemTemplate, Affix, ItemRarity, EquipmentSlot, PlayerCharacter } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
@@ -21,7 +23,7 @@ import { HomeIcon } from './icons/HomeIcon';
 import { SettingsIcon } from './icons/SettingsIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { io, Socket } from 'socket.io-client';
-import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel } from './shared/ItemSlot';
 
 const rolePriority = {
     [GuildRole.LEADER]: 3,
@@ -561,10 +563,10 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
     const { t } = useTranslation();
     const [armoryData, setArmoryData] = useState<{ armoryItems: GuildArmoryItem[], borrowedItems: GuildArmoryItem[] } | null>(null);
     const [loading, setLoading] = useState(false);
-    const [myItems, setMyItems] = useState<ItemInstance[]>([]);
-    const [userId, setUserId] = useState<number | null>(null);
+    const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
     const [filterSlot, setFilterSlot] = useState<string>('all');
+    const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     useEffect(() => {
         setLoading(true);
@@ -573,8 +575,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
             api.getCharacter()
         ]).then(([armory, char]) => {
             setArmoryData(armory);
-            setMyItems(char.inventory.filter(i => !i.isBorrowed)); // Filter out items I already borrowed to prevent re-depositing weirdness
-            setUserId(char.id || null);
+            setCharacter(char);
         }).catch(console.error).finally(() => setLoading(false));
     }, [guild.id]); // Refresh when guild ID changes (or mount)
 
@@ -583,7 +584,11 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
     const armoryLevel = guild.buildings?.armory || 0;
     const capacity = 10 + armoryLevel;
 
-    const handleDeposit = async (item: ItemInstance) => {
+    const myItems = character ? character.inventory.filter(i => !i.isBorrowed) : [];
+    const userId = character?.id || null;
+
+    const handleDeposit = async (item: ItemInstance, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (!confirm('Czy na pewno chcesz zdeponować ten przedmiot w zbrojowni gildii? Tracisz do niego prawo własności na rzecz gildii.')) return;
         try {
             await api.depositToArmory(item.uniqueId);
@@ -591,13 +596,14 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
             // Reload local
             const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
             setArmoryData(armory);
-            setMyItems(char.inventory.filter(i => !i.isBorrowed));
+            setCharacter(char);
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    const handleBorrow = async (armoryId: number, item: ItemInstance) => {
+    const handleBorrow = async (armoryId: number, item: ItemInstance, e: React.MouseEvent) => {
+        e.stopPropagation();
         const template = templates.find(t => t.id === item.templateId);
         const value = template?.value || 0; // Simplified for tax check display
         const tax = Math.ceil(value * 0.1);
@@ -608,7 +614,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
             await api.borrowFromArmory(armoryId);
             const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
             setArmoryData(armory);
-            setMyItems(char.inventory.filter(i => !i.isBorrowed));
+            setCharacter(char);
         } catch (e: any) {
             alert(e.message);
         }
@@ -625,7 +631,8 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
         }
     };
 
-    const handleDelete = async (armoryId: number) => {
+    const handleDelete = async (armoryId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (!confirm('Czy na pewno chcesz usunąć ten przedmiot? Ta akcja jest nieodwracalna.')) return;
         try {
             await api.deleteFromArmory(armoryId);
@@ -648,6 +655,10 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
             return rarityMatch && slotMatch;
         });
     }, [armoryData, filterRarity, filterSlot, templates]);
+
+    const handleItemClick = (item: ItemInstance, template: ItemTemplate) => {
+        setInspectingItem({ item, template });
+    };
 
     if (loading || !armoryData) return <p className="text-gray-400">Ładowanie zbrojowni...</p>;
 
@@ -681,24 +692,23 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                             const tax = Math.ceil((template.value || 0) * 0.1);
                             
                             return (
-                                <div key={entry.id} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group">
+                                <div key={entry.id} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group cursor-pointer hover:bg-slate-800" onClick={() => handleItemClick(entry.item, template)}>
                                     <div className="flex justify-between items-center">
                                         <ItemListItem item={entry.item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
                                         <div className="flex flex-col items-end gap-1">
                                             <span className="text-xs text-gray-500">od {entry.ownerName}</span>
                                             <div className="flex gap-1">
-                                                <button onClick={() => handleBorrow(entry.id, entry.item)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
+                                                <button onClick={(e) => handleBorrow(entry.id, entry.item, e)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
                                                     Wypożycz ({tax}g)
                                                 </button>
                                                 {isLeader && (
-                                                    <button onClick={() => handleDelete(entry.id)} className="px-2 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white" title="Usuń trwale">
+                                                    <button onClick={(e) => handleDelete(entry.id, e)} className="px-2 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white" title="Usuń trwale">
                                                         ✕
                                                     </button>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-                                    <ItemTooltip instance={entry.item} template={template} affixes={affixes} />
                                 </div>
                             );
                         })}
@@ -714,14 +724,13 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                             const template = templates.find(t => t.id === item.templateId);
                             if (!template) return null;
                             return (
-                                <div key={item.uniqueId} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group">
+                                <div key={item.uniqueId} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group cursor-pointer hover:bg-slate-800" onClick={() => handleItemClick(item, template)}>
                                     <div className="flex justify-between items-center">
                                         <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
-                                        <button onClick={() => handleDeposit(item)} className="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold text-white ml-2">
+                                        <button onClick={(e) => handleDeposit(item, e)} className="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold text-white ml-2">
                                             Zdeponuj
                                         </button>
                                     </div>
-                                    <ItemTooltip instance={item} template={template} affixes={affixes} />
                                 </div>
                             );
                         })}
@@ -751,7 +760,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                                         <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                                             <td className="p-2 relative group cursor-help">
                                                 {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
-                                                {template && <ItemTooltip instance={entry.item} template={template} affixes={affixes} />}
+                                                {template && <div className="hidden group-hover:block absolute left-full top-0 z-50 w-64 p-2 bg-slate-900 border border-slate-600 rounded shadow-xl"><ItemDetailsPanel item={entry.item} template={template} affixes={affixes} size="small" /></div>}
                                             </td>
                                             <td className="p-2 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
@@ -772,6 +781,16 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                     <p className="text-xs text-gray-500 mt-2">
                         * Liderzy, Oficerowie oraz prawowici właściciele mogą wymusić zwrot przedmiotu do zbrojowni w każdej chwili.
                     </p>
+                </div>
+            )}
+
+            {/* Inspection Modal */}
+            {inspectingItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setInspectingItem(null)}>
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <button className="absolute top-2 right-2 text-gray-400 hover:text-white" onClick={() => setInspectingItem(null)}>✕</button>
+                        <ItemDetailsPanel item={inspectingItem.item} template={inspectingItem.template} affixes={affixes} character={character || undefined} />
+                    </div>
                 </div>
             )}
         </div>
