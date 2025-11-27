@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -239,6 +241,16 @@ const CombatLogRow: React.FC<{
                 </p>
             </div>
         )
+    }
+    
+    if (log.action === 'all_enemies_defeated') {
+        return (
+            <div className="text-center my-2 py-1 bg-green-900/20 rounded border border-green-900/50">
+                <p className="font-bold text-sm text-green-400">
+                    Wszyscy przeciwnicy pokonani!
+                </p>
+            </div>
+        );
     }
     
     if (log.action === 'enemy_death') {

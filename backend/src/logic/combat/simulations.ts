@@ -1,6 +1,7 @@
 
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
+import { randomUUID } from 'crypto';
 
 export interface TeamCombatPlayerState {
   data: PlayerCharacter;
@@ -254,18 +255,34 @@ export const simulate1vManyCombat = (
         statusEffects: [],
     };
 
-    // Convert Enemy[] to array of combat states with unique IDs
-    const enemiesState = enemiesData.map(e => ({
-        uniqueId: e.uniqueId || crypto.randomUUID(),
-        stats: { ...defaultEnemyStats, ...(e.stats || {}) },
-        currentHealth: e.stats.maxHealth,
-        currentMana: e.stats.maxMana || 0,
-        name: e.name,
-        hardSkinTriggered: false,
-        shadowBoltStacks: 0,
-        statusEffects: [],
-        data: undefined // Not a player
-    } as AttackerState & { uniqueId: string }));
+    // --- Numbering Logic ---
+    const nameCounts: Record<string, number> = {};
+    enemiesData.forEach(e => {
+        nameCounts[e.name] = (nameCounts[e.name] || 0) + 1;
+    });
+    
+    const nameIterators: Record<string, number> = {};
+
+    // Convert Enemy[] to array of combat states with unique IDs and numbered names
+    const enemiesState = enemiesData.map(e => {
+        let displayName = e.name;
+        if (nameCounts[e.name] > 1) {
+            nameIterators[e.name] = (nameIterators[e.name] || 0) + 1;
+            displayName = `${e.name} ${nameIterators[e.name]}`;
+        }
+
+        return {
+            uniqueId: e.uniqueId || randomUUID(),
+            stats: { ...defaultEnemyStats, ...(e.stats || {}) },
+            currentHealth: e.stats.maxHealth,
+            currentMana: e.stats.maxMana || 0,
+            name: displayName,
+            hardSkinTriggered: false,
+            shadowBoltStacks: 0,
+            statusEffects: [],
+            data: undefined // Not a player
+        } as AttackerState & { uniqueId: string };
+    });
 
     const log: CombatLogEntry[] = [];
     let turn = 0;
@@ -286,7 +303,7 @@ export const simulate1vManyCombat = (
     });
 
     log.push({
-        turn, attacker: playerState.name, defender: 'Group of Enemies', action: 'starts a fight with',
+        turn, attacker: playerState.name, defender: 'Grupa Wrogów', action: 'starts a fight with',
         ...getHealthState(),
         playerStats: playerState.stats as CharacterStats, 
         enemyStats: enemiesState[0].stats as EnemyStats // Just take first for generic stat display
@@ -533,7 +550,8 @@ export const simulate1vManyCombat = (
     if (playerState.currentHealth <= 0) {
          log.push({ turn, attacker: 'Enemies', defender: playerState.name, action: 'death', ...getHealthState() });
     } else if (enemiesState.every(e => e.currentHealth <= 0)) {
-         log.push({ turn, attacker: playerState.name, defender: 'Enemies', action: 'enemy_death', ...getHealthState() });
+         // Changed action from 'enemy_death' to 'all_enemies_defeated' to avoid singular "X został pokonany!" for a group victory summary
+         log.push({ turn, attacker: playerState.name, defender: '', action: 'all_enemies_defeated', ...getHealthState() });
     }
 
     return log;
