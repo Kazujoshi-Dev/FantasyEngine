@@ -7,7 +7,9 @@
 
 
 
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry } from './types';
+
+
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -574,6 +576,31 @@ export const api = {
         return fetchApi('/guilds/update', {
             method: 'POST',
             body: JSON.stringify({ description, crestUrl, minLevel, isPublic })
+        });
+    },
+
+    async getGuildArmory(): Promise<{ armoryItems: GuildArmoryItem[], borrowedItems: GuildArmoryItem[] }> {
+        return fetchApi('/guilds/armory');
+    },
+
+    async depositToArmory(itemId: string): Promise<void> {
+        return fetchApi('/guilds/armory/deposit', {
+            method: 'POST',
+            body: JSON.stringify({ itemId })
+        });
+    },
+
+    async borrowFromArmory(armoryId: number): Promise<void> {
+        return fetchApi('/guilds/armory/borrow', {
+            method: 'POST',
+            body: JSON.stringify({ armoryId })
+        });
+    },
+
+    async recallFromMember(targetUserId: number, itemUniqueId: string): Promise<void> {
+        return fetchApi('/guilds/armory/recall', {
+            method: 'POST',
+            body: JSON.stringify({ targetUserId, itemUniqueId })
         });
     },
 

@@ -1,6 +1,7 @@
 
 
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -291,6 +292,16 @@ export const initializeDatabase = async () => {
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
                 user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 content TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_armory_items (
+                id SERIAL PRIMARY KEY,
+                guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                owner_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                item_data JSONB NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);

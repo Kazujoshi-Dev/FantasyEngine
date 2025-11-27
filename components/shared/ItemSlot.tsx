@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -146,6 +147,14 @@ export const ItemDetailsPanel: React.FC<{
                 </h4>
                 {showIcon && template.icon && <img src={template.icon} alt={template.name} className="w-48 h-48 object-contain border border-slate-600 rounded-md bg-slate-800 mx-auto mb-4" />}
                 <p className={`italic text-center ${isSmall ? 'text-xs text-gray-400 mb-2' : 'text-sm text-gray-400 mb-4'}`}>{template.description}</p>
+                
+                {item.isBorrowed && (
+                    <div className="bg-indigo-900/50 text-indigo-300 border border-indigo-700 p-2 rounded text-center mb-2 text-xs font-bold">
+                        WYPOŻYCZONY OD GILDII<br/>
+                        <span className="font-normal text-gray-400">Właściciel: {item.originalOwnerName || 'Nieznany'}</span>
+                    </div>
+                )}
+
                 <div className="border-t border-slate-700/50 pt-2">
                     <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
                         {/* Use equipment.slot translations here */}
@@ -225,6 +234,8 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
     const safeAffixes = affixes || [];
     const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
     const finalBorder = meetsRequirements ? border : 'border-red-500';
+    
+    const borrowedStyle = item.isBorrowed ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : '';
 
     return (
          <div
@@ -233,7 +244,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
             {...divProps}
             className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
                 isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
-            } ${finalBorder} ${shadow} ${divProps.className || ''}`}
+            } ${finalBorder} ${shadow} ${borrowedStyle} ${divProps.className || ''}`}
         >
             {template.icon && <img src={template.icon} alt={template.name} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
             <div className="flex-grow">
@@ -245,6 +256,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
                     <span className="text-gray-400">{t(`equipment.slot.${template.slot}`)}</span>
                     {price !== undefined && <span className="font-mono text-amber-400 flex items-center">{price} <CoinsIcon className="h-3 w-3 ml-1"/></span>}
                     {isEquipped && <span className="text-sky-400 font-semibold">{t('equipment.equipped')}</span>}
+                    {item.isBorrowed && <span className="text-indigo-400 font-bold ml-1" title={`Od: ${item.originalOwnerName}`}>[Wypożyczony]</span>}
                 </div>
             </div>
         </div>

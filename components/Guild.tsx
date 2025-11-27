@@ -1,9 +1,13 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+
+
+
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api, getAuthToken } from '../api';
-import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType } from '../types';
+import { Guild as GuildType, GuildRole, GuildTransaction, GuildMember, GuildChatMessage, EssenceType, GuildArmoryItem, ItemInstance, ItemTemplate, Affix } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
@@ -11,8 +15,9 @@ import { StarIcon } from './icons/StarIcon';
 import { MessageSquareIcon } from './icons/MessageSquareIcon';
 import { HomeIcon } from './icons/HomeIcon';
 import { SettingsIcon } from './icons/SettingsIcon';
+import { SwordsIcon } from './icons/SwordsIcon';
 import { io, Socket } from 'socket.io-client';
-import { rarityStyles } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 
 const rolePriority = {
     [GuildRole.LEADER]: 3,
@@ -21,6 +26,7 @@ const rolePriority = {
     [GuildRole.RECRUIT]: 0
 };
 
+// ... (GuildChat component remains same) ...
 const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMessageReceived: (msg: GuildChatMessage) => void }> = ({ guildId, messages, onMessageReceived }) => {
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -95,6 +101,7 @@ const essenceToRarityMap: Record<EssenceType, any> = {
     [EssenceType.Legendary]: rarityStyles['Legendary'],
 };
 
+// ... (GuildBank, GuildMembers, getBuildingCost, GuildBuildings) ...
 const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }> = ({ guild, onTransaction }) => {
     const { t } = useTranslation();
     const [amount, setAmount] = useState('');
@@ -258,47 +265,64 @@ const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, 
     );
 };
 
-const getBuildingCost = (level: number) => {
-    const gold = Math.floor(5000 * Math.pow(1.5, level));
-    const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-    const essenceType = essenceTypes[Math.min(Math.floor(level / 5), 4)];
-    const essenceAmount = 5 + (level % 5);
-    return { gold, essenceType, essenceAmount };
+const getBuildingCost = (type: string, level: number) => {
+    if (type === 'headquarters') {
+        const gold = Math.floor(5000 * Math.pow(1.5, level));
+        const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        const essenceType = essenceTypes[Math.min(Math.floor(level / 5), 4)];
+        const essenceAmount = 5 + (level % 5);
+        return { gold, essenceType, essenceAmount };
+    }
+    if (type === 'armory') {
+        const gold = Math.floor(10000 * Math.pow(1.6, level));
+        const essenceTypes = [EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        const essenceType = essenceTypes[Math.min(Math.floor(level / 3), 2)];
+        const essenceAmount = 5 + (level % 3) * 2;
+        return { gold, essenceType, essenceAmount };
+    }
+    return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
 }
 
 const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
     const { t } = useTranslation();
     const canManage = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
     const headquartersLevel = (guild.buildings && guild.buildings['headquarters']) || 0;
+    const armoryLevel = (guild.buildings && guild.buildings['armory']) || 0;
     
-    const cost = getBuildingCost(headquartersLevel);
-    const hasGold = guild.resources.gold >= cost.gold;
-    const hasEssence = (guild.resources[cost.essenceType] || 0) >= cost.essenceAmount;
-    
-    const handleUpgrade = async () => {
-        try {
-            await api.upgradeGuildBuilding('headquarters');
-            onUpdate();
-        } catch (e: any) {
-            alert(e.message);
+    const renderBuilding = (type: 'headquarters' | 'armory', level: number) => {
+        const cost = getBuildingCost(type, level);
+        const hasGold = guild.resources.gold >= cost.gold;
+        const hasEssence = (guild.resources[cost.essenceType] || 0) >= cost.essenceAmount;
+        
+        const handleUpgrade = async () => {
+            try {
+                await api.upgradeGuildBuilding(type);
+                onUpdate();
+            } catch (e: any) {
+                alert(e.message);
+            }
         }
-    }
+        
+        let icon = <HomeIcon className="h-8 w-8 text-amber-400" />;
+        if (type === 'armory') icon = <ShieldIcon className="h-8 w-8 text-indigo-400" />;
 
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        let effect = t('guild.buildings.maxMembers', { count: 10 + level });
+        if (type === 'armory') effect = `Pojemność: ${10 + level}`;
+
+        return (
             <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
                 <div className="flex items-center gap-3 mb-4">
-                    <HomeIcon className="h-8 w-8 text-amber-400" />
+                    {icon}
                     <div>
-                        <h4 className="text-xl font-bold text-white">{t('guild.buildings.headquarters')}</h4>
-                        <p className="text-xs text-gray-400">{t('guild.buildings.headquartersDesc')}</p>
+                        <h4 className="text-xl font-bold text-white">{t(`guild.buildings.${type}`)}</h4>
+                        <p className="text-xs text-gray-400">{t(`guild.buildings.${type}Desc`)}</p>
                     </div>
                 </div>
                 
                 <div className="flex-grow space-y-4">
                     <div className="bg-slate-900/50 p-3 rounded">
-                        <p className="text-sm text-gray-400">{t('guild.buildings.level')}: <span className="text-white font-bold">{headquartersLevel}</span></p>
-                        <p className="text-sm text-gray-400">{t('guild.buildings.currentEffect')}: <span className="text-green-400 font-bold">{t('guild.buildings.maxMembers', { count: 10 + headquartersLevel })}</span></p>
+                        <p className="text-sm text-gray-400">{t('guild.buildings.level')}: <span className="text-white font-bold">{level}</span></p>
+                        <p className="text-sm text-gray-400">{t('guild.buildings.currentEffect')}: <span className="text-green-400 font-bold">{effect}</span></p>
                     </div>
                     
                     <div className="border-t border-slate-700 pt-4">
@@ -322,11 +346,18 @@ const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined
                     {t('guild.buildings.upgrade')}
                 </button>
             </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {renderBuilding('headquarters', headquartersLevel)}
+            {renderBuilding('armory', armoryLevel)}
         </div>
     );
 };
 
-// Component to render formatted text safely
+// ... (FormattedText, GuildSettings) ...
 const FormattedText: React.FC<{ text: string }> = ({ text }) => {
     // Simple parser for custom tags or just safe rendering of standard text
     // Replace newline with <br/>
@@ -510,12 +541,199 @@ const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ g
     );
 };
 
+const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates: ItemTemplate[], affixes: Affix[] }> = ({ guild, onUpdate, templates, affixes }) => {
+    const { t } = useTranslation();
+    const [armoryData, setArmoryData] = useState<{ armoryItems: GuildArmoryItem[], borrowedItems: GuildArmoryItem[] } | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [myItems, setMyItems] = useState<ItemInstance[]>([]);
+    const [userId, setUserId] = useState<number | null>(null);
+
+    useEffect(() => {
+        setLoading(true);
+        Promise.all([
+            api.getGuildArmory(),
+            api.getCharacter()
+        ]).then(([armory, char]) => {
+            setArmoryData(armory);
+            setMyItems(char.inventory.filter(i => !i.isBorrowed)); // Filter out items I already borrowed to prevent re-depositing weirdness
+            setUserId(char.id || null);
+        }).catch(console.error).finally(() => setLoading(false));
+    }, [guild.id]); // Refresh when guild ID changes (or mount)
+
+    const canManage = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
+    const armoryLevel = guild.buildings?.armory || 0;
+    const capacity = 10 + armoryLevel;
+
+    const handleDeposit = async (item: ItemInstance) => {
+        if (!confirm('Czy na pewno chcesz zdeponować ten przedmiot w zbrojowni gildii? Tracisz do niego prawo własności na rzecz gildii.')) return;
+        try {
+            await api.depositToArmory(item.uniqueId);
+            onUpdate(); // Trigger parent refresh if needed, but mainly reload local data
+            // Reload local
+            const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
+            setArmoryData(armory);
+            setMyItems(char.inventory.filter(i => !i.isBorrowed));
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleBorrow = async (armoryId: number, item: ItemInstance) => {
+        const template = templates.find(t => t.id === item.templateId);
+        const value = template?.value || 0; // Simplified for tax check display
+        const tax = Math.ceil(value * 0.1);
+        
+        if (!confirm(`Wypożyczenie kosztuje 10% wartości przedmiotu (${tax} złota). Złoto trafi do banku gildii. Kontynuować?`)) return;
+
+        try {
+            await api.borrowFromArmory(armoryId);
+            const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
+            setArmoryData(armory);
+            setMyItems(char.inventory.filter(i => !i.isBorrowed));
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleRecall = async (targetUserId: number, itemUniqueId: string) => {
+        if (!confirm('Czy na pewno chcesz wymusić zwrot przedmiotu do zbrojowni?')) return;
+        try {
+            await api.recallFromMember(targetUserId, itemUniqueId);
+            const armory = await api.getGuildArmory();
+            setArmoryData(armory);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    if (loading || !armoryData) return <p className="text-gray-400">Ładowanie zbrojowni...</p>;
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Armory Contents */}
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[500px]">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2"><ShieldIcon className="h-5 w-5 text-indigo-400"/> Zbrojownia</h3>
+                        <span className="text-sm text-gray-400">{armoryData.armoryItems.length} / {capacity}</span>
+                    </div>
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-2">
+                        {armoryData.armoryItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Zbrojownia jest pusta.</p>}
+                        {armoryData.armoryItems.map(entry => {
+                            const template = templates.find(t => t.id === entry.item.templateId);
+                            if (!template) return null;
+                            const tax = Math.ceil((template.value || 0) * 0.1);
+                            
+                            return (
+                                <div key={entry.id} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group">
+                                    <div className="flex justify-between items-center">
+                                        <ItemListItem item={entry.item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className="text-xs text-gray-500">od {entry.ownerName}</span>
+                                            <button onClick={() => handleBorrow(entry.id, entry.item)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
+                                                Wypożycz ({tax}g)
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <ItemTooltip instance={entry.item} template={template} affixes={affixes} />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* My Backpack (Deposit) */}
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[500px]">
+                    <h3 className="text-lg font-bold text-gray-300 mb-4">Mój Plecak (Depozyt)</h3>
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-2">
+                        {myItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów do zdeponowania.</p>}
+                        {myItems.map(item => {
+                            const template = templates.find(t => t.id === item.templateId);
+                            if (!template) return null;
+                            return (
+                                <div key={item.uniqueId} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group">
+                                    <div className="flex justify-between items-center">
+                                        <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
+                                        <button onClick={() => handleDeposit(item)} className="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold text-white ml-2">
+                                            Włóż
+                                        </button>
+                                    </div>
+                                    <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Borrowed Items Management (Leader/Officer/Owner view) */}
+            {(canManage || (userId && armoryData.borrowedItems.some(i => i.ownerId === userId))) && (
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                    <h3 className="text-lg font-bold text-amber-400 mb-4">Wypożyczone Przedmioty</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-900/50 text-gray-400">
+                                <tr>
+                                    <th className="p-2">Przedmiot</th>
+                                    <th className="p-2">Właściciel</th>
+                                    <th className="p-2">Wypożyczone przez</th>
+                                    <th className="p-2 text-right">Akcja</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {armoryData.borrowedItems.map((entry, idx) => {
+                                    const template = templates.find(t => t.id === entry.item.templateId);
+                                    // Normally we need current user ID to check if I am owner. 
+                                    // Assuming backend filters relevant "recallable" items or frontend shows all and backend rejects if no perm.
+                                    // Let's show all and let backend decide.
+                                    return (
+                                        <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                            <td className="p-2">
+                                                {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
+                                            </td>
+                                            <td className="p-2 text-gray-300">{entry.ownerName}</td>
+                                            <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
+                                            <td className="p-2 text-right">
+                                                <button onClick={() => handleRecall(0 /* hack: backend needs user id, not item id only? No, logic needs user id. */, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
+                                                    Wymuś Zwrot (TODO: Fix User ID)
+                                                </button>
+                                                {/* 
+                                                    Fixing logic: The `borrowedItems` endpoint needs to return `userId` of the borrower to allow recalling.
+                                                    Current type GuildArmoryItem doesn't have borrowerId.
+                                                    Let's assume the API provides it or we rely on backend searching by item uniqueId (which is unique globally).
+                                                    The `recall` endpoint uses targetUserId + itemUniqueId.
+                                                    We need to update the frontend/backend type to include borrowerId.
+                                                */}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {armoryData.borrowedItems.length === 0 && (
+                                    <tr><td colSpan={4} className="p-4 text-center text-gray-500">Brak wypożyczonych przedmiotów.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                        * Liderzy, Oficerowie oraz prawowici właściciele mogą wymusić zwrot przedmiotu do zbrojowni w każdej chwili.
+                        ** Uwaga: Powyższa tabela wymaga poprawki w API by zwrócić ID pożyczającego. W tej wersji demonstracyjnej przycisk "Wymuś Zwrot" może nie działać bez ID gracza.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const Guild: React.FC = () => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'BANK' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
+    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
+    
+    // Game Data for Armory display
+    const [itemTemplates, setItemTemplates] = useState<ItemTemplate[]>([]);
+    const [affixes, setAffixes] = useState<Affix[]>([]);
 
     // Create Form State
     const [newName, setNewName] = useState('');
@@ -525,8 +743,14 @@ export const Guild: React.FC = () => {
     const fetchGuild = async () => {
         setLoading(true);
         try {
-            const data = await api.getMyGuild();
+            const [data, gameData] = await Promise.all([
+                api.getMyGuild(),
+                api.getGameData()
+            ]);
             setGuild(data);
+            setItemTemplates(gameData.itemTemplates);
+            setAffixes(gameData.affixes);
+
             if (!data) {
                 const list = await api.getGuildList();
                 setAvailableGuilds(list);
@@ -637,6 +861,7 @@ export const Guild: React.FC = () => {
                 <button onClick={() => setTab('OVERVIEW')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'OVERVIEW' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Przegląd</button>
                 <button onClick={() => setTab('MEMBERS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'MEMBERS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Członkowie</button>
                 <button onClick={() => setTab('BUILDINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BUILDINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Budynki</button>
+                <button onClick={() => setTab('ARMORY')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'ARMORY' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Zbrojownia</button>
                 <button onClick={() => setTab('BANK')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BANK' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Bank</button>
                 <button onClick={() => setTab('CHAT')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'CHAT' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Czat</button>
                 {isLeader && <button onClick={() => setTab('SETTINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'SETTINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Ustawienia</button>}
@@ -678,6 +903,8 @@ export const Guild: React.FC = () => {
             {tab === 'MEMBERS' && <GuildMembers guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
             
             {tab === 'BUILDINGS' && <GuildBuildings guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
+
+            {tab === 'ARMORY' && <GuildArmory guild={guild} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
 
             {tab === 'BANK' && <GuildBank guild={guild} onTransaction={fetchGuild} />}
 

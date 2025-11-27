@@ -6,10 +6,13 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance } from '../types.js';
+import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
@@ -21,10 +24,17 @@ const getBuildingCost = (type: string, level: number) => {
     if (type === 'headquarters') {
         const gold = Math.floor(5000 * Math.pow(1.5, level));
         const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-        // Change type every 5 levels
         const typeIndex = Math.min(Math.floor(level / 5), 4);
         const essenceType = essenceTypes[typeIndex];
         const essenceAmount = 5 + (level % 5);
+        return { gold, essenceType, essenceAmount };
+    }
+    if (type === 'armory') {
+        const gold = Math.floor(10000 * Math.pow(1.6, level));
+        const essenceTypes = [EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        const typeIndex = Math.min(Math.floor(level / 3), 2);
+        const essenceType = essenceTypes[typeIndex];
+        const essenceAmount = 5 + (level % 3) * 2;
         return { gold, essenceType, essenceAmount };
     }
     return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
@@ -124,7 +134,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             createdAt: guildData.created_at,
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
-            buildings: guildData.buildings || { headquarters: 0 },
+            buildings: guildData.buildings || { headquarters: 0, armory: 0 },
             members,
             transactions,
             myRole,
@@ -136,6 +146,285 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch guild info' });
+    }
+});
+
+// GET /api/guilds/armory - Get items in guild armory
+router.get('/armory', authenticateToken, async (req: any, res: any) => {
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const guildId = memberRes.rows[0].guild_id;
+
+        // Fetch items physically in armory
+        const itemsRes = await pool.query(`
+            SELECT gai.*, c.data->>'name' as owner_name 
+            FROM guild_armory_items gai
+            JOIN characters c ON gai.owner_id = c.user_id
+            WHERE gai.guild_id = $1
+        `, [guildId]);
+
+        const armoryItems: GuildArmoryItem[] = itemsRes.rows.map(row => ({
+            id: row.id,
+            item: row.item_data,
+            ownerId: row.owner_id,
+            ownerName: row.owner_name,
+            depositedAt: row.created_at
+        }));
+
+        // Fetch borrowed items (scan all guild members characters)
+        // This is a bit heavy, in a real massive game we would index borrowed items separately
+        const guildMembersRes = await pool.query('SELECT user_id FROM guild_members WHERE guild_id = $1', [guildId]);
+        const userIds = guildMembersRes.rows.map(r => r.user_id);
+        
+        const borrowedItems: GuildArmoryItem[] = [];
+        
+        if (userIds.length > 0) {
+            const charsRes = await pool.query(`SELECT user_id, data FROM characters WHERE user_id = ANY($1)`, [userIds]);
+            
+            charsRes.rows.forEach(row => {
+                const char: PlayerCharacter = row.data;
+                const borrowerName = char.name;
+                
+                // Helper to check item
+                const checkItem = (item: ItemInstance | null | undefined, location: string) => {
+                    if (item && item.isBorrowed && item.borrowedFromGuildId === guildId) {
+                        borrowedItems.push({
+                            id: 0, // Virtual ID, not in armory table
+                            item: item,
+                            ownerId: item.originalOwnerId!,
+                            ownerName: item.originalOwnerName || 'Unknown', // We might need to fetch names if not stored on item
+                            depositedAt: '',
+                            borrowedBy: borrowerName
+                        });
+                    }
+                };
+
+                char.inventory.forEach(i => checkItem(i, 'inventory'));
+                Object.values(char.equipment).forEach(i => checkItem(i, 'equipment'));
+            });
+        }
+
+        res.json({ armoryItems, borrowedItems });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch armory' });
+    }
+});
+
+// POST /api/guilds/armory/deposit
+router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const userId = req.user.id;
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Verify guild
+        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) throw new Error('Not in guild');
+        const guildId = memberRes.rows[0].guild_id;
+
+        // Check armory capacity
+        const guildRes = await client.query('SELECT buildings FROM guilds WHERE id = $1', [guildId]);
+        const buildings = guildRes.rows[0].buildings || { armory: 0 };
+        const armoryLevel = buildings.armory || 0;
+        const maxCapacity = 10 + armoryLevel;
+        
+        const currentCountRes = await client.query('SELECT COUNT(*) FROM guild_armory_items WHERE guild_id = $1', [guildId]);
+        if (parseInt(currentCountRes.rows[0].count) >= maxCapacity) {
+            throw new Error('Armory is full');
+        }
+
+        // Lock character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const char: PlayerCharacter = charRes.rows[0].data;
+
+        // Find item in inventory
+        const itemIndex = char.inventory.findIndex(i => i.uniqueId === itemId);
+        if (itemIndex === -1) throw new Error('Item not found in inventory');
+        
+        const item = char.inventory[itemIndex];
+        if (item.isBorrowed) throw new Error('Cannot deposit a borrowed item');
+
+        // Remove from inventory
+        char.inventory.splice(itemIndex, 1);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+
+        // Add to armory
+        await client.query(
+            `INSERT INTO guild_armory_items (guild_id, owner_id, item_data) VALUES ($1, $2, $3)`,
+            [guildId, userId, JSON.stringify(item)]
+        );
+
+        await client.query('COMMIT');
+        res.json({ message: 'Item deposited' });
+
+    } catch (e: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/armory/borrow
+router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
+    const { armoryId } = req.body;
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Verify guild
+        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) throw new Error('Not in guild');
+        const guildId = memberRes.rows[0].guild_id;
+
+        // Get armory item
+        const itemRes = await client.query('SELECT * FROM guild_armory_items WHERE id = $1 AND guild_id = $2 FOR UPDATE', [armoryId, guildId]);
+        if (itemRes.rows.length === 0) throw new Error('Item not available');
+        
+        const armoryEntry = itemRes.rows[0];
+        const item: ItemInstance = armoryEntry.item_data;
+        const originalOwnerId = armoryEntry.owner_id;
+
+        // Get character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const char: PlayerCharacter = charRes.rows[0].data;
+
+        // Check backpack space
+        if (char.inventory.length >= getBackpackCapacity(char)) throw new Error('Backpack full');
+
+        // Calculate Tax
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates: ItemTemplate[] = gameDataRes.rows[0].data;
+        const template = templates.find((t: any) => t.id === item.templateId);
+        
+        let value = template ? (Number(template.value) || 0) : 0;
+        // Simplified value calculation (ignoring affixes for tax base to keep it simple, or query affixes if needed)
+        // Let's assume tax is based on base template value for robustness or fetch affixes if precise
+        
+        const tax = Math.ceil(value * 0.1);
+        if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);
+
+        // Get owner name for metadata
+        const ownerRes = await client.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [originalOwnerId]);
+        const ownerName = ownerRes.rows[0]?.name || 'Unknown';
+
+        // Modify item
+        item.isBorrowed = true;
+        item.borrowedFromGuildId = guildId;
+        item.originalOwnerId = originalOwnerId;
+        item.originalOwnerName = ownerName;
+
+        // Transaction
+        char.resources.gold -= tax;
+        char.inventory.push(item);
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
+        
+        // Add tax to guild bank
+        const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
+        const resources = guildRes.rows[0].resources;
+        resources.gold += tax;
+        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [resources, guildId]);
+        
+        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'DEPOSIT', 'gold', $3)`, [guildId, userId, tax]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Item borrowed', taxPaid: tax });
+
+    } catch (e: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/armory/recall
+router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
+    const { targetUserId, itemUniqueId } = req.body;
+    const requesterId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check requester role
+        const requesterRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [requesterId]);
+        if (requesterRes.rows.length === 0) throw new Error('Not in guild');
+        const { guild_id, role } = requesterRes.rows[0];
+
+        // Check target character
+        const targetRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [targetUserId]);
+        if (targetRes.rows.length === 0) throw new Error('Target not found');
+        const targetChar: PlayerCharacter = targetRes.rows[0].data;
+
+        // Find item on target
+        let itemIndex = -1;
+        let location = 'inventory';
+        let item: ItemInstance | null = null;
+
+        // Check inventory
+        itemIndex = targetChar.inventory.findIndex(i => i.uniqueId === itemUniqueId);
+        if (itemIndex > -1) {
+            item = targetChar.inventory[itemIndex];
+        } else {
+            // Check equipment
+            for (const slot in targetChar.equipment) {
+                const eqItem = (targetChar.equipment as any)[slot];
+                if (eqItem && eqItem.uniqueId === itemUniqueId) {
+                    item = eqItem;
+                    location = slot;
+                    break;
+                }
+            }
+        }
+
+        if (!item) throw new Error('Item not found on player');
+        if (!item.isBorrowed || item.borrowedFromGuildId !== guild_id) throw new Error('Item is not borrowed from this guild');
+
+        // Verify permissions: Must be owner OR Leader/Officer
+        if (item.originalOwnerId !== requesterId && !canManage(role)) {
+            throw new Error('No permission to recall this item');
+        }
+
+        // Remove from target
+        if (location === 'inventory') {
+            targetChar.inventory.splice(itemIndex, 1);
+        } else {
+            (targetChar.equipment as any)[location] = null;
+        }
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [targetChar, targetUserId]);
+
+        // Clean item data
+        delete item.isBorrowed;
+        delete item.borrowedFromGuildId;
+        // originalOwnerId kept or removed? Logic suggests it's stored in armory table structure, not item JSON necessarily, but cleaning is safer
+        const ownerId = item.originalOwnerId!;
+        delete item.originalOwnerId;
+        delete item.originalOwnerName;
+
+        // Return to armory table
+        await client.query(
+            `INSERT INTO guild_armory_items (guild_id, owner_id, item_data) VALUES ($1, $2, $3)`,
+            [guild_id, ownerId, JSON.stringify(item)]
+        );
+
+        await client.query('COMMIT');
+        res.json({ message: 'Item recalled to armory' });
+
+    } catch (e: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -194,7 +483,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         // Create Guild
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0 })]
+            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0 })]
         );
         const guildId = createRes.rows[0].id;
 
@@ -578,10 +867,10 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    const { buildingType } = req.body; // e.g., 'headquarters'
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory'
     const userId = req.user.id;
 
-    if (buildingType !== 'headquarters') return res.status(400).json({ message: 'Invalid building type' });
+    if (buildingType !== 'headquarters' && buildingType !== 'armory') return res.status(400).json({ message: 'Invalid building type' });
 
     const client = await pool.connect();
     try {
@@ -597,7 +886,7 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         // Lock Guild
         const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         const guild = guildRes.rows[0];
-        let buildings = guild.buildings || { headquarters: 0 };
+        let buildings = guild.buildings || { headquarters: 0, armory: 0 };
         const currentLevel = buildings[buildingType] || 0;
 
         // Calculate Cost

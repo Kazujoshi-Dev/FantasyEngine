@@ -1,4 +1,6 @@
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -128,6 +130,11 @@ router.post('/sell', authenticateToken, async (req: any, res: any) => {
         }
 
         for (const item of itemsToSell) {
+            if (item.isBorrowed) {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ message: 'Cannot sell borrowed items.' });
+            }
+
             const template = itemTemplates.find(t => t.id === item.templateId);
             let itemValue = Number(template?.value) || 0;
             if (item.prefixId) {

@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -28,6 +29,11 @@ router.post('/disenchant', authenticateToken, async (req: any, res: any) => {
         const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
         if (itemIndex === -1) {
             return res.status(404).json({ message: 'Item not found in inventory' });
+        }
+        const item = character.inventory[itemIndex];
+        if (item.isBorrowed) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'Cannot disenchant borrowed items.' });
         }
         
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
@@ -109,6 +115,11 @@ router.post('/upgrade', authenticateToken, async (req: any, res: any) => {
         
         const isInventory = itemLocation === 'inventory';
         const item = isInventory ? character.inventory.find(i=>i.uniqueId === itemId)! : (character.equipment as any)[itemLocation];
+
+        if (item.isBorrowed) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'Cannot upgrade borrowed items.' });
+        }
 
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         const template: ItemTemplate | undefined = gameDataRes.rows[0].data.find((t: any) => t.id === item.templateId);

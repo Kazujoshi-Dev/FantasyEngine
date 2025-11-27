@@ -427,6 +427,11 @@ export interface ItemInstance {
     rolledPrefix?: RolledAffixStats;
     rolledSuffix?: RolledAffixStats;
     rolledBaseStats?: RolledAffixStats;
+    // Guild Armory fields
+    isBorrowed?: boolean;
+    borrowedFromGuildId?: number;
+    originalOwnerId?: number;
+    originalOwnerName?: string; // Optional for UI display
 }
 
 export enum AffixType {
@@ -631,6 +636,15 @@ export interface GuildResources {
     legendaryEssence: number;
 }
 
+export interface GuildArmoryItem {
+    id: number;
+    item: ItemInstance;
+    ownerId: number;
+    ownerName: string;
+    depositedAt: string;
+    borrowedBy?: string; // For UI logic mostly, backend handles actual borrowing via character inventory
+}
+
 export interface Guild {
     id: number;
     name: string;
@@ -649,6 +663,8 @@ export interface Guild {
     members?: GuildMember[];
     transactions?: GuildTransaction[];
     chatHistory?: GuildChatMessage[];
+    armoryItems?: GuildArmoryItem[]; // Items physically in the armory
+    borrowedItems?: GuildArmoryItem[]; // Items borrowed by others (visible to leadership/owners)
     myRole?: GuildRole;
 }
 

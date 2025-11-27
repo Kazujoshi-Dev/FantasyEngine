@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -73,6 +74,12 @@ router.post('/listings', authenticateToken, async (req: any, res: any) => {
             return res.status(404).json({ message: 'Item not found in inventory.' });
         }
         const itemData = character.inventory[itemIndex];
+        
+        if (itemData.isBorrowed) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'Cannot list borrowed items.' });
+        }
+
         character.inventory.splice(itemIndex, 1);
 
         const expires_at = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
