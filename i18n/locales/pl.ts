@@ -510,8 +510,9 @@ export default {
         bulkSellTitle: 'Szybka sprzedaż',
         sellAllJunk: 'Sprzedaj rupiecie',
         sellAllRarity: 'Sprzedaj wszystkie {rarity}',
-        bulkSellConfirm: 'Czy na pewno chcesz sprzedać {count} przedmiotów za {value} złota?',
+        bulkSellConfirm: 'Czy na pewno chcesz sprzedać {count} przedmiotów ({types}) za {value} złota?',
         noItemsToSellOfRarity: 'Nie masz żadnych przedmiotów o wybranej rzadkości do sprzedania.',
+        junkTypes: 'wszystkie zwykłe i niezwykłe',
         mysteriousItem: {
             title: "Tajemniczy przedmiot",
             description: "Kup ten przedmiot, aby otrzymać losowy, magiczny przedmiot (do Rzadkiej jakości) z gwarantowanym prefiksem i sufiksem.",

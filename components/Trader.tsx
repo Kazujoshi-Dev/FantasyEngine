@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -213,7 +214,15 @@ export const Trader: React.FC<TraderProps> = ({ character, baseCharacter, itemTe
             return sum + itemValue;
         }, 0);
 
-        if (window.confirm(t('trader.bulkSellConfirm', { count: itemsToSell.length, value: totalValue }))) {
+        const isJunkSell = raritiesToSell.length === 2 && 
+                           raritiesToSell.includes(ItemRarity.Common) && 
+                           raritiesToSell.includes(ItemRarity.Uncommon);
+                           
+        const typesLabel = isJunkSell 
+            ? t('trader.junkTypes') 
+            : t(`rarity.${raritiesToSell[0]}`);
+
+        if (window.confirm(t('trader.bulkSellConfirm', { count: itemsToSell.length, value: totalValue, types: typesLabel }))) {
             onSellItems(itemsToSell);
             setItemsToSellIds(new Set());
             setDetailsItem(null);

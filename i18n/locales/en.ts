@@ -1,4 +1,5 @@
 
+
 export default {
     loading: 'Loading adventure...',
     error: {
@@ -19,4 +20,8 @@ export default {
         toggleToRegister: "Don't have an account? Create one!",
         toggleToLogin: "Already have an account? Log in!"
     },
+    trader: {
+        junkTypes: 'Common and Uncommon',
+        bulkSellConfirm: 'Are you sure you want to sell {count} items ({types}) for {value} gold?'
+    }
 };
