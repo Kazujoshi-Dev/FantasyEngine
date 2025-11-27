@@ -439,7 +439,7 @@ export const simulate1vManyCombat = (
                         if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
                             let splashDamage = 0;
                             if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
-                            if (aoeData.type === 'meteor_swarm') splashDamage = aoeData.baseDamage;
+                            if (aoeData.type === 'meteor_swarm') splashDamage = Math.floor(aoeData.baseDamage);
 
                             otherEnemies.forEach(enemy => {
                                 const wasAlive = enemy.currentHealth > 0;

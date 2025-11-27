@@ -204,18 +204,15 @@ const CombatLogRow: React.FC<{
                     effectText = t('expedition.combatLog.effect.chainLightningJump');
                     textColor = 'text-blue-400 italic font-bold';
                 } else if (log.effectApplied === 'earthquakeSplash') {
-                    effectText = t('expedition.combatLog.effect.earthquakeSplash', { damage: log.damage }); // Generic msg if no details
+                    // Use literal strings instead of MagicAttackType enum to prevent crashes in render
+                    effectText = t('item.magic.Earthquake'); 
                     textColor = 'text-yellow-600 italic font-bold';
                 } else {
-                    effectText = t('expedition.combatLog.effect.meteorSwarmSplash', { damage: log.damage }); // Generic msg
+                    effectText = t('item.magic.MeteorSwarm');
                     textColor = 'text-orange-600 italic font-bold';
                 }
 
                 if (log.aoeDamage && log.aoeDamage.length > 0) {
-                    // Overwrite generic text for AoE to be a header
-                    if (log.effectApplied === 'earthquakeSplash') effectText = t(`item.magic.${MagicAttackType.Earthquake}`);
-                    if (log.effectApplied === 'meteorSwarmSplash') effectText = t(`item.magic.${MagicAttackType.MeteorSwarm}`);
-
                     detailList = (
                         <div className="ml-6 mt-1 space-y-0.5">
                             {log.aoeDamage.map((hit, idx) => (
@@ -345,6 +342,23 @@ const CombatLogRow: React.FC<{
         stealText.push(<span key="mana"> {t('expedition.manaStolen')} <span className="font-bold text-cyan-400">{log.manaGained.toFixed(0)}</span> {t('expedition.manaPoints')}</span>);
     }
 
+    if (log.bonusDamage) {
+        return (
+            <p className={`text-sm text-gray-300`}>
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.attacker)}
+                <span> {attackVerb} </span>
+                {log.weaponName && <span className="text-gray-500 mx-1">({log.weaponName})</span>}
+                {renderName(log.defender)}
+                <span> {t('expedition.dealing')} </span>
+                <span className="font-bold text-white">{log.damage}</span>
+                <span className="text-xs ml-1 text-gray-400">({(log.damage || 0) - log.bonusDamage} + <span className="text-pink-400 font-bold">{log.bonusDamage}</span>)</span>
+                <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
+                {stealText}
+            </p>
+        );
+    }
+
     return (
         <p className={`text-sm text-gray-300`}>
             <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
@@ -354,7 +368,6 @@ const CombatLogRow: React.FC<{
             {renderName(log.defender)}
             <span> {t('expedition.dealing')} </span>
             <span className="font-bold text-white">{log.damage}</span>
-            {log.bonusDamage ? <span className="text-xs ml-1 text-gray-400">({(log.damage || 0) - log.bonusDamage} + <span className="text-pink-400 font-bold">{log.bonusDamage}</span>)</span> : null}
             <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
             {stealText}
         </p>
@@ -1244,4 +1257,3 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
     </>
   );
 };
-    
