@@ -2,6 +2,8 @@
 
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -336,7 +338,7 @@ export default {
                 frozen_no_dodge: 'zamrożony',
                 burning: 'podpalony',
                 reduced_attacks_effect: 'spowolniony',
-                shadowBoltStack: 'Moc Pocisku Cienia wzrasta!',
+                shadowBoltStack: 'Moc Pocisku Cienia wzrasta! (Ładunki: {stacks})',
                 arcaneMissileBonus: 'Magiczny Pocisk zadaje dodatkowe {damage} obrażeń od many!',
                 chainLightningJump: 'Łańcuch Błyskawic przeskakuje na kolejne cele!',
                 earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',

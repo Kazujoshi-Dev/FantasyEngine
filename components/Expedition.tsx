@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
+import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { StarIcon } from './icons/StarIcon';
@@ -188,7 +189,8 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-gray-400 italic';
                 break;
             case 'shadowBoltStack':
-                effectText = t('expedition.combatLog.effect.shadowBoltStack');
+                // Uses log.damage field to store stack count
+                effectText = t('expedition.combatLog.effect.shadowBoltStack', { stacks: log.damage || 1 });
                 textColor = 'text-purple-400 italic';
                 break;
             case 'arcaneMissileBonus':
@@ -1242,3 +1244,4 @@ export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, 
     </>
   );
 };
+    
