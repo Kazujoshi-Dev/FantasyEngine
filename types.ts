@@ -644,6 +644,7 @@ export interface Guild {
     createdAt: string;
     isPublic: boolean;
     minLevel: number;
+    buildings?: Record<string, number>; // Map building type to level
     // Extended properties
     members?: GuildMember[];
     transactions?: GuildTransaction[];

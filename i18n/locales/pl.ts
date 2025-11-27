@@ -5,6 +5,8 @@
 
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -868,6 +870,7 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         news: {
             title: 'Nowości i Ogłoszenia',
             content: 'Treść ogłoszenia',
+            close: 'Zamknij'
         },
         titleScreen: {
             title: 'Ustawienia Ekranu Tytułowego',
@@ -1052,6 +1055,17 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         }
     },
     guild: {
-        title: 'Gildia'
+        title: 'Gildia',
+        buildings: {
+            title: 'Budynki',
+            headquarters: 'Sztab Gildii',
+            headquartersDesc: 'Zwiększa maksymalną liczbę członków gildii.',
+            level: 'Poziom',
+            upgradeCost: 'Koszt ulepszenia',
+            currentEffect: 'Obecny efekt',
+            nextEffect: 'Następny poziom',
+            maxMembers: '+{count} członków',
+            upgrade: 'Ulepsz'
+        }
     }
 };

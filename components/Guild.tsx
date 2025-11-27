@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -9,7 +11,9 @@ import { UsersIcon } from './icons/UsersIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { StarIcon } from './icons/StarIcon';
 import { MessageSquareIcon } from './icons/MessageSquareIcon';
+import { HomeIcon } from './icons/HomeIcon';
 import { io, Socket } from 'socket.io-client';
+import { rarityStyles } from './shared/ItemSlot';
 
 const rolePriority = {
     [GuildRole.LEADER]: 3,
@@ -226,11 +230,87 @@ const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, 
     );
 };
 
+const getBuildingCost = (level: number) => {
+    const gold = Math.floor(5000 * Math.pow(1.5, level));
+    const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+    const essenceType = essenceTypes[Math.min(Math.floor(level / 5), 4)];
+    const essenceAmount = 5 + (level % 5);
+    return { gold, essenceType, essenceAmount };
+}
+
+const essenceToRarityMap: Record<EssenceType, any> = {
+    [EssenceType.Common]: rarityStyles['Common'],
+    [EssenceType.Uncommon]: rarityStyles['Uncommon'],
+    [EssenceType.Rare]: rarityStyles['Rare'],
+    [EssenceType.Epic]: rarityStyles['Epic'],
+    [EssenceType.Legendary]: rarityStyles['Legendary'],
+};
+
+const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
+    const { t } = useTranslation();
+    const canManage = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
+    const headquartersLevel = (guild.buildings && guild.buildings['headquarters']) || 0;
+    
+    const cost = getBuildingCost(headquartersLevel);
+    const hasGold = guild.resources.gold >= cost.gold;
+    const hasEssence = (guild.resources[cost.essenceType] || 0) >= cost.essenceAmount;
+    
+    const handleUpgrade = async () => {
+        try {
+            await api.upgradeGuildBuilding('headquarters');
+            onUpdate();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                    <HomeIcon className="h-8 w-8 text-amber-400" />
+                    <div>
+                        <h4 className="text-xl font-bold text-white">{t('guild.buildings.headquarters')}</h4>
+                        <p className="text-xs text-gray-400">{t('guild.buildings.headquartersDesc')}</p>
+                    </div>
+                </div>
+                
+                <div className="flex-grow space-y-4">
+                    <div className="bg-slate-900/50 p-3 rounded">
+                        <p className="text-sm text-gray-400">{t('guild.buildings.level')}: <span className="text-white font-bold">{headquartersLevel}</span></p>
+                        <p className="text-sm text-gray-400">{t('guild.buildings.currentEffect')}: <span className="text-green-400 font-bold">{t('guild.buildings.maxMembers', { count: 10 + headquartersLevel })}</span></p>
+                    </div>
+                    
+                    <div className="border-t border-slate-700 pt-4">
+                        <p className="text-sm font-bold text-gray-300 mb-2">{t('guild.buildings.upgradeCost')}:</p>
+                        <div className="flex justify-between items-center text-sm mb-1">
+                            <span className="text-gray-400">Złoto</span>
+                            <span className={`font-mono font-bold ${hasGold ? 'text-amber-400' : 'text-red-400'}`}>{cost.gold.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className={`${essenceToRarityMap[cost.essenceType].text}`}>{t(`resources.${cost.essenceType}`)}</span>
+                            <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={handleUpgrade} 
+                    disabled={!canManage || !hasGold || !hasEssence}
+                    className="w-full mt-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold text-white disabled:bg-slate-700 disabled:text-gray-500"
+                >
+                    {t('guild.buildings.upgrade')}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const Guild: React.FC = () => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BANK' | 'CHAT'>('OVERVIEW');
+    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'BANK' | 'CHAT'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
 
     // Create Form State
@@ -333,9 +413,10 @@ export const Guild: React.FC = () => {
 
     return (
         <ContentPanel title={`${guild.name} [${guild.tag}]`}>
-            <div className="flex border-b border-slate-700 mb-6 gap-2">
+            <div className="flex border-b border-slate-700 mb-6 gap-2 overflow-x-auto">
                 <button onClick={() => setTab('OVERVIEW')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'OVERVIEW' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Przegląd</button>
                 <button onClick={() => setTab('MEMBERS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'MEMBERS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Członkowie</button>
+                <button onClick={() => setTab('BUILDINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BUILDINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Budynki</button>
                 <button onClick={() => setTab('BANK')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BANK' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Bank</button>
                 <button onClick={() => setTab('CHAT')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'CHAT' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Czat</button>
             </div>
@@ -365,6 +446,8 @@ export const Guild: React.FC = () => {
 
             {tab === 'MEMBERS' && <GuildMembers guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
             
+            {tab === 'BUILDINGS' && <GuildBuildings guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
+
             {tab === 'BANK' && <GuildBank guild={guild} onTransaction={fetchGuild} />}
 
             {tab === 'CHAT' && <GuildChat guildId={guild.id} initialMessages={guild.chatHistory || []} />}

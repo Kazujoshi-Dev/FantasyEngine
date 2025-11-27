@@ -1,3 +1,5 @@
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -7,6 +9,20 @@ const router = express.Router();
 
 // Helper to check roles
 const canManage = (role: GuildRole) => role === GuildRole.LEADER || role === GuildRole.OFFICER;
+
+// Helper for building costs
+const getBuildingCost = (type: string, level: number) => {
+    if (type === 'headquarters') {
+        const gold = Math.floor(5000 * Math.pow(1.5, level));
+        const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        // Change type every 5 levels
+        const typeIndex = Math.min(Math.floor(level / 5), 4);
+        const essenceType = essenceTypes[typeIndex];
+        const essenceAmount = 5 + (level % 5);
+        return { gold, essenceType, essenceAmount };
+    }
+    return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
+}
 
 // GET /api/guilds/my-guild - Get current user's guild data with detailed members
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
@@ -101,6 +117,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             createdAt: guildData.created_at,
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
+            buildings: guildData.buildings || { headquarters: 0 },
             members,
             transactions,
             myRole,
@@ -167,8 +184,8 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 
         // Create Guild
         const createRes = await client.query(
-            `INSERT INTO guilds (name, tag, leader_id, description) VALUES ($1, $2, $3, $4) RETURNING id`,
-            [name, tag, userId, description || '']
+            `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0 })]
         );
         const guildId = createRes.rows[0].id;
 
@@ -423,6 +440,74 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
         await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Transaction failed' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/upgrade-building
+router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
+    const { buildingType } = req.body; // e.g., 'headquarters'
+    const userId = req.user.id;
+
+    if (buildingType !== 'headquarters') return res.status(400).json({ message: 'Invalid building type' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check user role
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const { guild_id, role } = memberRes.rows[0];
+
+        if (!canManage(role)) return res.status(403).json({ message: 'Only leaders and officers can upgrade buildings' });
+
+        // Lock Guild
+        const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
+        const guild = guildRes.rows[0];
+        let buildings = guild.buildings || { headquarters: 0 };
+        const currentLevel = buildings[buildingType] || 0;
+
+        // Calculate Cost
+        const { gold, essenceType, essenceAmount } = getBuildingCost(buildingType, currentLevel);
+
+        // Check resources
+        const currentGold = guild.resources.gold || 0;
+        const currentEssence = guild.resources[essenceType] || 0;
+
+        if (currentGold < gold) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold in guild bank' });
+        }
+        if (currentEssence < essenceAmount) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough essence in guild bank' });
+        }
+
+        // Deduct Resources
+        guild.resources.gold -= gold;
+        guild.resources[essenceType] -= essenceAmount;
+
+        // Level Up
+        buildings[buildingType] = currentLevel + 1;
+
+        // Apply Effect (Headquarters: +1 Member Slot)
+        let maxMembers = guild.max_members;
+        if (buildingType === 'headquarters') {
+            maxMembers += 1;
+        }
+
+        // Save
+        await client.query('UPDATE guilds SET resources = $1, buildings = $2, max_members = $3 WHERE id = $4', 
+            [JSON.stringify(guild.resources), JSON.stringify(buildings), maxMembers, guild_id]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Building upgraded', buildings, resources: guild.resources, maxMembers });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
     } finally {
         client.release();
     }

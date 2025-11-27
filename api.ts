@@ -1,5 +1,7 @@
 
 
+
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole } from './types';
 
 // Helper to determine API URL based on environment
@@ -535,6 +537,13 @@ export const api = {
         return fetchApi('/guilds/bank', {
             method: 'POST',
             body: JSON.stringify({ type, currency, amount })
+        });
+    },
+
+    async upgradeGuildBuilding(buildingType: string): Promise<any> {
+        return fetchApi('/guilds/upgrade-building', {
+            method: 'POST',
+            body: JSON.stringify({ buildingType })
         });
     },
 

@@ -233,6 +233,15 @@ export const initializeDatabase = async () => {
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
+        
+        const hasBuildingsColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guilds' AND column_name='buildings';
+        `);
+        if (!hasBuildingsColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'buildings' column to 'guilds' table...");
+             await client.query(`ALTER TABLE guilds ADD COLUMN buildings JSONB DEFAULT '{"headquarters": 0}';`);
+        }
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS guild_members (
