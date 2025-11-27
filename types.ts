@@ -1,5 +1,4 @@
 
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -664,6 +663,14 @@ export interface GuildChatMessage {
 export interface GuildInviteBody {
     guildId: number;
     guildName: string;
+}
+
+export interface GuildRankingEntry {
+    id: number;
+    name: string;
+    tag: string;
+    totalLevel: number;
+    memberCount: number;
 }
 // --- End Guild System Types ---
 

@@ -2,7 +2,8 @@
 
 
 
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole } from './types';
+
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -311,6 +312,10 @@ export const api = {
     async getRanking(): Promise<RankingPlayer[]> {
         return fetchApi('/ranking');
     },
+
+    async getGuildRanking(): Promise<GuildRankingEntry[]> {
+        return fetchApi('/ranking/guilds');
+    },
     
     // --- Trader ---
     async getTraderInventory(forceRefresh = false): Promise<TraderInventoryData> {
@@ -544,6 +549,20 @@ export const api = {
         return fetchApi('/guilds/upgrade-building', {
             method: 'POST',
             body: JSON.stringify({ buildingType })
+        });
+    },
+
+    async acceptGuildInvite(messageId: number): Promise<void> {
+        return fetchApi('/guilds/accept-invite', {
+            method: 'POST',
+            body: JSON.stringify({ messageId })
+        });
+    },
+
+    async rejectGuildInvite(messageId: number): Promise<void> {
+        return fetchApi('/guilds/reject-invite', {
+            method: 'POST',
+            body: JSON.stringify({ messageId })
         });
     },
 

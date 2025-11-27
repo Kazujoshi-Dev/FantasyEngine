@@ -1,4 +1,6 @@
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -56,6 +58,36 @@ router.get('/', async (req: any, res: any) => {
     } catch (err) {
         console.error('Error fetching ranking:', err);
         res.status(500).json({ message: 'Failed to fetch ranking data.' });
+    }
+});
+
+router.get('/guilds', async (req: any, res: any) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                g.id, 
+                g.name, 
+                g.tag, 
+                COUNT(gm.user_id) as "memberCount",
+                SUM((c.data->>'level')::int) as "totalLevel"
+            FROM guilds g
+            JOIN guild_members gm ON g.id = gm.guild_id
+            JOIN characters c ON gm.user_id = c.user_id
+            GROUP BY g.id, g.name, g.tag
+            ORDER BY "totalLevel" DESC
+        `);
+
+        // Convert string sums to numbers if necessary (depends on pg driver config)
+        const guildRanking = result.rows.map(row => ({
+            ...row,
+            totalLevel: parseInt(row.totalLevel) || 0,
+            memberCount: parseInt(row.memberCount) || 0
+        }));
+
+        res.json(guildRanking);
+    } catch (err) {
+        console.error('Error fetching guild ranking:', err);
+        res.status(500).json({ message: 'Failed to fetch guild ranking.' });
     }
 });
 

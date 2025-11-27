@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy } from '../types';
+import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy, GuildInviteBody } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './Expedition';
 import { MailIcon } from './icons/MailIcon';
@@ -168,6 +170,55 @@ const MarketNotification: React.FC<{
         </div>
     );
 };
+
+const GuildInviteCard: React.FC<{ body: GuildInviteBody, messageId: number, refreshMessages: () => void }> = ({ body, messageId, refreshMessages }) => {
+    const [status, setStatus] = useState<'idle' | 'processing' | 'done'>('idle');
+
+    const handleAccept = async () => {
+        setStatus('processing');
+        try {
+            await api.acceptGuildInvite(messageId);
+            alert('Dołączyłeś do gildii!');
+            refreshMessages();
+        } catch (e: any) {
+            alert(e.message);
+            setStatus('idle');
+        }
+    };
+
+    const handleReject = async () => {
+        setStatus('processing');
+        try {
+            await api.rejectGuildInvite(messageId);
+            refreshMessages();
+        } catch (e: any) {
+            alert(e.message);
+            setStatus('idle');
+        }
+    };
+
+    return (
+        <div className="bg-slate-800/50 p-4 rounded-lg border border-indigo-500/50">
+            <p className="mb-4">Zostałeś zaproszony do gildii <span className="font-bold text-white">{body.guildName}</span>.</p>
+            <div className="flex gap-4">
+                <button 
+                    onClick={handleAccept} 
+                    disabled={status !== 'idle'}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white font-bold disabled:bg-slate-600"
+                >
+                    {status === 'processing' ? 'Przetwarzanie...' : 'Akceptuj'}
+                </button>
+                <button 
+                    onClick={handleReject} 
+                    disabled={status !== 'idle'}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white font-bold disabled:bg-slate-600"
+                >
+                    Odrzuć
+                </button>
+            </div>
+        </div>
+    );
+}
 
 
 interface MessagesProps {
@@ -353,6 +404,9 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                 case 'system':
                      const systemBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                      return <p className="mt-4 whitespace-pre-wrap">{(systemBody as PlayerMessageBody).content}</p>;
+                case 'guild_invite':
+                    const inviteBody = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
+                    return <GuildInviteCard body={inviteBody as GuildInviteBody} messageId={msg.id} refreshMessages={fetchMessages} />;
                 default:
                     return <p className="text-gray-500">Unsupported message type.</p>;
             }

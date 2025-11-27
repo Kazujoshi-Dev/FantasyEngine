@@ -1,5 +1,7 @@
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -135,22 +137,23 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
 // GET /api/guilds/list - List public guilds for browsing
 router.get('/list', authenticateToken, async (req: any, res: any) => {
     try {
+        // Removed filter `WHERE g.member_count < g.max_members` to rely on dynamic count below
         const result = await pool.query(`
-            SELECT g.id, g.name, g.tag, g.member_count, g.max_members, g.min_level, c.data->>'name' as leader_name
+            SELECT g.id, g.name, g.tag, g.max_members, g.min_level, c.data->>'name' as leader_name
             FROM guilds g
             JOIN characters c ON g.leader_id = c.user_id
-            WHERE g.member_count < g.max_members
-            ORDER BY g.member_count DESC LIMIT 20
+            LIMIT 20
         `);
-        // We update member_count on fly or trust the DB column if updated via triggers/logic. 
-        // For simplicity, let's trust the logic updates it.
-        // Actually, let's count real members to be safe
+        
         const guilds = await Promise.all(result.rows.map(async (row) => {
             const countRes = await pool.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [row.id]);
             return { ...row, member_count: parseInt(countRes.rows[0].count) };
         }));
 
-        res.json(guilds);
+        // Filter full guilds here if desired, or show them as full
+        const availableGuilds = guilds.filter(g => g.member_count < g.max_members);
+
+        res.json(availableGuilds);
     } catch (err) {
         res.status(500).json({ message: 'Failed to list guilds' });
     }
@@ -248,6 +251,78 @@ router.post('/invite', authenticateToken, async (req: any, res: any) => {
 
     } catch (err) {
         res.status(500).json({ message: 'Error sending invite' });
+    }
+});
+
+// POST /api/guilds/accept-invite
+router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
+    const { messageId } = req.body;
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Fetch Message
+        const msgRes = await client.query(
+            `SELECT body, recipient_id FROM messages WHERE id = $1`,
+            [messageId]
+        );
+
+        if (msgRes.rows.length === 0) return res.status(404).json({ message: 'Message not found' });
+        if (msgRes.rows[0].recipient_id !== userId) return res.status(403).json({ message: 'Not your message' });
+
+        const body = msgRes.rows[0].body as GuildInviteBody;
+        if (!body.guildId) return res.status(400).json({ message: 'Invalid invite' });
+
+        // 2. Check if user is already in a guild
+        const inGuildCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
+        if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'You are already in a guild' });
+
+        // 3. Check guild capacity
+        const guildRes = await client.query('SELECT max_members, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [body.guildId]);
+        if (guildRes.rows.length === 0) return res.status(404).json({ message: 'Guild no longer exists' });
+        
+        if (parseInt(guildRes.rows[0].count) >= guildRes.rows[0].max_members) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Guild is full' });
+        }
+
+        // 4. Add member
+        await client.query(
+            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'MEMBER')`,
+            [body.guildId, userId]
+        );
+        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [body.guildId, userId]);
+
+        // 5. Delete Message
+        await client.query('DELETE FROM messages WHERE id = $1', [messageId]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Joined guild successfully' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to join guild' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/reject-invite
+router.post('/reject-invite', authenticateToken, async (req: any, res: any) => {
+    const { messageId } = req.body;
+    const userId = req.user.id;
+
+    try {
+        await pool.query(
+            `DELETE FROM messages WHERE id = $1 AND recipient_id = $2`,
+            [messageId, userId]
+        );
+        res.json({ message: 'Invite rejected' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to reject invite' });
     }
 });
 
