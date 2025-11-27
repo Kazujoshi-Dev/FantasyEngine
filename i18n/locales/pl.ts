@@ -1,5 +1,7 @@
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -336,7 +338,7 @@ export default {
                 reduced_attacks_effect: 'spowolniony',
                 shadowBoltStack: 'Moc Pocisku Cienia wzrasta!',
                 arcaneMissileBonus: 'Magiczny Pocisk zadaje dodatkowe {damage} obrażeń od many!',
-                chainLightningJump: 'Błyskawica przeskakuje na {target}, zadając {damage} obrażeń!',
+                chainLightningJump: 'Łańcuch Błyskawic przeskakuje na kolejne cele!',
                 earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',
                 meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'

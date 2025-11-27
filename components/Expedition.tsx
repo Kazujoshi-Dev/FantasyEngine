@@ -6,6 +6,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -147,6 +149,8 @@ const CombatLogRow: React.FC<{
     if (log.action === 'effectApplied') {
         let effectText: React.ReactNode = '';
         let textColor = 'text-yellow-400 italic';
+        let detailList: React.ReactNode = null;
+
         switch (log.effectApplied) {
             case 'burning':
                 const defenderNode = renderName(log.defender);
@@ -202,11 +206,19 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-pink-400 italic';
                 break;
             case 'chainLightningJump':
-                const targetNode6 = renderName(log.defender);
-                const template6 = t('expedition.combatLog.effect.chainLightningJump').replace('{damage}', String(log.damage));
-                const parts6 = template6.split('{target}');
-                effectText = <>{parts6[0]}{targetNode6}{parts6[1]}</>;
-                textColor = 'text-blue-400 italic';
+                effectText = t('expedition.combatLog.effect.chainLightningJump');
+                textColor = 'text-blue-400 italic font-bold';
+                if (log.aoeDamage && log.aoeDamage.length > 0) {
+                    detailList = (
+                        <div className="ml-6 mt-1 space-y-0.5">
+                            {log.aoeDamage.map((hit, idx) => (
+                                <p key={idx} className="text-xs text-blue-300">
+                                    ↳ <span className="font-semibold text-gray-300">{hit.target}</span>: <span className="font-mono text-red-400">-{hit.damage} HP</span>
+                                </p>
+                            ))}
+                        </div>
+                    );
+                }
                 break;
             case 'earthquakeSplash':
                 const targetNode7 = renderName(log.defender);
@@ -226,10 +238,13 @@ const CombatLogRow: React.FC<{
                 effectText = `${log.attacker} applies ${log.effectApplied} to ${log.defender}`;
         }
         return (
-            <p className={`text-sm ${textColor}`}>
-                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
-                {effectText}
-            </p>
+            <div className={`text-sm ${textColor}`}>
+                <p>
+                    <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                    {effectText}
+                </p>
+                {detailList}
+            </div>
         );
     }
 

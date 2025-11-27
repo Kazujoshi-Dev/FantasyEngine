@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 import { randomUUID } from 'crypto';
@@ -468,25 +469,32 @@ export const simulate1vManyCombat = (
                     
                     // Handle Chain Lightning
                     if (chainData && chainData.type === 'chain_lightning') {
-                        const otherEnemies = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
+                        // Filter out dead enemies and the primary target we just hit
+                        const potentialTargets = enemiesState.filter((e, idx) => idx !== targetIndex && e.currentHealth > 0);
                         let jumps = 0;
                         const chainDamageDetails: { target: string, damage: number }[] = [];
+                        let currentChainDamage = chainData.damage;
                         
-                        while(jumps < chainData.maxJumps && otherEnemies.length > 0) {
+                        while(jumps < chainData.maxJumps && potentialTargets.length > 0) {
                             if (Math.random() * 100 < chainData.chance) {
-                                const jumpTargetIndex = Math.floor(Math.random() * otherEnemies.length);
-                                const jumpTarget = otherEnemies[jumpTargetIndex];
-                                const dmg = Math.floor(chainData.damage * 0.75);
+                                // Decrease damage per jump
+                                currentChainDamage = Math.floor(currentChainDamage * 0.75);
+                                if (currentChainDamage < 1) currentChainDamage = 1;
+
+                                // Pick random target from remaining valid targets
+                                const jumpTargetIndexLocal = Math.floor(Math.random() * potentialTargets.length);
+                                const jumpTarget = potentialTargets[jumpTargetIndexLocal];
                                 
                                 const wasAlive = jumpTarget.currentHealth > 0;
-                                jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - dmg);
-                                chainDamageDetails.push({ target: jumpTarget.name, damage: dmg });
+                                jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - currentChainDamage);
+                                chainDamageDetails.push({ target: jumpTarget.name, damage: currentChainDamage });
                                 
                                 if (wasAlive && jumpTarget.currentHealth <= 0) {
                                     log.push({ turn, attacker: playerState.name, defender: jumpTarget.name, action: 'enemy_death', ...getHealthState() });
                                 }
 
-                                otherEnemies.splice(jumpTargetIndex, 1);
+                                // Remove this target from potential list so it's not hit again in this chain
+                                potentialTargets.splice(jumpTargetIndexLocal, 1);
                                 jumps++;
                             } else {
                                 break;
