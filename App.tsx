@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -866,6 +867,7 @@ const MainApp: React.FC = () => {
             case Tab.Location:
                 return <Location 
                     playerCharacter={derivedCharacter} 
+                    baseCharacter={character}
                     onCharacterUpdate={handleCharacterUpdate} 
                     locations={gameData.locations} 
                 />;

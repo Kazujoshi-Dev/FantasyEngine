@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData } from '../types.js';
@@ -351,6 +352,55 @@ router.post('/audit/fix-gold', async (req, res) => {
 
 router.post('/audit/fix-values', async (req, res) => {
      res.status(501).json({ itemsChecked: 0, itemsFixed: 0, affixesChecked: 0, affixesFixed: 0 });
+});
+
+router.post('/audit/fix-attributes', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+        let fixed = 0;
+        
+        for (const row of result.rows) {
+            let character = row.data as PlayerCharacter;
+            const level = character.level || 1;
+            
+            // Expected points: 10 base + 1 per level starting from level 2
+            const expectedTotal = 10 + (level - 1);
+            
+            // Current points
+            const currentTotal = (Number(character.stats.strength) || 0) +
+                                 (Number(character.stats.agility) || 0) +
+                                 (Number(character.stats.accuracy) || 0) +
+                                 (Number(character.stats.stamina) || 0) +
+                                 (Number(character.stats.intelligence) || 0) +
+                                 (Number(character.stats.energy) || 0) +
+                                 (Number(character.stats.statPoints) || 0);
+
+            if (currentTotal > expectedTotal) {
+                // Fix: Reset all stats to 0 and refund correct amount as free points
+                character.stats.strength = 0;
+                character.stats.agility = 0;
+                character.stats.accuracy = 0;
+                character.stats.stamina = 0;
+                character.stats.intelligence = 0;
+                character.stats.energy = 0;
+                character.stats.statPoints = expectedTotal;
+                
+                await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [character, row.user_id]);
+                fixed++;
+            }
+        }
+        
+        await client.query('COMMIT');
+        res.json({ checked: result.rows.length, fixed });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Fix attributes audit failed:", err);
+        res.status(500).json({ message: 'Failed to run attributes audit' });
+    } finally {
+        client.release();
+    }
 });
 
 router.post('/wipe-game-data', async (req, res) => {

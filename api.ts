@@ -1,5 +1,4 @@
 
-
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
 
 // Helper to determine API URL based on environment
@@ -572,6 +571,12 @@ export const api = {
     
     async runValuesAudit(): Promise<{ itemsChecked: number, itemsFixed: number, affixesChecked: number, affixesFixed: number }> {
         return fetchApi('/admin/audit/fix-values', {
+            method: 'POST',
+        });
+    },
+
+    async runAttributesAudit(): Promise<{ checked: number, fixed: number }> {
+        return fetchApi('/admin/audit/fix-attributes', {
             method: 'POST',
         });
     },

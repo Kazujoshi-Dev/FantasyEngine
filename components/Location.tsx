@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Location as LocationType, Tab } from '../types';
@@ -14,6 +15,7 @@ import { ScaleIcon } from './icons/ScaleIcon';
 
 interface LocationProps {
   playerCharacter: PlayerCharacter;
+  baseCharacter: PlayerCharacter;
   onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
   locations: LocationType[];
 }
@@ -62,7 +64,7 @@ const TravelInProgressPanel: React.FC<{
 };
 
 
-export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacterUpdate, locations }) => {
+export const Location: React.FC<LocationProps> = ({ playerCharacter, baseCharacter, onCharacterUpdate, locations }) => {
   const { t } = useTranslation();
   const currentLocation = locations.find(loc => loc.id === playerCharacter.currentLocationId);
   const otherLocations = locations.filter(loc => loc.id !== playerCharacter.currentLocationId);
@@ -80,19 +82,21 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, onCharacter
     const destination = locations.find(loc => loc.id === destinationId);
     if (!destination || playerCharacter.activeTravel) return;
 
+    // Check resources on the derived character (to ensure UI consistency), 
+    // but update the base character to avoid "baking in" item stats.
     const hasEnoughGold = playerCharacter.resources.gold >= destination.travelCost;
     const hasEnoughEnergy = playerCharacter.stats.currentEnergy >= destination.travelEnergyCost;
 
     if (hasEnoughGold && hasEnoughEnergy) {
       const updatedCharacter: PlayerCharacter = {
-        ...playerCharacter,
+        ...baseCharacter, // Use baseCharacter to avoid duplicating item stats
         resources: {
-          ...playerCharacter.resources,
-          gold: playerCharacter.resources.gold - destination.travelCost,
+          ...baseCharacter.resources,
+          gold: baseCharacter.resources.gold - destination.travelCost,
         },
         stats: {
-          ...playerCharacter.stats,
-          currentEnergy: playerCharacter.stats.currentEnergy - destination.travelEnergyCost,
+          ...baseCharacter.stats,
+          currentEnergy: baseCharacter.stats.currentEnergy - destination.travelEnergyCost,
         },
         activeTravel: {
           destinationLocationId: destination.id,

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
@@ -10,6 +11,8 @@ export const DataIntegrityTab: React.FC = () => {
   const [goldResultMessage, setGoldResultMessage] = useState<string | null>(null);
   const [isValueAuditLoading, setIsValueAuditLoading] = useState(false);
   const [valueAuditMessage, setValueAuditMessage] = useState<string | null>(null);
+  const [isAttributesAuditLoading, setIsAttributesAuditLoading] = useState(false);
+  const [attributesAuditMessage, setAttributesAuditMessage] = useState<string | null>(null);
   const [isWiping, setIsWiping] = useState(false);
 
   const handleRunAudit = async () => {
@@ -53,6 +56,19 @@ export const DataIntegrityTab: React.FC = () => {
       alert(`Values audit failed: ${err.message}`);
     } finally {
       setIsValueAuditLoading(false);
+    }
+  };
+
+  const handleRunAttributesAudit = async () => {
+    setIsAttributesAuditLoading(true);
+    setAttributesAuditMessage(null);
+    try {
+      const result = await api.runAttributesAudit();
+      setAttributesAuditMessage(`Sprawdzono ${result.checked} postaci. Naprawiono (zresetowano) statystyki dla ${result.fixed} postaci.`);
+    } catch (err: any) {
+      alert(`Attributes audit failed: ${err.message}`);
+    } finally {
+      setIsAttributesAuditLoading(false);
     }
   };
 
@@ -121,6 +137,23 @@ export const DataIntegrityTab: React.FC = () => {
               {valueAuditMessage && (
                   <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
                       {valueAuditMessage}
+                  </div>
+              )}
+          </div>
+      </div>
+
+      <div className="border-t border-slate-700/50 mt-6 pt-6">
+          <h3 className="text-xl font-bold text-indigo-400 mb-4">Audyt i Naprawa Atrybutów</h3>
+          <p className="text-sm text-gray-400 mb-4">
+              Narzędzie to sprawdza, czy suma atrybutów postaci (bazowe statystyki + wolne punkty) nie przekracza dozwolonego limitu wynikającego z poziomu postaci. Jeśli wykryje nieprawidłowość (zbyt dużo punktów), <strong>zresetuje statystyki postaci do 0 i zwróci poprawną liczbę punktów do rozdania</strong>.
+          </p>
+          <div className="flex flex-col items-start gap-4">
+              <button onClick={handleRunAttributesAudit} disabled={isAttributesAuditLoading} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600">
+                  {isAttributesAuditLoading ? 'Sprawdzanie i naprawianie...' : 'Uruchom audyt atrybutów'}
+              </button>
+              {attributesAuditMessage && (
+                  <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
+                      {attributesAuditMessage}
                   </div>
               )}
           </div>
