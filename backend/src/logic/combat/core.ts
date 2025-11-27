@@ -111,7 +111,14 @@ export const performAttack = <
         weaponName = template ? getFullWeaponName(playerData, gameData) : undefined;
 
         if (template?.isMagical && template.magicAttackType) {
-            const manaCost = template.manaCost ? (template.manaCost.min + template.manaCost.max) / 2 : 0;
+            // FIX: Calculate random mana cost within range instead of average
+            let manaCost = 0;
+            if (template.manaCost) {
+                const min = template.manaCost.min;
+                const max = template.manaCost.max;
+                manaCost = Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
             if (attacker.currentMana < manaCost) {
                 const canUseManaSurge = (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) && !attacker.manaSurgeUsed;
 
