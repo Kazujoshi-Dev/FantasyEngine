@@ -106,6 +106,7 @@ initializeDatabase().then(() => {
     cron.schedule('0 * * * *', async () => {
         console.log('Running hourly energy regeneration task...');
         try {
+            // Update energy. Cap is calculated dynamically: 10 (base) + floor(energy_stat / 2)
             const result = await pool.query(`
                 UPDATE characters
                 SET data = (
@@ -113,8 +114,8 @@ initializeDatabase().then(() => {
                         data,
                         '{stats,currentEnergy}',
                         LEAST(
-                            (data#>'{stats,maxEnergy}')::int,
-                            (data#>'{stats,currentEnergy}')::int + 1
+                            (10 + floor(COALESCE((data->'stats'->>'energy')::numeric, 0) / 2))::int,
+                            (COALESCE((data->'stats'->>'currentEnergy')::int, 0) + 1)
                         )::text::jsonb
                     ) || jsonb_build_object('lastEnergyUpdateTime', (extract(epoch from now()) * 1000)::bigint)
                 );

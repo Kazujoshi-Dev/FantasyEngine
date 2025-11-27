@@ -33,6 +33,16 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const now = Date.now();
         let needsDbUpdate = false;
 
+        // Fetch necessary GameData to calculate Max Health/Energy correctly (including item bonuses)
+        const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        // Calculate true max stats based on current equipment and attributes
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        const trueMaxEnergy = derivedChar.stats.maxEnergy;
+        const trueMaxHealth = derivedChar.stats.maxHealth;
+
         // --- Energy Regeneration "Catch-up" Logic ---
         // Checks if the player missed energy updates (e.g. server was down during cron)
         
@@ -44,18 +54,15 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const hoursPassed = Math.floor((now - lastEnergyUpdate) / msPerHour);
 
         if (hoursPassed > 0) {
-            const maxEnergy = character.stats.maxEnergy;
             const currentEnergy = character.stats.currentEnergy;
 
-            if (currentEnergy < maxEnergy) {
-                // Add 1 energy per hour passed, capped at max
-                character.stats.currentEnergy = Math.min(maxEnergy, currentEnergy + hoursPassed);
+            if (currentEnergy < trueMaxEnergy) {
+                // Add 1 energy per hour passed, capped at actual max
+                character.stats.currentEnergy = Math.min(trueMaxEnergy, currentEnergy + hoursPassed);
                 needsDbUpdate = true;
             }
             
             // Update the timestamp to the most recent full hour relative to now
-            // We don't set it to 'now' to avoid drifting.
-            // E.g., if last was 10:00 and now is 12:15, we add 2 energy and set time to 12:00.
             character.lastEnergyUpdateTime = lastEnergyUpdate + (hoursPassed * msPerHour);
             needsDbUpdate = true;
         }
@@ -66,29 +73,21 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
             const lastRestTime = Number(character.lastRestTime) || now;
             const msPassed = now - lastRestTime;
             
-            // Update if at least 1 second passed. Previously 10s, which caused sync issues with client polling.
+            // Update if at least 1 second passed.
             if (msPassed >= 1000) { 
-                // Fetch necessary GameData to calculate Max Health correctly (including item bonuses)
-                const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
-                const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
-                const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
-
-                const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
-                const maxHealth = derivedChar.stats.maxHealth;
-
                 // Camp level % of Max HP per minute
                 const regenPercentagePerMinute = character.camp.level; 
                 
                 // Calculate fractional HP gain based on milliseconds passed
-                const hpToGain = (maxHealth * (regenPercentagePerMinute / 100)) * (msPassed / 60000);
+                const hpToGain = (trueMaxHealth * (regenPercentagePerMinute / 100)) * (msPassed / 60000);
 
-                if (hpToGain > 0 && character.stats.currentHealth < maxHealth) {
-                    character.stats.currentHealth = Math.min(maxHealth, character.stats.currentHealth + hpToGain);
+                if (hpToGain > 0 && character.stats.currentHealth < trueMaxHealth) {
+                    character.stats.currentHealth = Math.min(trueMaxHealth, character.stats.currentHealth + hpToGain);
                     // Update cursor to now
                     character.lastRestTime = now;
                     needsDbUpdate = true;
-                } else if (character.stats.currentHealth >= maxHealth) {
-                    character.stats.currentHealth = maxHealth;
+                } else if (character.stats.currentHealth >= trueMaxHealth) {
+                    character.stats.currentHealth = trueMaxHealth;
                     character.isResting = false; // Auto-stop resting if full
                     character.lastRestTime = undefined;
                     needsDbUpdate = true;
