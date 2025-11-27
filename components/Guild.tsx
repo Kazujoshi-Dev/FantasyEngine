@@ -221,6 +221,8 @@ const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, 
                                 <th className="p-2">Nazwa</th>
                                 <th className="p-2">Rola</th>
                                 <th className="p-2">Poziom</th>
+                                <th className="p-2">Rasa</th>
+                                <th className="p-2">Klasa</th>
                                 <th className="p-2 text-right">Akcje</th>
                             </tr>
                         </thead>
@@ -235,6 +237,8 @@ const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, 
                                         {t(`guild.roles.${m.role}`)}
                                     </td>
                                     <td className="p-2 text-gray-300">{m.level}</td>
+                                    <td className="p-2 text-gray-300">{t(`race.${m.race}`)}</td>
+                                    <td className="p-2 text-gray-300">{m.characterClass ? t(`class.${m.characterClass}`) : '-'}</td>
                                     <td className="p-2 text-right">
                                         {canManage && m.userId !== guild.leaderId && rolePriority[effectiveRole] > rolePriority[m.role] && (
                                             <div className="flex gap-1 justify-end">
