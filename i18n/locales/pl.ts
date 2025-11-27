@@ -7,6 +7,8 @@
 
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -1056,6 +1058,31 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
     },
     guild: {
         title: 'Gildia',
+        roles: {
+            LEADER: 'Lider',
+            OFFICER: 'Oficer',
+            MEMBER: 'Członek',
+            RECRUIT: 'Rekrut'
+        },
+        permissions: {
+            title: 'Uprawnienia Rang',
+            LEADER: 'Pełna kontrola nad gildią, rozwiązywanie gildii, zarządzanie wszystkimi rangami.',
+            OFFICER: 'Zarządzanie rekrutacją (zapraszanie/wyrzucanie członków i rekrutów), ulepszanie budynków, zmiana opisu.',
+            MEMBER: 'Wpłacanie do banku gildii, dostęp do czatu.',
+            RECRUIT: 'Podstawowy dostęp do czatu gildii, okres próbny.'
+        },
+        settings: {
+            title: 'Ustawienia Gildii',
+            description: 'Opis Gildii',
+            crestUrl: 'Herb Gildii (URL)',
+            minLevel: 'Wymagany Poziom',
+            isPublic: 'Rekrutacja Otwarta (Publiczna)',
+            save: 'Zapisz',
+            disband: 'Rozwiąż Gildię',
+            disbandConfirm: 'Czy na pewno chcesz ROZWIĄZAĆ gildię? Ta operacja jest nieodwracalna!',
+            formatting: 'Formatowanie',
+            preview: 'Podgląd'
+        },
         buildings: {
             title: 'Budynki',
             headquarters: 'Sztab Gildii',

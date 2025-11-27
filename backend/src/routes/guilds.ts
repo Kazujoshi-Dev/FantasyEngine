@@ -4,6 +4,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -145,6 +147,7 @@ router.get('/list', authenticateToken, async (req: any, res: any) => {
             SELECT g.id, g.name, g.tag, g.max_members, g.min_level, c.data->>'name' as leader_name
             FROM guilds g
             JOIN characters c ON g.leader_id = c.user_id
+            WHERE g.is_public = TRUE
             LIMIT 20
         `);
         
@@ -218,7 +221,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/update - Update description and crest
 router.post('/update', authenticateToken, async (req: any, res: any) => {
-    const { description, crestUrl } = req.body;
+    const { description, crestUrl, minLevel, isPublic } = req.body;
     const userId = req.user.id;
 
     try {
@@ -229,10 +232,35 @@ router.post('/update', authenticateToken, async (req: any, res: any) => {
         const { guild_id, role } = memberRes.rows[0];
         if (role !== GuildRole.LEADER) return res.status(403).json({ message: 'Only leader can update settings' });
 
-        await pool.query(
-            `UPDATE guilds SET description = $1, crest_url = $2 WHERE id = $3`,
-            [description, crestUrl, guild_id]
-        );
+        // Build dynamic update query
+        const fields = [];
+        const values = [];
+        let index = 1;
+
+        if (description !== undefined) {
+            fields.push(`description = $${index++}`);
+            values.push(description);
+        }
+        if (crestUrl !== undefined) {
+            fields.push(`crest_url = $${index++}`);
+            values.push(crestUrl);
+        }
+        if (minLevel !== undefined) {
+            fields.push(`min_level = $${index++}`);
+            values.push(minLevel);
+        }
+        if (isPublic !== undefined) {
+            fields.push(`is_public = $${index++}`);
+            values.push(isPublic);
+        }
+
+        if (fields.length > 0) {
+            values.push(guild_id);
+            await pool.query(
+                `UPDATE guilds SET ${fields.join(', ')} WHERE id = $${index}`,
+                values
+            );
+        }
 
         res.json({ message: 'Guild updated' });
     } catch (err) {
@@ -366,13 +394,29 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
         const inGuild = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
         if (inGuild.rows.length > 0) return res.status(400).json({ message: 'Already in a guild' });
 
-        // Check guild capacity
-        const guildRes = await client.query('SELECT max_members, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
+        // Check guild capacity and restrictions
+        const guildRes = await client.query('SELECT max_members, min_level, is_public, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
         if (guildRes.rows.length === 0) return res.status(404).json({ message: 'Guild not found' });
         
-        if (parseInt(guildRes.rows[0].count) >= guildRes.rows[0].max_members) {
+        const guildInfo = guildRes.rows[0];
+
+        if (!guildInfo.is_public) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'This guild is closed for recruitment.' });
+        }
+
+        if (parseInt(guildInfo.count) >= guildInfo.max_members) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Guild is full' });
+        }
+
+        // Check level requirement
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        const charLevel = charRes.rows[0].data.level || 1;
+        
+        if (charLevel < guildInfo.min_level) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: `Level ${guildInfo.min_level} required to join.` });
         }
 
         await client.query(
@@ -380,9 +424,6 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
             [guildId, userId]
         );
         await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
-
-        // Cleanup invites
-        // (Optional: remove invites)
 
         await client.query('COMMIT');
         res.json({ message: 'Joined guild' });

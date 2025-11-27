@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -163,9 +166,10 @@ const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }> = ({ 
 }
 
 const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
-    // If myRole is undefined, default to RECRUIT (safe fallback)
+    const { t } = useTranslation();
     const effectiveRole = myRole || GuildRole.RECRUIT;
     const canManage = rolePriority[effectiveRole] >= rolePriority[GuildRole.OFFICER];
+    const [showPermissions, setShowPermissions] = useState(false);
 
     const handleAction = async (targetId: number, action: 'kick' | 'promote' | 'demote') => {
         if (!confirm('Czy na pewno?')) return;
@@ -192,43 +196,62 @@ const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, 
     const members = guild.members || [];
 
     return (
-        <div className="bg-slate-800/50 p-4 rounded-lg">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-indigo-400">Członkowie ({members.length}/{guild.maxMembers})</h3>
-                {canManage && <button onClick={handleInvite} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-sm font-bold">Zaproś</button>}
+        <div className="space-y-4">
+            {/* Permissions Legend Toggle */}
+            <div className="bg-slate-800/50 p-3 rounded-lg cursor-pointer flex justify-between items-center hover:bg-slate-800/80 transition-colors" onClick={() => setShowPermissions(!showPermissions)}>
+                <span className="font-bold text-indigo-400">{t('guild.permissions.title')}</span>
+                <span className="text-gray-400">{showPermissions ? '▲' : '▼'}</span>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-900/50 text-gray-400">
-                        <tr>
-                            <th className="p-2">Nazwa</th>
-                            <th className="p-2">Rola</th>
-                            <th className="p-2">Poziom</th>
-                            <th className="p-2 text-right">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {members.map(m => (
-                            <tr key={m.userId} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                                <td className="p-2 font-medium text-white flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${m.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={m.isOnline ? 'Online' : 'Offline'}></span>
-                                    {m.name}
-                                </td>
-                                <td className={`p-2 font-bold ${m.role === GuildRole.LEADER ? 'text-amber-400' : m.role === GuildRole.OFFICER ? 'text-indigo-400' : 'text-gray-400'}`}>{m.role}</td>
-                                <td className="p-2 text-gray-300">{m.level}</td>
-                                <td className="p-2 text-right">
-                                    {canManage && m.userId !== guild.leaderId && rolePriority[effectiveRole] > rolePriority[m.role] && (
-                                        <div className="flex gap-1 justify-end">
-                                            <button onClick={() => handleAction(m.userId, 'promote')} className="px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded text-xs" title="Awansuj">▲</button>
-                                            <button onClick={() => handleAction(m.userId, 'demote')} className="px-2 py-1 bg-orange-700 hover:bg-orange-600 rounded text-xs" title="Degraduj">▼</button>
-                                            <button onClick={() => handleAction(m.userId, 'kick')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs" title="Wyrzuć">✕</button>
-                                        </div>
-                                    )}
-                                </td>
+            
+            {showPermissions && (
+                <div className="bg-slate-900/60 p-4 rounded-lg text-sm space-y-2 border border-slate-700 animate-fade-in">
+                    <p><span className="text-amber-400 font-bold">{t('guild.roles.LEADER')}:</span> <span className="text-gray-300">{t('guild.permissions.LEADER')}</span></p>
+                    <p><span className="text-indigo-400 font-bold">{t('guild.roles.OFFICER')}:</span> <span className="text-gray-300">{t('guild.permissions.OFFICER')}</span></p>
+                    <p><span className="text-gray-400 font-bold">{t('guild.roles.MEMBER')}:</span> <span className="text-gray-300">{t('guild.permissions.MEMBER')}</span></p>
+                    <p><span className="text-gray-500 font-bold">{t('guild.roles.RECRUIT')}:</span> <span className="text-gray-300">{t('guild.permissions.RECRUIT')}</span></p>
+                </div>
+            )}
+
+            <div className="bg-slate-800/50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-white">Członkowie ({members.length}/{guild.maxMembers})</h3>
+                    {canManage && <button onClick={handleInvite} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-sm font-bold">Zaproś</button>}
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-900/50 text-gray-400">
+                            <tr>
+                                <th className="p-2">Nazwa</th>
+                                <th className="p-2">Rola</th>
+                                <th className="p-2">Poziom</th>
+                                <th className="p-2 text-right">Akcje</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {members.map(m => (
+                                <tr key={m.userId} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                    <td className="p-2 font-medium text-white flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${m.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={m.isOnline ? 'Online' : 'Offline'}></span>
+                                        {m.name}
+                                    </td>
+                                    <td className={`p-2 font-bold ${m.role === GuildRole.LEADER ? 'text-amber-400' : m.role === GuildRole.OFFICER ? 'text-indigo-400' : 'text-gray-400'}`}>
+                                        {t(`guild.roles.${m.role}`)}
+                                    </td>
+                                    <td className="p-2 text-gray-300">{m.level}</td>
+                                    <td className="p-2 text-right">
+                                        {canManage && m.userId !== guild.leaderId && rolePriority[effectiveRole] > rolePriority[m.role] && (
+                                            <div className="flex gap-1 justify-end">
+                                                <button onClick={() => handleAction(m.userId, 'promote')} className="px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded text-xs" title="Awansuj">▲</button>
+                                                <button onClick={() => handleAction(m.userId, 'demote')} className="px-2 py-1 bg-orange-700 hover:bg-orange-600 rounded text-xs" title="Degraduj">▼</button>
+                                                <button onClick={() => handleAction(m.userId, 'kick')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs" title="Wyrzuć">✕</button>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
@@ -302,15 +325,66 @@ const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined
     );
 };
 
+// Component to render formatted text safely
+const FormattedText: React.FC<{ text: string }> = ({ text }) => {
+    // Simple parser for custom tags or just safe rendering of standard text
+    // Replace newline with <br/>
+    const lines = text.split('\n');
+    return (
+        <div className="text-gray-400 italic mb-4 whitespace-pre-wrap">
+            {lines.map((line, i) => {
+                // Basic parser for [b], [i], [color=code]
+                let parts: (string | React.ReactNode)[] = [line];
+                // Bold
+                parts = parts.flatMap(p => typeof p === 'string' ? p.split(/(\[b\].*?\[\/b\])/g) : [p]).map(p => {
+                    if (typeof p === 'string' && p.startsWith('[b]') && p.endsWith('[/b]')) {
+                        return <b key={Math.random()} className="text-white not-italic">{p.slice(3, -4)}</b>;
+                    }
+                    return p;
+                });
+                // Italic (already italic wrapper, but nested maybe)
+                parts = parts.flatMap(p => typeof p === 'string' ? p.split(/(\[i\].*?\[\/i\])/g) : [p]).map(p => {
+                    if (typeof p === 'string' && p.startsWith('[i]') && p.endsWith('[/i]')) {
+                        return <i key={Math.random()}>{p.slice(3, -4)}</i>;
+                    }
+                    return p;
+                });
+                // Color [color=red]text[/color]
+                parts = parts.flatMap(p => typeof p === 'string' ? p.split(/(\[color=[a-z]+\][\s\S]*?\[\/color\])/g) : [p]).map(p => {
+                    if (typeof p === 'string' && p.startsWith('[color=')) {
+                        const match = p.match(/\[color=([a-z]+)\](.*?)\[\/color\]/);
+                        if (match) {
+                            const colorClass = 
+                                match[1] === 'red' ? 'text-red-400' : 
+                                match[1] === 'green' ? 'text-green-400' :
+                                match[1] === 'blue' ? 'text-blue-400' :
+                                match[1] === 'yellow' ? 'text-amber-400' :
+                                match[1] === 'purple' ? 'text-purple-400' : 'text-white';
+                            return <span key={Math.random()} className={`${colorClass} not-italic`}>{match[2]}</span>;
+                        }
+                    }
+                    return p;
+                });
+
+                return <span key={i}>{parts}<br/></span>;
+            })}
+        </div>
+    );
+};
+
 const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ guild, onUpdate }) => {
+    const { t } = useTranslation();
     const [desc, setDesc] = useState(guild.description || '');
     const [crest, setCrest] = useState(guild.crestUrl || '');
+    const [minLevel, setMinLevel] = useState(guild.minLevel || 1);
+    const [isPublic, setIsPublic] = useState(guild.isPublic || false);
     const [saving, setSaving] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const handleSave = async () => {
         setSaving(true);
         try {
-            await api.updateGuild(desc, crest);
+            await api.updateGuild(desc, crest, minLevel, isPublic);
             onUpdate();
             alert('Zapisano ustawienia.');
         } catch (e: any) {
@@ -321,7 +395,7 @@ const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ g
     };
 
     const handleDisband = async () => {
-        if (!confirm('Czy na pewno chcesz ROZWIĄZAĆ gildię? Ta operacja jest nieodwracalna!')) return;
+        if (!confirm(t('guild.settings.disbandConfirm'))) return;
         try {
             await api.leaveGuild(); // For leader this means disband
             window.location.reload(); // Refresh to reset state
@@ -330,23 +404,58 @@ const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ g
         }
     };
 
+    const insertTag = (tagStart: string, tagEnd: string) => {
+        if (textareaRef.current) {
+            const start = textareaRef.current.selectionStart;
+            const end = textareaRef.current.selectionEnd;
+            const text = textareaRef.current.value;
+            const before = text.substring(0, start);
+            const selection = text.substring(start, end);
+            const after = text.substring(end);
+            const newText = before + tagStart + selection + tagEnd + after;
+            setDesc(newText);
+            // Must wait for render to set selection back
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    textareaRef.current.selectionStart = start + tagStart.length;
+                    textareaRef.current.selectionEnd = end + tagStart.length;
+                }
+            }, 0);
+        }
+    };
+
     return (
         <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-            <h3 className="text-xl font-bold text-white mb-4">Ustawienia Gildii</h3>
+            <h3 className="text-xl font-bold text-white mb-4">{t('guild.settings.title')}</h3>
             
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Opis Gildii</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.description')}</label>
+                    <div className="flex gap-2 mb-2">
+                        <button type="button" onClick={() => insertTag('[b]', '[/b]')} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold text-white">B</button>
+                        <button type="button" onClick={() => insertTag('[i]', '[/i]')} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs italic text-white">I</button>
+                        <button type="button" onClick={() => insertTag('[color=red]', '[/color]')} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-red-400">Red</button>
+                        <button type="button" onClick={() => insertTag('[color=green]', '[/color]')} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-green-400">Green</button>
+                        <button type="button" onClick={() => insertTag('[color=blue]', '[/color]')} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-blue-400">Blue</button>
+                    </div>
                     <textarea 
-                        className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white h-32" 
+                        ref={textareaRef}
+                        className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white h-32 text-sm font-mono" 
                         value={desc}
                         onChange={e => setDesc(e.target.value)}
                         placeholder="Opisz swoją gildię..."
                     />
+                    <div className="mt-2 text-xs text-gray-500">
+                        {t('guild.settings.preview')}:
+                        <div className="p-2 border border-slate-700 rounded bg-slate-900/50 mt-1">
+                            <FormattedText text={desc || 'Brak opisu'} />
+                        </div>
+                    </div>
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Herb Gildii (URL obrazka)</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.crestUrl')}</label>
                     <input 
                         type="text"
                         className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" 
@@ -356,18 +465,43 @@ const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ g
                     />
                     {crest && (
                         <div className="mt-2">
-                            <p className="text-xs text-gray-500 mb-1">Podgląd:</p>
+                            <p className="text-xs text-gray-500 mb-1">{t('guild.settings.preview')}:</p>
                             <img src={crest} alt="Crest Preview" className="h-24 w-24 object-contain border border-slate-600 bg-slate-900 rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
                         </div>
                     )}
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.minLevel')}</label>
+                        <input 
+                            type="number"
+                            min="1"
+                            className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" 
+                            value={minLevel}
+                            onChange={e => setMinLevel(parseInt(e.target.value))}
+                        />
+                    </div>
+                    
+                    <div className="flex items-center">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                            <input 
+                                type="checkbox"
+                                checked={isPublic}
+                                onChange={e => setIsPublic(e.target.checked)}
+                                className="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-0 bg-slate-700 border-slate-600" 
+                            />
+                            <span className="text-sm font-medium text-gray-300">{t('guild.settings.isPublic')}</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div className="pt-4 border-t border-slate-700 flex justify-between items-center">
                     <button onClick={handleDisband} className="px-4 py-2 bg-red-900/80 hover:bg-red-800 text-red-200 rounded font-bold">
-                        Rozwiąż Gildię
+                        {t('guild.settings.disband')}
                     </button>
                     <button onClick={handleSave} disabled={saving} className="px-6 py-2 bg-green-700 hover:bg-green-600 text-white rounded font-bold disabled:bg-slate-600">
-                        {saving ? 'Zapisywanie...' : 'Zapisz'}
+                        {saving ? 'Zapisywanie...' : t('guild.settings.save')}
                     </button>
                 </div>
             </div>
@@ -467,7 +601,7 @@ export const Guild: React.FC = () => {
                                             [{g.tag}] {g.name}
                                         </div>
                                         <div className="text-xs text-gray-400">
-                                            Członków: {g.member_count}/{g.max_members} | Lider: {g.leader_name}
+                                            Członków: {g.member_count}/{g.max_members} | Min. Lvl: {g.min_level}
                                         </div>
                                     </div>
                                     <button onClick={() => handleJoin(g.id)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-bold">Dołącz</button>
@@ -497,14 +631,15 @@ export const Guild: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-slate-900/40 p-6 rounded-xl">
                         <h3 className="text-xl font-bold text-gray-200 mb-4">Informacje</h3>
-                        <p className="text-gray-400 italic mb-4 whitespace-pre-wrap">{guild.description || 'Brak opisu.'}</p>
-                        <div className="space-y-2 text-sm">
+                        <FormattedText text={guild.description || 'Brak opisu.'} />
+                        <div className="space-y-2 text-sm mt-4 pt-4 border-t border-slate-700">
                             <p className="flex justify-between"><span className="text-gray-500">Lider:</span> <span className="text-white">{(guild.members || []).find(m => m.role === GuildRole.LEADER)?.name}</span></p>
                             <p className="flex justify-between"><span className="text-gray-500">Członków:</span> <span className="text-white">{guild.memberCount}/{guild.maxMembers}</span></p>
                             <p className="flex justify-between"><span className="text-gray-500">Założona:</span> <span className="text-white">{new Date(guild.createdAt).toLocaleDateString()}</span></p>
+                            <p className="flex justify-between"><span className="text-gray-500">Rekrutacja:</span> <span className={guild.isPublic ? "text-green-400" : "text-red-400"}>{guild.isPublic ? "Otwarta" : "Zamknięta"}</span></p>
+                            {guild.isPublic && <p className="flex justify-between"><span className="text-gray-500">Min. Poziom:</span> <span className="text-white">{guild.minLevel}</span></p>}
                         </div>
                         <div className="mt-6 pt-6 border-t border-slate-700">
-                            {/* Member leave button only, disband moved to settings */}
                             {!isLeader && (
                                 <button onClick={handleLeave} className="w-full py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-200 rounded">
                                     Opuść Gildię

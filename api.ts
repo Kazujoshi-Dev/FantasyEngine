@@ -5,6 +5,8 @@
 
 
 
+
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry } from './types';
 
 // Helper to determine API URL based on environment
@@ -568,10 +570,10 @@ export const api = {
         });
     },
 
-    async updateGuild(description: string, crestUrl: string): Promise<void> {
+    async updateGuild(description: string, crestUrl: string, minLevel?: number, isPublic?: boolean): Promise<void> {
         return fetchApi('/guilds/update', {
             method: 'POST',
-            body: JSON.stringify({ description, crestUrl })
+            body: JSON.stringify({ description, crestUrl, minLevel, isPublic })
         });
     },
 
