@@ -8,6 +8,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -195,7 +197,8 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
                             ownerId: item.originalOwnerId!,
                             ownerName: item.originalOwnerName || 'Unknown', // We might need to fetch names if not stored on item
                             depositedAt: '',
-                            borrowedBy: borrowerName
+                            borrowedBy: borrowerName,
+                            userId: row.user_id
                         });
                     }
                 };

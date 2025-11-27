@@ -643,6 +643,7 @@ export interface GuildArmoryItem {
     ownerName: string;
     depositedAt: string;
     borrowedBy?: string; // For UI logic mostly, backend handles actual borrowing via character inventory
+    userId?: number; // ID of the player holding the item (if borrowed)
 }
 
 export interface Guild {

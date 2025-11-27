@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -683,9 +685,7 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                             <tbody>
                                 {armoryData.borrowedItems.map((entry, idx) => {
                                     const template = templates.find(t => t.id === entry.item.templateId);
-                                    // Normally we need current user ID to check if I am owner. 
-                                    // Assuming backend filters relevant "recallable" items or frontend shows all and backend rejects if no perm.
-                                    // Let's show all and let backend decide.
+                                    
                                     return (
                                         <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                                             <td className="p-2">
@@ -694,16 +694,9 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                                             <td className="p-2 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
                                             <td className="p-2 text-right">
-                                                <button onClick={() => handleRecall(0 /* hack: backend needs user id, not item id only? No, logic needs user id. */, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
-                                                    Wymuś Zwrot (TODO: Fix User ID)
+                                                <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
+                                                    Wymuś Zwrot
                                                 </button>
-                                                {/* 
-                                                    Fixing logic: The `borrowedItems` endpoint needs to return `userId` of the borrower to allow recalling.
-                                                    Current type GuildArmoryItem doesn't have borrowerId.
-                                                    Let's assume the API provides it or we rely on backend searching by item uniqueId (which is unique globally).
-                                                    The `recall` endpoint uses targetUserId + itemUniqueId.
-                                                    We need to update the frontend/backend type to include borrowerId.
-                                                */}
                                             </td>
                                         </tr>
                                     );
@@ -716,7 +709,6 @@ const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates:
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
                         * Liderzy, Oficerowie oraz prawowici właściciele mogą wymusić zwrot przedmiotu do zbrojowni w każdej chwili.
-                        ** Uwaga: Powyższa tabela wymaga poprawki w API by zwrócić ID pożyczającego. W tej wersji demonstracyjnej przycisk "Wymuś Zwrot" może nie działać bez ID gracza.
                     </p>
                 </div>
             )}
