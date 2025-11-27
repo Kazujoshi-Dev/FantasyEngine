@@ -1,5 +1,4 @@
 
-
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -10,6 +9,8 @@ import cron from 'node-cron';
 
 import { pool, initializeDatabase } from './db.js';
 import { cleanupOldTavernMessages } from './logic/tasks.js';
+import { calculateDerivedStatsOnServer } from './logic/stats.js';
+import { PlayerCharacter } from './types.js';
 
 // Import all route handlers
 import authRoutes from './routes/auth.js';
@@ -105,24 +106,54 @@ initializeDatabase().then(() => {
     // Set up hourly energy regeneration for all players
     cron.schedule('0 * * * *', async () => {
         console.log('Running hourly energy regeneration task...');
+        const client = await pool.connect();
         try {
-            // Update energy. Cap is calculated dynamically: 10 (base) + floor(energy_stat / 2)
-            const result = await pool.query(`
-                UPDATE characters
-                SET data = (
-                    jsonb_set(
-                        data,
-                        '{stats,currentEnergy}',
-                        LEAST(
-                            (10 + floor(COALESCE((data->'stats'->>'energy')::numeric, 0) / 2))::int,
-                            (COALESCE((data->'stats'->>'currentEnergy')::int, 0) + 1)
-                        )::text::jsonb
-                    ) || jsonb_build_object('lastEnergyUpdateTime', (extract(epoch from now()) * 1000)::bigint)
+            // Fetch Game Data needed for accurate stat calculations (item bonuses)
+            const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+            const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+            // Fetch all characters
+            // NOTE: For very large player bases, this should be paginated/batched.
+            const charsRes = await client.query("SELECT user_id, data FROM characters");
+            
+            let updatedCount = 0;
+            const now = Date.now();
+
+            await client.query('BEGIN');
+
+            for (const row of charsRes.rows) {
+                const char = row.data as PlayerCharacter;
+                
+                // Calculate TRUE max stats including equipment bonuses
+                const derivedChar = calculateDerivedStatsOnServer(char, itemTemplates, affixes);
+                const trueMaxEnergy = derivedChar.stats.maxEnergy;
+                const currentEnergy = char.stats.currentEnergy;
+
+                // Determine new energy
+                let newEnergy = currentEnergy;
+                if (currentEnergy < trueMaxEnergy) {
+                    newEnergy = currentEnergy + 1;
+                }
+
+                // Update timestamp and value
+                char.lastEnergyUpdateTime = now;
+                char.stats.currentEnergy = newEnergy;
+
+                await client.query(
+                    'UPDATE characters SET data = $1 WHERE user_id = $2',
+                    [char, row.user_id]
                 );
-            `);
-            console.log(`Energy regenerated and timestamps updated for ${result.rowCount} characters.`);
+                updatedCount++;
+            }
+
+            await client.query('COMMIT');
+            console.log(`Energy regenerated for ${updatedCount} characters.`);
         } catch (err) {
+            await client.query('ROLLBACK');
             console.error('Error during hourly energy regeneration:', err);
+        } finally {
+            client.release();
         }
     });
 }).catch((err: Error) => {
