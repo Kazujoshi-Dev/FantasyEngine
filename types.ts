@@ -588,6 +588,7 @@ export interface HuntingParty {
         essences: Partial<Record<EssenceType, number>>;
     };
     allRewards?: Record<string, { gold: number; experience: number }>; // Map player name -> rewards
+    messageId?: number; // ID of the message containing the report for the current user
 }
 // --- End Hunting System Types ---
 

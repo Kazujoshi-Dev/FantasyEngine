@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -96,15 +97,32 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             }
         }
         
-        if (party.status === PartyStatus.Finished && !party.myRewards) {
-             const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
-             if (rewardsRaw) {
-                 const myName = party.members.find(m => m.userId === req.user.id)?.characterName;
-                 if (myName) {
-                     party.myRewards = rewardsRaw[myName];
+        if (party.status === PartyStatus.Finished) {
+             // 1. Rewards logic
+             if (!party.myRewards) {
+                 const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
+                 if (rewardsRaw) {
+                     const myName = party.members.find(m => m.userId === req.user.id)?.characterName;
+                     if (myName) {
+                         party.myRewards = rewardsRaw[myName];
+                     }
+                     party.allRewards = rewardsRaw;
                  }
-                 party.allRewards = rewardsRaw;
              }
+
+             // 2. Find the message ID associated with this report for the "Copy Link" button
+             // We search for the most recent report for this user about this boss
+             const msgRes = await client.query(
+                `SELECT id FROM messages 
+                 WHERE recipient_id = $1 
+                 AND message_type = 'expedition_report' 
+                 AND (body->>'bossId') = $2 
+                 ORDER BY created_at DESC LIMIT 1`,
+                [req.user.id, party.bossId]
+            );
+            if (msgRes.rows.length > 0) {
+                party.messageId = msgRes.rows[0].id;
+            }
         }
         
         await client.query('COMMIT');

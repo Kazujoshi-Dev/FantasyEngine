@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -274,6 +275,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 allRewards={reportData.allRewards}
                 initialEnemy={boss}
                 bossName={boss?.name}
+                messageId={reportData.messageId}
             />
         );
     }
