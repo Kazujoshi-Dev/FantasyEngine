@@ -6,8 +6,7 @@ export const castLifeDrain: SpellLogic = (context) => {
     const drained = Math.floor(baseDamage * 0.25);
     
     // We update health immediately here as per original logic, 
-    // or return amount to update in core. 
-    // Let's perform update here to be safe with original logic flow
+    // but the core handles `healthGained` display if returned.
     const newHealth = Math.min(attacker.stats.maxHealth, attacker.currentHealth + drained);
     const actualHealed = newHealth - attacker.currentHealth;
     attacker.currentHealth = newHealth;

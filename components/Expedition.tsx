@@ -1,15 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -208,33 +196,34 @@ const CombatLogRow: React.FC<{
                 textColor = 'text-pink-400 italic';
                 break;
             case 'chainLightningJump':
-                effectText = t('expedition.combatLog.effect.chainLightningJump');
-                textColor = 'text-blue-400 italic font-bold';
+            case 'earthquakeSplash':
+            case 'meteorSwarmSplash':
+                if (log.effectApplied === 'chainLightningJump') {
+                    effectText = t('expedition.combatLog.effect.chainLightningJump');
+                    textColor = 'text-blue-400 italic font-bold';
+                } else if (log.effectApplied === 'earthquakeSplash') {
+                    effectText = t('expedition.combatLog.effect.earthquakeSplash', { damage: log.damage }); // Generic msg if no details
+                    textColor = 'text-yellow-600 italic font-bold';
+                } else {
+                    effectText = t('expedition.combatLog.effect.meteorSwarmSplash', { damage: log.damage }); // Generic msg
+                    textColor = 'text-orange-600 italic font-bold';
+                }
+
                 if (log.aoeDamage && log.aoeDamage.length > 0) {
+                    // Overwrite generic text for AoE to be a header
+                    if (log.effectApplied === 'earthquakeSplash') effectText = t(`item.magic.${MagicAttackType.Earthquake}`);
+                    if (log.effectApplied === 'meteorSwarmSplash') effectText = t(`item.magic.${MagicAttackType.MeteorSwarm}`);
+
                     detailList = (
                         <div className="ml-6 mt-1 space-y-0.5">
                             {log.aoeDamage.map((hit, idx) => (
-                                <p key={idx} className="text-xs text-blue-300">
-                                    ↳ <span className="font-semibold text-gray-300">{hit.target}</span>: <span className="font-mono text-red-400">-{hit.damage} HP</span>
+                                <p key={idx} className="text-xs">
+                                    <span className="text-gray-400">↳</span> <span className="font-semibold text-gray-300">{hit.target}</span>: <span className="font-mono text-red-400">-{hit.damage} HP</span>
                                 </p>
                             ))}
                         </div>
                     );
                 }
-                break;
-            case 'earthquakeSplash':
-                const targetNode7 = renderName(log.defender);
-                const template7 = t('expedition.combatLog.effect.earthquakeSplash').replace('{damage}', String(log.damage));
-                const parts7 = template7.split('{target}');
-                effectText = <>{parts7[0]}{targetNode7}{parts7[1]}</>;
-                 textColor = 'text-yellow-600 italic';
-                break;
-            case 'meteorSwarmSplash':
-                const targetNode8 = renderName(log.defender);
-                const template8 = t('expedition.combatLog.effect.meteorSwarmSplash').replace('{damage}', String(log.damage));
-                const parts8 = template8.split('{target}');
-                effectText = <>{parts8[0]}{targetNode8}{parts8[1]}</>;
-                textColor = 'text-orange-600 italic';
                 break;
             default:
                 effectText = `${log.attacker} applies ${log.effectApplied} to ${log.defender}`;

@@ -24,7 +24,7 @@ export const castLightningStrike: SpellLogic = (context) => {
     const logs = [];
 
     if (Math.random() * 100 < 15) {
-        defender.statusEffects.push({ type: 'reduced_attacks', duration: Infinity, amount: 1 });
+        defender.statusEffects.push({ type: 'reduced_attacks', duration: 3, amount: 1 }); // Updated duration
         logs.push({ 
             turn, 
             attacker: attacker.name, 
