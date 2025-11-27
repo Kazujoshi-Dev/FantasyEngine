@@ -1,445 +1,220 @@
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, GuildTransaction, GuildChatMessage, PlayerCharacter, ItemTemplate, ItemInstance } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
-// GET /api/guilds/my-guild
+// Helper to check roles
+const canManage = (role: GuildRole) => role === GuildRole.LEADER || role === GuildRole.OFFICER;
+
+// Helper for building costs
+const getBuildingCost = (type: string, level: number) => {
+    if (type === 'headquarters') {
+        const gold = Math.floor(5000 * Math.pow(1.5, level));
+        const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        const typeIndex = Math.min(Math.floor(level / 5), 4);
+        const essenceType = essenceTypes[typeIndex];
+        const essenceAmount = 5 + (level % 5);
+        return { gold, essenceType, essenceAmount };
+    }
+    if (type === 'armory') {
+        const gold = Math.floor(10000 * Math.pow(1.6, level));
+        const essenceTypes = [EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+        const typeIndex = Math.min(Math.floor(level / 3), 2);
+        const essenceType = essenceTypes[typeIndex];
+        const essenceAmount = 5 + (level % 3) * 2;
+        return { gold, essenceType, essenceAmount };
+    }
+    return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
+}
+
+// GET /api/guilds/my-guild - Get current user's guild data with detailed members
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
     try {
-        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
-        if (memberRes.rows.length === 0) return res.json(null);
-        
-        const { guild_id, role } = memberRes.rows[0];
-        
-        const guildRes = await pool.query('SELECT * FROM guilds WHERE id = $1', [guild_id]);
-        if (guildRes.rows.length === 0) return res.json(null);
-        
-        const guild = guildRes.rows[0];
-        
-        // Fetch members
+        // Get user's guild membership
+        const membershipRes = await pool.query(
+            `SELECT guild_id, role FROM guild_members WHERE user_id = $1`,
+            [req.user.id]
+        );
+
+        if (membershipRes.rows.length === 0) {
+            return res.json(null); // Not in a guild
+        }
+
+        const guildId = membershipRes.rows[0].guild_id;
+        const myRole = membershipRes.rows[0].role;
+
+        // Fetch Guild Info
+        const guildRes = await pool.query(`SELECT * FROM guilds WHERE id = $1`, [guildId]);
+        const guildData = guildRes.rows[0];
+
+        // Fetch Members with Character Info
         const membersRes = await pool.query(`
-            SELECT gm.*, c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
+            SELECT gm.user_id, gm.role, gm.joined_at, c.data->>'name' as name, c.data->>'level' as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
             EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
             FROM guild_members gm
             JOIN characters c ON gm.user_id = c.user_id
             WHERE gm.guild_id = $1
             ORDER BY 
-                CASE gm.role WHEN 'LEADER' THEN 1 WHEN 'OFFICER' THEN 2 WHEN 'MEMBER' THEN 3 ELSE 4 END,
-                c.data->>'level' DESC
-        `, [guild_id]);
-        
-        // Fetch recent transactions
-        const transRes = await pool.query(`
-            SELECT gbh.*, c.data->>'name' as "characterName"
+                CASE gm.role WHEN 'LEADER' THEN 1 WHEN 'OFFICER' THEN 2 WHEN 'MEMBER' THEN 3 ELSE 4 END ASC,
+                gm.joined_at ASC
+        `, [guildId]);
+
+        const members: GuildMember[] = membersRes.rows.map(row => ({
+            userId: row.user_id,
+            role: row.role,
+            joinedAt: row.joined_at,
+            name: row.name,
+            level: parseInt(row.level),
+            race: row.race,
+            characterClass: row.characterClass,
+            isOnline: row.isOnline
+        }));
+
+        // Fetch Bank History
+        const historyRes = await pool.query(`
+            SELECT gbh.*, c.data->>'name' as character_name
             FROM guild_bank_history gbh
             LEFT JOIN characters c ON gbh.user_id = c.user_id
             WHERE gbh.guild_id = $1
-            ORDER BY gbh.created_at DESC LIMIT 20
-        `, [guild_id]);
+            ORDER BY gbh.created_at DESC LIMIT 50
+        `, [guildId]);
+
+        const transactions: GuildTransaction[] = historyRes.rows.map(row => ({
+            id: row.id,
+            userId: row.user_id,
+            characterName: row.character_name || 'Unknown',
+            type: row.type,
+            currency: row.currency,
+            amount: row.amount,
+            timestamp: row.created_at
+        }));
         
-        // Fetch recent chat
+        // Fetch Chat History (last 50)
         const chatRes = await pool.query(`
-            SELECT gc.id, gc.user_id as "userId", gc.content, gc.created_at as timestamp, 
-                   c.data->>'name' as "characterName", gm.role
+            SELECT gc.*, c.data->>'name' as name, gm.role
             FROM guild_chat gc
             JOIN characters c ON gc.user_id = c.user_id
             JOIN guild_members gm ON gc.user_id = gm.user_id AND gm.guild_id = gc.guild_id
             WHERE gc.guild_id = $1
             ORDER BY gc.created_at ASC LIMIT 50
-        `, [guild_id]);
+        `, [guildId]);
+        
+        const chatHistory = chatRes.rows.map(row => ({
+            id: row.id,
+            userId: row.user_id,
+            characterName: row.name,
+            role: row.role,
+            content: row.content,
+            timestamp: row.created_at
+        }));
 
-        res.json({
-            ...guild,
-            myRole: role,
-            members: membersRes.rows,
-            transactions: transRes.rows,
-            chatHistory: chatRes.rows,
-            memberCount: membersRes.rows.length
-        });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ message: 'Error fetching guild data' });
+        const guild: Guild & { members: GuildMember[], transactions: GuildTransaction[], myRole: GuildRole, chatHistory: any[] } = {
+            id: guildData.id,
+            name: guildData.name,
+            tag: guildData.tag,
+            leaderId: guildData.leader_id,
+            description: guildData.description,
+            crestUrl: guildData.crest_url,
+            resources: guildData.resources,
+            memberCount: members.length,
+            maxMembers: guildData.max_members,
+            createdAt: guildData.created_at,
+            isPublic: guildData.is_public,
+            minLevel: guildData.min_level,
+            buildings: guildData.buildings || { headquarters: 0, armory: 0 },
+            members,
+            transactions,
+            myRole,
+            chatHistory
+        };
+
+        res.json(guild);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch guild info' });
     }
 });
 
-// GET /api/guilds/list
-router.get('/list', authenticateToken, async (req: any, res: any) => {
-    try {
-        const result = await pool.query(`
-            SELECT g.id, g.name, g.tag, g.description, g.min_level, g.is_public, g.crest_url, COUNT(gm.user_id) as "memberCount", g.max_members
-            FROM guilds g
-            LEFT JOIN guild_members gm ON g.id = gm.guild_id
-            GROUP BY g.id
-            ORDER BY "memberCount" DESC
-        `);
-        res.json(result.rows);
-    } catch (e) {
-        res.status(500).json({ message: 'Error fetching guild list' });
-    }
-});
-
-// POST /api/guilds/create
-router.post('/create', authenticateToken, async (req: any, res: any) => {
-    const { name, tag, description } = req.body;
-    const userId = req.user.id;
-    
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        
-        // Check if already in guild
-        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberCheck.rows.length > 0) throw new Error('Already in a guild');
-        
-        // Check gold
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
-        const char = charRes.rows[0].data;
-        if (char.resources.gold < 5000) throw new Error('Not enough gold (5000 required)');
-        
-        // Deduct gold
-        char.resources.gold -= 5000;
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
-        
-        // Create Guild
-        const guildRes = await client.query(`
-            INSERT INTO guilds (name, tag, description, leader_id) 
-            VALUES ($1, $2, $3, $4) RETURNING id
-        `, [name, tag, description, userId]);
-        
-        const guildId = guildRes.rows[0].id;
-        
-        // Add Leader
-        await client.query(`
-            INSERT INTO guild_members (guild_id, user_id, role) 
-            VALUES ($1, $2, 'LEADER')
-        `, [guildId, userId]);
-        
-        await client.query('COMMIT');
-        res.sendStatus(201);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/guilds/join/:id
-router.post('/join/:id', authenticateToken, async (req: any, res: any) => {
-    const guildId = req.params.id;
-    const userId = req.user.id;
-    
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberCheck.rows.length > 0) throw new Error('Already in a guild');
-        
-        const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
-        if (guildRes.rows.length === 0) throw new Error('Guild not found');
-        const guild = guildRes.rows[0];
-        
-        // Check Requirements
-        if (!guild.is_public) throw new Error('Guild is not public');
-        
-        const membersCount = (await client.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [guildId])).rows[0].count;
-        if (membersCount >= guild.max_members) throw new Error('Guild is full');
-        
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
-        const char = charRes.rows[0].data;
-        if (char.level < guild.min_level) throw new Error(`Level too low (min: ${guild.min_level})`);
-        
-        // Join
-        await client.query(`
-            INSERT INTO guild_members (guild_id, user_id, role) 
-            VALUES ($1, $2, 'RECRUIT')
-        `, [guildId, userId]);
-        
-        await client.query('COMMIT');
-        res.sendStatus(200);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/guilds/leave
-router.post('/leave', authenticateToken, async (req: any, res: any) => {
-    const userId = req.user.id;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberRes.rows.length === 0) throw new Error('Not in a guild');
-        
-        const { guild_id, role } = memberRes.rows[0];
-        
-        if (role === 'LEADER') {
-            const count = (await client.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [guild_id])).rows[0].count;
-            if (count > 1) throw new Error('Leader cannot leave until leadership is transferred.');
-            // Delete guild if last member
-            await client.query('DELETE FROM guilds WHERE id = $1', [guild_id]);
-        } else {
-            await client.query('DELETE FROM guild_members WHERE user_id = $1', [userId]);
-        }
-        
-        await client.query('COMMIT');
-        res.sendStatus(200);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/guilds/invite
-router.post('/invite', authenticateToken, async (req: any, res: any) => {
-    const { characterName } = req.body;
-    const senderId = req.user.id;
-    
-    try {
-        const senderMember = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [senderId]);
-        if (senderMember.rows.length === 0) throw new Error('Not in a guild');
-        const { guild_id, role } = senderMember.rows[0];
-        if (role === 'MEMBER' || role === 'RECRUIT') throw new Error('No permission');
-        
-        const recipientRes = await pool.query("SELECT user_id FROM characters WHERE data->>'name' = $1", [characterName]);
-        if (recipientRes.rows.length === 0) throw new Error('Character not found');
-        const recipientId = recipientRes.rows[0].user_id;
-        
-        const inGuildCheck = await pool.query('SELECT 1 FROM guild_members WHERE user_id = $1', [recipientId]);
-        if (inGuildCheck.rows.length > 0) throw new Error('Player already in a guild');
-        
-        const guildNameRes = await pool.query('SELECT name FROM guilds WHERE id = $1', [guild_id]);
-        const guildName = guildNameRes.rows[0].name;
-        
-        const inviteBody = JSON.stringify({ guildId: guild_id, guildName });
-        
-        await pool.query(`
-            INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
-            VALUES ($1, 'System', 'guild_invite', $2, $3)
-        `, [recipientId, `Zaproszenie do gildii ${guildName}`, inviteBody]);
-        
-        res.sendStatus(200);
-    } catch (e: any) {
-        res.status(400).json({ message: e.message });
-    }
-});
-
-// POST /api/guilds/accept-invite
-router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
-    const { messageId } = req.body;
-    const userId = req.user.id;
-    
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const msgRes = await client.query('SELECT body FROM messages WHERE id = $1 AND recipient_id = $2', [messageId, userId]);
-        if (msgRes.rows.length === 0) throw new Error('Message not found');
-        
-        const body = msgRes.rows[0].body;
-        if (!body.guildId) throw new Error('Invalid invite');
-        
-        // Same checks as join
-        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberCheck.rows.length > 0) throw new Error('Already in a guild');
-        
-        const guildRes = await client.query('SELECT max_members FROM guilds WHERE id = $1 FOR UPDATE', [body.guildId]);
-        if (guildRes.rows.length === 0) throw new Error('Guild not found');
-        
-        const count = (await client.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [body.guildId])).rows[0].count;
-        if (count >= guildRes.rows[0].max_members) throw new Error('Guild is full');
-        
-        await client.query(`
-            INSERT INTO guild_members (guild_id, user_id, role) 
-            VALUES ($1, $2, 'RECRUIT')
-        `, [body.guildId, userId]);
-        
-        await client.query('DELETE FROM messages WHERE id = $1', [messageId]);
-        
-        await client.query('COMMIT');
-        res.sendStatus(200);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-router.post('/reject-invite', authenticateToken, async (req: any, res: any) => {
-    const { messageId } = req.body;
-    try {
-        await pool.query('DELETE FROM messages WHERE id = $1 AND recipient_id = $2', [messageId, req.user.id]);
-        res.sendStatus(200);
-    } catch(e) {
-        res.status(500).json({message: 'Error'});
-    }
-});
-
-// POST /api/guilds/manage-member
-router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
-    const { targetUserId, action } = req.body; // kick, promote, demote
-    const userId = req.user.id;
-    
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const actorRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
-        if (actorRes.rows.length === 0) throw new Error('Not in guild');
-        const { guild_id, role } = actorRes.rows[0];
-        
-        const targetRes = await client.query('SELECT role FROM guild_members WHERE user_id = $1 AND guild_id = $2', [targetUserId, guild_id]);
-        if (targetRes.rows.length === 0) throw new Error('Target not in guild');
-        const targetRole = targetRes.rows[0].role;
-        
-        if (action === 'kick') {
-            if (role === 'LEADER' || (role === 'OFFICER' && (targetRole === 'MEMBER' || targetRole === 'RECRUIT'))) {
-                await client.query('DELETE FROM guild_members WHERE user_id = $1 AND guild_id = $2', [targetUserId, guild_id]);
-            } else {
-                throw new Error('Insufficient permissions');
-            }
-        } else if (action === 'promote') {
-            if (role !== 'LEADER') throw new Error('Only leader can promote');
-            let newRole = 'MEMBER';
-            if (targetRole === 'RECRUIT') newRole = 'MEMBER';
-            else if (targetRole === 'MEMBER') newRole = 'OFFICER';
-            else throw new Error('Max rank reached');
-            
-            await client.query('UPDATE guild_members SET role = $1 WHERE user_id = $2 AND guild_id = $3', [newRole, targetUserId, guild_id]);
-        } else if (action === 'demote') {
-            if (role !== 'LEADER') throw new Error('Only leader can demote');
-            let newRole = 'MEMBER';
-            if (targetRole === 'OFFICER') newRole = 'MEMBER';
-            else if (targetRole === 'MEMBER') newRole = 'RECRUIT';
-            else throw new Error('Min rank reached');
-            
-            await client.query('UPDATE guild_members SET role = $1 WHERE user_id = $2 AND guild_id = $3', [newRole, targetUserId, guild_id]);
-        }
-        
-        await client.query('COMMIT');
-        res.sendStatus(200);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/guilds/bank
-router.post('/bank', authenticateToken, async (req: any, res: any) => {
-    const { type, currency, amount } = req.body;
-    const userId = req.user.id;
-    
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberRes.rows.length === 0) throw new Error('Not in guild');
-        const { guild_id, role } = memberRes.rows[0];
-        
-        if (type === 'WITHDRAW' && role !== 'LEADER' && role !== 'OFFICER') throw new Error('No permission to withdraw');
-        
-        // Lock guild and char
-        const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
-        const guildResources = guildRes.rows[0].resources;
-        
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
-        const char = charRes.rows[0].data;
-        
-        if (type === 'DEPOSIT') {
-            if ((char.resources[currency] || 0) < amount) throw new Error('Not enough resources');
-            char.resources[currency] -= amount;
-            guildResources[currency] = (guildResources[currency] || 0) + amount;
-        } else {
-            if ((guildResources[currency] || 0) < amount) throw new Error('Not enough guild resources');
-            guildResources[currency] -= amount;
-            char.resources[currency] = (char.resources[currency] || 0) + amount;
-        }
-        
-        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [guildResources, guild_id]);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
-        
-        await client.query(`
-            INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount)
-            VALUES ($1, $2, $3, $4, $5)
-        `, [guild_id, userId, type, currency, amount]);
-        
-        await client.query('COMMIT');
-        res.sendStatus(200);
-    } catch (e: any) {
-        await client.query('ROLLBACK');
-        res.status(400).json({ message: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// GET /api/guilds/armory
+// GET /api/guilds/armory - Get items in guild armory
 router.get('/armory', authenticateToken, async (req: any, res: any) => {
-    const userId = req.user.id;
     try {
-        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberRes.rows.length === 0) return res.status(400).json({ message: 'Not in guild' });
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         const guildId = memberRes.rows[0].guild_id;
 
-        const armoryItemsRes = await pool.query(`
-            SELECT gai.id, gai.item_data as item, gai.owner_id as "ownerId", u.username as "ownerName", gai.created_at as "depositedAt"
+        // Fetch items physically in armory
+        const itemsRes = await pool.query(`
+            SELECT gai.*, c.data->>'name' as owner_name 
             FROM guild_armory_items gai
-            JOIN users u ON gai.owner_id = u.id
+            JOIN characters c ON gai.owner_id = c.user_id
             WHERE gai.guild_id = $1
         `, [guildId]);
 
-        // Find borrowed items by scanning all guild members' inventory
-        // This is a bit heavy, in prod we'd track borrowed items in a separate table or flag.
-        // For now we scan char data.
-        const borrowedItemsRes = await pool.query(`
-            SELECT c.user_id, u.username, c.data->'inventory' as inventory
-            FROM guild_members gm
-            JOIN characters c ON gm.user_id = c.user_id
-            JOIN users u ON c.user_id = u.id
-            WHERE gm.guild_id = $1
-        `, [guildId]);
+        const armoryItems: GuildArmoryItem[] = itemsRes.rows.map(row => ({
+            id: row.id,
+            item: row.item_data,
+            ownerId: row.owner_id,
+            ownerName: row.owner_name,
+            depositedAt: row.created_at
+        }));
 
-        const borrowedItems: any[] = [];
-        for (const row of borrowedItemsRes.rows) {
-            const inv = row.inventory as ItemInstance[];
-            if (inv) {
-                inv.forEach(item => {
-                    if (item.isBorrowed && item.borrowedFromGuildId === guildId) {
+        // Fetch borrowed items (scan all guild members characters)
+        // This is a bit heavy, in a real massive game we would index borrowed items separately
+        const guildMembersRes = await pool.query('SELECT user_id FROM guild_members WHERE guild_id = $1', [guildId]);
+        const userIds = guildMembersRes.rows.map(r => r.user_id);
+        
+        const borrowedItems: GuildArmoryItem[] = [];
+        
+        if (userIds.length > 0) {
+            const charsRes = await pool.query(`SELECT user_id, data FROM characters WHERE user_id = ANY($1)`, [userIds]);
+            
+            charsRes.rows.forEach(row => {
+                const char: PlayerCharacter = row.data;
+                const borrowerName = char.name;
+                
+                // Helper to check item
+                const checkItem = (item: ItemInstance | null | undefined, location: string) => {
+                    if (item && item.isBorrowed && item.borrowedFromGuildId === guildId) {
                         borrowedItems.push({
-                            id: 0, // Placeholder
+                            id: 0, // Virtual ID, not in armory table
                             item: item,
-                            ownerId: item.originalOwnerId,
-                            ownerName: item.originalOwnerName,
+                            ownerId: item.originalOwnerId!,
+                            ownerName: item.originalOwnerName || 'Unknown', // We might need to fetch names if not stored on item
                             depositedAt: '',
-                            borrowedBy: row.username,
-                            userId: row.user_id // Holder ID
+                            borrowedBy: borrowerName,
+                            userId: row.user_id
                         });
                     }
-                });
-            }
+                };
+
+                char.inventory.forEach(i => checkItem(i, 'inventory'));
+                Object.values(char.equipment).forEach(i => checkItem(i, 'equipment'));
+            });
         }
 
-        res.json({
-            armoryItems: armoryItemsRes.rows,
-            borrowedItems: borrowedItems
-        });
+        res.json({ armoryItems, borrowedItems });
 
-    } catch (e: any) {
-        res.status(500).json({ message: 'Error fetching armory' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch armory' });
     }
 });
 
@@ -447,35 +222,51 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
 router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => {
     const { itemId } = req.body;
     const userId = req.user.id;
-
+    
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
+        // Verify guild
         const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
         if (memberRes.rows.length === 0) throw new Error('Not in guild');
         const guildId = memberRes.rows[0].guild_id;
 
+        // Check armory capacity
+        const guildRes = await client.query('SELECT buildings FROM guilds WHERE id = $1', [guildId]);
+        const buildings = guildRes.rows[0].buildings || { armory: 0 };
+        const armoryLevel = buildings.armory || 0;
+        const maxCapacity = 10 + armoryLevel;
+        
+        const currentCountRes = await client.query('SELECT COUNT(*) FROM guild_armory_items WHERE guild_id = $1', [guildId]);
+        if (parseInt(currentCountRes.rows[0].count) >= maxCapacity) {
+            throw new Error('Armory is full');
+        }
+
+        // Lock character
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
         const char: PlayerCharacter = charRes.rows[0].data;
 
+        // Find item in inventory
         const itemIndex = char.inventory.findIndex(i => i.uniqueId === itemId);
-        if (itemIndex === -1) throw new Error('Item not found');
+        if (itemIndex === -1) throw new Error('Item not found in inventory');
+        
         const item = char.inventory[itemIndex];
-        
-        if (item.isBorrowed) throw new Error('Cannot deposit borrowed item');
+        if (item.isBorrowed) throw new Error('Cannot deposit a borrowed item');
 
+        // Remove from inventory
         char.inventory.splice(itemIndex, 1);
-        
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
-        
-        await client.query(`
-            INSERT INTO guild_armory_items (guild_id, owner_id, item_data)
-            VALUES ($1, $2, $3)
-        `, [guildId, userId, item]);
+
+        // Add to armory
+        await client.query(
+            `INSERT INTO guild_armory_items (guild_id, owner_id, item_data) VALUES ($1, $2, $3)`,
+            [guildId, userId, JSON.stringify(item)]
+        );
 
         await client.query('COMMIT');
-        res.sendStatus(200);
+        res.json({ message: 'Item deposited' });
+
     } catch (e: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: e.message });
@@ -522,7 +313,7 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         // Simplified value calculation (ignoring affixes for tax base to keep it simple, or query affixes if needed)
         // Let's assume tax is based on base template value for robustness or fetch affixes if precise
         
-        const tax = Math.ceil(value * 0.3); // Updated to 30%
+        const tax = Math.ceil(value * 0.1);
         if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);
 
         // Get owner name for metadata
@@ -561,51 +352,79 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/guilds/armory/recall (For Leader/Officer to force return item)
+// POST /api/guilds/armory/recall
 router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
     const { targetUserId, itemUniqueId } = req.body;
-    const userId = req.user.id;
+    const requesterId = req.user.id;
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
-        const actorRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
-        if (actorRes.rows.length === 0) throw new Error('Not in guild');
-        const { guild_id, role } = actorRes.rows[0];
-        
-        if (role !== 'LEADER' && role !== 'OFFICER' && userId !== targetUserId) throw new Error('No permission');
 
-        // Get target character
-        const targetCharRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [targetUserId]);
-        if (targetCharRes.rows.length === 0) throw new Error('Character not found');
-        const targetChar: PlayerCharacter = targetCharRes.rows[0].data;
+        // Check requester role
+        const requesterRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [requesterId]);
+        if (requesterRes.rows.length === 0) throw new Error('Not in guild');
+        const { guild_id, role } = requesterRes.rows[0];
 
-        // Find item
-        const itemIndex = targetChar.inventory.findIndex(i => i.uniqueId === itemUniqueId && i.isBorrowed && i.borrowedFromGuildId === guild_id);
-        if (itemIndex === -1) throw new Error('Borrowed item not found on user');
-        
-        const item = targetChar.inventory[itemIndex];
-        
-        // Remove from user
-        targetChar.inventory.splice(itemIndex, 1);
+        // Check target character
+        const targetRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [targetUserId]);
+        if (targetRes.rows.length === 0) throw new Error('Target not found');
+        const targetChar: PlayerCharacter = targetRes.rows[0].data;
+
+        // Find item on target
+        let itemIndex = -1;
+        let location = 'inventory';
+        let item: ItemInstance | null = null;
+
+        // Check inventory
+        itemIndex = targetChar.inventory.findIndex(i => i.uniqueId === itemUniqueId);
+        if (itemIndex > -1) {
+            item = targetChar.inventory[itemIndex];
+        } else {
+            // Check equipment
+            for (const slot in targetChar.equipment) {
+                const eqItem = (targetChar.equipment as any)[slot];
+                if (eqItem && eqItem.uniqueId === itemUniqueId) {
+                    item = eqItem;
+                    location = slot;
+                    break;
+                }
+            }
+        }
+
+        if (!item) throw new Error('Item not found on player');
+        if (!item.isBorrowed || item.borrowedFromGuildId !== guild_id) throw new Error('Item is not borrowed from this guild');
+
+        // Verify permissions: Must be owner OR Leader/Officer
+        if (item.originalOwnerId !== requesterId && !canManage(role)) {
+            throw new Error('No permission to recall this item');
+        }
+
+        // Remove from target
+        if (location === 'inventory') {
+            targetChar.inventory.splice(itemIndex, 1);
+        } else {
+            (targetChar.equipment as any)[location] = null;
+        }
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [targetChar, targetUserId]);
 
-        // Clean item metadata
-        item.isBorrowed = false;
-        const ownerId = item.originalOwnerId!; // Should exist
+        // Clean item data
+        delete item.isBorrowed;
         delete item.borrowedFromGuildId;
+        // originalOwnerId kept or removed? Logic suggests it's stored in armory table structure, not item JSON necessarily, but cleaning is safer
+        const ownerId = item.originalOwnerId!;
         delete item.originalOwnerId;
         delete item.originalOwnerName;
 
-        // Return to Armory
-        await client.query(`
-            INSERT INTO guild_armory_items (guild_id, owner_id, item_data)
-            VALUES ($1, $2, $3)
-        `, [guild_id, ownerId, item]);
+        // Return to armory table
+        await client.query(
+            `INSERT INTO guild_armory_items (guild_id, owner_id, item_data) VALUES ($1, $2, $3)`,
+            [guild_id, ownerId, JSON.stringify(item)]
+        );
 
         await client.query('COMMIT');
-        res.sendStatus(200);
+        res.json({ message: 'Item recalled to armory' });
+
     } catch (e: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: e.message });
@@ -614,20 +433,539 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/guilds/update
+// DELETE /api/guilds/armory/:id
+router.delete('/armory/:id', authenticateToken, async (req: any, res: any) => {
+    const armoryId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Verify guild and role
+        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        
+        const { guild_id, role } = memberRes.rows[0];
+        
+        if (role !== GuildRole.LEADER) {
+            return res.status(403).json({ message: 'Only Leader can delete items from armory' });
+        }
+
+        // Verify item belongs to this guild
+        const itemRes = await pool.query('SELECT 1 FROM guild_armory_items WHERE id = $1 AND guild_id = $2', [armoryId, guild_id]);
+        if (itemRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Item not found in your armory' });
+        }
+
+        await pool.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
+        res.json({ message: 'Item deleted' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to delete item' });
+    }
+});
+
+// GET /api/guilds/list - List public guilds for browsing
+router.get('/list', authenticateToken, async (req: any, res: any) => {
+    try {
+        // Removed filter `WHERE g.member_count < g.max_members` to rely on dynamic count below
+        const result = await pool.query(`
+            SELECT g.id, g.name, g.tag, g.max_members, g.min_level, c.data->>'name' as leader_name
+            FROM guilds g
+            JOIN characters c ON g.leader_id = c.user_id
+            WHERE g.is_public = TRUE
+            LIMIT 20
+        `);
+        
+        const guilds = await Promise.all(result.rows.map(async (row) => {
+            const countRes = await pool.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [row.id]);
+            return { ...row, member_count: parseInt(countRes.rows[0].count) };
+        }));
+
+        // Filter full guilds here if desired, or show them as full
+        const availableGuilds = guilds.filter(g => g.member_count < g.max_members);
+
+        res.json(availableGuilds);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to list guilds' });
+    }
+});
+
+// POST /api/guilds/create
+router.post('/create', authenticateToken, async (req: any, res: any) => {
+    const { name, tag, description } = req.body;
+    const userId = req.user.id;
+    const COST = 1000;
+
+    if (!name || !tag) return res.status(400).json({ message: 'Name and Tag required' });
+    if (tag.length > 5) return res.status(400).json({ message: 'Tag too long (max 5)' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check if user is already in guild
+        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberCheck.rows.length > 0) return res.status(400).json({ message: 'You are already in a guild' });
+
+        // Check Gold
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const char: PlayerCharacter = charRes.rows[0].data;
+        if (char.resources.gold < COST) return res.status(400).json({ message: 'Not enough gold' });
+
+        // Deduct Gold
+        char.resources.gold -= COST;
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+
+        // Create Guild
+        const createRes = await client.query(
+            `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0 })]
+        );
+        const guildId = createRes.rows[0].id;
+
+        // Add Member as Leader
+        await client.query(
+            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'LEADER')`,
+            [guildId, userId]
+        );
+        
+        // Update character guild_id column for easier lookups if implemented
+        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
+
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Guild created', guildId });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        if (err.code === '23505') return res.status(409).json({ message: 'Name or Tag already taken' });
+        res.status(500).json({ message: 'Failed to create guild' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/update - Update description and crest
 router.post('/update', authenticateToken, async (req: any, res: any) => {
     const { description, crestUrl, minLevel, isPublic } = req.body;
     const userId = req.user.id;
+
     try {
+        // Check permissions (Only Leader)
         const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberRes.rows.length === 0) throw new Error('Not in guild');
-        const { guild_id, role } = memberRes.rows[0];
-        if (role !== 'LEADER' && role !== 'OFFICER') throw new Error('No permission');
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         
-        await pool.query('UPDATE guilds SET description=$1, crest_url=$2, min_level=$3, is_public=$4 WHERE id=$5', [description, crestUrl, minLevel, isPublic, guild_id]);
+        const { guild_id, role } = memberRes.rows[0];
+        if (role !== GuildRole.LEADER) return res.status(403).json({ message: 'Only leader can update settings' });
+
+        // Build dynamic update query
+        const fields = [];
+        const values = [];
+        let index = 1;
+
+        if (description !== undefined) {
+            fields.push(`description = $${index++}`);
+            values.push(description);
+        }
+        if (crestUrl !== undefined) {
+            fields.push(`crest_url = $${index++}`);
+            values.push(crestUrl);
+        }
+        if (minLevel !== undefined) {
+            fields.push(`min_level = $${index++}`);
+            values.push(minLevel);
+        }
+        if (isPublic !== undefined) {
+            fields.push(`is_public = $${index++}`);
+            values.push(isPublic);
+        }
+
+        if (fields.length > 0) {
+            values.push(guild_id);
+            await pool.query(
+                `UPDATE guilds SET ${fields.join(', ')} WHERE id = $${index}`,
+                values
+            );
+        }
+
+        res.json({ message: 'Guild updated' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update guild' });
+    }
+});
+
+// POST /api/guilds/invite
+router.post('/invite', authenticateToken, async (req: any, res: any) => {
+    const { characterName } = req.body;
+    const userId = req.user.id;
+
+    try {
+        // Check permissions
+        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (senderRes.rows.length === 0 || !canManage(senderRes.rows[0].role)) {
+            return res.status(403).json({ message: 'No permission' });
+        }
+        const guildId = senderRes.rows[0].guild_id;
+
+        // Find recipient
+        const targetRes = await pool.query("SELECT user_id FROM characters WHERE data->>'name' = $1", [characterName]);
+        if (targetRes.rows.length === 0) return res.status(404).json({ message: 'Player not found' });
+        const targetId = targetRes.rows[0].user_id;
+
+        // Check if target is in guild
+        const inGuildCheck = await pool.query('SELECT 1 FROM guild_members WHERE user_id = $1', [targetId]);
+        if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'Player is already in a guild' });
+
+        // Send Message Invite
+        const guildRes = await pool.query('SELECT name FROM guilds WHERE id = $1', [guildId]);
+        const guildName = guildRes.rows[0].name;
+
+        const inviteBody: GuildInviteBody = { guildId, guildName };
+        
+        await pool.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
+             VALUES ($1, $2, 'guild_invite', $3, $4)`,
+            [targetId, 'System', `Zaproszenie do gildii: ${guildName}`, JSON.stringify(inviteBody)]
+        );
+
+        res.json({ message: 'Invite sent' });
+
+    } catch (err) {
+        res.status(500).json({ message: 'Error sending invite' });
+    }
+});
+
+// POST /api/guilds/accept-invite
+router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
+    const { messageId } = req.body;
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Fetch Message
+        const msgRes = await client.query(
+            `SELECT body, recipient_id FROM messages WHERE id = $1`,
+            [messageId]
+        );
+
+        if (msgRes.rows.length === 0) return res.status(404).json({ message: 'Message not found' });
+        if (msgRes.rows[0].recipient_id !== userId) return res.status(403).json({ message: 'Not your message' });
+
+        const body = msgRes.rows[0].body as GuildInviteBody;
+        if (!body.guildId) return res.status(400).json({ message: 'Invalid invite' });
+
+        // 2. Check if user is already in a guild
+        const inGuildCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
+        if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'You are already in a guild' });
+
+        // 3. Check guild capacity
+        const guildRes = await client.query('SELECT max_members, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [body.guildId]);
+        if (guildRes.rows.length === 0) return res.status(404).json({ message: 'Guild no longer exists' });
+        
+        if (parseInt(guildRes.rows[0].count) >= guildRes.rows[0].max_members) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Guild is full' });
+        }
+
+        // 4. Add member
+        await client.query(
+            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'MEMBER')`,
+            [body.guildId, userId]
+        );
+        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [body.guildId, userId]);
+
+        // 5. Delete Message
+        await client.query('DELETE FROM messages WHERE id = $1', [messageId]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Joined guild successfully' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to join guild' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/reject-invite
+router.post('/reject-invite', authenticateToken, async (req: any, res: any) => {
+    const { messageId } = req.body;
+    const userId = req.user.id;
+
+    try {
+        await pool.query(
+            `DELETE FROM messages WHERE id = $1 AND recipient_id = $2`,
+            [messageId, userId]
+        );
+        res.json({ message: 'Invite rejected' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to reject invite' });
+    }
+});
+
+// POST /api/guilds/join/:guildId
+router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
+    const guildId = parseInt(req.params.guildId);
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check if already in guild
+        const inGuild = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
+        if (inGuild.rows.length > 0) return res.status(400).json({ message: 'Already in a guild' });
+
+        // Check guild capacity and restrictions
+        const guildRes = await client.query('SELECT max_members, min_level, is_public, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
+        if (guildRes.rows.length === 0) return res.status(404).json({ message: 'Guild not found' });
+        
+        const guildInfo = guildRes.rows[0];
+
+        if (!guildInfo.is_public) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'This guild is closed for recruitment.' });
+        }
+
+        if (parseInt(guildInfo.count) >= guildInfo.max_members) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Guild is full' });
+        }
+
+        // Check level requirement
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        const charLevel = charRes.rows[0].data.level || 1;
+        
+        if (charLevel < guildInfo.min_level) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: `Level ${guildInfo.min_level} required to join.` });
+        }
+
+        await client.query(
+            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'RECRUIT')`,
+            [guildId, userId]
+        );
+        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Joined guild' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to join' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/leave
+router.post('/leave', authenticateToken, async (req: any, res: any) => {
+    const userId = req.user.id;
+    try {
+        const memRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memRes.rows.length === 0) return res.status(400).json({ message: 'Not in a guild' });
+        
+        if (memRes.rows[0].role === GuildRole.LEADER) {
+            // Check if last member
+            const countRes = await pool.query('SELECT COUNT(*) FROM guild_members WHERE guild_id = $1', [memRes.rows[0].guild_id]);
+            if (parseInt(countRes.rows[0].count) > 1) {
+                return res.status(400).json({ message: 'Leader cannot leave if there are other members. Transfer leadership or disband.' });
+            } else {
+                // Delete guild
+                await pool.query('DELETE FROM guilds WHERE id = $1', [memRes.rows[0].guild_id]);
+                await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [userId]);
+                return res.json({ message: 'Guild disbanded' });
+            }
+        }
+
+        await pool.query('DELETE FROM guild_members WHERE user_id = $1', [userId]);
+        await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [userId]);
+        res.json({ message: 'Left guild' });
+
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to leave' });
+    }
+});
+
+// POST /api/guilds/manage-member
+router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
+    const { targetUserId, action } = req.body; // action: 'kick' | 'promote' | 'demote'
+    const userId = req.user.id;
+
+    try {
+        // Auth check
+        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (senderRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        
+        const guildId = senderRes.rows[0].guild_id;
+        const senderRole = senderRes.rows[0].role;
+
+        const targetRes = await pool.query('SELECT role FROM guild_members WHERE user_id = $1 AND guild_id = $2', [targetUserId, guildId]);
+        if (targetRes.rows.length === 0) return res.status(404).json({ message: 'Target not in guild' });
+        const targetRole = targetRes.rows[0].role;
+
+        if (senderRole !== GuildRole.LEADER && senderRole !== GuildRole.OFFICER) return res.status(403).json({ message: 'No permission' });
+        
+        // Officers can't manage Leaders or other Officers
+        if (senderRole === GuildRole.OFFICER && (targetRole === GuildRole.LEADER || targetRole === GuildRole.OFFICER)) {
+            return res.status(403).json({ message: 'Insufficient rank' });
+        }
+
+        if (action === 'kick') {
+            await pool.query('DELETE FROM guild_members WHERE user_id = $1', [targetUserId]);
+            await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [targetUserId]);
+        } else if (action === 'promote') {
+            if (targetRole === GuildRole.RECRUIT) {
+                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE user_id = $1", [targetUserId]);
+            } else if (targetRole === GuildRole.MEMBER && senderRole === GuildRole.LEADER) {
+                await pool.query("UPDATE guild_members SET role = 'OFFICER' WHERE user_id = $1", [targetUserId]);
+            }
+        } else if (action === 'demote') {
+             if (targetRole === GuildRole.MEMBER) {
+                await pool.query("UPDATE guild_members SET role = 'RECRUIT' WHERE user_id = $1", [targetUserId]);
+            } else if (targetRole === GuildRole.OFFICER && senderRole === GuildRole.LEADER) {
+                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE user_id = $1", [targetUserId]);
+            }
+        }
+
         res.sendStatus(200);
-    } catch (e: any) {
-        res.status(400).json({ message: e.message });
+
+    } catch (err) {
+        res.status(500).json({ message: 'Action failed' });
+    }
+});
+
+// POST /api/guilds/bank
+router.post('/bank', authenticateToken, async (req: any, res: any) => {
+    const { type, currency, amount } = req.body; // type: 'DEPOSIT' (WITHDRAW disabled)
+    const userId = req.user.id;
+    const amountInt = parseInt(amount);
+
+    if (amountInt <= 0) return res.status(400).json({ message: 'Invalid amount' });
+    
+    // Prevent withdrawals
+    if (type !== 'DEPOSIT') {
+        return res.status(403).json({ message: 'Withdrawals are disabled' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check user
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const { guild_id } = memberRes.rows[0];
+
+        // Lock Character and Guild
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        let char: PlayerCharacter = charRes.rows[0].data;
+        
+        const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
+        let guildResources = guildRes.rows[0].resources;
+
+        // Perform Transaction (Only Deposit)
+        if (currency === 'gold') {
+            if (char.resources.gold < amountInt) return res.status(400).json({ message: 'Not enough gold' });
+            char.resources.gold -= amountInt;
+            guildResources.gold = (guildResources.gold || 0) + amountInt;
+        } else {
+            // Essence
+            if ((char.resources[currency as EssenceType] || 0) < amountInt) return res.status(400).json({ message: 'Not enough essence' });
+            (char.resources[currency as EssenceType] as number) -= amountInt;
+            guildResources[currency] = (guildResources[currency] || 0) + amountInt;
+        }
+
+        // Save Updates
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [guildResources, guild_id]);
+
+        // Log Transaction
+        await client.query(
+            `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, $3, $4, $5)`,
+            [guild_id, userId, type, currency, amountInt]
+        );
+
+        await client.query('COMMIT');
+        res.json({ character: char, guildResources });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Transaction failed' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/upgrade-building
+router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory'
+    const userId = req.user.id;
+
+    if (buildingType !== 'headquarters' && buildingType !== 'armory') return res.status(400).json({ message: 'Invalid building type' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check user role
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const { guild_id, role } = memberRes.rows[0];
+
+        if (!canManage(role)) return res.status(403).json({ message: 'Only leaders and officers can upgrade buildings' });
+
+        // Lock Guild
+        const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
+        const guild = guildRes.rows[0];
+        let buildings = guild.buildings || { headquarters: 0, armory: 0 };
+        const currentLevel = buildings[buildingType] || 0;
+
+        // Calculate Cost
+        const { gold, essenceType, essenceAmount } = getBuildingCost(buildingType, currentLevel);
+
+        // Check resources
+        const currentGold = guild.resources.gold || 0;
+        const currentEssence = guild.resources[essenceType] || 0;
+
+        if (currentGold < gold) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold in guild bank' });
+        }
+        if (currentEssence < essenceAmount) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough essence in guild bank' });
+        }
+
+        // Deduct Resources
+        guild.resources.gold -= gold;
+        guild.resources[essenceType] -= essenceAmount;
+
+        // Level Up
+        buildings[buildingType] = currentLevel + 1;
+
+        // Apply Effect (Headquarters: +1 Member Slot)
+        let maxMembers = guild.max_members;
+        if (buildingType === 'headquarters') {
+            maxMembers += 1;
+        }
+
+        // Save
+        await client.query('UPDATE guilds SET resources = $1, buildings = $2, max_members = $3 WHERE id = $4', 
+            [JSON.stringify(guild.resources), JSON.stringify(buildings), maxMembers, guild_id]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Building upgraded', buildings, resources: guild.resources, maxMembers });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
+    } finally {
+        client.release();
     }
 });
 
