@@ -3,6 +3,8 @@
 
 
 
+
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry } from './types';
 
 // Helper to determine API URL based on environment
@@ -563,6 +565,13 @@ export const api = {
         return fetchApi('/guilds/reject-invite', {
             method: 'POST',
             body: JSON.stringify({ messageId })
+        });
+    },
+
+    async updateGuild(description: string, crestUrl: string): Promise<void> {
+        return fetchApi('/guilds/update', {
+            method: 'POST',
+            body: JSON.stringify({ description, crestUrl })
         });
     },
 

@@ -1,3 +1,4 @@
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -636,6 +637,7 @@ export interface Guild {
     tag: string;
     leaderId: number;
     description: string;
+    crestUrl?: string; // Extended property
     resources: GuildResources;
     memberCount: number;
     maxMembers: number;

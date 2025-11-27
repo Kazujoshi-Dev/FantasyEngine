@@ -1,5 +1,4 @@
 
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -638,6 +637,7 @@ export interface Guild {
     tag: string;
     leaderId: number;
     description: string;
+    crestUrl?: string; // Extended property
     resources: GuildResources;
     memberCount: number;
     maxMembers: number;
@@ -756,6 +756,7 @@ export interface RankingPlayer {
     pvpLosses: number;
     pvpProtectionUntil: number;
     isOnline: boolean;
+    guildTag?: string; // Added guildTag
 }
 
 export interface AdminCharacterInfo {
@@ -865,4 +866,12 @@ export interface ItemSearchResult {
     item: ItemInstance;
     template: ItemTemplate;
     locations: ItemLocationInfo[];
+}
+
+export interface GuildRankingEntry {
+    id: number;
+    name: string;
+    tag: string;
+    memberCount: number;
+    totalLevel: number;
 }

@@ -1,5 +1,6 @@
 
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -241,6 +242,15 @@ export const initializeDatabase = async () => {
         if (!hasBuildingsColumn.rowCount) {
              console.log("MIGRATING SCHEMA: Adding 'buildings' column to 'guilds' table...");
              await client.query(`ALTER TABLE guilds ADD COLUMN buildings JSONB DEFAULT '{"headquarters": 0}';`);
+        }
+        
+        const hasCrestUrlColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guilds' AND column_name='crest_url';
+        `);
+        if (!hasCrestUrlColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'crest_url' column to 'guilds' table...");
+             await client.query(`ALTER TABLE guilds ADD COLUMN crest_url TEXT;`);
         }
 
         await client.query(`

@@ -2,6 +2,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -113,6 +115,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             tag: guildData.tag,
             leaderId: guildData.leader_id,
             description: guildData.description,
+            crestUrl: guildData.crest_url,
             resources: guildData.resources,
             memberCount: members.length,
             maxMembers: guildData.max_members,
@@ -210,6 +213,30 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         res.status(500).json({ message: 'Failed to create guild' });
     } finally {
         client.release();
+    }
+});
+
+// POST /api/guilds/update - Update description and crest
+router.post('/update', authenticateToken, async (req: any, res: any) => {
+    const { description, crestUrl } = req.body;
+    const userId = req.user.id;
+
+    try {
+        // Check permissions (Only Leader)
+        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        
+        const { guild_id, role } = memberRes.rows[0];
+        if (role !== GuildRole.LEADER) return res.status(403).json({ message: 'Only leader can update settings' });
+
+        await pool.query(
+            `UPDATE guilds SET description = $1, crest_url = $2 WHERE id = $3`,
+            [description, crestUrl, guild_id]
+        );
+
+        res.json({ message: 'Guild updated' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update guild' });
     }
 });
 
@@ -447,11 +474,16 @@ router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/bank
 router.post('/bank', authenticateToken, async (req: any, res: any) => {
-    const { type, currency, amount } = req.body; // type: 'DEPOSIT' | 'WITHDRAW'
+    const { type, currency, amount } = req.body; // type: 'DEPOSIT' (WITHDRAW disabled)
     const userId = req.user.id;
     const amountInt = parseInt(amount);
 
     if (amountInt <= 0) return res.status(400).json({ message: 'Invalid amount' });
+    
+    // Prevent withdrawals
+    if (type !== 'DEPOSIT') {
+        return res.status(403).json({ message: 'Withdrawals are disabled' });
+    }
 
     const client = await pool.connect();
     try {
@@ -460,12 +492,7 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
         // Check user
         const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
-        const { guild_id, role } = memberRes.rows[0];
-
-        // Check Permissions for Withdraw
-        if (type === 'WITHDRAW' && role !== GuildRole.LEADER && role !== GuildRole.OFFICER) {
-            return res.status(403).json({ message: 'Only leaders and officers can withdraw' });
-        }
+        const { guild_id } = memberRes.rows[0];
 
         // Lock Character and Guild
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
@@ -474,28 +501,16 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
         const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         let guildResources = guildRes.rows[0].resources;
 
-        // Perform Transaction
-        if (type === 'DEPOSIT') {
-            if (currency === 'gold') {
-                if (char.resources.gold < amountInt) return res.status(400).json({ message: 'Not enough gold' });
-                char.resources.gold -= amountInt;
-                guildResources.gold = (guildResources.gold || 0) + amountInt;
-            } else {
-                // Essence
-                if ((char.resources[currency as EssenceType] || 0) < amountInt) return res.status(400).json({ message: 'Not enough essence' });
-                (char.resources[currency as EssenceType] as number) -= amountInt;
-                guildResources[currency] = (guildResources[currency] || 0) + amountInt;
-            }
-        } else { // WITHDRAW
-             if (currency === 'gold') {
-                if ((guildResources.gold || 0) < amountInt) return res.status(400).json({ message: 'Guild bank low on gold' });
-                guildResources.gold -= amountInt;
-                char.resources.gold += amountInt;
-            } else {
-                if ((guildResources[currency] || 0) < amountInt) return res.status(400).json({ message: 'Guild bank low on essence' });
-                guildResources[currency] -= amountInt;
-                (char.resources[currency as EssenceType] as number) += amountInt;
-            }
+        // Perform Transaction (Only Deposit)
+        if (currency === 'gold') {
+            if (char.resources.gold < amountInt) return res.status(400).json({ message: 'Not enough gold' });
+            char.resources.gold -= amountInt;
+            guildResources.gold = (guildResources.gold || 0) + amountInt;
+        } else {
+            // Essence
+            if ((char.resources[currency as EssenceType] || 0) < amountInt) return res.status(400).json({ message: 'Not enough essence' });
+            (char.resources[currency as EssenceType] as number) -= amountInt;
+            guildResources[currency] = (guildResources[currency] || 0) + amountInt;
         }
 
         // Save Updates

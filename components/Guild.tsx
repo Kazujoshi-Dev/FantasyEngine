@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -12,6 +9,7 @@ import { ShieldIcon } from './icons/ShieldIcon';
 import { StarIcon } from './icons/StarIcon';
 import { MessageSquareIcon } from './icons/MessageSquareIcon';
 import { HomeIcon } from './icons/HomeIcon';
+import { SettingsIcon } from './icons/SettingsIcon';
 import { io, Socket } from 'socket.io-client';
 import { rarityStyles } from './shared/ItemSlot';
 
@@ -89,10 +87,19 @@ const GuildChat: React.FC<{ guildId: number, initialMessages: GuildChatMessage[]
     );
 };
 
+const essenceToRarityMap: Record<EssenceType, any> = {
+    [EssenceType.Common]: rarityStyles['Common'],
+    [EssenceType.Uncommon]: rarityStyles['Uncommon'],
+    [EssenceType.Rare]: rarityStyles['Rare'],
+    [EssenceType.Epic]: rarityStyles['Epic'],
+    [EssenceType.Legendary]: rarityStyles['Legendary'],
+};
+
 const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }> = ({ guild, onTransaction }) => {
+    const { t } = useTranslation();
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState<'gold' | EssenceType>('gold');
-    const [type, setType] = useState<'DEPOSIT' | 'WITHDRAW'>('DEPOSIT');
+    const [type, setType] = useState<'DEPOSIT'>('DEPOSIT');
     
     const handleSubmit = async () => {
         const val = parseInt(amount);
@@ -112,43 +119,40 @@ const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }> = ({ 
                 <h3 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2"><CoinsIcon className="h-5 w-5"/> Zasoby Gildii</h3>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="flex justify-between border-b border-slate-700 pb-2">
-                        <span className="text-gray-400">Złoto</span>
+                        <span className="text-gray-400">{t('resources.gold')}</span>
                         <span className="font-mono font-bold text-amber-400">{guild.resources.gold.toLocaleString()}</span>
                     </div>
                     {Object.values(EssenceType).map(et => (
                         <div key={et} className="flex justify-between border-b border-slate-700 pb-2">
-                            <span className="text-gray-400">{et}</span>
-                            <span className="font-mono font-bold text-sky-400">{guild.resources[et as keyof typeof guild.resources]}</span>
+                            <span className={essenceToRarityMap[et].text}>{t(`resources.${et}`)}</span>
+                            <span className="font-mono font-bold text-white">{guild.resources[et as keyof typeof guild.resources]}</span>
                         </div>
                     ))}
                 </div>
                 
                 <div className="mt-6 space-y-3">
-                    <div className="flex gap-2 bg-slate-900/50 p-1 rounded-lg">
-                        <button onClick={() => setType('DEPOSIT')} className={`flex-1 py-2 rounded ${type === 'DEPOSIT' ? 'bg-green-700 text-white' : 'text-gray-400 hover:bg-slate-700'}`}>Wpłać</button>
-                        <button onClick={() => setType('WITHDRAW')} className={`flex-1 py-2 rounded ${type === 'WITHDRAW' ? 'bg-red-700 text-white' : 'text-gray-400 hover:bg-slate-700'}`}>Wypłać</button>
-                    </div>
+                    <p className="text-sm text-gray-400 mb-2">Wpłać zasoby</p>
                     <select className="w-full bg-slate-700 p-2 rounded border border-slate-600" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
-                        <option value="gold">Złoto</option>
-                        {Object.values(EssenceType).map(e => <option key={e} value={e}>{e}</option>)}
+                        <option value="gold">{t('resources.gold')}</option>
+                        {Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}
                     </select>
                     <input type="number" className="w-full bg-slate-700 p-2 rounded border border-slate-600" placeholder="Ilość" value={amount} onChange={e => setAmount(e.target.value)} />
-                    <button onClick={handleSubmit} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold">Wykonaj</button>
+                    <button onClick={handleSubmit} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold">Wpłać</button>
                 </div>
             </div>
             
             <div className="bg-slate-800/50 p-4 rounded-lg flex flex-col h-[400px]">
                 <h3 className="text-lg font-bold text-gray-300 mb-2">Historia Transakcji</h3>
                 <div className="flex-grow overflow-y-auto space-y-2 pr-2">
-                    {(guild.transactions || []).map(t => (
-                        <div key={t.id} className="text-xs bg-slate-900/30 p-2 rounded flex justify-between items-center">
+                    {(guild.transactions || []).map(tx => (
+                        <div key={tx.id} className="text-xs bg-slate-900/30 p-2 rounded flex justify-between items-center">
                             <div>
-                                <span className={t.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'}>{t.type === 'DEPOSIT' ? 'Wpłata' : 'Wypłata'}</span>
+                                <span className={tx.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'}>{tx.type === 'DEPOSIT' ? 'Wpłata' : 'Wypłata'}</span>
                                 <span className="text-gray-400 mx-2">|</span>
-                                <span className="font-bold text-gray-200">{t.characterName}</span>
+                                <span className="font-bold text-gray-200">{tx.characterName}</span>
                             </div>
                             <div className="font-mono">
-                                {t.amount} <span className="text-gray-500">{t.currency === 'gold' ? 'Złoto' : 'Ess.'}</span>
+                                {tx.amount} <span className="text-gray-500">{tx.currency === 'gold' ? t('resources.gold') : t(`resources.${tx.currency as EssenceType}`)}</span>
                             </div>
                         </div>
                     ))}
@@ -238,14 +242,6 @@ const getBuildingCost = (level: number) => {
     return { gold, essenceType, essenceAmount };
 }
 
-const essenceToRarityMap: Record<EssenceType, any> = {
-    [EssenceType.Common]: rarityStyles['Common'],
-    [EssenceType.Uncommon]: rarityStyles['Uncommon'],
-    [EssenceType.Rare]: rarityStyles['Rare'],
-    [EssenceType.Epic]: rarityStyles['Epic'],
-    [EssenceType.Legendary]: rarityStyles['Legendary'],
-};
-
 const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
     const { t } = useTranslation();
     const canManage = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
@@ -306,11 +302,84 @@ const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined
     );
 };
 
+const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }> = ({ guild, onUpdate }) => {
+    const [desc, setDesc] = useState(guild.description || '');
+    const [crest, setCrest] = useState(guild.crestUrl || '');
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await api.updateGuild(desc, crest);
+            onUpdate();
+            alert('Zapisano ustawienia.');
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDisband = async () => {
+        if (!confirm('Czy na pewno chcesz ROZWIĄZAĆ gildię? Ta operacja jest nieodwracalna!')) return;
+        try {
+            await api.leaveGuild(); // For leader this means disband
+            window.location.reload(); // Refresh to reset state
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    return (
+        <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700">
+            <h3 className="text-xl font-bold text-white mb-4">Ustawienia Gildii</h3>
+            
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Opis Gildii</label>
+                    <textarea 
+                        className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white h-32" 
+                        value={desc}
+                        onChange={e => setDesc(e.target.value)}
+                        placeholder="Opisz swoją gildię..."
+                    />
+                </div>
+                
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Herb Gildii (URL obrazka)</label>
+                    <input 
+                        type="text"
+                        className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" 
+                        value={crest}
+                        onChange={e => setCrest(e.target.value)}
+                        placeholder="https://example.com/crest.png"
+                    />
+                    {crest && (
+                        <div className="mt-2">
+                            <p className="text-xs text-gray-500 mb-1">Podgląd:</p>
+                            <img src={crest} alt="Crest Preview" className="h-24 w-24 object-contain border border-slate-600 bg-slate-900 rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        </div>
+                    )}
+                </div>
+
+                <div className="pt-4 border-t border-slate-700 flex justify-between items-center">
+                    <button onClick={handleDisband} className="px-4 py-2 bg-red-900/80 hover:bg-red-800 text-red-200 rounded font-bold">
+                        Rozwiąż Gildię
+                    </button>
+                    <button onClick={handleSave} disabled={saving} className="px-6 py-2 bg-green-700 hover:bg-green-600 text-white rounded font-bold disabled:bg-slate-600">
+                        {saving ? 'Zapisywanie...' : 'Zapisz'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const Guild: React.FC = () => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'BANK' | 'CHAT'>('OVERVIEW');
+    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'BANK' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
 
     // Create Form State
@@ -411,6 +480,8 @@ export const Guild: React.FC = () => {
         );
     }
 
+    const isLeader = guild.myRole === GuildRole.LEADER;
+
     return (
         <ContentPanel title={`${guild.name} [${guild.tag}]`}>
             <div className="flex border-b border-slate-700 mb-6 gap-2 overflow-x-auto">
@@ -419,6 +490,7 @@ export const Guild: React.FC = () => {
                 <button onClick={() => setTab('BUILDINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BUILDINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Budynki</button>
                 <button onClick={() => setTab('BANK')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BANK' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Bank</button>
                 <button onClick={() => setTab('CHAT')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'CHAT' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Czat</button>
+                {isLeader && <button onClick={() => setTab('SETTINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'SETTINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Ustawienia</button>}
             </div>
 
             {tab === 'OVERVIEW' && (
@@ -432,14 +504,23 @@ export const Guild: React.FC = () => {
                             <p className="flex justify-between"><span className="text-gray-500">Założona:</span> <span className="text-white">{new Date(guild.createdAt).toLocaleDateString()}</span></p>
                         </div>
                         <div className="mt-6 pt-6 border-t border-slate-700">
-                            <button onClick={handleLeave} className="w-full py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-200 rounded">
-                                {guild.myRole === GuildRole.LEADER ? 'Rozwiąż Gildię' : 'Opuść Gildię'}
-                            </button>
+                            {/* Member leave button only, disband moved to settings */}
+                            {!isLeader && (
+                                <button onClick={handleLeave} className="w-full py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-200 rounded">
+                                    Opuść Gildię
+                                </button>
+                            )}
                         </div>
                     </div>
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-200 mb-4 flex items-center gap-2"><MessageSquareIcon className="h-5 w-5"/> Szybki Czat</h3>
-                        <GuildChat guildId={guild.id} initialMessages={guild.chatHistory || []} />
+                    <div className="flex flex-col items-center justify-center bg-slate-900/20 p-6 rounded-xl border border-slate-700/30">
+                        {guild.crestUrl ? (
+                            <img src={guild.crestUrl} alt="Guild Crest" className="max-w-full max-h-64 object-contain drop-shadow-xl" />
+                        ) : (
+                            <div className="flex flex-col items-center text-gray-500">
+                                <ShieldIcon className="h-32 w-32 mb-2 opacity-20" />
+                                <p className="text-sm">Brak herbu gildii</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -451,6 +532,8 @@ export const Guild: React.FC = () => {
             {tab === 'BANK' && <GuildBank guild={guild} onTransaction={fetchGuild} />}
 
             {tab === 'CHAT' && <GuildChat guildId={guild.id} initialMessages={guild.chatHistory || []} />}
+
+            {tab === 'SETTINGS' && isLeader && <GuildSettings guild={guild} onUpdate={fetchGuild} />}
 
         </ContentPanel>
     );
