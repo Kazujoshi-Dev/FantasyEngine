@@ -1,7 +1,6 @@
-
 import express from 'express';
 import { pool } from '../db.js';
-import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData } from '../types.js';
+import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -296,25 +295,359 @@ router.post('/messages/global', async (req, res) => {
     }
 });
 
+// Helper type for duplication check
+interface ItemRef {
+    uniqueId: string;
+    templateId: string;
+    userId: number;
+    ownerName: string;
+    location: string;
+    index?: number;
+    slot?: string;
+    item?: ItemInstance;
+}
+
 router.get('/audit/duplicates', async (req, res) => {
-    // This is a complex query, a full implementation would be needed here.
-    res.status(501).json([]);
+    try {
+        // Fetch all characters and Item Templates for name resolution
+        const charsRes = await pool.query("SELECT user_id, data FROM characters");
+        const templatesRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates = templatesRes.rows[0]?.data || [];
+
+        const itemMap = new Map<string, ItemRef[]>();
+
+        // Scan all items
+        for (const row of charsRes.rows) {
+            const char: PlayerCharacter = row.data;
+            const userId = row.user_id;
+            const ownerName = char.name;
+
+            // Scan Inventory
+            if (char.inventory) {
+                char.inventory.forEach((item, idx) => {
+                    if (!item) return;
+                    const ref: ItemRef = {
+                        uniqueId: item.uniqueId,
+                        templateId: item.templateId,
+                        userId,
+                        ownerName,
+                        location: `inventory[${idx}]`
+                    };
+                    const existing = itemMap.get(item.uniqueId) || [];
+                    existing.push(ref);
+                    itemMap.set(item.uniqueId, existing);
+                });
+            }
+
+            // Scan Equipment
+            if (char.equipment) {
+                Object.entries(char.equipment).forEach(([slot, item]) => {
+                    if (item) {
+                        const ref: ItemRef = {
+                            uniqueId: item.uniqueId,
+                            templateId: item.templateId,
+                            userId,
+                            ownerName,
+                            location: `equipment.${slot}`
+                        };
+                        const existing = itemMap.get(item.uniqueId) || [];
+                        existing.push(ref);
+                        itemMap.set(item.uniqueId, existing);
+                    }
+                });
+            }
+        }
+
+        // Filter for duplicates
+        const duplicates: DuplicationAuditResult[] = [];
+        for (const [uniqueId, refs] of itemMap.entries()) {
+            if (refs.length > 1) {
+                const template = templates.find((t: any) => t.id === refs[0].templateId);
+                const itemName = template ? template.name : 'Unknown Item';
+                const gender = template ? template.gender : 'Masculine';
+
+                duplicates.push({
+                    uniqueId,
+                    templateId: refs[0].templateId,
+                    itemName,
+                    gender,
+                    instances: refs.map(r => ({
+                        ownerName: r.ownerName,
+                        location: r.location,
+                        userId: r.userId
+                    }))
+                });
+            }
+        }
+
+        res.json(duplicates);
+    } catch (err: any) {
+        console.error("Audit duplicates failed", err);
+        res.status(500).json({ message: err.message });
+    }
 });
 
 router.post('/resolve-duplicates', async (req, res) => {
-    res.status(501).json({ resolvedSets: 0, itemsDeleted: 0 });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Re-scan to get current state under lock
+        const charsRes = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+        const itemMap = new Map<string, ItemRef[]>();
+        
+        // Map user_id to character data for quick updates
+        const charDataMap = new Map<number, PlayerCharacter>();
+
+        for (const row of charsRes.rows) {
+            const char: PlayerCharacter = row.data;
+            const userId = row.user_id;
+            const ownerName = char.name;
+            charDataMap.set(userId, char);
+
+            // Scan Inventory
+            if (char.inventory) {
+                char.inventory.forEach((item, idx) => {
+                    if (!item) return;
+                    itemMap.get(item.uniqueId)?.push({
+                        uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'inventory', index: idx, item
+                    }) || itemMap.set(item.uniqueId, [{
+                        uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'inventory', index: idx, item
+                    } as ItemRef]);
+                });
+            }
+
+            // Scan Equipment
+            if (char.equipment) {
+                Object.entries(char.equipment).forEach(([slot, item]) => {
+                    if (item) {
+                        itemMap.get(item.uniqueId)?.push({
+                            uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'equipment', slot, item
+                        }) || itemMap.set(item.uniqueId, [{
+                            uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'equipment', slot, item
+                        } as ItemRef]);
+                    }
+                });
+            }
+        }
+
+        let resolvedSets = 0;
+        let itemsDeleted = 0;
+        const usersToUpdate = new Set<number>();
+
+        for (const [uniqueId, refs] of itemMap.entries()) {
+            if (refs.length > 1) {
+                resolvedSets++;
+                // Keep the first one found (arbitrary but safe)
+                const keeper = refs[0];
+                const toRemove = refs.slice(1);
+
+                for (const removeRef of toRemove) {
+                    const char = charDataMap.get(removeRef.userId);
+                    if (!char) continue;
+
+                    if (removeRef.location === 'inventory' && typeof removeRef.index === 'number') {
+                        // Mark for removal (filter later or splice carefully if doing descending order, but filter by uniqueId is safer)
+                        char.inventory = char.inventory.filter(i => i.uniqueId !== uniqueId);
+                    } else if (removeRef.location === 'equipment' && removeRef.slot) {
+                        (char.equipment as any)[removeRef.slot] = null;
+                    }
+                    itemsDeleted++;
+                    usersToUpdate.add(removeRef.userId);
+                }
+            }
+        }
+
+        // Commit updates
+        for (const userId of usersToUpdate) {
+            const char = charDataMap.get(userId);
+            await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [char, userId]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ resolvedSets, itemsDeleted });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("Resolve duplicates failed", err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 router.get('/audit/orphans', async (req, res) => {
-    res.status(501).json([]);
+    try {
+        const charsRes = await pool.query("SELECT user_id, data FROM characters");
+        const templatesRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates = templatesRes.rows[0]?.data || [];
+        const validTemplateIds = new Set(templates.map((t: any) => t.id));
+
+        const orphansResults: OrphanAuditResult[] = [];
+
+        for (const row of charsRes.rows) {
+            const char: PlayerCharacter = row.data;
+            const orphans: any[] = [];
+
+            // Check Inventory
+            char.inventory?.forEach((item, idx) => {
+                if (item && !validTemplateIds.has(item.templateId)) {
+                    orphans.push({
+                        uniqueId: item.uniqueId,
+                        templateId: item.templateId,
+                        location: `inventory[${idx}]`
+                    });
+                }
+            });
+
+            // Check Equipment
+            if (char.equipment) {
+                Object.entries(char.equipment).forEach(([slot, item]) => {
+                    if (item && !validTemplateIds.has(item.templateId)) {
+                        orphans.push({
+                            uniqueId: item.uniqueId,
+                            templateId: item.templateId,
+                            location: `equipment.${slot}`
+                        });
+                    }
+                });
+            }
+
+            if (orphans.length > 0) {
+                orphansResults.push({
+                    characterName: char.name,
+                    userId: row.user_id,
+                    orphans
+                });
+            }
+        }
+
+        res.json(orphansResults);
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 router.post('/resolve-orphans', async (req, res) => {
-    res.status(501).json({ charactersAffected: 0, itemsRemoved: 0 });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charsRes = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+        const templatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates = templatesRes.rows[0]?.data || [];
+        const validTemplateIds = new Set(templates.map((t: any) => t.id));
+
+        let charactersAffected = 0;
+        let itemsRemoved = 0;
+
+        for (const row of charsRes.rows) {
+            let char: PlayerCharacter = row.data;
+            let modified = false;
+
+            // Clean Inventory
+            const initialInvCount = char.inventory?.length || 0;
+            char.inventory = (char.inventory || []).filter(item => item && validTemplateIds.has(item.templateId));
+            if (char.inventory.length !== initialInvCount) {
+                itemsRemoved += (initialInvCount - char.inventory.length);
+                modified = true;
+            }
+
+            // Clean Equipment
+            if (char.equipment) {
+                Object.entries(char.equipment).forEach(([slot, item]) => {
+                    if (item && !validTemplateIds.has(item.templateId)) {
+                        (char.equipment as any)[slot] = null;
+                        itemsRemoved++;
+                        modified = true;
+                    }
+                });
+            }
+
+            if (modified) {
+                await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [char, row.user_id]);
+                charactersAffected++;
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ charactersAffected, itemsRemoved });
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 router.get('/find-item/:uniqueId', async (req, res) => {
-    res.status(501).json(null);
+    const { uniqueId } = req.params;
+    try {
+        const charsRes = await pool.query("SELECT user_id, data FROM characters");
+        const templatesRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates = templatesRes.rows[0]?.data || [];
+
+        let foundItem: ItemInstance | null = null;
+        let foundTemplate: any = null;
+        const locations: ItemSearchResult['locations'] = [];
+
+        for (const row of charsRes.rows) {
+            const char: PlayerCharacter = row.data;
+            
+            // Check Inventory
+            char.inventory?.forEach((item, idx) => {
+                if (item && item.uniqueId === uniqueId) {
+                    foundItem = item;
+                    locations.push({
+                        ownerName: char.name,
+                        userId: row.user_id,
+                        location: `inventory[${idx}]`
+                    });
+                }
+            });
+
+            // Check Equipment
+            if (char.equipment) {
+                Object.entries(char.equipment).forEach(([slot, item]) => {
+                    if (item && item.uniqueId === uniqueId) {
+                        foundItem = item;
+                        locations.push({
+                            ownerName: char.name,
+                            userId: row.user_id,
+                            location: `equipment.${slot}`
+                        });
+                    }
+                });
+            }
+        }
+
+        // Also check Market Listings
+        const marketRes = await pool.query("SELECT id, seller_id, item_data FROM market_listings WHERE item_data->>'uniqueId' = $1", [uniqueId]);
+        for(const row of marketRes.rows) {
+             foundItem = row.item_data;
+             // Get seller name
+             const sellerRes = await pool.query("SELECT username FROM users WHERE id = $1", [row.seller_id]);
+             const sellerName = sellerRes.rows[0]?.username || 'Unknown';
+             locations.push({
+                 ownerName: sellerName,
+                 userId: row.seller_id,
+                 location: `market_listing[${row.id}]`
+             });
+        }
+
+        if (foundItem) {
+            foundTemplate = templates.find((t: any) => t.id === (foundItem as any).templateId);
+            res.json({
+                item: foundItem,
+                template: foundTemplate,
+                locations
+            });
+        } else {
+            res.status(404).json({ message: 'Item not found' });
+        }
+
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 router.post('/audit/fix-characters', async (req, res) => {
