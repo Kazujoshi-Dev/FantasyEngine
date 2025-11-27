@@ -1,6 +1,4 @@
 
-
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -33,12 +31,15 @@ router.get('/', async (req: any, res: any) => {
                 COALESCE((c.data->>'pvpWins')::int, 0) as "pvpWins",
                 COALESCE((c.data->>'pvpLosses')::int, 0) as "pvpLosses",
                 COALESCE((c.data->>'pvpProtectionUntil')::bigint, 0) as "pvpProtectionUntil",
+                g.tag as "guildTag",
                 EXISTS (
                     SELECT 1 
                     FROM sessions s 
                     WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes'
                 ) as "isOnline"
             FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
         `);
 
         const rankingData: RankingPlayer[] = result.rows;

@@ -1,4 +1,3 @@
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -664,14 +663,6 @@ export interface GuildInviteBody {
     guildId: number;
     guildName: string;
 }
-
-export interface GuildRankingEntry {
-    id: number;
-    name: string;
-    tag: string;
-    totalLevel: number;
-    memberCount: number;
-}
 // --- End Guild System Types ---
 
 export interface PlayerCharacter {
@@ -763,6 +754,7 @@ export interface RankingPlayer {
     pvpLosses: number;
     pvpProtectionUntil: number;
     isOnline: boolean;
+    guildTag?: string; // Added guildTag
 }
 
 export interface AdminCharacterInfo {
@@ -872,4 +864,12 @@ export interface ItemSearchResult {
     item: ItemInstance;
     template: ItemTemplate;
     locations: ItemLocationInfo[];
+}
+
+export interface GuildRankingEntry {
+    id: number;
+    name: string;
+    tag: string;
+    memberCount: number;
+    totalLevel: number;
 }
