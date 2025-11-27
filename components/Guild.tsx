@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -23,8 +21,7 @@ const rolePriority = {
     [GuildRole.RECRUIT]: 0
 };
 
-const GuildChat: React.FC<{ guildId: number, initialMessages: GuildChatMessage[] }> = ({ guildId, initialMessages }) => {
-    const [messages, setMessages] = useState<GuildChatMessage[]>(initialMessages);
+const GuildChat: React.FC<{ guildId: number, messages: GuildChatMessage[], onMessageReceived: (msg: GuildChatMessage) => void }> = ({ guildId, messages, onMessageReceived }) => {
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState<Socket | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,7 +37,7 @@ const GuildChat: React.FC<{ guildId: number, initialMessages: GuildChatMessage[]
         });
 
         newSocket.on('receive_guild_message', (msg: GuildChatMessage) => {
-            setMessages(prev => [...prev, msg]);
+            onMessageReceived(msg);
         });
 
         setSocket(newSocket);
@@ -48,7 +45,7 @@ const GuildChat: React.FC<{ guildId: number, initialMessages: GuildChatMessage[]
         return () => {
             newSocket.disconnect();
         };
-    }, [guildId]);
+    }, [guildId]); // Removed onMessageReceived dependency to prevent reconnect loops if parent function reference changes unsteadily (though usually fine)
 
     useEffect(() => {
         if(scrollRef.current) {
@@ -571,6 +568,20 @@ export const Guild: React.FC = () => {
         }
     };
 
+    // Callback to update local state when a new message arrives via Socket
+    const handleNewChatMessage = (msg: GuildChatMessage) => {
+        setGuild(prev => {
+            if (!prev) return null;
+            // Avoid duplicates
+            if (prev.chatHistory?.some(m => m.id === msg.id)) return prev;
+            
+            return {
+                ...prev,
+                chatHistory: [...(prev.chatHistory || []), msg]
+            };
+        });
+    };
+
     if (loading) return <ContentPanel title={t('guild.title')}><p className="text-gray-400">Ładowanie...</p></ContentPanel>;
 
     if (!guild) {
@@ -666,7 +677,7 @@ export const Guild: React.FC = () => {
 
             {tab === 'BANK' && <GuildBank guild={guild} onTransaction={fetchGuild} />}
 
-            {tab === 'CHAT' && <GuildChat guildId={guild.id} initialMessages={guild.chatHistory || []} />}
+            {tab === 'CHAT' && <GuildChat guildId={guild.id} messages={guild.chatHistory || []} onMessageReceived={handleNewChatMessage} />}
 
             {tab === 'SETTINGS' && isLeader && <GuildSettings guild={guild} onUpdate={fetchGuild} />}
 
