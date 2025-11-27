@@ -8,6 +8,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember } from '../types';
@@ -361,6 +363,7 @@ const CombatLogRow: React.FC<{
             {renderName(log.defender)}
             <span> {t('expedition.dealing')} </span>
             <span className="font-bold text-white">{log.damage}</span>
+            {log.bonusDamage ? <span className="text-xs ml-1 text-gray-400">({(log.damage || 0) - log.bonusDamage} + <span className="text-pink-400 font-bold">{log.bonusDamage}</span>)</span> : null}
             <span> {t('expedition.damage')}. {critText} {damageReducedText}</span>
             {stealText}
         </p>

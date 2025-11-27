@@ -249,7 +249,7 @@ export const performAttack = <
                 if (attackerIsPlayer) {
                     const bonusDamage = Math.floor((attacker.stats as CharacterStats).maxMana * 0.5);
                     arcaneMissileBonusDamage = bonusDamage;
-                    logs.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'arcaneMissileBonus', damage: bonusDamage, ...getHealthState(attacker, defender) });
+                    // Removed log entry here, moved to bonusDamage field in main log
                 }
                 break;
             case MagicAttackType.LifeDrain:
@@ -293,6 +293,7 @@ export const performAttack = <
         turn, attacker: attacker.name, defender: defender.name,
         action: useMagicAttack ? 'magicAttack' : 'attacks',
         damage: totalDamage,
+        bonusDamage: arcaneMissileBonusDamage > 0 ? arcaneMissileBonusDamage : undefined,
         isCrit,
         damageReduced: damageReduced > 0 ? damageReduced : undefined,
         healthGained: healthGained > 0 ? healthGained : undefined,
