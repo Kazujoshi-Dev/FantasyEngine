@@ -1,4 +1,5 @@
 
+
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -6,11 +7,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cron from 'node-cron';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 import { pool, initializeDatabase } from './db.js';
 import { cleanupOldTavernMessages } from './logic/tasks.js';
 import { calculateDerivedStatsOnServer } from './logic/stats.js';
-import { PlayerCharacter } from './types.js';
+import { PlayerCharacter, GuildRole } from './types.js';
 
 // Import all route handlers
 import authRoutes from './routes/auth.js';
@@ -27,6 +30,7 @@ import adminRoutes from './routes/admin.js';
 import huntingRoutes from './routes/hunting.js';
 import uploadRoutes from './routes/upload.js';
 import publicRoutes from './routes/public.js';
+import guildRoutes from './routes/guilds.js';
 
 
 dotenv.config();
@@ -43,6 +47,19 @@ declare global {
 }
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Allow all origins for simplicity in this setup, secure in prod
+        methods: ["GET", "POST"]
+    }
+});
+
+// Attach socket instance to request for route usage
+app.use((req: any, res, next) => {
+    req.io = io;
+    next();
+});
 
 app.use(cors() as any);
 app.use(express.json({ limit: '10mb' }) as any);
@@ -63,8 +80,76 @@ app.use('/api/market', marketRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/hunting', huntingRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/guilds', guildRoutes);
 // This must be the last API route because it's a broad catch-all for /character, /characters/* etc.
 app.use('/api', characterRoutes);
+
+
+// ===================================================================================
+//                            SOCKET.IO HANDLING
+// ===================================================================================
+io.on('connection', (socket) => {
+    // Join guild room
+    socket.on('join_guild', async (guildId: number, token: string) => {
+        // Basic validation: check if token user belongs to guildId
+        // For simplicity, we trust the client sends correct room, but in prod verify token -> user -> guild
+        try {
+            const res = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+            if(res.rows.length > 0) {
+                const userId = res.rows[0].user_id;
+                const memberRes = await pool.query('SELECT 1 FROM guild_members WHERE user_id = $1 AND guild_id = $2', [userId, guildId]);
+                if (memberRes.rows.length > 0) {
+                    socket.join(`guild_${guildId}`);
+                }
+            }
+        } catch (e) {
+            console.error('Socket Join Error', e);
+        }
+    });
+
+    socket.on('send_guild_message', async (data: { guildId: number, content: string, token: string }) => {
+        try {
+            const { guildId, content, token } = data;
+            const res = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+            if(res.rows.length === 0) return;
+            const userId = res.rows[0].user_id;
+
+            // Verify membership & Get Character Name
+            const charRes = await pool.query(`
+                SELECT c.data->>'name' as name, gm.role 
+                FROM characters c 
+                JOIN guild_members gm ON c.user_id = gm.user_id 
+                WHERE c.user_id = $1 AND gm.guild_id = $2
+            `, [userId, guildId]);
+
+            if (charRes.rows.length === 0) return;
+
+            const { name, role } = charRes.rows[0];
+
+            // Insert into DB
+            const insertRes = await pool.query(`
+                INSERT INTO guild_chat (guild_id, user_id, content) 
+                VALUES ($1, $2, $3) 
+                RETURNING id, created_at
+            `, [guildId, userId, content]);
+
+            const msg = {
+                id: insertRes.rows[0].id,
+                userId,
+                characterName: name,
+                role: role as GuildRole,
+                content,
+                timestamp: insertRes.rows[0].created_at
+            };
+
+            // Broadcast to room
+            io.to(`guild_${guildId}`).emit('receive_guild_message', msg);
+
+        } catch (e) {
+            console.error('Socket Send Error', e);
+        }
+    });
+});
 
 
 // ===================================================================================
@@ -97,7 +182,7 @@ app.use(((err: any, req: any, res: any, next: any) => {
 // ===================================================================================
 initializeDatabase().then(() => {
     const portNumber = parseInt(process.env.PORT || '3001', 10);
-    app.listen(portNumber, '0.0.0.0', () => {
+    httpServer.listen(portNumber, '0.0.0.0', () => {
         console.log(`Server is running on port ${portNumber}`);
     });
     // Set up periodic cleanup for the tavern chat

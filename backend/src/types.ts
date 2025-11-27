@@ -18,6 +18,7 @@ export enum Tab {
   Options,
   University,
   Hunting,
+  Guild,
 }
 
 export enum Race {
@@ -593,6 +594,78 @@ export interface HuntingParty {
 }
 // --- End Hunting System Types ---
 
+// --- Guild System Types ---
+export enum GuildRole {
+    LEADER = 'LEADER',
+    OFFICER = 'OFFICER',
+    MEMBER = 'MEMBER',
+    RECRUIT = 'RECRUIT',
+}
+
+export interface GuildMember {
+    userId: number;
+    name: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+    role: GuildRole;
+    joinedAt: string;
+    isOnline?: boolean;
+}
+
+export interface GuildTransaction {
+    id: number;
+    userId: number;
+    characterName: string;
+    type: 'DEPOSIT' | 'WITHDRAW';
+    currency: 'gold' | EssenceType;
+    amount: number;
+    timestamp: string;
+}
+
+export interface GuildResources {
+    gold: number;
+    commonEssence: number;
+    uncommonEssence: number;
+    rareEssence: number;
+    epicEssence: number;
+    legendaryEssence: number;
+}
+
+export interface Guild {
+    id: number;
+    name: string;
+    tag: string;
+    leaderId: number;
+    description: string;
+    resources: GuildResources;
+    memberCount: number;
+    maxMembers: number;
+    createdAt: string;
+    isPublic: boolean;
+    minLevel: number;
+    // Extended properties
+    members?: GuildMember[];
+    transactions?: GuildTransaction[];
+    chatHistory?: GuildChatMessage[];
+    myRole?: GuildRole;
+}
+
+export interface GuildChatMessage {
+    id: string; // UUID or simple generated ID
+    userId: number;
+    characterName: string;
+    role: GuildRole;
+    content: string;
+    timestamp: string;
+}
+
+export interface GuildInviteBody {
+    guildId: number;
+    guildName: string;
+}
+// --- End Guild System Types ---
+
 export interface PlayerCharacter {
   id?: number; // User ID
   username?: string;
@@ -628,6 +701,7 @@ export interface PlayerCharacter {
     language?: Language;
   };
   learnedSkills?: string[];
+  guildId?: number; // Added guildId
 }
 
 export interface TraderSettings {
@@ -692,7 +766,7 @@ export interface AdminCharacterInfo {
     gold: number;
 }
 
-export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system';
+export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite';
 
 export interface PlayerMessageBody {
     content: string;
@@ -708,7 +782,7 @@ export interface MarketNotificationBody {
 }
 
 
-export type MessageBody = PvpRewardSummary | PlayerMessageBody | ExpeditionRewardSummary | MarketNotificationBody;
+export type MessageBody = PvpRewardSummary | PlayerMessageBody | ExpeditionRewardSummary | MarketNotificationBody | GuildInviteBody;
 
 export interface Message {
     id: number;

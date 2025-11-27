@@ -1,5 +1,6 @@
 
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty } from './types';
+
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -15,7 +16,7 @@ const getApiBaseUrl = () => {
 const API_BASE_URL = getApiBaseUrl();
 
 // Helper to get the token from localStorage
-const getAuthToken = (): string | null => {
+export const getAuthToken = (): string | null => {
     return localStorage.getItem('token');
 };
 
@@ -485,6 +486,55 @@ export const api = {
     async leaveParty(): Promise<void> {
         return fetchApi('/hunting/leave', {
             method: 'POST'
+        });
+    },
+
+    // --- Guild ---
+    async getMyGuild(): Promise<Guild | null> {
+        return fetchApi('/guilds/my-guild');
+    },
+
+    async getGuildList(): Promise<any[]> {
+        return fetchApi('/guilds/list');
+    },
+
+    async createGuild(name: string, tag: string, description: string): Promise<void> {
+        return fetchApi('/guilds/create', {
+            method: 'POST',
+            body: JSON.stringify({ name, tag, description })
+        });
+    },
+
+    async joinGuild(guildId: number): Promise<void> {
+        return fetchApi(`/guilds/join/${guildId}`, {
+            method: 'POST'
+        });
+    },
+
+    async inviteToGuild(characterName: string): Promise<void> {
+        return fetchApi('/guilds/invite', {
+            method: 'POST',
+            body: JSON.stringify({ characterName })
+        });
+    },
+
+    async leaveGuild(): Promise<void> {
+        return fetchApi('/guilds/leave', {
+            method: 'POST'
+        });
+    },
+
+    async manageGuildMember(targetUserId: number, action: 'kick' | 'promote' | 'demote'): Promise<void> {
+        return fetchApi('/guilds/manage-member', {
+            method: 'POST',
+            body: JSON.stringify({ targetUserId, action })
+        });
+    },
+
+    async guildBankTransaction(type: 'DEPOSIT' | 'WITHDRAW', currency: 'gold' | EssenceType, amount: number): Promise<any> {
+        return fetchApi('/guilds/bank', {
+            method: 'POST',
+            body: JSON.stringify({ type, currency, amount })
         });
     },
 

@@ -1,4 +1,5 @@
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -70,6 +71,16 @@ export const initializeDatabase = async () => {
             console.log("MIGRATION COMPLETE.");
         }
         
+        // Guild ID column in characters
+        const hasGuildIdColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='characters' AND column_name='guild_id';
+        `);
+        if (!hasGuildIdColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'guild_id' column to 'characters' table...");
+             await client.query('ALTER TABLE characters ADD COLUMN guild_id INT DEFAULT NULL;');
+        }
+
         await client.query(`
              CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
@@ -204,6 +215,64 @@ export const initializeDatabase = async () => {
                 combat_log JSONB,
                 rewards JSONB,
                 victory BOOLEAN
+            );
+        `);
+
+        // --- Guild System Tables ---
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guilds (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) UNIQUE NOT NULL,
+                tag VARCHAR(5) UNIQUE NOT NULL,
+                leader_id INT NOT NULL REFERENCES users(id),
+                description TEXT DEFAULT '',
+                resources JSONB DEFAULT '{"gold": 0, "commonEssence": 0, "uncommonEssence": 0, "rareEssence": 0, "epicEssence": 0, "legendaryEssence": 0}',
+                max_members INT DEFAULT 10,
+                is_public BOOLEAN DEFAULT FALSE,
+                min_level INT DEFAULT 1,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_members (
+                guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+                joined_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (guild_id, user_id)
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_invites (
+                id SERIAL PRIMARY KEY,
+                guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                sender_id INT REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_bank_history (
+                id SERIAL PRIMARY KEY,
+                guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+                type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW
+                currency VARCHAR(50) NOT NULL,
+                amount INT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_chat (
+                id SERIAL PRIMARY KEY,
+                guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
 
