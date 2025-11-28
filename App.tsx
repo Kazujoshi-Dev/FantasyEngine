@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -556,6 +558,21 @@ const MainApp: React.FC = () => {
         const intelligenceDamageBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
         const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
         const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
+
+        // Apply Guild Barracks Bonus (5% per level) to Physical and Magic Damage
+        const barracksLevel = char.guildBarracksLevel || 0;
+        let finalMinDamage = minDamage;
+        let finalMaxDamage = maxDamage;
+        let finalMagicDamageMin = magicDamageMin;
+        let finalMagicDamageMax = magicDamageMax;
+
+        if (barracksLevel > 0) {
+            const damageMultiplier = 1 + (barracksLevel * 0.05);
+            finalMinDamage = Math.floor(minDamage * damageMultiplier);
+            finalMaxDamage = Math.floor(maxDamage * damageMultiplier);
+            finalMagicDamageMin = Math.floor(magicDamageMin * damageMultiplier);
+            finalMagicDamageMax = Math.floor(magicDamageMax * damageMultiplier);
+        }
     
         const currentHealth = Math.min(char.stats.currentHealth, maxHealth);
         const currentMana = Math.min(char.stats.currentMana, maxMana);
@@ -565,8 +582,13 @@ const MainApp: React.FC = () => {
             ...char,
             stats: {
                 ...char.stats, ...totalPrimaryStats,
-                maxHealth, maxEnergy, maxMana, minDamage, maxDamage, critChance, armor,
-                magicDamageMin, magicDamageMax, attacksPerRound, manaRegen,
+                maxHealth, maxEnergy, maxMana, 
+                minDamage: finalMinDamage, 
+                maxDamage: finalMaxDamage, 
+                critChance, armor,
+                magicDamageMin: finalMagicDamageMin, 
+                magicDamageMax: finalMagicDamageMax, 
+                attacksPerRound, manaRegen,
                 currentHealth, currentMana, currentEnergy,
                 critDamageModifier, armorPenetrationPercent, armorPenetrationFlat,
                 lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,

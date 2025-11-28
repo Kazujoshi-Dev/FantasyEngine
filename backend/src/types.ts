@@ -721,6 +721,10 @@ export interface PlayerCharacter {
   };
   learnedSkills?: string[];
   guildId?: number; // Added guildId
+  guildBarracksLevel?: number;
+  description?: string;
+  avatarUrl?: string;
+  rentalTax?: number;
 }
 
 export interface TraderSettings {

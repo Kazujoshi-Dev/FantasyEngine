@@ -6,6 +6,8 @@
 
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -131,6 +133,9 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
             pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
                 .catch(err => console.error("Async travel completion update failed:", err));
         }
+
+        // Inject Guild Info for Frontend UI Calculations
+        character.guildBarracksLevel = barracksLevel;
 
         res.json(character);
 

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType } from '../types';
@@ -90,7 +92,7 @@ const StatRow: React.FC<{
             <MinusCircleIcon className="h-5 w-5" />
           </button>
       )}
-      <div className="w-32 text-right">
+      <div className="w-auto text-right">
         {value}
       </div>
       {onIncrease && (
@@ -219,6 +221,34 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     }
   };
 
+  const renderDamageWithBonus = (min: number, max: number, isMagic: boolean) => {
+      const barracksLevel = character.guildBarracksLevel || 0;
+      if (barracksLevel <= 0) {
+          return <span className="font-mono text-base font-bold text-white">{min} - {max}</span>;
+      }
+
+      // Reverse calculation to find base
+      const multiplier = 1 + (barracksLevel * 0.05);
+      const baseMin = Math.ceil(min / multiplier);
+      const baseMax = Math.ceil(max / multiplier);
+      
+      const bonusMin = min - baseMin;
+      const bonusMax = max - baseMax;
+
+      if (bonusMin <= 0 && bonusMax <= 0) {
+           return <span className="font-mono text-base font-bold text-white">{min} - {max}</span>;
+      }
+
+      return (
+          <div className="flex flex-col items-end">
+              <span className="font-mono text-base font-bold text-white">{min} - {max}</span>
+              <span className="text-xs text-amber-400 ml-1">
+                  (+{bonusMin}-{bonusMax} {t('guild.buildings.barracks')})
+              </span>
+          </div>
+      );
+  };
+
   return (
     <ContentPanel title={t('statistics.title')}>
       <div className="flex border-b border-slate-700 mb-6">
@@ -342,8 +372,8 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
            <div className="bg-slate-900/40 p-4 rounded-xl">
             <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.combatStats')}</h3>
             <div className="space-y-1">
-              <StatRow label={t('statistics.physicalDamage')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.minDamage} - {previewCharacter.stats.maxDamage}</span>} description={t('statistics.physicalDamageDesc')} />
-              <StatRow label={t('statistics.magicDamage')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.magicDamageMin} - {previewCharacter.stats.magicDamageMax}</span>} description={t('statistics.magicDamageDesc')} />
+              <StatRow label={t('statistics.physicalDamage')} value={renderDamageWithBonus(previewCharacter.stats.minDamage, previewCharacter.stats.maxDamage, false)} description={t('statistics.physicalDamageDesc')} />
+              <StatRow label={t('statistics.magicDamage')} value={renderDamageWithBonus(previewCharacter.stats.magicDamageMin, previewCharacter.stats.magicDamageMax, true)} description={t('statistics.magicDamageDesc')} />
               <StatRow label={t('statistics.armor')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.armor}</span>} description={t('statistics.armorDesc')} />
               <StatRow label={t('statistics.critChance')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critChance.toFixed(1)}%</span>} description={t('statistics.critChanceDesc')} />
               <StatRow label={t('statistics.critDamageModifier')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critDamageModifier}%</span>} description={t('statistics.critDamageModifierDesc')} />
