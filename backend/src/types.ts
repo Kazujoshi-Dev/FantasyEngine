@@ -85,6 +85,8 @@ export interface EnemyStats {
   critDamageModifier?: number;
   agility: number;
   dodgeChance?: number;
+  armorPenetrationPercent?: number;
+  armorPenetrationFlat?: number;
   // New magic properties for enemies
   maxMana?: number;
   manaRegen?: number;

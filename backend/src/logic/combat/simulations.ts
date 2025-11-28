@@ -653,7 +653,7 @@ export const simulateTeamVsBossCombat = (
     while (playersState.some(p => !p.isDead) && bossState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        // --- 3.1. Start of Turn Phase ---
+        // --- 3.1. Start of Turn Phase (Status & Regen) ---
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         
         for (const combatant of allCombatants) {
@@ -670,7 +670,7 @@ export const simulateTeamVsBossCombat = (
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
 
-        // --- 3.2. Boss Special Attacks (Happens BEFORE players move) ---
+        // --- 3.2. Boss Special Attacks (Lair Actions - Happens BEFORE initiative) ---
         let bossUsedSpecial = false;
         if (bossState.currentHealth > 0) {
             for (const special of (bossData.specialAttacks || [])) {
@@ -747,72 +747,132 @@ export const simulateTeamVsBossCombat = (
             }
         });
         
-        // --- 3.3. Players' Turn ---
-        const livingPlayers = playersState.filter(p => !p.isDead);
-        for (const player of livingPlayers) {
-            if (bossState.currentHealth <= 0) break;
-            const playerIndex = playersState.findIndex(p => p.data.id === player.data.id);
+        // --- 3.3. Standard Combat Phase (Initiative) ---
+        
+        // Construct Action Queue
+        interface ActionEntity {
+            type: 'player' | 'boss';
+            index: number; // Index in playersState or -1 for boss
+            name: string;
+            agility: number;
+        }
 
-            if (player.data.characterClass === CharacterClass.Shaman && player.currentMana > 0) {
-                const shamanDamage = Math.floor(player.currentMana);
-                bossState.currentHealth = Math.max(0, bossState.currentHealth - shamanDamage);
-                log.push({ turn, attacker: player.data.name, defender: bossState.name, action: 'shaman_power', damage: shamanDamage, ...getHealthStateForLog() });
-                if (bossState.currentHealth <= 0) break;
+        const actionQueue: ActionEntity[] = [];
+
+        // Add Players to queue
+        playersState.forEach((p, index) => {
+            if (!p.isDead) {
+                actionQueue.push({
+                    type: 'player',
+                    index: index,
+                    name: p.data.name,
+                    agility: p.data.stats.agility
+                });
             }
+        });
 
-            const stunIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
-            if (stunIndex > -1) continue;
+        // Add Boss to queue
+        if (bossState.currentHealth > 0) {
+            actionQueue.push({
+                type: 'boss',
+                index: -1,
+                name: bossState.name,
+                agility: (bossState.stats as EnemyStats).agility
+            });
+        }
 
-            const attacks = player.data.stats.attacksPerRound;
-            for (let i = 0; i < attacks; i++) {
-                if (bossState.currentHealth <= 0) break;
+        // Sort by Agility Descending. Players win ties.
+        actionQueue.sort((a, b) => {
+            if (b.agility !== a.agility) {
+                return b.agility - a.agility;
+            }
+            return a.type === 'player' ? -1 : 1;
+        });
 
-                let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
+        // Execute Actions
+        for (const actor of actionQueue) {
+            if (bossState.currentHealth <= 0) break; // Fight ends immediately if boss dies
+
+            if (actor.type === 'player') {
+                const playerIndex = actor.index;
+                const player = playersState[playerIndex];
                 
-                if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
-                    playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
+                // Re-check death (might have died from earlier action, though improbable in standard phase unless Thorns existed)
+                if (player.isDead) continue;
+
+                // --- Player Turn Logic ---
+                if (player.data.characterClass === CharacterClass.Shaman && player.currentMana > 0) {
+                    const shamanDamage = Math.floor(player.currentMana);
+                    bossState.currentHealth = Math.max(0, bossState.currentHealth - shamanDamage);
+                    log.push({ turn, attacker: player.data.name, defender: bossState.name, action: 'shaman_power', damage: shamanDamage, ...getHealthStateForLog() });
+                    if (bossState.currentHealth <= 0) break;
                 }
 
-                const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
+                const stunIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
+                if (stunIndex > -1) continue;
+
+                const attacks = player.data.stats.attacksPerRound;
+                for (let i = 0; i < attacks; i++) {
+                    if (bossState.currentHealth <= 0) break;
+
+                    let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
+                    
+                    if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
+                        playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
+                    }
+
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
+                    
+                    playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
+                    bossState = { ...bossState, ...defenderState };
+                    log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                }
                 
-                playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
-                bossState = { ...bossState, ...defenderState };
-                log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
-            }
-            
-            if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3 && bossState.currentHealth > 0) {
-                 const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
-                 playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
-                 bossState = { ...bossState, ...defenderState };
-                 log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3 && bossState.currentHealth > 0) {
+                     const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
+                     playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
+                     bossState = { ...bossState, ...defenderState };
+                     log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                }
+
+            } else {
+                // --- Boss Turn Logic ---
+                // Boss always attacks if alive (which is checked at loop start)
+                
+                // Re-evaluate living targets at the moment of Boss action
+                const livingTargets = playersState.filter(p => !p.isDead);
+                if (livingTargets.length === 0) break;
+
+                const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
+                for (let i = 0; i < bossAttacks; i++) {
+                    // Check if targets remain (e.g. killed last player on previous attack in this loop)
+                    const currentLivingTargets = playersState.filter(p => !p.isDead);
+                    if (currentLivingTargets.length === 0) break;
+                    
+                    const targetPlayer = currentLivingTargets[Math.floor(Math.random() * currentLivingTargets.length)];
+                    const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
+
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack({ ...bossState }, { ...playersState[targetIndex], stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name }, turn, gameData, []);
+                    
+                    bossState = { ...bossState, ...attackerState };
+                    playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
+                    
+                    // Update death status immediately so next attack doesn't hit dead player
+                    if (playersState[targetIndex].currentHealth <= 0) {
+                        playersState[targetIndex].isDead = true;
+                    }
+
+                    log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                }
             }
         }
-        
+
+        // --- 3.4. End of Turn Phase ---
         if (bossState.currentHealth <= 0) {
             log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
             break;
         }
-        
-        // --- 3.4. Boss Standard Attacks ---
-        // Boss performs standard attacks regardless of special usage
-        const livingTargets = playersState.filter(p => !p.isDead);
-        if (livingTargets.length > 0) {
-            const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
-            for (let i = 0; i < bossAttacks; i++) {
-                if (playersState.every(p => p.isDead)) break;
-                
-                const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
 
-                const { logs: attackLogs, attackerState, defenderState } = performAttack({ ...bossState }, { ...playersState[targetIndex], stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name }, turn, gameData, []);
-                
-                bossState = { ...bossState, ...attackerState };
-                playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
-                log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
-            }
-        }
-
-        // --- 3.5. End of Turn Phase ---
         playersState.forEach(p => {
             if (!p.isDead && p.currentHealth <= 0) {
                 p.isDead = true;

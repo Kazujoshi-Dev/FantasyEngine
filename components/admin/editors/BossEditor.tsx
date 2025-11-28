@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -37,7 +38,9 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
             magicDamageMax: 0,
             magicAttackChance: 0,
             magicAttackManaCost: 0,
-            attacksPerTurn: 1
+            attacksPerTurn: 1,
+            armorPenetrationPercent: 0,
+            armorPenetrationFlat: 0
         };
         return {
             lootTable: [],
@@ -173,6 +176,8 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                         <div><label>Zręczność:<input name="agility" type="number" value={formData.stats?.agility || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                         <div><label>Szansa na Unik (%):<input name="dodgeChance" type="number" step="0.1" value={formData.stats?.dodgeChance ?? 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                         <div><label>Ataki/turę:<input name="attacksPerTurn" type="number" step="0.1" value={formData.stats?.attacksPerTurn || 1} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                        <div><label>Penetracja Pancerza (%):<input name="armorPenetrationPercent" type="number" step="0.1" value={formData.stats?.armorPenetrationPercent || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                        <div><label>Penetracja Pancerza (Flat):<input name="armorPenetrationFlat" type="number" value={formData.stats?.armorPenetrationFlat || 0} onChange={handleStatsChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     </fieldset>
                 </div>
             </div>
