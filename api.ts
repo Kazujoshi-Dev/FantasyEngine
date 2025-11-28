@@ -12,7 +12,9 @@
 
 
 
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem } from './types';
+
+
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -139,6 +141,10 @@ export const api = {
     // --- Character Management ---
     async getCharacter(): Promise<PlayerCharacter> {
         return fetchApi('/character');
+    },
+
+    async getCharacterProfile(name: string): Promise<PublicCharacterProfile> {
+        return fetchApi(`/character/profile/${encodeURIComponent(name)}`);
     },
 
     async completeExpedition(): Promise<{ updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, messageId: number }> {

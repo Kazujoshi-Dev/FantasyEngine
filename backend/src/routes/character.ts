@@ -2,10 +2,12 @@
 
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -133,6 +135,47 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error('Error fetching character:', err);
         res.status(500).json({ message: 'Failed to fetch character data.' });
+    }
+});
+
+// GET /api/character/profile/:name - Get public profile
+router.get('/character/profile/:name', authenticateToken, async (req: any, res: any) => {
+    const charName = req.params.name;
+    try {
+        const result = await pool.query(`
+            SELECT c.data, g.name as guild_name, g.tag as guild_tag
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.data->>'name' = $1
+        `, [charName]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+
+        const row = result.rows[0];
+        const data = row.data;
+
+        // Construct public profile
+        const profile: PublicCharacterProfile = {
+            name: data.name,
+            race: data.race,
+            characterClass: data.characterClass,
+            level: data.level,
+            experience: data.experience,
+            pvpWins: data.pvpWins || 0,
+            pvpLosses: data.pvpLosses || 0,
+            guildName: row.guild_name,
+            guildTag: row.guild_tag,
+            description: data.description,
+            avatarUrl: data.avatarUrl
+        };
+
+        res.json(profile);
+    } catch (e: any) {
+        console.error(e);
+        res.status(500).json({ message: 'Failed to fetch profile' });
     }
 });
 

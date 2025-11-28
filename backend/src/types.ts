@@ -893,3 +893,17 @@ export interface GuildRankingEntry {
     memberCount: number;
     totalLevel: number;
 }
+
+export interface PublicCharacterProfile {
+    name: string;
+    race: Race;
+    characterClass?: CharacterClass | null;
+    level: number;
+    experience: number;
+    pvpWins: number;
+    pvpLosses: number;
+    guildName?: string;
+    guildTag?: string;
+    description?: string;
+    avatarUrl?: string;
+}

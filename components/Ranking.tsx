@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry } from '../types';
@@ -10,6 +12,7 @@ import { ClockIcon } from './icons/ClockIcon';
 import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { api } from '../api';
+import { CharacterCard } from './shared/CharacterCard';
 
 interface RankingProps {
   ranking: RankingPlayer[];
@@ -53,6 +56,9 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
   const [activeTab, setActiveTab] = useState<'PLAYERS' | 'GUILDS'>('PLAYERS');
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
+  
+  // State for Character Card Modal
+  const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
 
   useEffect(() => {
       if (activeTab === 'GUILDS') {
@@ -78,6 +84,13 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
 
   return (
     <ContentPanel title={t('ranking.title')}>
+      {viewingProfileName && (
+          <CharacterCard 
+            characterName={viewingProfileName} 
+            onClose={() => setViewingProfileName(null)} 
+          />
+      )}
+      
       <div className="bg-slate-900/40 p-6 rounded-xl">
          <div className="flex justify-between items-center mb-6">
              <div className="flex gap-4">
@@ -133,7 +146,10 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
                         <td className="p-4 font-medium text-white">
                             <div className="flex items-center">
                                 <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={player.isOnline ? 'Online' : 'Offline'}></span>
-                                <span>
+                                <span 
+                                    className="cursor-pointer hover:text-indigo-400 hover:underline"
+                                    onClick={() => setViewingProfileName(player.name)}
+                                >
                                     {player.guildTag && <span className="text-amber-400 font-mono mr-1">[{player.guildTag}]</span>}
                                     {player.name}
                                 </span>
