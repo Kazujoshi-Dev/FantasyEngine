@@ -1,4 +1,6 @@
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -143,16 +145,18 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
 router.post('/create', authenticateToken, async (req: any, res: any) => {
     const { bossId, maxMembers } = req.body;
     
-    if (maxMembers < 2 || maxMembers > 5) {
-        return res.status(400).json({ message: 'Party size must be between 2 and 5.' });
-    }
-
     try {
-        const existingParty = await getPartyByMember(req.user.id);
-        if (existingParty) return res.status(400).json({ message: 'You are already in a party.' });
-
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
+        const hasLoneWolf = (char.learnedSkills || []).includes('lone-wolf');
+        const minMembers = hasLoneWolf ? 1 : 2;
+
+        if (maxMembers < minMembers || maxMembers > 5) {
+            return res.status(400).json({ message: `Party size must be between ${minMembers} and 5.` });
+        }
+
+        const existingParty = await getPartyByMember(req.user.id);
+        if (existingParty) return res.status(400).json({ message: 'You are already in a party.' });
 
         const initialMembers = [{
             userId: req.user.id,

@@ -4,6 +4,8 @@
 
 
 
+
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -354,6 +356,15 @@ export const initializeDatabase = async () => {
                         stamina: 30,
                         intelligence: 10,
                     },
+                },
+                {
+                    id: 'lone-wolf',
+                    name: 'Samotny wilk',
+                    description: 'Umożliwia wyruszenie na polowanie w pojedynkę.',
+                    type: 'Universal',
+                    category: 'Passive',
+                    cost: { gold: 20000, legendaryEssence: 3 },
+                    requirements: { strength: 30, agility: 15, stamina: 30, intelligence: 15 }
                 }
             ],
             settings: { language: 'pl' }

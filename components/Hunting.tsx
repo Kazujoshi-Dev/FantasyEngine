@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -125,6 +127,9 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const [finalReportData, setFinalReportData] = useState<HuntingParty | null>(null);
 
     const { party: myParty, serverTime } = myPartyState;
+    
+    // Check if player has "Lone Wolf" skill
+    const hasLoneWolf = useMemo(() => (character.learnedSkills || []).includes('lone-wolf'), [character.learnedSkills]);
 
     const fetchMyParty = useCallback(async () => {
         try {
@@ -399,6 +404,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                     onChange={e => setCreateMembers(parseInt(e.target.value))}
                                     className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
                                 >
+                                    {hasLoneWolf && <option value={1}>1 (Samotny Wilk)</option>}
                                     <option value={2}>2</option>
                                     <option value={3}>3</option>
                                     <option value={4}>4</option>
