@@ -87,10 +87,14 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 
                 const Icon = def.icon;
 
-                let effect = t('guild.buildings.maxMembers', { count: 10 + level });
-                if (def.id === 'armory') effect = `Pojemność: ${10 + level}`;
-                if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
-                if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
+                let effectKey = `guild.buildings.${def.id}Effect`; // Generic key fallback
+                let effect = '';
+                
+                // Specific effect descriptions based on ID
+                if (def.id === 'headquarters') effect = t('guild.buildings.maxMembers', { count: 10 + level });
+                else if (def.id === 'armory') effect = `Pojemność: ${10 + level}`;
+                else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
+                else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
