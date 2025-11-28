@@ -1,3 +1,4 @@
+
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -30,7 +31,15 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const rawCharactersMap: Record<number, PlayerCharacter> = {};
     
     for (const member of acceptedMembers) {
-        const res = await client.query('SELECT data FROM characters WHERE user_id = $1', [member.userId]);
+        // Updated query to fetch guild building data as well
+        const res = await client.query(`
+            SELECT c.data, g.buildings 
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1
+        `, [member.userId]);
+
         if (res.rows.length > 0) {
             const rawChar: PlayerCharacter = {
                 // Provide defaults for potentially missing fields to ensure robustness
@@ -40,7 +49,11 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             };
             rawChar.id = member.userId; 
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
-            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || []);
+            
+            const barracksLevel = res.rows[0].buildings?.barracks || 0;
+            
+            // Pass barracks level to calculation
+            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || [], barracksLevel);
             playerCombatants.push(combatChar);
         }
     }
@@ -135,8 +148,16 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             
             // Druid post-combat heal
             if (char.characterClass === CharacterClass.Druid) {
-                const derivedAfterCombat = calculateDerivedStatsOnServer(char, gameData.itemTemplates || [], gameData.affixes || []);
-                char.stats.currentHealth = Math.min(derivedAfterCombat.stats.maxHealth, char.stats.currentHealth + derivedAfterCombat.stats.maxHealth * 0.5);
+                // Recalculate stats to get maxHealth, we need barracks level here too if available but for simpler logic assume max health is consistent
+                // Ideally fetch again or reuse context, here reused calculated maxHealth from combat start might be safer if equipped items didn't change
+                // But `calculateDerivedStatsOnServer` is stateless.
+                // Re-fetch guild info to be safe? Or just use base stats?
+                // Let's re-calculate assuming barracks level 0 for heal logic simplicity or reuse maxHealth from before.
+                // A safer way is to trust currentHealth logic up top.
+                // For simplicity:
+                const combatChar = playerCombatants.find(pc => pc.id === userId);
+                const maxHealth = combatChar?.stats.maxHealth || char.stats.maxHealth;
+                char.stats.currentHealth = Math.min(maxHealth, char.stats.currentHealth + maxHealth * 0.5);
             }
             
             // Level-up logic

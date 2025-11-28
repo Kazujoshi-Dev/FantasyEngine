@@ -12,6 +12,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -39,6 +41,12 @@ const getBuildingCost = (type: string, level: number) => {
         const typeIndex = Math.min(Math.floor(level / 3), 2);
         const essenceType = essenceTypes[typeIndex];
         const essenceAmount = 5 + (level % 3) * 2;
+        return { gold, essenceType, essenceAmount };
+    }
+    if (type === 'barracks') {
+        const gold = Math.floor(15000 * Math.pow(1.5, level));
+        const essenceType = EssenceType.Legendary;
+        const essenceAmount = 3 + level;
         return { gold, essenceType, essenceAmount };
     }
     return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
@@ -138,7 +146,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             createdAt: guildData.created_at,
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
-            buildings: guildData.buildings || { headquarters: 0, armory: 0 },
+            buildings: guildData.buildings || { headquarters: 0, armory: 0, barracks: 0 },
             members,
             transactions,
             myRole,
@@ -519,7 +527,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         // Create Guild
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0 })]
+            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0 })]
         );
         const guildId = createRes.rows[0].id;
 
@@ -903,10 +911,10 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    const { buildingType } = req.body; // e.g., 'headquarters', 'armory'
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks'
     const userId = req.user.id;
 
-    if (buildingType !== 'headquarters' && buildingType !== 'armory') return res.status(400).json({ message: 'Invalid building type' });
+    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks') return res.status(400).json({ message: 'Invalid building type' });
 
     const client = await pool.connect();
     try {
@@ -922,8 +930,14 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         // Lock Guild
         const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         const guild = guildRes.rows[0];
-        let buildings = guild.buildings || { headquarters: 0, armory: 0 };
+        let buildings = guild.buildings || { headquarters: 0, armory: 0, barracks: 0 };
         const currentLevel = buildings[buildingType] || 0;
+
+        // Max Level Check for Barracks
+        if (buildingType === 'barracks' && currentLevel >= 5) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Building is at maximum level.' });
+        }
 
         // Calculate Cost
         const { gold, essenceType, essenceAmount } = getBuildingCost(buildingType, currentLevel);

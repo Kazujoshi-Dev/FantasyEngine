@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -22,15 +23,32 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
 
-        const attackerRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [attackerId]);
-        const defenderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [defenderId]);
+        // Modified queries to fetch guild building info for barracks bonus
+        const attackerRes = await client.query(`
+            SELECT c.data, g.buildings 
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [attackerId]);
+
+        const defenderRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [defenderId]);
 
         if (attackerRes.rows.length === 0 || defenderRes.rows.length === 0) {
             return res.status(404).json({ message: 'Player not found.' });
         }
 
         let attacker: PlayerCharacter = attackerRes.rows[0].data;
+        const attackerBarracks = attackerRes.rows[0].buildings?.barracks || 0;
+
         let defender: PlayerCharacter = defenderRes.rows[0].data;
+        const defenderBarracks = defenderRes.rows[0].buildings?.barracks || 0;
 
         // Validation
         if (Math.abs(attacker.level - defender.level) > 3) return res.status(400).json({ message: 'Level difference is too high.' });
@@ -39,8 +57,9 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
 
         attacker.stats.currentEnergy -= 3;
 
-        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!);
-        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!);
+        // Apply guild bonuses to stats
+        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks);
+        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks);
 
         const defenderAsEnemy: Enemy = {
             id: defenderId.toString(),

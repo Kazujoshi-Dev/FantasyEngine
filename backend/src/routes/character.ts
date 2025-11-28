@@ -1,5 +1,7 @@
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -14,10 +16,14 @@ const router = express.Router();
 // GET /api/character - Get the current user's character data
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
-        const result = await pool.query(
-            'SELECT c.user_id, c.data, u.username, c.created_at FROM characters c JOIN users u ON c.user_id = u.id WHERE c.user_id = $1',
-            [req.user!.id]
-        );
+        const result = await pool.query(`
+            SELECT c.user_id, c.data, u.username, c.created_at, g.buildings 
+            FROM characters c 
+            JOIN users u ON c.user_id = u.id 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1
+        `, [req.user!.id]);
         
         if (result.rows.length === 0) {
             return res.status(200).json(null);
@@ -30,6 +36,10 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
             username: row.username,
         };
         
+        // Extract Guild Barracks Level
+        const guildBuildings = row.buildings || {};
+        const barracksLevel = guildBuildings['barracks'] || 0;
+        
         const now = Date.now();
         let needsDbUpdate = false;
 
@@ -38,8 +48,8 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
 
-        // Calculate true max stats based on current equipment and attributes
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        // Calculate true max stats based on current equipment, attributes AND guild bonus
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
         const trueMaxEnergy = derivedChar.stats.maxEnergy;
         const trueMaxHealth = derivedChar.stats.maxHealth;
 
@@ -130,7 +140,16 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const result = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        
+        // Fetch character + Guild Building info for stats calculation
+        const result = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
         
         if (result.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -138,6 +157,8 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         }
         
         let character: PlayerCharacter = result.rows[0].data;
+        const guildBuildings = result.rows[0].buildings || {};
+        const barracksLevel = guildBuildings['barracks'] || 0;
 
         if (!character.activeExpedition || Date.now() < character.activeExpedition.finishTime) {
             await client.query('ROLLBACK');
@@ -155,8 +176,8 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         let expeditionName = 'Wyprawa';
 
         try {
-            // Attempt to process logic
-            const processingResult = processCompletedExpedition(character, gameData);
+            // Attempt to process logic with guild bonus passed down
+            const processingResult = processCompletedExpedition(character, gameData, barracksLevel);
             updatedCharacter = processingResult.updatedCharacter;
             summary = processingResult.summary;
             expeditionName = processingResult.expeditionName;
@@ -315,8 +336,19 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        
+        // Join with Guild info to calculate derived stats correctly for requirements check
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+        
         let character: PlayerCharacter = charRes.rows[0].data;
+        const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
 
         if (!character.learnedSkills) {
             character.learnedSkills = [];
@@ -339,8 +371,8 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             return res.status(404).json({ message: 'Skill not found.' });
         }
 
-        // Calculate derived stats to check requirements
-        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        // Calculate derived stats to check requirements, including guild bonus
+        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
         const derivedStats = characterWithDerivedStats.stats;
 
         // Check requirements using derived stats
@@ -390,20 +422,31 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        
+        // Fetch character + Guild Building info
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+        
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found.' });
         }
         
         const character: PlayerCharacter = charRes.rows[0].data;
+        const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
 
         // Fetch game data to calculate correct Max HP
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
 
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
         character.stats.currentHealth = derivedChar.stats.maxHealth;
         character.stats.currentMana = derivedChar.stats.maxMana;
 

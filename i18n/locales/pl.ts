@@ -1038,6 +1038,8 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             headquartersDesc: 'Zwiększa limit członków gildii (+1 na poziom).',
             armory: 'Zbrojownia',
             armoryDesc: 'Pozwala przechowywać i wypożyczać przedmioty (+1 slot na poziom).',
+            barracks: 'Koszary',
+            barracksDesc: 'Zwiększa bazowe obrażenia członków gildii o 5% na poziom.',
             level: 'Poziom',
             currentEffect: 'Obecny efekt',
             upgrade: 'Ulepsz',
