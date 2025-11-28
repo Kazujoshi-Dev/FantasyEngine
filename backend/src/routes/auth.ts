@@ -1,7 +1,9 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword } from '../logic/helpers.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -58,6 +60,43 @@ router.post('/login', async (req: any, res: any) => {
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ message: 'Login failed.' });
+    }
+});
+
+// POST /api/auth/change-password
+router.post('/change-password', authenticateToken, async (req: any, res: any) => {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!oldPassword || !newPassword) {
+        return res.status(400).json({ message: 'Both old and new passwords are required.' });
+    }
+
+    try {
+        const result = await pool.query('SELECT id, password_hash, salt FROM users WHERE id = $1', [userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        const user = result.rows[0];
+        const isPasswordValid = verifyPassword(oldPassword, user.salt, user.password_hash);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid current password.' });
+        }
+
+        const { salt, hash } = hashPassword(newPassword);
+        
+        await pool.query(
+            'UPDATE users SET password_hash = $1, salt = $2 WHERE id = $3',
+            [hash, salt, userId]
+        );
+
+        res.json({ message: 'Password changed successfully.' });
+
+    } catch (err) {
+        console.error('Password change error:', err);
+        res.status(500).json({ message: 'Failed to change password.' });
     }
 });
 

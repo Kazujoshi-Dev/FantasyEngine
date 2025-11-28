@@ -10,6 +10,8 @@
 
 
 
+
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem } from './types';
 
 // Helper to determine API URL based on environment
@@ -118,6 +120,13 @@ export const api = {
         return fetchApi('/auth/logout', {
              method: 'POST',
              headers: { 'Authorization': `Bearer ${token}` }
+        });
+    },
+
+    async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+        return fetchApi('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ oldPassword, newPassword }),
         });
     },
 

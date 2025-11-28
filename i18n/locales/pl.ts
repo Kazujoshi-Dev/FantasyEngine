@@ -1,8 +1,4 @@
 
-
-
-
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -722,6 +718,22 @@ export default {
         language: 'Język Gry',
         save: 'Zapisz',
         saveSuccess: 'Zapisano!',
+        profile: {
+            title: 'Profil Postaci',
+            avatarUrl: 'URL Awaitara',
+            description: 'Opis Postaci',
+            descriptionPlaceholder: 'Napisz coś o swojej postaci...',
+        },
+        security: {
+            title: 'Bezpieczeństwo',
+            changePassword: 'Zmień Hasło',
+            oldPassword: 'Stare Hasło',
+            newPassword: 'Nowe Hasło',
+            confirmPassword: 'Potwierdź Nowe Hasło',
+            passwordsDoNotMatch: 'Hasła nie są identyczne.',
+            passwordTooShort: 'Hasło musi mieć co najmniej 6 znaków.',
+            passwordChanged: 'Hasło zostało zmienione pomyślnie.',
+        }
     },
     languages: {
         pl: 'Polski',

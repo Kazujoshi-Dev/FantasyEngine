@@ -721,6 +721,10 @@ export interface PlayerCharacter {
   };
   learnedSkills?: string[];
   guildId?: number; // Added guildId
+  guildBarracksLevel?: number; // Virtual field for UI, fetched from guild relation
+  rentalTax?: number; // Added rentalTax
+  description?: string;
+  avatarUrl?: string;
 }
 
 export interface TraderSettings {

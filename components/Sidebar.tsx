@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
@@ -22,6 +23,36 @@ import { ScaleIcon } from './icons/ScaleIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { UsersIcon } from './icons/UsersIcon';
+
+export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
+    const { t } = useTranslation();
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-2xl w-full relative" onClick={e => e.stopPropagation()}>
+                <button 
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                >
+                    ✕
+                </button>
+                <h2 className="text-2xl font-bold text-indigo-400 mb-4">{t('news.title')}</h2>
+                <div className="prose prose-invert max-w-none max-h-[60vh] overflow-y-auto">
+                    <p className="whitespace-pre-wrap text-gray-300">{content}</p>
+                </div>
+                <div className="mt-6 flex justify-end">
+                    <button 
+                        onClick={onClose}
+                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                        {t('news.close')}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface SidebarProps {
   activeTab: Tab;
@@ -68,14 +99,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
 
   const order = settings?.sidebarOrder && settings.sidebarOrder.length > 0 ? settings.sidebarOrder : defaultOrder;
   
-  // Check if Hunting is in the order (it won't be for existing settings), append if missing before admin
   if (!order.includes(Tab.Hunting)) {
       const adminIndex = order.indexOf(Tab.Admin);
       if (adminIndex !== -1) order.splice(adminIndex, 0, Tab.Hunting);
       else order.push(Tab.Hunting);
   }
 
-  // Check if Guild is in the order, append if missing before admin (or after Tavern if possible)
   if (!order.includes(Tab.Guild)) {
       const tavernIndex = order.indexOf(Tab.Tavern);
       if (tavernIndex !== -1) {
@@ -88,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
   }
 
   const visibleMenuItems = order
-    .filter(tabId => menuItemsConfig[tabId]) // Safety check
+    .filter(tabId => menuItemsConfig[tabId]) 
     .map(tabId => ({ id: tabId, ...menuItemsConfig[tabId] }))
     .filter(item => {
         if (item.id === Tab.Admin) {
@@ -105,14 +134,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
           Kroniki Mroku
         </h1>
         {playerCharacter && (
-          <div className="text-center bg-slate-900/50 rounded-lg p-3">
-            <p className="font-semibold text-lg text-indigo-400">{playerCharacter.name}</p>
-            <p className="text-sm text-gray-400 mb-2">{t(`race.${playerCharacter.race}`)} - {t('statistics.level')} {playerCharacter.level}</p>
-             <div title={`HP: ${Math.floor(playerCharacter.stats.currentHealth)} / ${playerCharacter.stats.maxHealth}`} className="w-full bg-slate-700 rounded-full h-2 border border-slate-600">
-                <div 
-                    className="bg-red-600 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${(playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100}%` }}
-                ></div>
+          <div className="text-center bg-slate-900/50 rounded-lg p-3 relative mt-6">
+            {playerCharacter.avatarUrl && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full border-2 border-slate-600 bg-slate-800 overflow-hidden shadow-lg">
+                    <img src={playerCharacter.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+            )}
+            <div className={playerCharacter.avatarUrl ? "mt-8" : ""}>
+                <p className="font-semibold text-lg text-indigo-400">{playerCharacter.name}</p>
+                <p className="text-sm text-gray-400 mb-2">{t(`race.${playerCharacter.race}`)} - {t('statistics.level')} {playerCharacter.level}</p>
+                <div title={`HP: ${Math.floor(playerCharacter.stats.currentHealth)} / ${playerCharacter.stats.maxHealth}`} className="w-full bg-slate-700 rounded-full h-2 border border-slate-600">
+                    <div 
+                        className="bg-red-600 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100}%` }}
+                    ></div>
+                </div>
             </div>
           </div>
         )}
@@ -137,7 +173,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
 
           const isRestrictedByResting = isResting && [Tab.Expedition, Tab.Location, Tab.Trader, Tab.Blacksmith, Tab.Quests, Tab.Hunting].includes(item.id);
           const isRestrictedByTraveling = isTraveling && [Tab.Expedition, Tab.Camp, Tab.Trader, Tab.Blacksmith, Tab.Quests, Tab.Hunting].includes(item.id);
-          // FIX: Added Tab.Expedition to the allowed list during an expedition so users can return to the tab to see progress/finish it.
           const isRestrictedByExpedition = isExpeditionActive && ![Tab.Tavern, Tab.Resources, Tab.Messages, Tab.Expedition].includes(item.id);
 
           const isRestricted = isRestrictedByResting || isRestrictedByTraveling || isRestrictedByExpedition;
@@ -207,40 +242,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
       </div>
     </aside>
   );
-};
-
-export interface NewsModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    content: string;
-}
-
-export const NewsModal: React.FC<NewsModalProps> = ({ isOpen, onClose, content }) => {
-    const { t } = useTranslation();
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 relative" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
-                     <h2 className="text-2xl font-bold text-amber-400 flex items-center">
-                        <SparklesIcon className="h-6 w-6 mr-2" />
-                        {t('news.title')}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
-                         X
-                    </button>
-                </div>
-                <div className="text-gray-300 whitespace-pre-line leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
-                    {content}
-                </div>
-                <div className="mt-6 flex justify-end">
-                    <button onClick={onClose} className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">
-                        {t('news.close')}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
 };
