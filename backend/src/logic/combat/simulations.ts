@@ -839,10 +839,6 @@ export const simulateTeamVsBossCombat = (
                 // --- Boss Turn Logic ---
                 // Boss always attacks if alive (which is checked at loop start)
                 
-                // Re-evaluate living targets at the moment of Boss action
-                const livingTargets = playersState.filter(p => !p.isDead);
-                if (livingTargets.length === 0) break;
-
                 const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
                 for (let i = 0; i < bossAttacks; i++) {
                     // Check if targets remain (e.g. killed last player on previous attack in this loop)
@@ -852,10 +848,28 @@ export const simulateTeamVsBossCombat = (
                     const targetPlayer = currentLivingTargets[Math.floor(Math.random() * currentLivingTargets.length)];
                     const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack({ ...bossState }, { ...playersState[targetIndex], stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name }, turn, gameData, []);
+                    const targetAsDefender: DefenderState = {
+                        stats: playersState[targetIndex].data.stats,
+                        name: playersState[targetIndex].data.name,
+                        currentHealth: playersState[targetIndex].currentHealth,
+                        currentMana: playersState[targetIndex].currentMana,
+                        statusEffects: playersState[targetIndex].statusEffects,
+                        hardSkinTriggered: playersState[targetIndex].hardSkinTriggered,
+                        data: playersState[targetIndex].data
+                    };
+
+                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(
+                        { ...bossState }, 
+                        targetAsDefender, 
+                        turn, gameData, [], true
+                    );
                     
                     bossState = { ...bossState, ...attackerState };
-                    playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
+                    
+                    // Update main state array
+                    playersState[targetIndex].currentHealth = defenderState.currentHealth;
+                    playersState[targetIndex].currentMana = defenderState.currentMana;
+                    playersState[targetIndex].statusEffects = defenderState.statusEffects;
                     
                     // Update death status immediately so next attack doesn't hit dead player
                     if (playersState[targetIndex].currentHealth <= 0) {
@@ -863,6 +877,90 @@ export const simulateTeamVsBossCombat = (
                     }
 
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+
+                    // --- Boss AoE Logic ---
+                    if (aoeData) {
+                        const otherPlayers = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
+                        const splashDamageDetails: { target: string, damage: number }[] = [];
+                        
+                        if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
+                            let splashDamage = 0;
+                            if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
+                            if (aoeData.type === 'meteor_swarm') splashDamage = Math.floor(aoeData.baseDamage); // Meteor swarm splits or full? Usually full aoe or split. Assuming full based on name.
+
+                            otherPlayers.forEach(p => {
+                                const wasAlive = p.currentHealth > 0;
+                                p.currentHealth = Math.max(0, p.currentHealth - splashDamage);
+                                splashDamageDetails.push({ target: p.data.name, damage: splashDamage });
+                                
+                                if (wasAlive && p.currentHealth <= 0) {
+                                    p.isDead = true;
+                                    log.push({ turn, attacker: bossState.name, defender: p.data.name, action: 'death', ...getHealthStateForLog() });
+                                }
+                            });
+                            
+                            if (splashDamageDetails.length > 0) {
+                                const effectName = aoeData.type === 'earthquake' ? 'earthquakeSplash' : 'meteorSwarmSplash';
+                                log.push({ 
+                                    turn, 
+                                    attacker: bossState.name, 
+                                    defender: 'Drużyna', 
+                                    action: 'effectApplied', 
+                                    effectApplied: effectName, 
+                                    damage: splashDamage, 
+                                    aoeDamage: splashDamageDetails,
+                                    ...getHealthStateForLog() 
+                                });
+                            }
+                        }
+                    }
+
+                    // --- Boss Chain Lightning Logic ---
+                    if (chainData && chainData.type === 'chain_lightning') {
+                        const potentialTargets = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
+                        let jumps = 0;
+                        const chainDamageDetails: { target: string, damage: number }[] = [];
+                        let currentChainDamage = chainData.damage;
+                        
+                        while(jumps < chainData.maxJumps && potentialTargets.length > 0) {
+                            if (Math.random() * 100 < chainData.chance) {
+                                // Decrease damage per jump
+                                currentChainDamage = Math.floor(currentChainDamage * 0.75);
+                                if (currentChainDamage < 1) currentChainDamage = 1;
+
+                                // Pick random target from remaining valid targets
+                                const jumpTargetIndexLocal = Math.floor(Math.random() * potentialTargets.length);
+                                const jumpTarget = potentialTargets[jumpTargetIndexLocal];
+                                
+                                const wasAlive = jumpTarget.currentHealth > 0;
+                                jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - currentChainDamage);
+                                chainDamageDetails.push({ target: jumpTarget.data.name, damage: currentChainDamage });
+                                
+                                if (wasAlive && jumpTarget.currentHealth <= 0) {
+                                    jumpTarget.isDead = true;
+                                    log.push({ turn, attacker: bossState.name, defender: jumpTarget.data.name, action: 'death', ...getHealthStateForLog() });
+                                }
+
+                                // Remove this target from potential list so it's not hit again in this chain
+                                potentialTargets.splice(jumpTargetIndexLocal, 1);
+                                jumps++;
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        if (chainDamageDetails.length > 0) {
+                                log.push({ 
+                                turn, 
+                                attacker: bossState.name, 
+                                defender: 'Drużyna', 
+                                action: 'effectApplied', 
+                                effectApplied: 'chainLightningJump', 
+                                aoeDamage: chainDamageDetails,
+                                ...getHealthStateForLog() 
+                            });
+                        }
+                    }
                 }
             }
         }

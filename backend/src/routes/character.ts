@@ -8,10 +8,11 @@
 
 
 
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile, EquipmentSlot, CharacterStats } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -328,6 +329,51 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
 router.put('/character', authenticateToken, async (req: any, res: any) => {
     try {
         const updatedCharacterData: PlayerCharacter = req.body;
+
+        // --- Server-side Equipment Validation Logic ---
+        // Verify that the character meets requirements for all equipped items based on their CURRENT stats (likely updated ones)
+        // If they don't (e.g. after a stat reset), unequip the items to inventory.
+        
+        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates = gameDataRes.rows[0]?.data || [];
+
+        if (updatedCharacterData.equipment) {
+            for (const slot of Object.values(EquipmentSlot)) {
+                const item = updatedCharacterData.equipment[slot];
+                if (item) {
+                    const template = itemTemplates.find((t: any) => t.id === item.templateId);
+                    if (template) {
+                        let meetsRequirements = true;
+                        
+                        // Check Level
+                        if (updatedCharacterData.level < template.requiredLevel) {
+                            meetsRequirements = false;
+                        }
+
+                        // Check Stats
+                        if (meetsRequirements && template.requiredStats) {
+                            for (const stat in template.requiredStats) {
+                                const key = stat as keyof CharacterStats;
+                                const requiredVal = template.requiredStats[key] || 0;
+                                const playerVal = updatedCharacterData.stats[key] || 0; // Using stats from the update payload (e.g. reset stats)
+                                if (playerVal < requiredVal) {
+                                    meetsRequirements = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!meetsRequirements) {
+                            // Unequip
+                            if (!updatedCharacterData.inventory) updatedCharacterData.inventory = [];
+                            updatedCharacterData.inventory.push(item);
+                            updatedCharacterData.equipment[slot] = null;
+                        }
+                    }
+                }
+            }
+        }
+        // ---------------------------------------------
 
         // Send class choice message if character reaches level 10
         if (updatedCharacterData.level >= 10 && !updatedCharacterData.characterClass) {

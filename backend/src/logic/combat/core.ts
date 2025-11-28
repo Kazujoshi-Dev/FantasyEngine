@@ -161,10 +161,16 @@ export const performAttack = <
         damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
 
         const attackerClass = (attacker as any).data?.characterClass;
-        if (attackerIsPlayer && (attackerClass === CharacterClass.Mage || attackerClass === CharacterClass.Wizard)) {
+        
+        // Critical Magic Logic
+        // Allow crit if:
+        // 1. It is a player AND they are Mage or Wizard (Class Bonus)
+        // 2. OR It is NOT a player (Boss/Enemy always has potential to crit with magic if stats allow)
+        if ((attackerIsPlayer && (attackerClass === CharacterClass.Mage || attackerClass === CharacterClass.Wizard)) || !attackerIsPlayer) {
             if (Math.random() * 100 < attacker.stats.critChance) {
                 isCrit = true;
-                damage = Math.floor(damage * ((attacker.stats as CharacterStats).critDamageModifier / 100));
+                const critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;
+                damage = Math.floor(damage * (critMod / 100));
             }
         }
     } else {
