@@ -1,8 +1,4 @@
 
-
-
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -93,6 +89,10 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             timestamp: row.created_at
         }));
 
+        // Robust merging of buildings to ensure new types (like scoutHouse) are present even if DB JSON is old
+        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 };
+        const mergedBuildings = { ...defaultBuildings, ...(guildData.buildings || {}) };
+
         const guild: Guild & { members: GuildMember[], transactions: GuildTransaction[], myRole: GuildRole, chatHistory: any[] } = {
             id: guildData.id,
             name: guildData.name,
@@ -107,7 +107,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
             rentalTax: guildData.rental_tax || 10,
-            buildings: guildData.buildings || { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 },
+            buildings: mergedBuildings,
             members,
             transactions,
             myRole,
@@ -481,7 +481,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         char.resources.gold -= COST;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
-        // Create Guild
+        // Create Guild with full default buildings
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
             [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]
@@ -892,7 +892,10 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         // Lock Guild
         const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         const guild = guildRes.rows[0];
-        let buildings = guild.buildings || { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 };
+        
+        // Robustly initialize default buildings including new ones like scoutHouse
+        let buildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, ...(guild.buildings || {}) };
+        
         const currentLevel = buildings[buildingType] || 0;
 
         // Max Level Check for Barracks

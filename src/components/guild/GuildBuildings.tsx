@@ -1,8 +1,4 @@
 
-
-
-
-
 import React from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
