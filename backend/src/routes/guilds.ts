@@ -1,56 +1,12 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
+import { canManage, getBuildingCost } from '../logic/guilds.js';
 
 const router = express.Router();
-
-// Helper to check roles
-const canManage = (role: GuildRole) => role === GuildRole.LEADER || role === GuildRole.OFFICER;
-
-// Helper for building costs
-const getBuildingCost = (type: string, level: number) => {
-    if (type === 'headquarters') {
-        const gold = Math.floor(5000 * Math.pow(1.5, level));
-        const essenceTypes = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-        const typeIndex = Math.min(Math.floor(level / 5), 4);
-        const essenceType = essenceTypes[typeIndex];
-        const essenceAmount = 5 + (level % 5);
-        return { gold, essenceType, essenceAmount };
-    }
-    if (type === 'armory') {
-        const gold = Math.floor(10000 * Math.pow(1.6, level));
-        const essenceTypes = [EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-        const typeIndex = Math.min(Math.floor(level / 3), 2);
-        const essenceType = essenceTypes[typeIndex];
-        const essenceAmount = 5 + (level % 3) * 2;
-        return { gold, essenceType, essenceAmount };
-    }
-    if (type === 'barracks') {
-        const gold = Math.floor(15000 * Math.pow(1.5, level));
-        const essenceType = EssenceType.Legendary;
-        const essenceAmount = 3 + level;
-        return { gold, essenceType, essenceAmount };
-    }
-    return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
-}
 
 // GET /api/guilds/my-guild - Get current user's guild data with detailed members
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
@@ -185,7 +141,6 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
         }));
 
         // Fetch borrowed items (scan all guild members characters)
-        // This is a bit heavy, in a real massive game we would index borrowed items separately
         const guildMembersRes = await pool.query('SELECT user_id FROM guild_members WHERE guild_id = $1', [guildId]);
         const userIds = guildMembersRes.rows.map(r => r.user_id);
         
@@ -205,7 +160,7 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
                             id: 0, // Virtual ID, not in armory table
                             item: item,
                             ownerId: item.originalOwnerId!,
-                            ownerName: item.originalOwnerName || 'Unknown', // We might need to fetch names if not stored on item
+                            ownerName: item.originalOwnerName || 'Unknown',
                             depositedAt: '',
                             borrowedBy: borrowerName,
                             userId: row.user_id
@@ -318,9 +273,6 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         const template = templates.find((t: any) => t.id === item.templateId);
         
         let value = template ? (Number(template.value) || 0) : 0;
-        // Simplified value calculation (ignoring affixes for tax base to keep it simple, or query affixes if needed)
-        // Let's assume tax is based on base template value for robustness or fetch affixes if precise
-        
         const tax = Math.ceil(value * 0.1);
         if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);
 
@@ -419,7 +371,6 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
         // Clean item data
         delete item.isBorrowed;
         delete item.borrowedFromGuildId;
-        // originalOwnerId kept or removed? Logic suggests it's stored in armory table structure, not item JSON necessarily, but cleaning is safer
         const ownerId = item.originalOwnerId!;
         delete item.originalOwnerId;
         delete item.originalOwnerName;
@@ -475,7 +426,6 @@ router.delete('/armory/:id', authenticateToken, async (req: any, res: any) => {
 // GET /api/guilds/list - List public guilds for browsing
 router.get('/list', authenticateToken, async (req: any, res: any) => {
     try {
-        // Removed filter `WHERE g.member_count < g.max_members` to rely on dynamic count below
         const result = await pool.query(`
             SELECT g.id, g.name, g.tag, g.max_members, g.min_level, c.data->>'name' as leader_name
             FROM guilds g
@@ -489,7 +439,6 @@ router.get('/list', authenticateToken, async (req: any, res: any) => {
             return { ...row, member_count: parseInt(countRes.rows[0].count) };
         }));
 
-        // Filter full guilds here if desired, or show them as full
         const availableGuilds = guilds.filter(g => g.member_count < g.max_members);
 
         res.json(availableGuilds);
@@ -537,7 +486,6 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
             [guildId, userId]
         );
         
-        // Update character guild_id column for easier lookups if implemented
         await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
 
         await client.query('COMMIT');
@@ -815,7 +763,7 @@ router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
         if (targetRes.rows.length === 0) return res.status(404).json({ message: 'Target not in guild' });
         const targetRole = targetRes.rows[0].role;
 
-        if (senderRole !== GuildRole.LEADER && senderRole !== GuildRole.OFFICER) return res.status(403).json({ message: 'No permission' });
+        if (!canManage(senderRole)) return res.status(403).json({ message: 'No permission' });
         
         // Officers can't manage Leaders or other Officers
         if (senderRole === GuildRole.OFFICER && (targetRole === GuildRole.LEADER || targetRole === GuildRole.OFFICER)) {
