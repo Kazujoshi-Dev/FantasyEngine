@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { canManage, getBuildingCost } from '../logic/guilds.js';
 
@@ -277,11 +277,24 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         const resources = guildRes.rows[0].resources;
         const rentalTaxRate = guildRes.rows[0].rental_tax || 10;
 
-        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const templates: ItemTemplate[] = gameDataRes.rows[0].data;
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const templates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        
         const template = templates.find((t: any) => t.id === item.templateId);
         
         let value = template ? (Number(template.value) || 0) : 0;
+        
+        // Add Affix Values
+        if (item.prefixId) {
+            const prefix = affixes.find(a => a.id === item.prefixId);
+            if (prefix) value += (Number(prefix.value) || 0);
+        }
+        if (item.suffixId) {
+            const suffix = affixes.find(a => a.id === item.suffixId);
+            if (suffix) value += (Number(suffix.value) || 0);
+        }
+
         const tax = Math.ceil(value * (rentalTaxRate / 100));
         
         if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -53,7 +51,19 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
     const handleBorrow = async (armoryId: number, item: ItemInstance, e: React.MouseEvent) => {
         e.stopPropagation();
         const template = templates.find(t => t.id === item.templateId);
-        const value = template?.value || 0;
+        
+        let value = template?.value || 0;
+        
+        // Add affix values
+        if (item.prefixId) {
+            const prefix = affixes.find(a => a.id === item.prefixId);
+            if (prefix) value += (prefix.value || 0);
+        }
+        if (item.suffixId) {
+            const suffix = affixes.find(a => a.id === item.suffixId);
+            if (suffix) value += (suffix.value || 0);
+        }
+
         const taxRate = guild.rentalTax || 10;
         const tax = Math.ceil(value * (taxRate / 100));
         
@@ -139,7 +149,18 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                             const template = templates.find(t => t.id === entry.item.templateId);
                             if (!template) return null;
                             const taxRate = guild.rentalTax || 10;
-                            const tax = Math.ceil((template.value || 0) * (taxRate / 100));
+                            
+                            // Calculate tax including affixes for display
+                            let value = template.value || 0;
+                            if (entry.item.prefixId) {
+                                const prefix = affixes.find(a => a.id === entry.item.prefixId);
+                                if (prefix) value += (prefix.value || 0);
+                            }
+                            if (entry.item.suffixId) {
+                                const suffix = affixes.find(a => a.id === entry.item.suffixId);
+                                if (suffix) value += (suffix.value || 0);
+                            }
+                            const tax = Math.ceil(value * (taxRate / 100));
                             
                             return (
                                 <div key={entry.id} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group cursor-pointer hover:bg-slate-800" onClick={() => handleItemClick(entry.item, template)}>
