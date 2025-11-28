@@ -481,7 +481,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         char.resources.gold -= COST;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
-        // Create Guild with full default buildings
+        // Create Guild with full default buildings, explicitly including scoutHouse
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
             [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]

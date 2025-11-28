@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
