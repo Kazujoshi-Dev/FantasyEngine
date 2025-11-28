@@ -83,7 +83,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     // 5. Calculate Rewards and Save State
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
-    const allRewardsForReport: Record<string, { gold: number; experience: number }> = {};
+    const allRewardsForReport: Record<string, { gold: number; experience: number; items?: ItemInstance[]; essences?: Partial<Record<EssenceType, number>> }> = {};
 
     if (isVictory) {
         const bossBonusMultiplier = 1.5; 
@@ -137,7 +137,12 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             }
             
             rewardsMap[userId] = { gold: finalGold, experience: finalExp, items: itemsFound, essences: essencesFound };
-            allRewardsForReport[char.name] = { gold: finalGold, experience: finalExp };
+            allRewardsForReport[char.name] = { 
+                gold: finalGold, 
+                experience: finalExp,
+                items: itemsFound,
+                essences: essencesFound
+            };
 
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
             char.experience = (Number(char.experience) || 0) + finalExp;

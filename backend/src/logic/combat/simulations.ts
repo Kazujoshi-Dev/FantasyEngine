@@ -794,22 +794,21 @@ export const simulateTeamVsBossCombat = (
         }
         
         // --- 3.4. Boss Standard Attacks ---
-        if (!bossUsedSpecial) {
-            const livingTargets = playersState.filter(p => !p.isDead);
-            if (livingTargets.length > 0) {
-                const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
-                for (let i = 0; i < bossAttacks; i++) {
-                    if (playersState.every(p => p.isDead)) break;
-                    
-                    const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                    const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
+        // Boss performs standard attacks regardless of special usage
+        const livingTargets = playersState.filter(p => !p.isDead);
+        if (livingTargets.length > 0) {
+            const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
+            for (let i = 0; i < bossAttacks; i++) {
+                if (playersState.every(p => p.isDead)) break;
+                
+                const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack({ ...bossState }, { ...playersState[targetIndex], stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name }, turn, gameData, []);
-                    
-                    bossState = { ...bossState, ...attackerState };
-                    playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
-                    log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
-                }
+                const { logs: attackLogs, attackerState, defenderState } = performAttack({ ...bossState }, { ...playersState[targetIndex], stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name }, turn, gameData, []);
+                
+                bossState = { ...bossState, ...attackerState };
+                playersState[targetIndex] = { ...playersState[targetIndex], ...defenderState };
+                log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
             }
         }
 
