@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -52,9 +54,10 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
         e.stopPropagation();
         const template = templates.find(t => t.id === item.templateId);
         const value = template?.value || 0;
-        const tax = Math.ceil(value * 0.1);
+        const taxRate = guild.rentalTax || 10;
+        const tax = Math.ceil(value * (taxRate / 100));
         
-        if (!confirm(`Wypożyczenie kosztuje 10% wartości przedmiotu (${tax} złota). Złoto trafi do banku gildii. Kontynuować?`)) return;
+        if (!confirm(`Wypożyczenie kosztuje ${taxRate}% wartości przedmiotu (${tax} złota). Złoto trafi do banku gildii. Kontynuować?`)) return;
 
         try {
             await api.borrowFromArmory(armoryId);
@@ -135,7 +138,8 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                         {filteredItems.map(entry => {
                             const template = templates.find(t => t.id === entry.item.templateId);
                             if (!template) return null;
-                            const tax = Math.ceil((template.value || 0) * 0.1);
+                            const taxRate = guild.rentalTax || 10;
+                            const tax = Math.ceil((template.value || 0) * (taxRate / 100));
                             
                             return (
                                 <div key={entry.id} className="bg-slate-900/50 p-2 rounded border border-slate-700/50 relative group cursor-pointer hover:bg-slate-800" onClick={() => handleItemClick(entry.item, template)}>

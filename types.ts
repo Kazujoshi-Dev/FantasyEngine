@@ -621,7 +621,7 @@ export interface GuildTransaction {
     id: number;
     userId: number;
     characterName: string;
-    type: 'DEPOSIT' | 'WITHDRAW';
+    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL';
     currency: 'gold' | EssenceType;
     amount: number;
     timestamp: string;
@@ -659,6 +659,7 @@ export interface Guild {
     createdAt: string;
     isPublic: boolean;
     minLevel: number;
+    rentalTax?: number; // 0-100 percentage
     buildings?: Record<string, number>; // Map building type to level
     // Extended properties
     members?: GuildMember[];

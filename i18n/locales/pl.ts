@@ -1,4 +1,6 @@
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -1046,6 +1048,11 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             upgradeCost: 'Koszt ulepszenia',
             maxMembers: 'Maks. członków: {count}'
         },
+        bank: {
+            deposit: 'Wpłata',
+            withdraw: 'Wypłata',
+            rentalFee: 'Opłata za wypożyczenie'
+        },
         roles: {
             LEADER: 'Lider',
             OFFICER: 'Oficer',
@@ -1065,6 +1072,8 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             crestUrl: 'Herb (URL)',
             minLevel: 'Wymagany Poziom',
             isPublic: 'Gildia Publiczna (Otwarta rekrutacja)',
+            rentalTax: 'Podatek od wypożyczeń',
+            rentalTaxDesc: 'Procent wartości przedmiotu pobierany jako opłata za wypożyczenie do skarbca gildii.',
             save: 'Zapisz Ustawienia',
             disband: 'Rozwiąż Gildię',
             preview: 'Podgląd',

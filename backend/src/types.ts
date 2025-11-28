@@ -659,6 +659,7 @@ export interface Guild {
     createdAt: string;
     isPublic: boolean;
     minLevel: number;
+    rentalTax?: number; // 0-100 percentage
     buildings?: Record<string, number>; // Map building type to level
     // Extended properties
     members?: GuildMember[];

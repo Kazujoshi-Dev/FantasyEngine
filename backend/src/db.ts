@@ -2,6 +2,8 @@
 
 
 
+
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -253,6 +255,15 @@ export const initializeDatabase = async () => {
              console.log("MIGRATING SCHEMA: Adding 'crest_url' column to 'guilds' table...");
              await client.query(`ALTER TABLE guilds ADD COLUMN crest_url TEXT;`);
         }
+        
+        const hasRentalTaxColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guilds' AND column_name='rental_tax';
+        `);
+        if (!hasRentalTaxColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'rental_tax' column to 'guilds' table...");
+             await client.query(`ALTER TABLE guilds ADD COLUMN rental_tax INT DEFAULT 10;`);
+        }
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS guild_members (
@@ -279,7 +290,7 @@ export const initializeDatabase = async () => {
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
                 user_id INT NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-                type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW
+                type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW, RENTAL
                 currency VARCHAR(50) NOT NULL,
                 amount INT NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()

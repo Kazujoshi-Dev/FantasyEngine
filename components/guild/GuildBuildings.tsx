@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -53,8 +55,11 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
         const maxLevel = type === 'barracks' ? 5 : 999;
         const isMaxLevel = level >= maxLevel;
         const cost = isMaxLevel ? { gold: 0, essenceType: EssenceType.Common, essenceAmount: 0 } : getBuildingCost(type, level);
-        const hasGold = guild.resources.gold >= cost.gold;
-        const hasEssence = (guild.resources[cost.essenceType] || 0) >= cost.essenceAmount;
+        const currentGuildGold = guild.resources.gold || 0;
+        const currentGuildEssence = guild.resources[cost.essenceType] || 0;
+        
+        const hasGold = currentGuildGold >= cost.gold;
+        const hasEssence = currentGuildEssence >= cost.essenceAmount;
         
         const handleUpgrade = async () => {
             try {
@@ -94,11 +99,17 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                             <p className="text-sm font-bold text-gray-300 mb-2">{t('guild.buildings.upgradeCost')}:</p>
                             <div className="flex justify-between items-center text-sm mb-1">
                                 <span className="text-gray-400">Złoto</span>
-                                <span className={`font-mono font-bold ${hasGold ? 'text-amber-400' : 'text-red-400'}`}>{cost.gold.toLocaleString()}</span>
+                                <div>
+                                    <span className={`font-mono font-bold ${hasGold ? 'text-amber-400' : 'text-red-400'}`}>{cost.gold.toLocaleString()}</span>
+                                    <span className={`text-xs ml-1 ${hasGold ? 'text-green-500' : 'text-red-500'}`}>({currentGuildGold.toLocaleString()})</span>
+                                </div>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className={`${essenceToRarityMap[cost.essenceType].text}`}>{t(`resources.${cost.essenceType}`)}</span>
-                                <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
+                                <div>
+                                    <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
+                                    <span className={`text-xs ml-1 ${hasEssence ? 'text-green-500' : 'text-red-500'}`}>({currentGuildEssence})</span>
+                                </div>
                             </div>
                         </div>
                     ) : (

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -30,6 +32,13 @@ export const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }
         } catch (e: any) {
             alert(e.message);
         }
+    };
+
+    const getTransactionLabel = (type: string) => {
+        if (type === 'DEPOSIT') return t('guild.bank.deposit');
+        if (type === 'WITHDRAW') return t('guild.bank.withdraw');
+        if (type === 'RENTAL') return t('guild.bank.rentalFee');
+        return type;
     };
 
     return (
@@ -66,7 +75,9 @@ export const GuildBank: React.FC<{ guild: GuildType, onTransaction: () => void }
                     {(guild.transactions || []).map(tx => (
                         <div key={tx.id} className="text-xs bg-slate-900/30 p-2 rounded flex justify-between items-center">
                             <div>
-                                <span className={tx.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'}>{tx.type === 'DEPOSIT' ? 'Wpłata' : 'Wypłata'}</span>
+                                <span className={tx.type === 'DEPOSIT' ? 'text-green-400' : tx.type === 'RENTAL' ? 'text-indigo-400' : 'text-red-400'}>
+                                    {getTransactionLabel(tx.type)}
+                                </span>
                                 <span className="text-gray-400 mx-2">|</span>
                                 <span className="font-bold text-gray-200">{tx.characterName}</span>
                             </div>

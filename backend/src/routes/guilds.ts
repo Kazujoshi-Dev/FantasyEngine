@@ -1,4 +1,6 @@
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -57,7 +59,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             FROM guild_bank_history gbh
             LEFT JOIN characters c ON gbh.user_id = c.user_id
             WHERE gbh.guild_id = $1
-            ORDER BY gbh.created_at DESC LIMIT 50
+            ORDER BY gbh.created_at DESC LIMIT 100
         `, [guildId]);
 
         const transactions: GuildTransaction[] = historyRes.rows.map(row => ({
@@ -102,6 +104,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             createdAt: guildData.created_at,
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
+            rentalTax: guildData.rental_tax || 10,
             buildings: guildData.buildings || { headquarters: 0, armory: 0, barracks: 0 },
             members,
             transactions,
@@ -267,13 +270,18 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         // Check backpack space
         if (char.inventory.length >= getBackpackCapacity(char)) throw new Error('Backpack full');
 
-        // Calculate Tax
+        // Calculate Tax based on Guild Settings
+        const guildRes = await client.query('SELECT resources, rental_tax FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
+        const resources = guildRes.rows[0].resources;
+        const rentalTaxRate = guildRes.rows[0].rental_tax || 10;
+
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         const templates: ItemTemplate[] = gameDataRes.rows[0].data;
         const template = templates.find((t: any) => t.id === item.templateId);
         
         let value = template ? (Number(template.value) || 0) : 0;
-        const tax = Math.ceil(value * 0.1);
+        const tax = Math.ceil(value * (rentalTaxRate / 100));
+        
         if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);
 
         // Get owner name for metadata
@@ -294,12 +302,10 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         await client.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
         
         // Add tax to guild bank
-        const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
-        const resources = guildRes.rows[0].resources;
         resources.gold += tax;
         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [resources, guildId]);
         
-        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'DEPOSIT', 'gold', $3)`, [guildId, userId, tax]);
+        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'RENTAL', 'gold', $3)`, [guildId, userId, tax]);
 
         await client.query('COMMIT');
         res.json({ message: 'Item borrowed', taxPaid: tax });
@@ -502,7 +508,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/update - Update description and crest
 router.post('/update', authenticateToken, async (req: any, res: any) => {
-    const { description, crestUrl, minLevel, isPublic } = req.body;
+    const { description, crestUrl, minLevel, isPublic, rentalTax } = req.body;
     const userId = req.user.id;
 
     try {
@@ -533,6 +539,12 @@ router.post('/update', authenticateToken, async (req: any, res: any) => {
         if (isPublic !== undefined) {
             fields.push(`is_public = $${index++}`);
             values.push(isPublic);
+        }
+        if (rentalTax !== undefined) {
+            const tax = parseInt(rentalTax);
+            if(tax < 0 || tax > 50) return res.status(400).json({ message: 'Tax must be between 0 and 50%'});
+            fields.push(`rental_tax = $${index++}`);
+            values.push(tax);
         }
 
         if (fields.length > 0) {
