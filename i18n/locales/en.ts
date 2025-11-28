@@ -1,6 +1,3 @@
-
-
-
 export default {
     loading: 'Loading adventure...',
     error: {
@@ -24,6 +21,33 @@ export default {
     trader: {
         junkTypes: 'Common and Uncommon',
         bulkSellConfirm: 'Are you sure you want to sell {count} items ({types}) for {value} gold?'
+    },
+    hunting: {
+        title: 'Hunting',
+        statusLabel: 'Status',
+        startsIn: 'Starts in',
+        leave: 'Leave Party',
+        disband: 'Disband Party',
+        leaveConfirm: 'Are you sure you want to leave the party?',
+        chooseBoss: 'Choose Boss',
+        partySize: 'Party Size',
+        create: 'Create Party',
+        availableParties: 'Available Parties',
+        noParties: 'No parties available. Create your own!',
+        join: 'Join',
+        emptySlot: 'Empty Slot',
+        members: 'Party Members',
+        status: {
+            FORMING: 'Forming',
+            PREPARING: 'Preparing',
+            FIGHTING: 'Fighting',
+            FINISHED: 'Finished'
+        },
+        memberStatus: {
+            LEADER: 'Leader',
+            MEMBER: 'Member',
+            PENDING: 'Pending'
+        }
     },
     guild: {
         title: 'Guild',

@@ -1,6 +1,3 @@
-
-
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -343,6 +340,33 @@ export default {
                 meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'
             }
+        }
+    },
+    hunting: {
+        title: 'Polowanie',
+        statusLabel: 'Status',
+        startsIn: 'Start za',
+        leave: 'Opuść grupę',
+        disband: 'Rozwiąż grupę',
+        leaveConfirm: 'Czy na pewno chcesz opuścić grupę?',
+        chooseBoss: 'Wybierz Bossa',
+        partySize: 'Rozmiar Grupy',
+        create: 'Utwórz Grupę',
+        availableParties: 'Dostępne Grupy',
+        noParties: 'Brak dostępnych grup. Utwórz własną!',
+        join: 'Dołącz',
+        emptySlot: 'Wolne miejsce',
+        members: 'Członkowie Drużyny',
+        status: {
+            FORMING: 'Formowanie',
+            PREPARING: 'Przygotowanie',
+            FIGHTING: 'Walka',
+            FINISHED: 'Zakończone'
+        },
+        memberStatus: {
+            LEADER: 'Lider',
+            MEMBER: 'Członek',
+            PENDING: 'Oczekujący'
         }
     },
     camp: {
