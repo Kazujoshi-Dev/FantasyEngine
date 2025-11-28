@@ -224,6 +224,7 @@ export interface CombatLogEntry {
   aoeDamage?: { target: string, damage: number }[];
   chainTargets?: string[];
   partyMemberStats?: Record<string, CharacterStats>;
+  shout?: string; // New field for boss dialogue
 }
 
 export interface ActiveExpedition {
@@ -721,10 +722,10 @@ export interface PlayerCharacter {
   };
   learnedSkills?: string[];
   guildId?: number; // Added guildId
-  guildBarracksLevel?: number; // Virtual field for UI, fetched from guild relation
-  rentalTax?: number; // Added rentalTax
+  guildBarracksLevel?: number;
   description?: string;
   avatarUrl?: string;
+  rentalTax?: number;
 }
 
 export interface TraderSettings {

@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Loading adventure...',
     error: {
@@ -48,6 +49,13 @@ export default {
             MEMBER: 'Member',
             PENDING: 'Pending'
         }
+    },
+    bossShouts: {
+        Stun: 'Feel the power of my stun!',
+        ArmorPierce: 'Your armor is like paper!',
+        DeathTouch: 'Your soul belongs to me now!',
+        EmpoweredStrikes: 'My strikes shall become crushing!',
+        Earthquake: 'The earth trembles before my power!'
     },
     guild: {
         title: 'Guild',

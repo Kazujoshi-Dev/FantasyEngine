@@ -59,7 +59,11 @@ const CombatLogRow: React.FC<{
 
     const getHpForEntity = (name: string) => {
         if (friendlyNames.includes(name)) {
-            return log.playerHealth;
+            const playerHealthData = log.allPlayersHealth?.find(p => p.name === name);
+            if (playerHealthData) {
+                return playerHealthData.currentHealth;
+            }
+            return log.playerHealth; // Fallback
         }
         const enemyHealthData = log.allEnemiesHealth?.find(e => e.name === name);
         if (enemyHealthData) {
@@ -133,6 +137,20 @@ const CombatLogRow: React.FC<{
                         ))}
                     </div>
                 )}
+            </div>
+        );
+    }
+    
+    // Obsługa okrzyku bossa
+    if (log.action === 'boss_shout' && log.shout) {
+        return (
+            <div className="text-center my-4">
+                <div className="inline-block bg-slate-900/80 px-4 py-2 rounded-xl border border-amber-600/50 relative">
+                    <p className="font-bold text-amber-500 text-sm uppercase tracking-wide mb-1">{log.attacker}</p>
+                    <p className="text-white italic font-serif text-lg">"{t(`bossShouts.${log.shout}`)}"</p>
+                    {/* Tiny triangle for speech bubble effect */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-amber-600/50"></div>
+                </div>
             </div>
         );
     }
@@ -678,17 +696,26 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const updateCombatantState = (log: CombatLogEntry) => {
          if (isHunting) {
              setPartyMembersState(prev => prev.map(m => {
-                 if (!m.stats) return m; 
-                 
-                 if (m.characterName === log.attacker || m.characterName === log.defender) {
-                      return { ...m, stats: { ...m.stats, currentHealth: log.playerHealth, currentMana: log.playerMana } };
+                 // Use allPlayersHealth snapshot from log if available for accurate team state at this turn
+                 if (log.allPlayersHealth) {
+                     const snapshot = log.allPlayersHealth.find(p => p.name === m.characterName);
+                     if (snapshot && m.stats) {
+                         return { ...m, stats: { ...m.stats, currentHealth: snapshot.currentHealth } };
+                     }
                  }
-                 // Also update stunned players or other targets from special attacks if specified
-                 if (log.stunnedPlayer && m.characterName === log.stunnedPlayer) {
-                      // Could add visual stun indicator here in future
+                 
+                 // Fallback to direct log values (less reliable for multi-actor turns)
+                 if (m.stats && (m.characterName === log.attacker || m.characterName === log.defender)) {
+                      return { ...m, stats: { ...m.stats, currentHealth: log.playerHealth, currentMana: log.playerMana } };
                  }
                  return m;
              }));
+             
+             // Update Boss State from log
+             if (currentEnemy) {
+                 setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
+             }
+
          } else {
              if (isPvp && pvpData) {
                  setCurrentPlayerStats({ ...pvpData.attacker.stats, currentHealth: log.playerHealth, currentMana: log.playerMana });

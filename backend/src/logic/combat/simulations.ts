@@ -290,8 +290,6 @@ export const simulate1vManyCombat = (
     const getHealthState = () => ({
         playerHealth: playerState.currentHealth,
         playerMana: playerState.currentMana,
-        // For logs focusing on one enemy, typically the last target is used, 
-        // but for group updates we rely on `allEnemiesHealth`
         enemyHealth: 0, 
         enemyMana: 0,
         allEnemiesHealth: enemiesState.map(e => ({ 
@@ -597,6 +595,7 @@ export const simulateTeamVsBossCombat = (
     const log: CombatLogEntry[] = [];
     let turn = 0;
 
+    // Helper to generate a snapshot of all players' health at specific moment
     const getHealthStateForLog = () => ({
         playerHealth: 0, 
         playerMana: 0,
@@ -605,7 +604,6 @@ export const simulateTeamVsBossCombat = (
         allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth }))
     });
 
-    // Calculate stats for all players for the log to fix tooltips
     const partyStats: Record<string, CharacterStats> = {};
     playersState.forEach(p => {
         partyStats[p.data.name] = p.data.stats;
@@ -629,26 +627,22 @@ export const simulateTeamVsBossCombat = (
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
              const bossAsDefender: DefenderState = { ...bossState, stats: bossState.stats, name: bossState.name };
              
-             // 1. Standard Ranged Attack (Everyone with ranged weapon)
              const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
-             bossState.currentHealth = defenderState.currentHealth; // Sync Boss HP
+             bossState.currentHealth = defenderState.currentHealth;
+             // Push logs with updated health snapshot immediately
              log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 
-             // 2. Hunter Bonus Attack (Only Hunters, 50% damage)
              if (player.data.characterClass === CharacterClass.Hunter && bossState.currentHealth > 0) {
                  const { logs: hunterLogs, defenderState: hunterBossState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
-                 
                  const lastLog = hunterLogs[hunterLogs.length - 1];
                  if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
                     const originalDamage = lastLog.damage;
                     const reducedDamage = Math.floor(originalDamage * 0.5);
                     const diff = originalDamage - reducedDamage;
-                    
                     lastLog.damage = reducedDamage;
-                    hunterBossState.currentHealth += diff; // Restore HP
+                    hunterBossState.currentHealth += diff;
                     lastLog.enemyHealth = hunterBossState.currentHealth;
-                    
-                    bossState.currentHealth = hunterBossState.currentHealth; // Sync Boss HP
+                    bossState.currentHealth = hunterBossState.currentHealth;
                  }
                  log.push(...hunterLogs.map(l => ({...l, ...getHealthStateForLog()})));
              }
@@ -660,35 +654,105 @@ export const simulateTeamVsBossCombat = (
         turn++;
         
         // --- 3.1. Start of Turn Phase ---
-        // CRITICAL FIX: Use `any` or a specific union type to handle both Player and Boss states correctly in the loop.
-        // The previous crash was caused by accessing `combatant.stats` on a Player object where stats are nested in `data`.
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         
         for (const combatant of allCombatants) {
-            // Access stats safely: Player has `data.stats`, Boss has direct `stats`.
             let stats: CharacterStats | EnemyStats | undefined = combatant.stats;
             if (!stats && combatant.data && combatant.data.stats) {
                 stats = combatant.data.stats;
             }
-
-            // Mana Regen
             if (stats) {
                 const manaRegen = stats.manaRegen || 0;
                 if (manaRegen > 0) {
                     combatant.currentMana = Math.min(stats.maxMana || 0, combatant.currentMana + manaRegen);
                 }
             }
-            // Status Effects
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
+
+        // --- 3.2. Boss Special Attacks (Happens BEFORE players move) ---
+        let bossUsedSpecial = false;
+        if (bossState.currentHealth > 0) {
+            for (const special of (bossData.specialAttacks || [])) {
+                if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
+                    const livingTargets = playersState.filter(p => !p.isDead);
+                    if (livingTargets.length === 0) continue;
+                    
+                    bossState.specialAttacksUsed[special.type]++;
+                    bossUsedSpecial = true; 
+                    
+                    // Log Shout first
+                    log.push({
+                        turn, 
+                        attacker: bossState.name, 
+                        defender: 'Team', 
+                        action: 'boss_shout', 
+                        shout: special.type, 
+                        ...getHealthStateForLog()
+                    });
+
+                    switch(special.type) {
+                        case SpecialAttackType.Stun: {
+                            const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                            const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                            playersState[targetIndex].statusEffects.push({ type: 'stunned', duration: 2 });
+                            log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, stunnedPlayer: target.data.name, ...getHealthStateForLog() });
+                            break;
+                        }
+                        case SpecialAttackType.Earthquake: {
+                            const damageDetails: { target: string, damage: number }[] = [];
+                            playersState.forEach(p => {
+                                if (!p.isDead) {
+                                    const dmg = Math.floor(p.data.stats.maxHealth * 0.2);
+                                    p.currentHealth = Math.max(0, p.currentHealth - dmg);
+                                    damageDetails.push({ target: p.data.name, damage: dmg });
+                                }
+                            });
+                            // Push log AFTER damage is applied to state so getHealthStateForLog works
+                            log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, aoeDamage: damageDetails, ...getHealthStateForLog() });
+                            break;
+                        }
+                        case SpecialAttackType.ArmorPierce: {
+                            const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                            const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                            playersState[targetIndex].statusEffects.push({ type: 'armor_broken', duration: 2 });
+                            log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                            break;
+                        }
+                        case SpecialAttackType.DeathTouch: {
+                            const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
+                            const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
+                            const damage = Math.floor(playersState[targetIndex].currentHealth * 0.5);
+                            playersState[targetIndex].currentHealth -= damage;
+                            log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, damage, ...getHealthStateForLog() });
+                            break;
+                        }
+                        case SpecialAttackType.EmpoweredStrikes: {
+                            bossState.isEmpowered = true;
+                            log.push({ turn, attacker: bossState.name, defender: '', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
+                            bossUsedSpecial = false; // Does not consume attack
+                            break;
+                        }
+                    }
+                    if (bossUsedSpecial) break; 
+                }
+            }
+        }
         
-        // --- 3.2. Players' Turn ---
+        // Check dead after special
+        playersState.forEach(p => {
+            if (!p.isDead && p.currentHealth <= 0) {
+                p.isDead = true;
+                log.push({ turn, attacker: bossState.name, defender: p.data.name, action: 'death', ...getHealthStateForLog() });
+            }
+        });
+        
+        // --- 3.3. Players' Turn ---
         const livingPlayers = playersState.filter(p => !p.isDead);
         for (const player of livingPlayers) {
             if (bossState.currentHealth <= 0) break;
             const playerIndex = playersState.findIndex(p => p.data.id === player.data.id);
 
-            // Shaman Damage
             if (player.data.characterClass === CharacterClass.Shaman && player.currentMana > 0) {
                 const shamanDamage = Math.floor(player.currentMana);
                 bossState.currentHealth = Math.max(0, bossState.currentHealth - shamanDamage);
@@ -696,12 +760,8 @@ export const simulateTeamVsBossCombat = (
                 if (bossState.currentHealth <= 0) break;
             }
 
-            // Stun Check
             const stunIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
-            if (stunIndex > -1) {
-                // Stun consumes the turn
-                continue;
-            }
+            if (stunIndex > -1) continue;
 
             const attacks = player.data.stats.attacksPerRound;
             for (let i = 0; i < attacks; i++) {
@@ -709,7 +769,6 @@ export const simulateTeamVsBossCombat = (
 
                 let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
                 
-                // Warrior Bonus
                 if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
                     playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
                 }
@@ -721,7 +780,6 @@ export const simulateTeamVsBossCombat = (
                 log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
             }
             
-            // Berserker Bonus Attack
             if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3 && bossState.currentHealth > 0) {
                  const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
                  playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
@@ -735,65 +793,7 @@ export const simulateTeamVsBossCombat = (
             break;
         }
         
-        // --- 3.3. Boss's Turn ---
-        let bossUsedSpecial = false;
-        for (const special of (bossData.specialAttacks || [])) {
-            if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
-                const livingTargets = playersState.filter(p => !p.isDead);
-                if (livingTargets.length === 0) continue;
-                
-                bossState.specialAttacksUsed[special.type]++;
-                bossUsedSpecial = true; // Consume turn action with special attack (usually)
-                
-                switch(special.type) {
-                    case SpecialAttackType.Stun: {
-                        const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                        const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
-                        // Apply stunned effect. Duration 2 means "this turn" (decremented at end of boss turn) and "next player turn".
-                        // Actually status update happens at START of turn. So applying now means it exists for player's next turn.
-                        playersState[targetIndex].statusEffects.push({ type: 'stunned', duration: 2 });
-                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, stunnedPlayer: target.data.name, ...getHealthStateForLog() });
-                        break;
-                    }
-                    case SpecialAttackType.Earthquake: {
-                        const damageDetails: { target: string, damage: number }[] = [];
-                        playersState.forEach(p => {
-                            if (!p.isDead) {
-                                const dmg = Math.floor(p.data.stats.maxHealth * 0.2);
-                                p.currentHealth = Math.max(0, p.currentHealth - dmg);
-                                damageDetails.push({ target: p.data.name, damage: dmg });
-                            }
-                        });
-                        log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, aoeDamage: damageDetails, ...getHealthStateForLog() });
-                        break;
-                    }
-                    case SpecialAttackType.ArmorPierce: {
-                        const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                        const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
-                        playersState[targetIndex].statusEffects.push({ type: 'armor_broken', duration: 2 });
-                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
-                        break;
-                    }
-                    case SpecialAttackType.DeathTouch: {
-                        const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
-                        const targetIndex = playersState.findIndex(p => p.data.id === target.data.id);
-                        const damage = Math.floor(playersState[targetIndex].currentHealth * 0.5);
-                        playersState[targetIndex].currentHealth -= damage;
-                        log.push({ turn, attacker: bossState.name, defender: target.data.name, action: 'specialAttackLog', specialAttackType: special.type, damage, ...getHealthStateForLog() });
-                        break;
-                    }
-                    case SpecialAttackType.EmpoweredStrikes: {
-                        bossState.isEmpowered = true;
-                        log.push({ turn, attacker: bossState.name, defender: '', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
-                        // Does not consume attack action, boss still attacks
-                        bossUsedSpecial = false; 
-                        break;
-                    }
-                }
-                if (bossUsedSpecial) break; // Only one action-consuming special per turn
-            }
-        }
-        
+        // --- 3.4. Boss Standard Attacks ---
         if (!bossUsedSpecial) {
             const livingTargets = playersState.filter(p => !p.isDead);
             if (livingTargets.length > 0) {
@@ -813,7 +813,7 @@ export const simulateTeamVsBossCombat = (
             }
         }
 
-        // --- 3.4. End of Turn Phase ---
+        // --- 3.5. End of Turn Phase ---
         playersState.forEach(p => {
             if (!p.isDead && p.currentHealth <= 0) {
                 p.isDead = true;
@@ -821,14 +821,6 @@ export const simulateTeamVsBossCombat = (
             }
         });
     }
-
-    // --- 4. Finalization ---
-    const finalState = getHealthStateForLog();
-    log.forEach(l => {
-        l.allPlayersHealth = finalState.allPlayersHealth;
-        l.enemyHealth = finalState.enemyHealth;
-        l.enemyMana = finalState.enemyMana;
-    });
 
     return { combatLog: log, finalPlayers: playersState };
 };

@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -798,6 +799,13 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         EmpoweredStrikesDesc: 'Boss do końca walki otrzymuje +15% szansy na trafienie krytyczne.',
         Earthquake: 'Trzęsienie Ziemi',
         EarthquakeDesc: 'Każdy gracz traci 20% swojego maksymalnego zdrowia.'
+    },
+    bossShouts: {
+        Stun: 'Poczuj potęgę mojego ogłuszenia!',
+        ArmorPierce: 'Twój pancerz jest niczym papier!',
+        DeathTouch: 'Twoja dusza należy teraz do mnie!',
+        EmpoweredStrikes: 'Moje ciosy staną się miażdżące!',
+        Earthquake: 'Ziemia zadrży przed moją potęgą!'
     },
     admin: {
         title: 'Panel Admina',

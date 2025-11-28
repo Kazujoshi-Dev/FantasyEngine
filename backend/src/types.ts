@@ -224,6 +224,7 @@ export interface CombatLogEntry {
   aoeDamage?: { target: string, damage: number }[];
   chainTargets?: string[];
   partyMemberStats?: Record<string, CharacterStats>;
+  shout?: string; // New field for boss dialogue
 }
 
 export interface ActiveExpedition {
