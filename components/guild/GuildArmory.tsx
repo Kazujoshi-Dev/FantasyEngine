@@ -229,9 +229,8 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                                     
                                     return (
                                         <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                                            <td className="p-2 relative group cursor-help">
+                                            <td className="p-2">
                                                 {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
-                                                {template && <div className="hidden group-hover:block absolute left-full top-0 z-50 w-64 p-2 bg-slate-900 border border-slate-600 rounded shadow-xl"><ItemDetailsPanel item={entry.item} template={template} affixes={affixes} size="small" /></div>}
                                             </td>
                                             <td className="p-2 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
