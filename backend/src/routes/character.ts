@@ -9,6 +9,8 @@
 
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -334,8 +336,14 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
         // Verify that the character meets requirements for all equipped items based on their CURRENT stats (likely updated ones)
         // If they don't (e.g. after a stat reset), unequip the items to inventory.
         
-        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates = gameDataRes.rows[0]?.data || [];
+        const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        // 1. Calculate Derived Stats first to get the TOTAL stats of the character
+        // assuming the new equipment is equipped. This allows items to support each other (e.g. ring gives STR for sword)
+        // Note: For strict anti-exploit, one might require sequential equipping, but commonly "total set" validation is acceptable user experience.
+        const derivedChar = calculateDerivedStatsOnServer(updatedCharacterData, itemTemplates, affixes);
 
         if (updatedCharacterData.equipment) {
             for (const slot of Object.values(EquipmentSlot)) {
@@ -350,12 +358,12 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
                             meetsRequirements = false;
                         }
 
-                        // Check Stats
+                        // Check Stats against DERIVED stats (Total Strength, etc.)
                         if (meetsRequirements && template.requiredStats) {
                             for (const stat in template.requiredStats) {
                                 const key = stat as keyof CharacterStats;
                                 const requiredVal = template.requiredStats[key] || 0;
-                                const playerVal = updatedCharacterData.stats[key] || 0; // Using stats from the update payload (e.g. reset stats)
+                                const playerVal = derivedChar.stats[key] || 0; 
                                 if (playerVal < requiredVal) {
                                     meetsRequirements = false;
                                     break;
