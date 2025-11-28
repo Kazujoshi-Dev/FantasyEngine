@@ -221,8 +221,15 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const scaledBossStats = useMemo(() => {
         if (!selectedBoss) return null;
         const count = createMembers;
-        const healthMult = 1 + (count - 1) * 0.7;
-        const damageMult = 1 + (count - 1) * 0.1;
+        
+        // Scaling Logic: Only start scaling if players > 2.
+        // For 1 or 2 players, multipliers are 1.0 (Base stats).
+        // For 3+ players: 
+        // HP: +70% per player above 2
+        // DMG: +10% per player above 2
+        
+        const healthMult = 1 + Math.max(0, count - 2) * 0.7;
+        const damageMult = 1 + Math.max(0, count - 2) * 0.1;
 
         return {
             maxHealth: Math.floor(selectedBoss.stats.maxHealth * healthMult),
@@ -435,7 +442,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                 </div>
                             </div>
                             <div className="mt-4 text-xs text-gray-500 text-center mt-auto">
-                                * Statystyki i nagrody są skalowane w zależności od liczby graczy w grupie.
+                                * Statystyki i nagrody są skalowane w zależności od liczby graczy w grupie (wzrost od 3 graczy).
                             </div>
                         </div>
                     ) : (

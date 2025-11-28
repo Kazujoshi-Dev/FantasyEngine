@@ -62,14 +62,34 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         throw new Error('No valid players found to start combat.');
     }
 
-    // 2. Get Boss Data
-    const bossTemplate = (gameData.enemies || []).find(e => e.id === party.bossId);
-    if (!bossTemplate) throw new Error(`Boss template with id ${party.bossId} not found.`);
+    // 2. Get Boss Data and Apply Scaling
+    const originalBossTemplate = (gameData.enemies || []).find(e => e.id === party.bossId);
+    if (!originalBossTemplate) throw new Error(`Boss template with id ${party.bossId} not found.`);
+
+    // Clone boss to apply scaling
+    const bossTemplate = JSON.parse(JSON.stringify(originalBossTemplate));
+    
+    // Scaling Logic: Matches Frontend
+    // 1-2 Players: Base Stats (1.0x)
+    // 3+ Players: +70% HP per player > 2, +10% DMG per player > 2
+    const playerCount = playerCombatants.length;
+    const healthMult = 1 + Math.max(0, playerCount - 2) * 0.7;
+    const damageMult = 1 + Math.max(0, playerCount - 2) * 0.1;
+
+    bossTemplate.stats.maxHealth = Math.floor(bossTemplate.stats.maxHealth * healthMult);
+    bossTemplate.stats.minDamage = Math.floor(bossTemplate.stats.minDamage * damageMult);
+    bossTemplate.stats.maxDamage = Math.floor(bossTemplate.stats.maxDamage * damageMult);
+    if (bossTemplate.stats.magicDamageMin) {
+        bossTemplate.stats.magicDamageMin = Math.floor(bossTemplate.stats.magicDamageMin * damageMult);
+    }
+    if (bossTemplate.stats.magicDamageMax) {
+        bossTemplate.stats.magicDamageMax = Math.floor(bossTemplate.stats.magicDamageMax * damageMult);
+    }
 
     // 3. Simulate Combat
     const { combatLog, finalPlayers } = simulateTeamVsBossCombat(playerCombatants, bossTemplate, gameData);
     
-    // FIX: Victory depends ONLY on boss health being <= 0. Previous condition required no players to be dead.
+    // Victory depends ONLY on boss health being <= 0
     const isVictory = bossTemplate ? combatLog[combatLog.length - 1]?.enemyHealth <= 0 : false;
 
     // 4. Update player health and mana from combat results
@@ -87,9 +107,10 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
     if (isVictory) {
         const bossBonusMultiplier = 1.5; 
-        const rolledGold = Math.floor(Math.random() * ((bossTemplate.rewards.maxGold || 0) - (bossTemplate.rewards.minGold || 0) + 1)) + (bossTemplate.rewards.minGold || 0);
+        // Rewards use base template stats for range, but multiplied by pool count
+        const rolledGold = Math.floor(Math.random() * ((originalBossTemplate.rewards.maxGold || 0) - (originalBossTemplate.rewards.minGold || 0) + 1)) + (originalBossTemplate.rewards.minGold || 0);
         const totalPoolGold = rolledGold * playerCombatants.length * bossBonusMultiplier;
-        const rolledExp = Math.floor(Math.random() * ((bossTemplate.rewards.maxExperience || 0) - (bossTemplate.rewards.minExperience || 0) + 1)) + (bossTemplate.rewards.minExperience || 0);
+        const rolledExp = Math.floor(Math.random() * ((originalBossTemplate.rewards.maxExperience || 0) - (originalBossTemplate.rewards.minExperience || 0) + 1)) + (originalBossTemplate.rewards.minExperience || 0);
         const totalPoolExp = rolledExp * playerCombatants.length * bossBonusMultiplier;
         const splitGold = Math.floor(totalPoolGold / playerCombatants.length);
         const splitExp = Math.floor(totalPoolExp / playerCombatants.length);
@@ -153,13 +174,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             
             // Druid post-combat heal
             if (char.characterClass === CharacterClass.Druid) {
-                // Recalculate stats to get maxHealth, we need barracks level here too if available but for simpler logic assume max health is consistent
-                // Ideally fetch again or reuse context, here reused calculated maxHealth from combat start might be safer if equipped items didn't change
-                // But `calculateDerivedStatsOnServer` is stateless.
-                // Re-fetch guild info to be safe? Or just use base stats?
-                // Let's re-calculate assuming barracks level 0 for heal logic simplicity or reuse maxHealth from before.
-                // A safer way is to trust currentHealth logic up top.
-                // For simplicity:
+                // Simplified maxHP calc
                 const combatChar = playerCombatants.find(pc => pc.id === userId);
                 const maxHealth = combatChar?.stats.maxHealth || char.stats.maxHealth;
                 char.stats.currentHealth = Math.min(maxHealth, char.stats.currentHealth + maxHealth * 0.5);
