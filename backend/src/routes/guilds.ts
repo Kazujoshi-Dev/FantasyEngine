@@ -1,6 +1,8 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -105,7 +107,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
             rentalTax: guildData.rental_tax || 10,
-            buildings: guildData.buildings || { headquarters: 0, armory: 0, barracks: 0 },
+            buildings: guildData.buildings || { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 },
             members,
             transactions,
             myRole,
@@ -482,7 +484,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         // Create Guild
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0 })]
+            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]
         );
         const guildId = createRes.rows[0].id;
 
@@ -871,10 +873,10 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks'
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse'
     const userId = req.user.id;
 
-    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks') return res.status(400).json({ message: 'Invalid building type' });
+    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse') return res.status(400).json({ message: 'Invalid building type' });
 
     const client = await pool.connect();
     try {
@@ -890,11 +892,17 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         // Lock Guild
         const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         const guild = guildRes.rows[0];
-        let buildings = guild.buildings || { headquarters: 0, armory: 0, barracks: 0 };
+        let buildings = guild.buildings || { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 };
         const currentLevel = buildings[buildingType] || 0;
 
         // Max Level Check for Barracks
         if (buildingType === 'barracks' && currentLevel >= 5) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Building is at maximum level.' });
+        }
+        
+        // Max Level Check for Scout House
+        if (buildingType === 'scoutHouse' && currentLevel >= 3) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Building is at maximum level.' });
         }

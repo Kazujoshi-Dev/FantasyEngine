@@ -4,6 +4,8 @@
 
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -202,6 +204,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         let character: PlayerCharacter = result.rows[0].data;
         const guildBuildings = result.rows[0].buildings || {};
         const barracksLevel = guildBuildings['barracks'] || 0;
+        const scoutHouseLevel = guildBuildings['scoutHouse'] || 0;
 
         if (!character.activeExpedition || Date.now() < character.activeExpedition.finishTime) {
             await client.query('ROLLBACK');
@@ -220,7 +223,8 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
 
         try {
             // Attempt to process logic with guild bonus passed down
-            const processingResult = processCompletedExpedition(character, gameData, barracksLevel);
+            // Pass scoutHouseLevel to increase maxItems
+            const processingResult = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel);
             updatedCharacter = processingResult.updatedCharacter;
             summary = processingResult.summary;
             expeditionName = processingResult.expeditionName;

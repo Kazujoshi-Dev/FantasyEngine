@@ -1,13 +1,15 @@
 
 
 
+
+
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 
-export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData, guildBarracksLevel: number = 0): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
+export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData, guildBarracksLevel: number = 0, scoutHouseLevel: number = 0): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
     const expedition = gameData.expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expedition) {
         character.activeExpedition = null;
@@ -166,7 +168,34 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         ];
 
         const backpackCapacity = getBackpackCapacity(finalCharacter);
-        const maxItems = expedition.maxItems;
+        
+        // Apply Scout's House bonus to max items limit
+        // Default maxItems if undefined is effectively infinity, but if defined, we add the level bonus.
+        // If maxItems is not set on expedition, scout house doesn't strictly "add" to infinity, 
+        // but traditionally maxItems limits drop count.
+        // However, if we interpret "provides additional item" as extra rolls or extra limit:
+        // Let's assume it increases the CAP of items found if a cap exists, 
+        // OR if no cap exists, it essentially guarantees +N items if logic supports guaranteed drops?
+        // Simpler interpretation: It increases the limit of items you can carry back from this specific run 
+        // if the expedition has a limit. 
+        // But most expeditions might not have a limit.
+        // Alternative interpretation: It grants N extra rolls on the loot table.
+        // Let's go with: It increases maxItems limit. If maxItems is 0 (unlimited), it does nothing extra regarding limit, 
+        // but maybe we should add free rolls?
+        // Let's implement: It adds N extra rolls on the expedition loot table.
+        
+        const extraRolls = scoutHouseLevel;
+        if (extraRolls > 0) {
+             for(let i=0; i<extraRolls; i++) {
+                 // Add random item from expedition table as potential extra drop
+                 if (expedition.lootTable && expedition.lootTable.length > 0) {
+                     const extraDrop = expedition.lootTable[Math.floor(Math.random() * expedition.lootTable.length)];
+                     allLootTables.push(extraDrop);
+                 }
+             }
+        }
+
+        const maxItems = (expedition.maxItems || 999) + scoutHouseLevel; // Also increase cap just in case
         
         if(character.characterClass === CharacterClass.DungeonHunter) {
             if (Math.random() < 0.3) {

@@ -22,11 +22,18 @@ export const getBuildingCost = (type: string, level: number) => {
         const essenceAmount = 5 + (level % 3) * 2;
         return { gold, essenceType, essenceAmount };
     }
-    // Placeholder for Barracks (will be fully implemented in next step)
     if (type === 'barracks') {
         const gold = Math.floor(15000 * Math.pow(1.5, level));
         const essenceType = EssenceType.Legendary;
         const essenceAmount = 3 + level;
+        return { gold, essenceType, essenceAmount };
+    }
+    if (type === 'scoutHouse') {
+        // High scaling: Base 35k, 2.5x multiplier per level
+        const gold = Math.floor(35000 * Math.pow(2.5, level));
+        const essenceType = EssenceType.Rare;
+        // 5, 10, 15...
+        const essenceAmount = 5 + (level * 5);
         return { gold, essenceType, essenceAmount };
     }
     return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
