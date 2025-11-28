@@ -6,6 +6,7 @@
 
 
 
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -378,6 +379,23 @@ export const initializeDatabase = async () => {
             } else if (!res.rows[0].data || (Array.isArray(res.rows[0].data) && res.rows[0].data.length === 0)) {
                 await client.query('UPDATE game_data SET data = $1 WHERE key = $2', [JSON.stringify(defaultData[key]), key]);
                  console.log(`Restored empty game_data for key: ${key}`);
+            }
+        }
+
+        // --- MIGRATION: Ensure 'lone-wolf' skill exists in existing DB ---
+        // This handles the case where 'skills' key existed but didn't have the new skill
+        const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
+        if (skillsRes.rows.length > 0) {
+            const currentSkills = skillsRes.rows[0].data || [];
+            const hasLoneWolf = currentSkills.some((s: any) => s.id === 'lone-wolf');
+            
+            if (!hasLoneWolf) {
+                const loneWolfSkill = defaultData.skills.find(s => s.id === 'lone-wolf');
+                if (loneWolfSkill) {
+                    console.log("MIGRATION: Adding missing 'lone-wolf' skill to existing game_data...");
+                    currentSkills.push(loneWolfSkill);
+                    await client.query("UPDATE game_data SET data = $1 WHERE key = 'skills'", [JSON.stringify(currentSkills)]);
+                }
             }
         }
 
