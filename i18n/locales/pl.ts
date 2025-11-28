@@ -181,8 +181,6 @@ export default {
             Jewelry: 'Biżuteria'
         },
         slot: {
-             consumable: 'Użytkowy',
-             ring: 'Pierścień',
              head: 'Głowa',
              chest: 'Tors',
              legs: 'Nogi',
@@ -190,11 +188,13 @@ export default {
              hands: 'Ręce',
              waist: 'Pas',
              neck: 'Szyja',
+             ring: 'Pierścień',
              ring1: 'Pierścień 1',
              ring2: 'Pierścień 2',
              mainHand: 'Główna ręka',
              offHand: 'Druga ręka',
-             twoHand: 'Dwuręczna'
+             twoHand: 'Dwuręczna',
+             consumable: 'Użytkowy'
         },
         magic: {
             Fireball: 'Kula Ognia',
@@ -1061,6 +1061,8 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             armoryDesc: 'Pozwala przechowywać i wypożyczać przedmioty (+1 slot na poziom).',
             barracks: 'Koszary',
             barracksDesc: 'Zwiększa bazowe obrażenia członków gildii o 5% na poziom.',
+            scoutHouse: 'Dom Zwiadowcy',
+            scoutHouseDesc: 'Pozwala znajdować dodatkowe przedmioty podczas wypraw (+1 na poziom).',
             level: 'Poziom',
             currentEffect: 'Obecny efekt',
             upgrade: 'Ulepsz',
