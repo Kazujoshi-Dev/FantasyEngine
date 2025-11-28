@@ -1,6 +1,8 @@
 
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -901,7 +903,10 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
             rewardGold: 'Nagroda Złota',
             rewardExp: 'Nagroda Doświadczenia',
             maxEnemies: 'Maks. Wrogów',
-            maxEnemiesDesc: 'Maksymalna liczba wrogów, która może pojawić się podczas jednej wyprawy'
+            maxEnemiesDesc: 'Maksymalna liczba wrogów, która może pojawić się podczas jednej wyprawy',
+            addGroup: 'Dodawanie Grupowe',
+            groupSettings: 'Slot: {slot} | Rzadkość: {rarity} | Szansa: {chance}%',
+            addMatchingItems: 'Dodaj pasujące przedmioty'
         },
         enemy: {
             manage: 'Zarządzaj Wrogami',

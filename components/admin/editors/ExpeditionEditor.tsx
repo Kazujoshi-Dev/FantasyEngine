@@ -1,7 +1,9 @@
 
 
+
+
 import React, { useState } from 'react';
-import { Expedition, Location, Enemy, ItemTemplate, ExpeditionEnemy, LootDrop, ResourceDrop, EssenceType } from '../../../types';
+import { Expedition, Location, Enemy, ItemTemplate, ExpeditionEnemy, LootDrop, ResourceDrop, EssenceType, EquipmentSlot, ItemRarity } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 
 interface ExpeditionEditorProps {
@@ -26,6 +28,11 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
         minBaseExperienceReward: expedition.minBaseExperienceReward ?? 0,
         maxBaseExperienceReward: expedition.maxBaseExperienceReward ?? 0,
     });
+
+    // Group Add State
+    const [groupSlot, setGroupSlot] = useState<string>('all');
+    const [groupRarity, setGroupRarity] = useState<string>('all');
+    const [groupChance, setGroupChance] = useState<number>(10);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -65,6 +72,38 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
 
     const addResourceLoot = () => setFormData(prev => ({ ...prev, resourceLootTable: [...(prev.resourceLootTable || []), { resource: EssenceType.Common, min: 1, max: 1, chance: 0 }] }));
     const removeResourceLoot = (index: number) => setFormData(prev => ({ ...prev, resourceLootTable: prev.resourceLootTable?.filter((_, i) => i !== index) }));
+
+    const handleAddGroup = () => {
+        const newItems = allItemTemplates.filter(item => {
+            const slotMatch = groupSlot === 'all' || item.slot === groupSlot;
+            const rarityMatch = groupRarity === 'all' || item.rarity === groupRarity;
+            return slotMatch && rarityMatch;
+        });
+
+        if (newItems.length === 0) {
+            alert('Brak przedmiotów spełniających kryteria.');
+            return;
+        }
+
+        const currentLootIds = new Set(formData.lootTable?.map(l => l.templateId));
+        const itemsToAdd = newItems
+            .filter(item => !currentLootIds.has(item.id))
+            .map(item => ({
+                templateId: item.id,
+                chance: groupChance
+            }));
+
+        if (itemsToAdd.length === 0) {
+            alert('Wszystkie pasujące przedmioty są już w tabeli.');
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            lootTable: [...(prev.lootTable || []), ...itemsToAdd]
+        }));
+        alert(`Dodano ${itemsToAdd.length} przedmiotów.`);
+    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -154,6 +193,48 @@ export const ExpeditionEditor: React.FC<ExpeditionEditorProps> = ({ expedition, 
                         </div>
                     ))}
                     <button type="button" onClick={addLoot} className="px-3 py-1 text-sm rounded bg-sky-700 hover:bg-sky-600">+</button>
+
+                    {/* Group Add Section */}
+                    <div className="mt-4 p-4 border border-slate-700 rounded-md bg-slate-800/30">
+                        <h5 className="font-semibold text-sm mb-2 text-indigo-400">{t('admin.expedition.addGroup')}</h5>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                                <select 
+                                    className="bg-slate-700 p-1.5 rounded text-xs w-1/3" 
+                                    value={groupSlot} 
+                                    onChange={(e) => setGroupSlot(e.target.value)}
+                                >
+                                    <option value="all">Wszystkie Sloty</option>
+                                    {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
+                                    <option value="ring">{t('item.slot.ring')}</option>
+                                    <option value="consumable">{t('item.slot.consumable')}</option>
+                                </select>
+                                <select 
+                                    className="bg-slate-700 p-1.5 rounded text-xs w-1/3" 
+                                    value={groupRarity} 
+                                    onChange={(e) => setGroupRarity(e.target.value)}
+                                >
+                                    <option value="all">Wszystkie Rzadkości</option>
+                                    {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                                </select>
+                                <input 
+                                    type="number" 
+                                    className="bg-slate-700 p-1.5 rounded text-xs w-1/3" 
+                                    value={groupChance} 
+                                    onChange={(e) => setGroupChance(parseFloat(e.target.value))} 
+                                    placeholder="Szansa %"
+                                />
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={handleAddGroup} 
+                                className="w-full py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold"
+                            >
+                                {t('admin.expedition.addMatchingItems')}
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
                  <div>
                     <h4 className="font-semibold text-lg mb-2">{t('admin.resourceLootTable')}</h4>
