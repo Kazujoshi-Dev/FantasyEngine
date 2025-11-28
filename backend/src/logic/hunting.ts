@@ -1,6 +1,6 @@
 
 import { pool } from '../db.js';
-import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary } from '../types.js';
+import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamVsBossCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
@@ -66,8 +66,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const originalBossTemplate = (gameData.enemies || []).find(e => e.id === party.bossId);
     if (!originalBossTemplate) throw new Error(`Boss template with id ${party.bossId} not found.`);
 
-    // Clone boss to apply scaling
-    const bossTemplate = JSON.parse(JSON.stringify(originalBossTemplate));
+    // Clone boss to apply scaling and explicitly type it to avoid 'any'
+    const bossTemplate: Enemy = JSON.parse(JSON.stringify(originalBossTemplate));
     
     // Scaling Logic: Matches Frontend
     // 1-2 Players: Base Stats (1.0x)
@@ -152,6 +152,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                     if (Math.random() * 100 < drop.chance) {
                         let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                         if(char.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
+                        
+                        // drop.resource is strictly typed as EssenceType here because bossTemplate is typed as Enemy
                         essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
                     }
                 }
@@ -168,8 +170,12 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             char.resources.gold = (Number(char.resources.gold) || 0) + finalGold;
             char.experience = (Number(char.experience) || 0) + finalExp;
             char.inventory.push(...itemsFound);
+            
             for(const [key, val] of Object.entries(essencesFound)) {
-                 char.resources[key as EssenceType] = (char.resources[key as EssenceType] || 0) + (val || 0);
+                 const resourceKey = key as keyof CharacterResources;
+                 if (char.resources[resourceKey] !== undefined) {
+                     char.resources[resourceKey] = (Number(char.resources[resourceKey]) || 0) + (val || 0);
+                 }
             }
             
             // Druid post-combat heal

@@ -793,6 +793,48 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         }
     }, [displayedLogs]);
 
+    // Calculate Damage Stats when logs are fully loaded or during animation (if needed incrementally, but simpler to compute once)
+    const damageStats = useMemo(() => {
+        if (!reward.combatLog) return [];
+
+        const damageMap: Record<string, number> = {};
+        let totalPartyDamage = 0;
+
+        // Determine which names belong to the "party" (players)
+        // In Hunting: use huntingMembers list.
+        // In Solo/PVP: use attacker name (for PvP assume current player view or attacker view)
+        const playerNames = new Set<string>();
+        if (isHunting && huntingMembers) {
+            huntingMembers.forEach(m => playerNames.add(m.characterName));
+        } else {
+            // For solo expeditions or PVP attacker view
+            playerNames.add(characterName);
+        }
+
+        reward.combatLog.forEach(log => {
+            // Count damage if attacker is a player.
+            // Also include 'specialAttackLog' if players can trigger them (not usually, but future proof)
+            // 'shaman_power' is also player damage.
+            if (playerNames.has(log.attacker) && (log.damage || 0) > 0) {
+                const dmg = log.damage || 0;
+                // Note: bonusDamage is usually included in total damage in the log generation, 
+                // but if structure implies separation, check core.ts. 
+                // In core.ts: totalDamage = damage + bonusDamage. So log.damage is the Total.
+                
+                damageMap[log.attacker] = (damageMap[log.attacker] || 0) + dmg;
+                totalPartyDamage += dmg;
+            }
+        });
+
+        return Object.entries(damageMap)
+            .map(([name, dmg]) => ({
+                name,
+                damage: dmg,
+                percent: totalPartyDamage > 0 ? (dmg / totalPartyDamage) * 100 : 0
+            }))
+            .sort((a, b) => b.damage - a.damage);
+    }, [reward.combatLog, isHunting, huntingMembers, characterName]);
+
     const combatant1Name = isPvp && pvpData ? pvpData.attacker.name : characterName;
     const combatant2Name = isPvp && pvpData ? pvpData.defender.name : (currentEnemy?.name || (isHunting ? 'Boss' : ''));
     
@@ -907,6 +949,50 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
                             {!isPvp && reward.isVictory && (
                                 <div className="bg-slate-900/50 p-4 rounded-lg mb-6">
+                                    {/* Damage Table */}
+                                    {isHunting && damageStats.length > 0 && (
+                                        <div className="mb-6">
+                                            <h4 className="font-bold text-white mb-2 flex items-center justify-center gap-2">
+                                                <SwordsIcon className="h-4 w-4 text-red-400" />
+                                                Zadane Obrażenia (DPS)
+                                            </h4>
+                                            <div className="bg-slate-800/80 rounded-lg overflow-hidden border border-slate-700/50">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="text-xs text-gray-400 bg-slate-800 uppercase">
+                                                        <tr>
+                                                            <th className="px-3 py-2">Gracz</th>
+                                                            <th className="px-3 py-2 text-right">Obrażenia</th>
+                                                            <th className="px-3 py-2 text-right w-32">%</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-700/50">
+                                                        {damageStats.map((stat, idx) => (
+                                                            <tr key={idx} className="hover:bg-slate-700/30">
+                                                                <td className="px-3 py-2 font-medium text-white">
+                                                                    {stat.name}
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right font-mono text-red-300">
+                                                                    {stat.damage.toLocaleString()}
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <span className="text-xs text-gray-400 w-8">{stat.percent.toFixed(1)}%</span>
+                                                                        <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                                            <div 
+                                                                                className="h-full bg-red-500 transition-all duration-500" 
+                                                                                style={{ width: `${stat.percent}%` }}
+                                                                            ></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {isHunting && allRewards && (
                                         <div className="mb-4">
                                             <h4 className="font-bold text-white mb-2">Nagrody Drużynowe</h4>
