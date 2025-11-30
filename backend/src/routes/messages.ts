@@ -13,7 +13,9 @@ router.get('/status/unread', authenticateToken, async (req: any, res: any) => {
             "SELECT 1 FROM messages WHERE recipient_id = $1 AND is_read = FALSE LIMIT 1",
             [req.user!.id]
         );
-        res.json({ hasUnread: result.rowCount > 0 });
+        // Handle potential null rowCount (TS18047)
+        const count = result.rowCount || 0;
+        res.json({ hasUnread: count > 0 });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to check messages status' });
