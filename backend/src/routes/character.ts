@@ -2,13 +2,38 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile, EquipmentSlot, CharacterStats, Expedition } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile, EquipmentSlot, CharacterStats, Expedition, EssenceType } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { calculateDerivedStatsOnServer, calculateTotalExperience } from '../logic/stats.js';
 
 const router = express.Router();
+
+// Helper function for upgrade costs (Mirrors frontend logic)
+const getCampUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
+    return { gold, essences };
+};
+
+const getChestUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
+    return { gold, essences };
+};
+
+const getBackpackUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+    return { gold, essences };
+};
 
 // GET /api/character - Get the current user's character data
 router.get('/character', authenticateToken, async (req: any, res: any) => {
@@ -736,6 +761,120 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
 
 router.post('/character/upgrade-building', authenticateToken, async (req: any, res: any) => {
     res.status(501).json({ message: 'Not implemented' });
+});
+
+// Upgrade Camp
+router.post('/character/upgrade-camp', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        if (character.camp.level >= 10) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Camp at max level' }); }
+        if (character.isResting) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Cannot upgrade while resting' }); }
+
+        const cost = getCampUpgradeCost(character.camp.level);
+        
+        // Check Gold
+        if ((character.resources.gold || 0) < cost.gold) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); 
+        }
+        // Check Essences
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                 await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough ${e.type}` }); 
+            }
+        }
+
+        // Deduct & Upgrade
+        character.resources.gold -= cost.gold;
+        for (const e of cost.essences) character.resources[e.type] -= e.amount;
+        character.camp.level += 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
+    } finally { client.release(); }
+});
+
+// Upgrade Chest
+router.post('/character/upgrade-chest', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        const cost = getChestUpgradeCost(character.chest.level);
+        
+         // Check Gold
+        if ((character.resources.gold || 0) < cost.gold) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); 
+        }
+        // Check Essences
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                 await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough ${e.type}` }); 
+            }
+        }
+
+        // Deduct & Upgrade
+        character.resources.gold -= cost.gold;
+        for (const e of cost.essences) character.resources[e.type] -= e.amount;
+        character.chest.level += 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
+    } finally { client.release(); }
+});
+
+// Upgrade Backpack
+router.post('/character/upgrade-backpack', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        const currentLevel = character.backpack?.level || 1;
+        if (currentLevel >= 10) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Backpack at max level' }); }
+
+        const cost = getBackpackUpgradeCost(currentLevel);
+        
+         // Check Gold
+        if ((character.resources.gold || 0) < cost.gold) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); 
+        }
+        // Check Essences
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                 await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough ${e.type}` }); 
+            }
+        }
+
+        // Deduct & Upgrade
+        character.resources.gold -= cost.gold;
+        for (const e of cost.essences) character.resources[e.type] -= e.amount;
+        character.backpack = { level: currentLevel + 1 };
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
+    } finally { client.release(); }
 });
 
 // POST /api/character/heal - Fully heal the character (Free action at camp)

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterChest, EssenceType, ItemRarity } from '../types';
@@ -7,6 +8,7 @@ import { ChestIcon } from './icons/ChestIcon';
 import { BriefcaseIcon } from './icons/BriefcaseIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { rarityStyles } from './shared/ItemSlot';
+import { api } from '../api';
 
 interface CampProps {
     character: PlayerCharacter;
@@ -42,9 +44,8 @@ const ChestPanel: React.FC<{
     character: PlayerCharacter; 
     baseCharacter: PlayerCharacter; 
     onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void; 
-    onUpgradeChest: () => void;
     getChestUpgradeCost: (level: number) => { gold: number; essences: { type: EssenceType; amount: number }[] };
-}> = ({ character, baseCharacter, onCharacterUpdate, onUpgradeChest, getChestUpgradeCost }) => {
+}> = ({ character, baseCharacter, onCharacterUpdate, getChestUpgradeCost }) => {
     const { t } = useTranslation();
     const { chest, resources: displayResources } = character; // Use derived character for UI display
     const [amount, setAmount] = useState<string>('');
@@ -81,6 +82,15 @@ const ChestPanel: React.FC<{
         onCharacterUpdate(newChar, true);
         setAmount('');
     };
+    
+    const handleUpgrade = async () => {
+        try {
+            const updatedChar = await api.upgradeChest();
+            onCharacterUpdate(updatedChar);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    }
 
     return (
          <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between h-full">
@@ -128,7 +138,7 @@ const ChestPanel: React.FC<{
                         )
                     })}
                 </div>
-                <button onClick={onUpgradeChest} disabled={!canAffordUpgrade} className="w-full mt-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed">{t('camp.upgrade')}</button>
+                <button onClick={handleUpgrade} disabled={!canAffordUpgrade} className="w-full mt-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed">{t('camp.upgrade')}</button>
             </div>
         </div>
     );
@@ -137,9 +147,9 @@ const ChestPanel: React.FC<{
 const BackpackPanel: React.FC<{ 
     character: PlayerCharacter; 
     baseCharacter: PlayerCharacter; 
-    onUpgradeBackpack: () => void;
+    onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void; 
     getBackpackUpgradeCost: (level: number) => { gold: number; essences: { type: EssenceType; amount: number }[] };
-}> = ({ character, baseCharacter, onUpgradeBackpack, getBackpackUpgradeCost }) => {
+}> = ({ character, baseCharacter, onCharacterUpdate, getBackpackUpgradeCost }) => {
     const { t } = useTranslation();
     const { resources: displayResources } = character;
 
@@ -151,6 +161,15 @@ const BackpackPanel: React.FC<{
     const isMaxLevel = backpackLevel >= maxLevel;
     
     const canAffordUpgrade = !isMaxLevel && (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
+    
+    const handleUpgrade = async () => {
+        try {
+            const updatedChar = await api.upgradeBackpack();
+            onCharacterUpdate(updatedChar);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    }
 
     return (
          <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between h-full">
@@ -193,7 +212,7 @@ const BackpackPanel: React.FC<{
                                 )
                             })}
                         </div>
-                        <button onClick={onUpgradeBackpack} disabled={!canAffordUpgrade} className="w-full mt-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed">{t('camp.upgrade')}</button>
+                        <button onClick={handleUpgrade} disabled={!canAffordUpgrade} className="w-full mt-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed">{t('camp.upgrade')}</button>
                     </>
                 )}
             </div>
@@ -226,6 +245,15 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
 
         return () => clearInterval(timerId);
     }, [isResting]);
+    
+    const handleUpgrade = async () => {
+        try {
+            const updatedChar = await api.upgradeCamp();
+            onCharacterUpdate(updatedChar);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    }
     
     const regeneratedHealth = isResting ? stats.currentHealth - restStartHealth : 0;
     const healthPercentage = (stats.currentHealth / stats.maxHealth) * 100;
@@ -344,7 +372,7 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                     {!isMaxLevel && (
                         <div>
                              <button
-                                onClick={onUpgradeCamp}
+                                onClick={handleUpgrade}
                                 disabled={!canAffordUpgrade || isResting || isTraveling}
                                 className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
                             >
@@ -357,10 +385,10 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                 </div>
                 
                 {/* Chest Panel */}
-                <ChestPanel character={character} baseCharacter={baseCharacter} onCharacterUpdate={onCharacterUpdate} onUpgradeChest={onUpgradeChest} getChestUpgradeCost={getChestUpgradeCost} />
+                <ChestPanel character={character} baseCharacter={baseCharacter} onCharacterUpdate={onCharacterUpdate} getChestUpgradeCost={getChestUpgradeCost} />
 
                 {/* Backpack Panel */}
-                <BackpackPanel character={character} baseCharacter={baseCharacter} onUpgradeBackpack={onUpgradeBackpack} getBackpackUpgradeCost={getBackpackUpgradeCost} />
+                <BackpackPanel character={character} baseCharacter={baseCharacter} onCharacterUpdate={onCharacterUpdate} getBackpackUpgradeCost={getBackpackUpgradeCost} />
             </div>
         </ContentPanel>
     );

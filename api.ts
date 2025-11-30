@@ -277,6 +277,19 @@ export const api = {
             method: 'POST',
         });
     },
+    
+    // Secure Camp Upgrades
+    async upgradeCamp(): Promise<PlayerCharacter> {
+        return fetchApi('/character/upgrade-camp', { method: 'POST' });
+    },
+
+    async upgradeChest(): Promise<PlayerCharacter> {
+        return fetchApi('/character/upgrade-chest', { method: 'POST' });
+    },
+
+    async upgradeBackpack(): Promise<PlayerCharacter> {
+        return fetchApi('/character/upgrade-backpack', { method: 'POST' });
+    },
 
     // Secure Equip
     async equipItem(itemId: string): Promise<PlayerCharacter> {
