@@ -1,6 +1,7 @@
+
 import express from 'express';
 import { pool } from '../db.js';
-import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo } from '../types.js';
+import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -108,6 +109,120 @@ router.post('/characters/:userId/reset-stats', async (req: any, res: any) => {
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to reset stats' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/admin/characters/:userId/reset-progress (HARD RESET)
+router.post('/characters/:userId/reset-progress', async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.params.userId]);
+        if (charRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        
+        const oldChar: PlayerCharacter = charRes.rows[0].data;
+        
+        // Construct clean state, keeping only identity info
+        const initialStats: CharacterStats = {
+          strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
+          statPoints: 10,
+          currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10,
+          currentMana: 20, maxMana: 20,
+          minDamage: 0, maxDamage: 0,
+          magicDamageMin: 0, magicDamageMax: 0,
+          critChance: 0,
+          critDamageModifier: 200,
+          armor: 0,
+          armorPenetrationPercent: 0,
+          armorPenetrationFlat: 0,
+          attacksPerRound: 1,
+          manaRegen: 0,
+          lifeStealPercent: 0,
+          lifeStealFlat: 0,
+          manaStealPercent: 0,
+          manaStealFlat: 0,
+          dodgeChance: 0,
+        };
+
+        const now = Date.now();
+        const lastFullHourTimestamp = Math.floor(now / (1000 * 60 * 60)) * (1000 * 60 * 60);
+
+        const newChar: PlayerCharacter = {
+            // Keep identity
+            name: oldChar.name,
+            race: oldChar.race,
+            settings: oldChar.settings || { language: Language.PL },
+            
+            // Reset everything else
+            characterClass: null, // Allow re-selecting class at lvl 10
+            level: 1,
+            experience: 0,
+            experienceToNextLevel: 100,
+            stats: initialStats,
+            resources: { 
+                gold: 500,
+                commonEssence: 0,
+                uncommonEssence: 0,
+                rareEssence: 0,
+                epicEssence: 0,
+                legendaryEssence: 0,
+            },
+            // Find starting location? Or keep current location to avoid stuck logic?
+            // Ideally reset to start, but we'd need to fetch locations. 
+            // Keeping current location is safer to prevent null pointer if startLocationId logic is complex, 
+            // but better UX is to go home. Let's assume location 1 is safe or keep current.
+            // Let's keep current location to be safe against missing IDs, unless it's a high level zone?
+            // Actually, let's reset to the first location in DB if possible, or keep current.
+            // For now, keeping current location ID is the safest implementation without querying game_data.
+            currentLocationId: oldChar.currentLocationId, 
+            
+            activeExpedition: null,
+            activeTravel: null,
+            camp: { level: 1 },
+            chest: { level: 1, gold: 0 },
+            backpack: { level: 1 },
+            isResting: false,
+            restStartHealth: 0,
+            lastRestTime: undefined,
+            lastEnergyUpdateTime: lastFullHourTimestamp,
+            equipment: {
+                [EquipmentSlot.Head]: null,
+                [EquipmentSlot.Chest]: null,
+                [EquipmentSlot.Legs]: null,
+                [EquipmentSlot.Feet]: null,
+                [EquipmentSlot.Hands]: null,
+                [EquipmentSlot.Waist]: null,
+                [EquipmentSlot.Neck]: null,
+                [EquipmentSlot.Ring1]: null,
+                [EquipmentSlot.Ring2]: null,
+                [EquipmentSlot.MainHand]: null,
+                [EquipmentSlot.OffHand]: null,
+                [EquipmentSlot.TwoHand]: null,
+            },
+            inventory: [],
+            pvpWins: 0,
+            pvpLosses: 0,
+            pvpProtectionUntil: 0,
+            learnedSkills: [],
+            questProgress: [],
+            acceptedQuests: [],
+            freeStatResetUsed: false,
+            
+            // Guild stuff - reset or keep? Usually hard reset implies leaving guild or resetting contrib.
+            // Let's keep guild membership intact for social reasons, but reset personal progress.
+            guildId: oldChar.guildId,
+        };
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [newChar, req.params.userId]);
+        await client.query('COMMIT');
+        res.sendStatus(200);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to reset progress' });
     } finally {
         client.release();
     }

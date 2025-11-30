@@ -1029,6 +1029,7 @@ const MainApp: React.FC = () => {
                     allCharacters={allCharacters}
                     onDeleteCharacter={async (id) => { await api.deleteCharacter(id); }}
                     onResetCharacterStats={async (id) => { await api.resetCharacterStats(id); }}
+                    onResetCharacterProgress={async (id) => { await api.resetCharacterProgress(id); }}
                     onHealCharacter={async (id) => { await api.adminHealCharacter(id); }}
                     onUpdateCharacterGold={async (id, gold) => { await api.updateCharacterGold(id, gold); }}
                     onForceTraderRefresh={handleForceTraderRefresh}

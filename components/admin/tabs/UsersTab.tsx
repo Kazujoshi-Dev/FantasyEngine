@@ -9,6 +9,7 @@ interface UsersTabProps {
   gameData: GameData;
   onHealCharacter: (userId: number) => void;
   onResetCharacterStats: (userId: number) => void;
+  onResetCharacterProgress: (userId: number) => Promise<void>;
   onDeleteCharacter: (userId: number) => void;
   onUpdateCharacterGold: (userId: number, gold: number) => Promise<void>;
   onRegenerateCharacterEnergy: (userId: number) => Promise<void>;
@@ -40,6 +41,7 @@ export const UsersTab: React.FC<UsersTabProps> = (props) => {
           onHealCharacter={props.onHealCharacter}
           onRegenerateCharacterEnergy={props.onRegenerateCharacterEnergy}
           onResetCharacterStats={props.onResetCharacterStats}
+          onResetCharacterProgress={props.onResetCharacterProgress}
           onDeleteCharacter={props.onDeleteCharacter}
           onChangeUserPassword={props.onChangeUserPassword}
           onInspectCharacter={props.onInspectCharacter}

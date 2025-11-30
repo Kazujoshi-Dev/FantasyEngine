@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language, ItemRarity } from '../types';
@@ -32,6 +31,7 @@ interface AdminPanelProps {
   allCharacters: AdminCharacterInfo[];
   onDeleteCharacter: (userId: number) => void;
   onResetCharacterStats: (userId: number) => void;
+  onResetCharacterProgress: (userId: number) => Promise<void>;
   onHealCharacter: (userId: number) => void;
   onUpdateCharacterGold: (userId: number, gold: number) => Promise<void>;
   onForceTraderRefresh: () => void;
@@ -123,6 +123,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   gameData={safeGameData}
                   onHealCharacter={props.onHealCharacter}
                   onResetCharacterStats={props.onResetCharacterStats}
+                  onResetCharacterProgress={props.onResetCharacterProgress}
                   onDeleteCharacter={props.onDeleteCharacter}
                   onUpdateCharacterGold={props.onUpdateCharacterGold}
                   onRegenerateCharacterEnergy={props.onRegenerateCharacterEnergy}

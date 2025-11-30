@@ -273,6 +273,10 @@ export const api = {
         return fetchApi(`/admin/characters/${userId}/reset-stats`, { method: 'POST' });
     },
 
+    async resetCharacterProgress(userId: number): Promise<void> {
+        return fetchApi(`/admin/characters/${userId}/reset-progress`, { method: 'POST' });
+    },
+
     // Use this for Admin actions on other users
     async adminHealCharacter(userId: number): Promise<void> {
         return fetchApi(`/admin/characters/${userId}/heal`, { method: 'POST' });

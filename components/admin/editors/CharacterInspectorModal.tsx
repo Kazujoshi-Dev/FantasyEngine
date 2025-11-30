@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { AdminCharacterInfo, PlayerCharacter, GameData, ItemInstance } from '../../../types';
@@ -10,6 +11,7 @@ interface CharacterInspectorModalProps {
   onHealCharacter: (userId: number) => void;
   onRegenerateCharacterEnergy: (userId: number) => Promise<void>;
   onResetCharacterStats: (userId: number) => void;
+  onResetCharacterProgress: (userId: number) => Promise<void>;
   onDeleteCharacter: (userId: number) => void;
   onChangeUserPassword: (userId: number, newPassword: string) => Promise<void>;
   onInspectCharacter: (userId: number) => Promise<PlayerCharacter>;
@@ -49,6 +51,20 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
         fetchCharacter(); // Refresh data
     }
   };
+
+  const handleResetProgress = async () => {
+      if (window.confirm(`JESTEŚ PEWIEN? To zresetuje postać ${props.characterInfo.name} do poziomu 1, usunie ekwipunek i zresetuje historię. Tej akcji NIE MOŻNA cofnąć.`)) {
+          if (window.confirm(`Potwierdź ostatecznie: RESET POSTĘPU dla ${props.characterInfo.name}.`)) {
+              try {
+                  await props.onResetCharacterProgress(props.characterInfo.user_id);
+                  alert('Postęp postaci został zresetowany.');
+                  fetchCharacter();
+              } catch(e: any) {
+                  alert(e.message);
+              }
+          }
+      }
+  }
 
   const handleChangePassword = async () => {
     if (!newPassword) {
@@ -122,7 +138,8 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
                   <button onClick={() => handleAction(props.onHealCharacter)} className="px-3 py-2 text-sm rounded bg-green-700 hover:bg-green-600">Ulecz</button>
                   <button onClick={() => handleAction(props.onRegenerateCharacterEnergy)} className="px-3 py-2 text-sm rounded bg-sky-700 hover:bg-sky-600">Zregeneruj Energię</button>
                   <button onClick={() => handleAction(props.onResetCharacterStats)} className="px-3 py-2 text-sm rounded bg-amber-700 hover:bg-amber-600">Resetuj Statystyki</button>
-                  <button onClick={() => handleAction(props.onDeleteCharacter)} className="px-3 py-2 text-sm rounded bg-red-800 hover:bg-red-700">Usuń Postać</button>
+                  <button onClick={handleResetProgress} className="px-3 py-2 text-sm rounded bg-orange-800 hover:bg-orange-700 font-bold text-orange-100 border border-orange-600">Resetuj Postępy (Hard)</button>
+                  <button onClick={() => handleAction(props.onDeleteCharacter)} className="px-3 py-2 text-sm rounded bg-red-800 hover:bg-red-700 col-span-2 mt-2 border border-red-600">Usuń Postać</button>
                 </div>
               </div>
 
