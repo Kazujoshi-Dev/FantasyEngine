@@ -548,7 +548,12 @@ const MainApp: React.FC = () => {
         if (mainHandTemplate?.isMagical) {
             minDamage = baseMinDamage + bonusDamageMin;
             maxDamage = baseMaxDamage + bonusDamageMax;
+        } else if (mainHandTemplate?.isRanged) {
+            // Ranged weapons scale with Agility
+            minDamage = baseMinDamage + (totalPrimaryStats.agility * 1) + bonusDamageMin;
+            maxDamage = baseMaxDamage + (totalPrimaryStats.agility * 2) + bonusDamageMax;
         } else {
+            // Melee weapons scale with Strength
             minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
             maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
         }

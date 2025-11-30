@@ -2,6 +2,7 @@
 
 
 
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -193,7 +194,12 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     if (mainHandTemplate?.isMagical) {
         minDamage = baseMinDamage + bonusDamageMin;
         maxDamage = baseMaxDamage + bonusDamageMax;
+    } else if (mainHandTemplate?.isRanged) {
+        // Ranged weapons scale with Agility
+        minDamage = baseMinDamage + (totalPrimaryStats.agility * 1) + bonusDamageMin;
+        maxDamage = baseMaxDamage + (totalPrimaryStats.agility * 2) + bonusDamageMax;
     } else {
+        // Melee weapons scale with Strength
         minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
         maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
     }

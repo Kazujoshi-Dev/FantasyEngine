@@ -1,4 +1,5 @@
 
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -88,8 +89,8 @@ export default {
         stamina: 'Wytrzymałość',
         intelligence: 'Inteligencja',
         energy: 'Energia',
-        strengthDesc: 'Zwiększa obrażenia fizyczne. W przypadku przedmiotów magicznych siła nie zwiększa obrażeń fizycznych.',
-        agilityDesc: 'Zwiększa szansę na wykonanie pierwszego ataku w rundzie walki. Zwiększa również szansę na unik i szybkość ataku (w przyszłości).',
+        strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Nie wpływa na obrażenia broni dystansowej ani magicznej.',
+        agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku w walce oraz szansę na unik.',
         accuracyDesc: 'Zwiększa szansę na trafienie krytyczne.',
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
         intelligenceDesc: 'Zwiększa maksymalną manę (+10 na punkt) i regenerację many w walce (+2 na turę na punkt). Zwiększa również obrażenia magiczne.',
@@ -124,7 +125,7 @@ export default {
         healthDesc: 'Twoje całkowite punkty zdrowia. Zwiększa się wraz z Wytrzymałością i bonusami z przedmiotów. Regeneruje się podczas odpoczynku w obozie.',
         manaDesc: 'Używana do zdolności magicznych.',
         manaRegenDesc: 'Ilość many odzyskiwanej w każdej turze walki. Zwiększa się z Inteligencją.',
-        physicalDamageDesc: 'Obrażenia zadawane przez ataki niemagiczne. Zwiększają się z Siłą i statystykami broni.',
+        physicalDamageDesc: 'Obrażenia fizyczne. Skalują się z Siłą (broń biała) lub Zręcznością (broń dystansowa).',
         magicDamageDesc: 'Obrażenia zadawane przez ataki magiczne. Zwiększają się z Inteligencją i statystykami broni.',
         armorDesc: 'Redukuje otrzymywane obrażenia fizyczne.',
         critChanceDesc: 'Szansa na zadanie ciosu krytycznego. Zwiększa się z Celnością.',
