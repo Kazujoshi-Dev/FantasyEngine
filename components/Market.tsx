@@ -197,7 +197,12 @@ const BrowseListings: React.FC<{
         const bid = parseInt(bidAmount, 10);
         if (isNaN(bid)) return;
 
-        const minBid = listing.current_bid_price ? listing.current_bid_price + 1 : listing.start_bid_price!;
+        // Logic: Bid must be at least 5% higher than current bid
+        const currentPrice = listing.current_bid_price || 0;
+        const minBid = listing.current_bid_price 
+            ? Math.ceil(currentPrice * 1.05) 
+            : listing.start_bid_price!;
+
         if (bid < minBid) {
             alert(t('market.bidTooLow', { amount: minBid }));
             return;

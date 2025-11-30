@@ -1,4 +1,3 @@
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -167,7 +166,12 @@ router.post('/bid', authenticateToken, async (req: any, res: any) => {
         if (listing.seller_id === bidderId) return res.status(400).json({ message: "You cannot bid on your own item." });
         if (listing.listing_type !== 'auction') return res.status(400).json({ message: "This is not an auction." });
 
-        const minBid = listing.current_bid_price ? listing.current_bid_price + 1 : listing.start_bid_price!;
+        // Logic: Bid must be at least 5% higher than current bid (rounded up)
+        const currentPrice = Number(listing.current_bid_price || 0);
+        const minBid = listing.current_bid_price 
+            ? Math.ceil(currentPrice * 1.05) 
+            : Number(listing.start_bid_price!);
+
         if (amount < minBid) return res.status(400).json({ message: `Bid too low. Minimum bid is ${minBid}.` });
 
         const bidderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [bidderId]);
