@@ -1,6 +1,7 @@
 
 
 
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -232,10 +233,18 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     const finalMagicDamageMin = guildBarracksLevel > 0 ? Math.floor(magicDamageMin * (1 + (guildBarracksLevel * 0.05))) : magicDamageMin;
     const finalMagicDamageMax = guildBarracksLevel > 0 ? Math.floor(magicDamageMax * (1 + (guildBarracksLevel * 0.05))) : magicDamageMax;
 
-    // Ensure derived values are valid numbers
-    const currentHealth = Math.min(Number(character.stats.currentHealth) || maxHealth, maxHealth);
-    const currentMana = Math.min(Number(character.stats.currentMana) || maxMana, maxMana);
-    const currentEnergy = Math.min(Number(character.stats.currentEnergy) || maxEnergy, maxEnergy);
+    // Ensure derived values are valid numbers and DO NOT default to max if 0 (fixes full heal bug)
+    const valOrMax = (val: any, max: number) => {
+        const num = Number(val);
+        // If it is not a number (NaN) or explicitly null/undefined, use max (initial state).
+        // BUT if it is 0, it stays 0.
+        if (val === undefined || val === null || isNaN(num)) return max;
+        return num;
+    }
+
+    const currentHealth = Math.min(valOrMax(character.stats.currentHealth, maxHealth), maxHealth);
+    const currentMana = Math.min(valOrMax(character.stats.currentMana, maxMana), maxMana);
+    const currentEnergy = Math.min(valOrMax(character.stats.currentEnergy, maxEnergy), maxEnergy);
 
     return {
         ...character,

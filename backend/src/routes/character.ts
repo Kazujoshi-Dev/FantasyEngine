@@ -1,4 +1,6 @@
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -207,6 +209,11 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
         if (character.isResting) {
              await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Character is resting.' });
+        }
+        // FIX: Prevent dead characters from starting expeditions
+        if (character.stats.currentHealth <= 0) {
+             await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Twoje zdrowie jest zbyt niskie, aby wyruszyć na wyprawę. Odpocznij lub ulecz się.' });
         }
 
         // 3. Fetch Expedition Data
