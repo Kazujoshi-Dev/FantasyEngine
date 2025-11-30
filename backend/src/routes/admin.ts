@@ -3,6 +3,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { hashPassword } from '../logic/helpers.js';
 
 const router = express.Router();
 
@@ -45,10 +46,26 @@ router.delete('/users/:userId', async (req, res) => {
 
 // POST /api/admin/users/:userId/password - Change a user's password
 router.post('/users/:userId/password', async (req, res) => {
-    // Note: This endpoint is missing in api.ts but exists in the frontend call.
-    // For now, I'll assume it's for changing other users' passwords, not the admin's own.
-    // A proper implementation would re-hash the password.
-    res.status(501).json({ message: 'Password change not implemented for security reasons.' });
+    const { newPassword } = req.body;
+    const { userId } = req.params;
+
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    }
+
+    try {
+        const { salt, hash } = hashPassword(newPassword);
+        
+        await pool.query(
+            'UPDATE users SET password_hash = $1, salt = $2 WHERE id = $3',
+            [hash, salt, userId]
+        );
+
+        res.json({ message: 'User password updated successfully.' });
+    } catch (err) {
+        console.error('Admin password change error:', err);
+        res.status(500).json({ message: 'Failed to update password.' });
+    }
 });
 
 // GET /api/admin/characters/all - Get all characters basic info

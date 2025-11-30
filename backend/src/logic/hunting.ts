@@ -137,8 +137,14 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
                 // Dungeon Hunter Bonus Loot
                 if (char.characterClass === CharacterClass.DungeonHunter && combinedLootTable.length > 0) {
-                    if (Math.random() < 0.3) combinedLootTable.push(combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)]);
-                    if (Math.random() < 0.15) combinedLootTable.push(combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)]);
+                    if (Math.random() < 0.3) {
+                        const extra = combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)];
+                        combinedLootTable.push({ ...extra, chance: 100 });
+                    }
+                    if (Math.random() < 0.15) {
+                        const extra = combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)];
+                        combinedLootTable.push({ ...extra, chance: 100 });
+                    }
                 }
                 
                 for (const drop of combinedLootTable) {

@@ -1,8 +1,3 @@
-
-
-
-
-
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
@@ -170,20 +165,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         const backpackCapacity = getBackpackCapacity(finalCharacter);
         
         // Apply Scout's House bonus to max items limit
-        // Default maxItems if undefined is effectively infinity, but if defined, we add the level bonus.
-        // If maxItems is not set on expedition, scout house doesn't strictly "add" to infinity, 
-        // but traditionally maxItems limits drop count.
-        // However, if we interpret "provides additional item" as extra rolls or extra limit:
-        // Let's assume it increases the CAP of items found if a cap exists, 
-        // OR if no cap exists, it essentially guarantees +N items if logic supports guaranteed drops?
-        // Simpler interpretation: It increases the limit of items you can carry back from this specific run 
-        // if the expedition has a limit. 
-        // But most expeditions might not have a limit.
-        // Alternative interpretation: It grants N extra rolls on the loot table.
-        // Let's go with: It increases maxItems limit. If maxItems is 0 (unlimited), it does nothing extra regarding limit, 
-        // but maybe we should add free rolls?
-        // Let's implement: It adds N extra rolls on the expedition loot table.
-        
         const extraRolls = scoutHouseLevel;
         if (extraRolls > 0) {
              for(let i=0; i<extraRolls; i++) {
@@ -197,14 +178,18 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
 
         const maxItems = (expedition.maxItems || 999) + scoutHouseLevel; // Also increase cap just in case
         
-        if(character.characterClass === CharacterClass.DungeonHunter) {
+        // Dungeon Hunter Bonus Loot Logic
+        if(character.characterClass === CharacterClass.DungeonHunter && allLootTables.length > 0) {
+            // First extra item chance: 30%
             if (Math.random() < 0.3) {
                  const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
-                 if(extraDrop) allLootTables.push(extraDrop);
+                 // Important: We override chance to 100% so if the bonus triggers, they actually get the item
+                 if(extraDrop) allLootTables.push({ ...extraDrop, chance: 100 });
             }
+            // Second extra item chance: 15%
              if (Math.random() < 0.15) {
                  const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
-                 if(extraDrop) allLootTables.push(extraDrop);
+                 if(extraDrop) allLootTables.push({ ...extraDrop, chance: 100 });
             }
         }
         
