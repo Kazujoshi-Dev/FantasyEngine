@@ -1323,14 +1323,21 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expe
 
                                 <div className="mt-auto pt-4 border-t border-slate-700/50">
                                     <div className="mb-3">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('expedition.potentialEnemies')}</p>
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('expedition.potentialEnemies')}</p>
+                                            <p className="text-[10px] text-gray-400">Ilość: 1-{expedition.maxEnemies || (expedition.enemies || []).length}</p>
+                                        </div>
                                         <div className="flex flex-wrap gap-1">
-                                            {potentialEnemies(expedition).length > 0 ? potentialEnemies(expedition).slice(0, 3).map((enemy: any) => (
-                                                <span key={enemy.id} className="text-xs bg-slate-900/50 px-2 py-0.5 rounded text-red-300 border border-red-900/30">
-                                                    {enemy.name} (Lvl {Math.floor(enemy.stats.maxHealth / 10)})
-                                                </span>
-                                            )) : <span className="text-xs text-gray-600">{t('expedition.noEnemies')}</span>}
-                                            {potentialEnemies(expedition).length > 3 && <span className="text-xs text-gray-500">...</span>}
+                                            {(expedition.enemies || []).length > 0 ? (expedition.enemies || []).slice(0, 3).map((expEnemy, index) => {
+                                                const enemyTemplate = enemies.find(e => e.id === expEnemy.enemyId);
+                                                if (!enemyTemplate) return null;
+                                                return (
+                                                    <span key={`${expedition.id}-${index}`} className="text-xs bg-slate-900/50 px-2 py-0.5 rounded text-red-300 border border-red-900/30">
+                                                        {enemyTemplate.name} ({expEnemy.spawnChance}%)
+                                                    </span>
+                                                );
+                                            }) : <span className="text-xs text-gray-600">{t('expedition.noEnemies')}</span>}
+                                            {(expedition.enemies || []).length > 3 && <span className="text-xs text-gray-500">...</span>}
                                         </div>
                                     </div>
                                     
