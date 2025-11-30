@@ -259,10 +259,32 @@ router.post('/listings/:id/claim', authenticateToken, async (req: any, res: any)
         let character: PlayerCharacter = charRes.rows[0].data;
 
         if (listing.status === 'SOLD') {
+            const salePrice = Number(listing.current_bid_price || listing.buy_now_price || 0);
+
             if (listing.currency === 'gold') {
-                character.resources.gold += listing.current_bid_price || listing.buy_now_price || 0;
+                // Calculate Commission
+                const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+                const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+                const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+                const template = itemTemplates.find((t: any) => t.id === listing.item_data.templateId);
+                let itemValue = Number(template?.value) || 0;
+                
+                if (listing.item_data.prefixId) {
+                    const prefix = affixes.find((a: any) => a.id === listing.item_data.prefixId);
+                    itemValue += Number(prefix?.value) || 0;
+                }
+                if (listing.item_data.suffixId) {
+                    const suffix = affixes.find((a: any) => a.id === listing.item_data.suffixId);
+                    itemValue += Number(suffix?.value) || 0;
+                }
+
+                const commission = Math.ceil(itemValue * 0.15);
+                const finalGold = Math.max(0, salePrice - commission);
+                
+                character.resources.gold = (Number(character.resources.gold) || 0) + finalGold;
             } else {
-                (character.resources[listing.currency] as number) += listing.current_bid_price || listing.buy_now_price || 0;
+                (character.resources[listing.currency] as number) = (Number(character.resources[listing.currency]) || 0) + salePrice;
             }
         } else { // EXPIRED or CANCELLED
             if (getBackpackCapacity(character) <= character.inventory.length) {

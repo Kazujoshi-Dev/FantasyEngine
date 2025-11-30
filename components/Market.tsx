@@ -431,7 +431,28 @@ const CreateListing: React.FC<{
         }
     }
 
-    const itemValue = selectedTemplate?.value || 0;
+    // Calculate Item Value with Affixes
+    const itemValue = useMemo(() => {
+        if (!selectedTemplate) return 0;
+        let val = Number(selectedTemplate.value) || 0;
+        
+        const affixes = gameData.affixes || [];
+        
+        if (selectedItem?.prefixId) {
+            const prefix = affixes.find(a => a.id === selectedItem.prefixId);
+            if (prefix && prefix.value) {
+                val += Number(prefix.value) || 0;
+            }
+        }
+        if (selectedItem?.suffixId) {
+            const suffix = affixes.find(a => a.id === selectedItem.suffixId);
+            if (suffix && suffix.value) {
+                val += Number(suffix.value) || 0;
+            }
+        }
+        return val;
+    }, [selectedTemplate, selectedItem, gameData.affixes]);
+
     const commission = Math.ceil(itemValue * 0.15);
     const netPrice = Math.max(0, parseInt(price, 10) - commission);
 
