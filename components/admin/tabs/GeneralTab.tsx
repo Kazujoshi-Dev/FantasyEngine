@@ -220,6 +220,24 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
                     <p className="text-xs text-gray-500 mt-1">Tło dla panelu nawigacji po lewej stronie.</p>
                 </div>
                 <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tło Raportów (URL)</label>
+                    <input
+                        type="text"
+                        name="reportBackgroundUrl"
+                        value={settings.reportBackgroundUrl || ''}
+                        onChange={handleSettingsChange}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/report_bg.jpg"
+                    />
+                    {settings.reportBackgroundUrl && (
+                        <div 
+                            className="mt-2 w-full h-16 rounded-md border border-slate-600 bg-center bg-cover"
+                            style={{ backgroundImage: `url(${settings.reportBackgroundUrl})` }}
+                        ></div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Tło używane w oknach podsumowania walki i raportach.</p>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (URL)</label>
                     <input
                         type="text"

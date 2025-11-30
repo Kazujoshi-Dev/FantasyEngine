@@ -11,7 +11,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { api } from '../api';
 
-interface ExpeditionProps {
+export interface ExpeditionProps {
     character: PlayerCharacter;
     expeditions: ExpeditionType[];
     enemies: Enemy[];
@@ -580,7 +580,7 @@ const PartyMemberList: React.FC<{
             </div>
         </div>
     )
-}
+};
 
 export interface ExpeditionSummaryModalProps {
     reward: ExpeditionRewardSummary;
@@ -602,6 +602,7 @@ export interface ExpeditionSummaryModalProps {
     bossName?: string;
     messageId?: number | null;
     encounteredEnemies?: Enemy[];
+    backgroundImage?: string; // New Prop for Background Image
 }
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
@@ -618,7 +619,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     allRewards,
     initialEnemy,
     bossName,
-    messageId
+    messageId,
+    backgroundImage
 }) => {
     const { t } = useTranslation();
     const [displayedLogs, setDisplayedLogs] = useState<CombatLogEntry[]>([]);
@@ -867,7 +869,16 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-7xl w-full flex flex-col" style={{maxHeight: '90vh'}}>
+            <div 
+                className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-7xl w-full flex flex-col" 
+                style={{
+                    maxHeight: '90vh',
+                    backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundBlendMode: 'overlay'
+                }}
+            >
                 <div className="relative mb-6 flex-shrink-0">
                     <h2 className="text-3xl font-bold text-indigo-400 text-center">
                         {isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}
@@ -1197,198 +1208,156 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     )
 };
 
-
-const ActiveExpeditionPanel: React.FC<{
-    character: PlayerCharacter;
-    expeditions: ExpeditionType[];
-    onCompletion: () => Promise<void>;
-}> = ({ character, expeditions, onCompletion }) => {
+export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, affixes, onCompletion }) => {
     const { t } = useTranslation();
-    const activeExpeditionDetails = expeditions.find(e => e.id === character.activeExpedition?.expeditionId);
     const [timeLeft, setTimeLeft] = useState(0);
-    const completionCalledRef = useRef(false);
-    const [isForceClaiming, setIsForceClaiming] = useState(false);
+
+    const activeExpedition = character.activeExpedition;
+    const currentExpeditionDetails = activeExpedition ? expeditions.find(e => e.id === activeExpedition.expeditionId) : null;
 
     useEffect(() => {
-        if (character.activeExpedition) {
-            completionCalledRef.current = false; // Reset on new expedition
-            const updateTimer = () => {
-                // Use api.getServerTime() for sync
-                const remaining = Math.max(0, Math.floor((character.activeExpedition!.finishTime - api.getServerTime()) / 1000));
-                setTimeLeft(remaining);
+        if (!activeExpedition) return;
 
-                if (remaining <= 0 && !completionCalledRef.current) {
-                    completionCalledRef.current = true;
-                    onCompletion();
-                }
-            };
+        const updateTimer = () => {
+            // Use api.getServerTime() for sync
+            const remaining = Math.max(0, Math.floor((activeExpedition.finishTime - api.getServerTime()) / 1000));
+            setTimeLeft(remaining);
+            if (remaining <= 0) {
+                // Check if already completing to prevent double submission
+                onCompletion();
+            }
+        };
 
-            updateTimer();
-            const intervalId = setInterval(updateTimer, 1000);
-            return () => clearInterval(intervalId);
-        }
-    }, [character.activeExpedition, onCompletion]);
+        updateTimer();
+        const intervalId = setInterval(updateTimer, 1000);
 
-    if (!activeExpeditionDetails) return null;
+        return () => clearInterval(intervalId);
+    }, [activeExpedition, onCompletion]);
 
-    const isFinished = timeLeft <= 0;
+    // Group expeditions by potential drop rarity for better UI (optional, here just listing all)
+    // Filter by current location
+    const availableExpeditions = expeditions.filter(e => e.locationIds.includes(currentLocation.id));
 
-    const handleForceClaim = async () => {
-        if (isForceClaiming) return;
-        setIsForceClaiming(true);
-        try {
-            await onCompletion();
-        } finally {
-            setIsForceClaiming(false);
-        }
+    if (activeExpedition && currentExpeditionDetails) {
+        return (
+            <ContentPanel title={t('expedition.inProgressTitle')}>
+                <div className="flex flex-col items-center justify-center space-y-6 py-12">
+                    <h3 className="text-3xl font-bold text-amber-400 animate-pulse">
+                        {currentExpeditionDetails.name}
+                    </h3>
+                    {currentExpeditionDetails.image && <img src={currentExpeditionDetails.image} alt={currentExpeditionDetails.name} className="w-64 h-64 object-cover rounded-full border-4 border-slate-700 shadow-2xl" />}
+                    <p className="text-lg text-gray-300 italic max-w-md text-center">
+                        {currentExpeditionDetails.description}
+                    </p>
+                    <div className="bg-slate-800/80 p-6 rounded-xl text-center shadow-lg border border-slate-700/50">
+                        <p className="text-gray-400 mb-2 uppercase tracking-widest text-xs">{t('expedition.endsIn')}</p>
+                        <div className="text-5xl font-mono font-bold text-white tabular-nums">
+                            {formatTimeLeft(timeLeft)}
+                        </div>
+                    </div>
+                    {timeLeft <= 0 && (
+                        <div className="text-green-400 font-bold text-xl animate-bounce">
+                            {t('expedition.finalizing')}
+                        </div>
+                    )}
+                </div>
+            </ContentPanel>
+        );
     }
 
-    return (
-        <div className="bg-slate-900/40 p-8 rounded-xl text-center">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
-            <p className="text-4xl font-extrabold text-white mb-4">{activeExpeditionDetails.name}</p>
-            
-            {activeExpeditionDetails.image && (
-                <div className="mb-6 flex justify-center">
-                    <img 
-                        src={activeExpeditionDetails.image} 
-                        alt={activeExpeditionDetails.name} 
-                        className="rounded-lg shadow-lg border border-slate-700/50 max-w-full h-auto max-h-[50vh] object-contain"
-                    />
-                </div>
-            )}
+    const potentialEnemies = (expedition: ExpeditionType) => {
+        // Map enemy IDs to Enemy objects
+        const enemyList = (expedition.enemies || []).map(e => enemies.find(en => en.id === e.enemyId)).filter(e => e);
+        // Deduplicate
+        return Array.from(new Set(enemyList));
+    };
 
-            <p className="text-lg text-gray-400 mb-6">{isFinished ? t('expedition.finalizing') : t('expedition.endsIn')}</p>
-            <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
-            
-            {isFinished && (
-                 <div className="mt-8 flex flex-col items-center justify-center gap-4">
-                    <p className="text-lg text-gray-300 animate-pulse">{t('expedition.generatingReport')}</p>
-                    <button 
-                        onClick={handleForceClaim}
-                        disabled={isForceClaiming}
-                        className={`px-6 py-2 text-white font-bold rounded-lg shadow-lg transition-colors ${isForceClaiming ? 'bg-slate-600 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600'}`}
-                    >
-                        {isForceClaiming ? "Przetwarzanie..." : "Odbierz Raport (Wymuś)"}
-                    </button>
-                    <p className="text-xs text-gray-500">Kliknij, jeśli raport nie pojawi się automatycznie.</p>
-                </div>
-            )}
-            
-            {!isFinished && <div className="mt-8 h-14"></div>}
-        </div>
-    );
-};
-
-export const Expedition: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, onCompletion, affixes }) => {
-  const { t } = useTranslation();
-  const availableExpeditions = expeditions.filter(exp => exp.locationIds.includes(currentLocation.id));
-
-  const handleStartExpedition = (expId: string) => {
-        const healthPercent = (character.stats.currentHealth / character.stats.maxHealth) * 100;
-        if (healthPercent < 15) {
+    const handleEmbark = (expeditionId: string) => {
+        if (character.stats.currentHealth < character.stats.maxHealth * 0.15) {
             if (!window.confirm(t('expedition.lowHealthWarning'))) {
                 return;
             }
         }
-        onStartExpedition(expId);
-  };
+        onStartExpedition(expeditionId);
+    };
 
-  const content = character.activeExpedition ? (
-      <ContentPanel title={t('expedition.inProgressTitle')}>
-          <ActiveExpeditionPanel 
-            character={character}
-            expeditions={expeditions}
-            onCompletion={onCompletion}
-          />
-      </ContentPanel>
-  ) : (
-    <ContentPanel title={t('expedition.availableTitle')}>
-        <div className="flex justify-end items-center mb-4 -mt-4">
-            <div className="flex items-center space-x-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-700/50">
-                <BoltIcon className="h-5 w-5 text-sky-400" />
-                <span className="font-semibold text-gray-300">{t('statistics.energyLabel')}:</span>
-                <span className="font-mono text-lg font-bold text-white">{character.stats.currentEnergy} / {character.stats.maxEnergy}</span>
-            </div>
-        </div>
-      {availableExpeditions.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {availableExpeditions.map(exp => {
-              const canAfford = (Number(character.resources.gold) || 0) >= exp.goldCost && (Number(character.stats.currentEnergy) || 0) >= exp.energyCost;
-              const potentialEnemies = exp.enemies
-                .map(expEnemy => enemies.find(e => e.id === expEnemy.enemyId))
-                .filter((e): e is Enemy => e !== undefined);
-                
-              const minExp = exp.minBaseExperienceReward ?? (exp as any).baseExperienceReward ?? 0;
-              const maxExp = exp.maxBaseExperienceReward ?? minExp;
-              const expDisplay = minExp === maxExp ? minExp : `${minExp} - ${maxExp}`;
-
-              const minGold = exp.minBaseGoldReward ?? (exp as any).baseGoldReward ?? 0;
-              const maxGold = exp.maxBaseGoldReward ?? minGold;
-              const goldDisplay = minGold === maxGold ? minGold : `${minGold} - ${maxGold}`;
-
-              return (
-                <div key={exp.id} className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-between">
-                    <div>
-                        <h3 className="text-2xl font-bold text-indigo-400 mb-2">{exp.name}</h3>
-                        {exp.image && <img src={exp.image} alt={exp.name} className="w-full h-32 object-cover rounded-lg mb-4 mt-2" />}
-                        <p className="text-gray-400 mb-4 text-sm italic">{exp.description}</p>
-                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm border-t border-b border-slate-700/50 py-4">
-                            <div>
-                                <h4 className="font-semibold text-gray-300 mb-2 flex items-center"><SwordsIcon className="h-4 w-4 mr-2"/>{t('expedition.potentialEnemies')}</h4>
-                                {potentialEnemies.length > 0 ? (
-                                    <ul className="text-gray-400 list-disc list-inside">
-                                        {potentialEnemies.map(e => <li key={e.id}>{e.name}</li>)}
-                                    </ul>
-                                ) : (
-                                    <p className="text-gray-500">{t('expedition.noEnemies')}</p>
-                                )}
-                                {exp.maxEnemies && exp.maxEnemies > 0 && (
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        {t('expedition.maxEnemiesNote', { count: exp.maxEnemies })}
-                                    </p>
-                                )}
+    return (
+        <ContentPanel title={t('expedition.availableTitle')}>
+            {availableExpeditions.length === 0 ? (
+                <p className="text-gray-500 italic text-center py-12">{t('expedition.noExpeditions')}</p>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {availableExpeditions.map(expedition => (
+                        <div key={expedition.id} className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 flex flex-col group">
+                            <div className="h-32 bg-slate-900 relative overflow-hidden">
+                                 {expedition.image ? (
+                                     <img src={expedition.image} alt={expedition.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
+                                 ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-slate-700">
+                                        <MapIcon className="w-16 h-16 opacity-20" />
+                                    </div>
+                                 )}
+                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
+                                    <h3 className="text-xl font-bold text-white truncate shadow-black drop-shadow-md">{expedition.name}</h3>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.reqsAndRewards')}</h4>
-                                <div className="flex items-center text-gray-400 space-x-2">
-                                    <CoinsIcon className="h-4 w-4" /> <span>{t('expedition.cost')}: {exp.goldCost}</span>
+                            
+                            <div className="p-4 flex-grow flex flex-col">
+                                <p className="text-sm text-gray-400 mb-4 line-clamp-2 min-h-[2.5em]">{expedition.description}</p>
+                                
+                                <div className="space-y-2 mb-4 text-sm">
+                                    <div className="flex justify-between items-center text-amber-400">
+                                        <span className="flex items-center"><CoinsIcon className="w-4 h-4 mr-1.5"/> {t('expedition.cost')}:</span>
+                                        <span className="font-mono font-bold">{expedition.goldCost}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sky-400">
+                                        <span className="flex items-center"><BoltIcon className="w-4 h-4 mr-1.5"/> {t('expedition.cost')}:</span>
+                                        <span className="font-mono font-bold">{expedition.energyCost}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-gray-300">
+                                        <span className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5"/> {t('expedition.duration')}:</span>
+                                        <span className="font-mono">{formatDuration(expedition.duration)}</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center text-gray-400 space-x-2 mt-1">
-                                    <BoltIcon className="h-4 w-4" /> <span>{t('expedition.cost')}: {exp.energyCost}</span>
-                                </div>
-                                <div className="flex items-center text-gray-400 space-x-2 mt-1">
-                                    <ClockIcon className="h-4 w-4" /> <span>{t('expedition.duration')}: {formatDuration(exp.duration)}</span>
-                                </div>
-                                <div className="border-t border-slate-800 my-2"></div>
-                                <div className="flex items-center text-amber-400 space-x-2">
-                                    <CoinsIcon className="h-4 w-4" /> <span>{t('expedition.reward')}: {goldDisplay}</span>
-                                </div>
-                                <div className="flex items-center text-sky-400 space-x-2 mt-1">
-                                    <StarIcon className="h-4 w-4" /> <span>{t('expedition.reward')}: {expDisplay} XP</span>
+
+                                <div className="mt-auto pt-4 border-t border-slate-700/50">
+                                    <div className="mb-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('expedition.potentialEnemies')}</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {potentialEnemies(expedition).length > 0 ? potentialEnemies(expedition).slice(0, 3).map((enemy: any) => (
+                                                <span key={enemy.id} className="text-xs bg-slate-900/50 px-2 py-0.5 rounded text-red-300 border border-red-900/30">
+                                                    {enemy.name} (Lvl {Math.floor(enemy.stats.maxHealth / 10)})
+                                                </span>
+                                            )) : <span className="text-xs text-gray-600">{t('expedition.noEnemies')}</span>}
+                                            {potentialEnemies(expedition).length > 3 && <span className="text-xs text-gray-500">...</span>}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('expedition.reward')}</p>
+                                         <div className="flex gap-3 text-xs font-mono">
+                                             <span className="text-amber-300">{expedition.minBaseGoldReward}-{expedition.maxBaseGoldReward} <CoinsIcon className="inline w-3 h-3"/></span>
+                                             <span className="text-sky-300">{expedition.minBaseExperienceReward}-{expedition.maxBaseExperienceReward} XP</span>
+                                         </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleEmbark(expedition.id)}
+                                        disabled={character.resources.gold < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost}
+                                        className={`w-full py-2.5 rounded-lg font-bold text-sm shadow-lg transition-all duration-200 flex items-center justify-center space-x-2
+                                            ${character.resources.gold >= expedition.goldCost && character.stats.currentEnergy >= expedition.energyCost
+                                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/20' 
+                                                : 'bg-slate-700 text-gray-500 cursor-not-allowed'
+                                            }`}
+                                    >
+                                        <span>{t('expedition.embark')}</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <button
-                        onClick={() => handleStartExpedition(exp.id)}
-                        disabled={!canAfford || character.isResting || !!character.activeTravel}
-                        className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200"
-                    >
-                        {t('expedition.embark')}
-                    </button>
+                    ))}
                 </div>
-            )})}
-        </div>
-      ) : (
-        <p className="text-gray-400">{t('expedition.noExpeditions')}</p>
-      )}
-    </ContentPanel>
-  );
-
-  return (
-    <>
-        {content}
-    </>
-  );
+            )}
+        </ContentPanel>
+    );
 };

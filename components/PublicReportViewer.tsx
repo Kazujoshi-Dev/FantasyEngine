@@ -81,6 +81,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         itemTemplates: gameData.itemTemplates,
         affixes: gameData.affixes,
         messageId: parseInt(reportId, 10),
+        backgroundImage: gameData.settings?.reportBackgroundUrl,
     };
 
     if (type === 'expedition_report') {

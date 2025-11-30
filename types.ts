@@ -758,6 +758,7 @@ export interface GameSettings {
     sidebarBackgroundUrl?: string;
     logoUrl?: string;
     windowBackgroundUrl?: string;
+    reportBackgroundUrl?: string; // NEW
     newsContent?: string;
     newsLastUpdatedAt?: number;
     sidebarOrder?: Tab[];

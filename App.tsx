@@ -5,7 +5,7 @@ import { CharacterCreation } from './components/CharacterCreation';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
-import { Expedition, ExpeditionSummaryModal } from './components/Expedition';
+import { ExpeditionComponent as Expedition, ExpeditionSummaryModal } from './components/Expedition';
 import { Camp } from './components/Camp';
 import { Location } from './components/Location';
 import { Resources } from './components/Resources';
@@ -1131,6 +1131,7 @@ const MainApp: React.FC = () => {
                         affixes={gameData.affixes || []}
                         encounteredEnemies={expeditionReport.summary.encounteredEnemies}
                         bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
+                        backgroundImage={gameData.settings.reportBackgroundUrl}
                     />
                 )}
             </div>
