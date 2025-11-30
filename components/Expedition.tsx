@@ -7,6 +7,7 @@ import { BoltIcon } from './icons/BoltIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
+import { MapIcon } from './icons/MapIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { api } from '../api';
