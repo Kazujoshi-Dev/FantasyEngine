@@ -1,12 +1,4 @@
 
-
-
-
-
-
-
-
-
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -14,15 +6,12 @@ import { randomUUID } from 'crypto';
 dotenv.config();
 
 // Construct PoolConfig from individual environment variables
-// This is more robust for hosting platforms that may not substitute variables inside other variables.
 const poolConfig: PoolConfig = {
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  // Use env var if present (Docker), otherwise default to localhost (Local Dev)
   host: process.env.POSTGRES_HOST || 'localhost', 
   database: process.env.POSTGRES_DB,
   port: 5432,
-  // Timeout to fail fast if DB is unreachable (5 seconds)
   connectionTimeoutMillis: 5000, 
 };
 
@@ -50,6 +39,13 @@ export const initializeDatabase = async () => {
             );
         `);
         
+        // --- MIGRATION: ALLOW MULTIPLE CHARACTERS ---
+        // Drop the UNIQUE constraint on user_id if it exists to allow multiple characters per user
+        await client.query(`
+            ALTER TABLE characters DROP CONSTRAINT IF EXISTS characters_user_id_key;
+        `);
+        // --------------------------------------------
+
         const idColumnDefault = await client.query(`
             SELECT column_default
             FROM information_schema.columns
@@ -71,10 +67,10 @@ export const initializeDatabase = async () => {
         `);
 
         if (!hasUserIdColumn.rowCount) {
-            console.log("MIGRATING SCHEMA: Adding 'user_id' column and constraints to 'characters' table...");
+            console.log("MIGRATING SCHEMA: Adding 'user_id' column to 'characters' table...");
             await client.query('ALTER TABLE characters ADD COLUMN user_id INT;');
             await client.query('ALTER TABLE characters ADD CONSTRAINT fk_characters_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;');
-            await client.query('ALTER TABLE characters ADD CONSTRAINT characters_user_id_key UNIQUE (user_id);');
+            // Note: We intentionally do NOT add the unique constraint here anymore for fresh installs
             console.log("MIGRATION COMPLETE.");
         }
         
@@ -105,8 +101,19 @@ export const initializeDatabase = async () => {
         if (!hasLastActiveAtColumn.rowCount) {
             console.log("MIGRATING SCHEMA: Adding 'last_active_at' column to 'sessions' table...");
             await client.query('ALTER TABLE sessions ADD COLUMN last_active_at TIMESTAMPTZ DEFAULT NOW();');
-            console.log("MIGRATION COMPLETE.");
         }
+        
+        // --- MIGRATION: ACTIVE CHARACTER IN SESSION ---
+        const hasActiveCharColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='sessions' AND column_name='active_character_id';
+        `);
+        
+        if (!hasActiveCharColumn.rowCount) {
+            console.log("MIGRATING SCHEMA: Adding 'active_character_id' column to 'sessions' table...");
+            await client.query('ALTER TABLE sessions ADD COLUMN active_character_id INT REFERENCES characters(id) ON DELETE SET NULL;');
+        }
+        // ----------------------------------------------
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS messages (
@@ -383,7 +390,6 @@ export const initializeDatabase = async () => {
         }
 
         // --- MIGRATION: Ensure 'lone-wolf' skill exists in existing DB ---
-        // This handles the case where 'skills' key existed but didn't have the new skill
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         if (skillsRes.rows.length > 0) {
             const currentSkills = skillsRes.rows[0].data || [];
