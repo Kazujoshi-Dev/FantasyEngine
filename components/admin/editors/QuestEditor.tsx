@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GameData, Quest, QuestType, EssenceType, ItemReward, ResourceReward, LootDrop } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -67,7 +68,14 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
         rewards[index] = { ...rewards[index], [key]: value };
         setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), itemRewards: rewards } }));
     };
-    const addItemReward = () => handleItemRewardChange((formData.rewards?.itemRewards || []).length, 'templateId', '');
+    const addItemReward = () => setFormData(prev => ({
+        ...prev,
+        rewards: {
+            ...(prev.rewards || { gold: 0, experience: 0 }),
+            itemRewards: [...(prev.rewards?.itemRewards || []), { templateId: '', quantity: 1 }]
+        }
+    }));
+    
     const removeItemReward = (index: number) => setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), itemRewards: prev.rewards?.itemRewards?.filter((_, i) => i !== index) } }));
 
     // --- Resource Rewards Handlers ---
@@ -76,7 +84,14 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
         rewards[index] = { ...rewards[index], [key]: value };
         setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), resourceRewards: rewards } }));
     };
-    const addResourceReward = () => handleResourceRewardChange((formData.rewards?.resourceRewards || []).length, 'resource', EssenceType.Common);
+    const addResourceReward = () => setFormData(prev => ({
+        ...prev,
+        rewards: {
+            ...(prev.rewards || { gold: 0, experience: 0 }),
+            resourceRewards: [...(prev.rewards?.resourceRewards || []), { resource: EssenceType.Common, quantity: 1 }]
+        }
+    }));
+    
     const removeResourceReward = (index: number) => setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), resourceRewards: prev.rewards?.resourceRewards?.filter((_, i) => i !== index) } }));
 
     // --- Loot Table Handlers ---

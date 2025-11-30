@@ -133,7 +133,7 @@ const QuestCard: React.FC<{
                             return (
                                 <div key={`item-${index}`} className="relative group flex items-center">
                                     <p className={`font-semibold text-sm cursor-help ${rarityStyles[template.rarity].text}`}>
-                                        {reward.quantity}x {template.name}
+                                        {(reward.quantity || 1)}x {template.name}
                                     </p>
                                     <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} />
                                 </div>
@@ -144,7 +144,7 @@ const QuestCard: React.FC<{
                             const colorClass = rarityStyles[rarity]?.text || 'text-gray-300';
                             return (
                                 <p key={`resource-${index}`} className={`flex items-center font-semibold text-sm ${colorClass}`}>
-                                    {reward.quantity}x {t(`resources.${reward.resource}`)}
+                                    {(reward.quantity || 1)}x {t(`resources.${reward.resource}`)}
                                 </p>
                             );
                         })}
