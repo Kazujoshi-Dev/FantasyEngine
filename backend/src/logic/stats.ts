@@ -1,6 +1,20 @@
 
 
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
+
+export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
+    // The pg driver returns bigint as a string, so we must cast to Number
+    // to prevent string concatenation.
+    let totalXp = Number(currentExperience);
+    
+    // Sum up the experience required for all previous levels
+    for (let i = 1; i < level; i++) {
+        const xpForPrevLevel = Math.floor(100 * Math.pow(i, 1.3));
+        totalXp += xpForPrevLevel;
+    }
+    return totalXp;
+};
 
 export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0): PlayerCharacter => {
     

@@ -11,6 +11,8 @@
 
 
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -18,7 +20,7 @@ import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, 
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
-import { calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { calculateDerivedStatsOnServer, calculateTotalExperience } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -167,13 +169,16 @@ router.get('/character/profile/:name', authenticateToken, async (req: any, res: 
         const row = result.rows[0];
         const data = row.data;
 
+        // Calculate total experience based on level and current progress
+        const totalExperience = calculateTotalExperience(data.level, data.experience);
+
         // Construct public profile
         const profile: PublicCharacterProfile = {
             name: data.name,
             race: data.race,
             characterClass: data.characterClass,
             level: data.level,
-            experience: data.experience,
+            experience: totalExperience, // Use total XP instead of current level XP
             pvpWins: data.pvpWins || 0,
             pvpLosses: data.pvpLosses || 0,
             guildName: row.guild_name,

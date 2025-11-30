@@ -1,22 +1,12 @@
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
+import { calculateTotalExperience } from '../logic/stats.js';
 
 const router = express.Router();
-
-const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
-    // The pg driver returns bigint as a string, so we must cast to Number
-    // to prevent string concatenation.
-    let totalXp = Number(currentExperience);
-    
-    // Sum up the experience required for all previous levels
-    for (let i = 1; i < level; i++) {
-        const xpForPrevLevel = Math.floor(100 * Math.pow(i, 1.3));
-        totalXp += xpForPrevLevel;
-    }
-    return totalXp;
-};
 
 router.get('/', async (req: any, res: any) => {
     try {
