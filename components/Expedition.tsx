@@ -20,7 +20,7 @@ export interface ExpeditionProps {
     onStartExpedition: (expeditionId: string) => void;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
-    onCompletion: () => Promise<void>; // Updated signature to allow async promise handling
+    onCompletion: () => Promise<void>;
 }
 
 const formatDuration = (seconds: number): string => {
