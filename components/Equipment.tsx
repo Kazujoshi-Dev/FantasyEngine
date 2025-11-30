@@ -329,6 +329,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                                 e.stopPropagation(); // Prevent deselecting
                                                 handleItemClick(item, 'equipment', slot);
                                             }}
+                                            onDoubleClick={() => onUnequipItem(item, slot)}
                                             showPrimaryStat={false}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
@@ -426,6 +427,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             e.stopPropagation(); // Prevent deselecting
                                             handleItemClick(item, 'inventory');
                                         }}
+                                        onDoubleClick={() => onEquipItem(item)}
                                         showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
                                         draggable="true"
