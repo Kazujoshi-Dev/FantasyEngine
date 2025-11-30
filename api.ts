@@ -446,6 +446,11 @@ export const api = {
     async getMessages(): Promise<Message[]> {
         return fetchApi('/messages');
     },
+    
+    async getUnreadMessagesStatus(): Promise<boolean> {
+        const res = await fetchApi('/messages/status/unread');
+        return res?.hasUnread || false;
+    },
 
     async sendMessage(data: { recipientName: string; subject: string; content: string }): Promise<Message> {
         return fetchApi('/messages', {

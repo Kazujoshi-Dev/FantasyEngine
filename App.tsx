@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -41,9 +42,10 @@ const MainApp: React.FC = () => {
     const [pvpReport, setPvpReport] = useState<PvpRewardSummary | null>(null);
     const [traderInventory, setTraderInventory] = useState<{ regularItems: ItemInstance[], specialOfferItems: ItemInstance[] }>({ regularItems: [], specialOfferItems: [] });
     
-    // Tavern Notification State
+    // Notifications State
     const [lastSeenTavernMsgId, setLastSeenTavernMsgId] = useState<number>(0);
     const [hasNewTavernMessages, setHasNewTavernMessages] = useState(false);
+    const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
     // Ranking State
     const [ranking, setRanking] = useState<RankingPlayer[]>([]);
@@ -75,6 +77,16 @@ const MainApp: React.FC = () => {
         setLoadingError(null);
         // window.location.reload(); // Disabled to prevent refresh loops
     };
+    
+    const checkUnreadMessages = useCallback(async () => {
+        if (!token) return;
+        try {
+            const hasUnread = await api.getUnreadMessagesStatus();
+            setHasUnreadMessages(hasUnread);
+        } catch (e) {
+            console.error("Failed to check unread messages", e);
+        }
+    }, [token]);
 
     // Update ref when activeTab changes
     useEffect(() => {
@@ -86,7 +98,12 @@ const MainApp: React.FC = () => {
             setLastSeenTavernMsgId(latestId);
             setHasNewTavernMessages(false);
         }
-    }, [activeTab, tavernMessages]);
+        
+        // Check messages when switching tabs (user might have read them)
+        if (token) {
+            checkUnreadMessages();
+        }
+    }, [activeTab, tavernMessages, token, checkUnreadMessages]);
 
     // Loading Timer Effect
     useEffect(() => {
@@ -214,6 +231,14 @@ const MainApp: React.FC = () => {
         };
     }, [token]); 
 
+    // Poll for Unread Messages
+    useEffect(() => {
+        if (!token) return;
+        checkUnreadMessages(); // Initial check
+        const msgInterval = setInterval(checkUnreadMessages, 15000); // Every 15 seconds
+        return () => clearInterval(msgInterval);
+    }, [token, checkUnreadMessages]);
+
     // ... rest of existing functions ...
     const fetchRanking = useCallback(async () => {
         setIsRankingLoading(true);
@@ -318,12 +343,14 @@ const MainApp: React.FC = () => {
             const result = await api.completeExpedition();
             setCharacter(result.updatedCharacter);
             setExpeditionReport({ summary: result.summary, messageId: result.messageId });
+            // Update messages status as a new report has arrived
+            checkUnreadMessages();
         } catch (e) {
             console.error("Failed to complete expedition automatically", e);
         } finally {
             isCompletingExpeditionRef.current = false;
         }
-    }, [character]);
+    }, [character, checkUnreadMessages]);
 
     useEffect(() => {
         if (!character?.activeExpedition) return;
@@ -367,9 +394,6 @@ const MainApp: React.FC = () => {
         setCharacter(updatedCharacter); // Optimistic update
         if (immediate) {
             try {
-                // Note: updateCharacter API now only updates safe fields.
-                // For complex actions like equipping/distributing stats, use specific API calls.
-                // This function is still valid for cosmetic/settings updates.
                 const syncedChar = await api.updateCharacter(updatedCharacter);
                 setCharacter(syncedChar);
             } catch (e) {
@@ -846,6 +870,8 @@ const MainApp: React.FC = () => {
                             const { summary, updatedAttacker } = await api.attackPlayer(id);
                             setCharacter(updatedAttacker); // Optimistic update of attacker stats (energy etc.)
                             setPvpReport(summary);
+                            // Update unread messages as we get a report
+                            checkUnreadMessages();
                             fetchCharacter(); // Sync fully
                         } catch(e: any) {
                             alert(e.message || t('error.title'));
@@ -1015,7 +1041,7 @@ const MainApp: React.FC = () => {
                     playerCharacter={derivedCharacter}
                     currentLocation={currentLocation}
                     onLogout={handleLogout}
-                    hasUnreadMessages={false} // TODO: Implement check
+                    hasUnreadMessages={hasUnreadMessages}
                     hasNewTavernMessages={hasNewTavernMessages}
                     onOpenNews={() => setIsNewsOpen(true)}
                     hasNewNews={hasNewNews}

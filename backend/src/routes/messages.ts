@@ -1,9 +1,24 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { Message, MarketNotificationBody } from '../types.js';
 
 const router = express.Router();
+
+// GET status/unread - Check if there are any unread messages (lightweight)
+router.get('/status/unread', authenticateToken, async (req: any, res: any) => {
+    try {
+        const result = await pool.query(
+            "SELECT 1 FROM messages WHERE recipient_id = $1 AND is_read = FALSE LIMIT 1",
+            [req.user!.id]
+        );
+        res.json({ hasUnread: result.rowCount > 0 });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to check messages status' });
+    }
+});
 
 // GET all messages for the user
 router.get('/', authenticateToken, async (req: any, res: any) => {
