@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 import { spellRegistry } from './spells/registry.js';
@@ -61,7 +62,7 @@ export const performAttack = <
     gameData: GameData,
     allEnemies: DefenderState[],
     isBossAttacking: boolean = false,
-    options: { ignoreArmor?: boolean } = {}
+    options: { ignoreArmor?: boolean; ignoreDodge?: boolean } = {}
 ): { logs: CombatLogEntry[], attackerState: TAttacker, defenderState: TDefender, aoeData?: any, chainData?: any } => {
 
     const logs: CombatLogEntry[] = [];
@@ -88,7 +89,9 @@ export const performAttack = <
     let manaSpent = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
-    if (defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
+    
+    // Apply ignoreDodge option (e.g. for Warrior class bonus) or frozen status
+    if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
     }
 

@@ -23,7 +23,7 @@ import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
@@ -39,6 +39,7 @@ const MainApp: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [allCharacters, setAllCharacters] = useState<any[]>([]);
     const [expeditionReport, setExpeditionReport] = useState<{ summary: ExpeditionRewardSummary; messageId: number; } | null>(null);
+    const [pvpReport, setPvpReport] = useState<PvpRewardSummary | null>(null);
     const [traderInventory, setTraderInventory] = useState<{ regularItems: ItemInstance[], specialOfferItems: ItemInstance[] }>({ regularItems: [], specialOfferItems: [] });
     
     // Tavern Notification State
@@ -936,7 +937,16 @@ const MainApp: React.FC = () => {
                     ranking={ranking} 
                     currentPlayer={character} 
                     isLoading={isRankingLoading} 
-                    onAttack={async (id) => { await api.attackPlayer(id); fetchCharacter(); }}
+                    onAttack={async (id) => {
+                        try {
+                            const { summary, updatedAttacker } = await api.attackPlayer(id);
+                            setCharacter(updatedAttacker); // Optimistic update of attacker stats (energy etc.)
+                            setPvpReport(summary);
+                            fetchCharacter(); // Sync fully
+                        } catch(e: any) {
+                            alert(e.message || t('error.title'));
+                        }
+                    }}
                     onComposeMessage={() => {}}
                 />;
             case Tab.Messages:
@@ -1131,6 +1141,27 @@ const MainApp: React.FC = () => {
                         affixes={gameData.affixes || []}
                         encounteredEnemies={expeditionReport.summary.encounteredEnemies}
                         bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
+                        backgroundImage={gameData.settings.reportBackgroundUrl}
+                    />
+                )}
+                {/* PvP Report Modal Overlay */}
+                {pvpReport && (
+                    <ExpeditionSummaryModal
+                        reward={{
+                            combatLog: pvpReport.combatLog,
+                            isVictory: pvpReport.isVictory,
+                            totalGold: pvpReport.gold,
+                            totalExperience: pvpReport.experience,
+                            rewardBreakdown: [],
+                            itemsFound: [],
+                            essencesFound: {}
+                        }}
+                        onClose={() => setPvpReport(null)}
+                        characterName={pvpReport.attacker.name}
+                        itemTemplates={gameData.itemTemplates || []}
+                        affixes={gameData.affixes || []}
+                        isPvp={true}
+                        pvpData={{ attacker: pvpReport.attacker, defender: pvpReport.defender }}
                         backgroundImage={gameData.settings.reportBackgroundUrl}
                     />
                 )}
