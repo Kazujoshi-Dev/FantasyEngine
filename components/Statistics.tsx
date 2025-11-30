@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType } from '../types';
@@ -113,7 +111,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
   const { t } = useTranslation();
   
   const [activeTab, setActiveTab] = useState<'stats' | 'development' | 'skills' | 'knowledge'>('stats');
-  const [knowledgeTab, setKnowledgeTab] = useState<'magicAttacks'>('magicAttacks');
+  const [knowledgeTab, setKnowledgeTab] = useState<'magicAttacks' | 'racesClasses'>('magicAttacks');
   const [pendingStats, setPendingStats] = useState(baseCharacter.stats);
   const [spentPoints, setSpentPoints] = useState(0);
   const [nextEnergyCountdown, setNextEnergyCountdown] = useState('');
@@ -484,7 +482,12 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                     >
                         Ataki Magiczne
                     </button>
-                    {/* Future tabs can be added here */}
+                    <button
+                        onClick={() => setKnowledgeTab('racesClasses')}
+                        className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'racesClasses' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        Rasy i Klasy
+                    </button>
                 </div>
                 {knowledgeTab === 'magicAttacks' && (
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -494,6 +497,32 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                                 <p className="text-sm text-gray-300">{t(`item.magicDescriptions.${attack}`)}</p>
                             </div>
                         ))}
+                    </div>
+                )}
+                {knowledgeTab === 'racesClasses' && (
+                    <div className="space-y-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Rasowe</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {Object.values(Race).map(race => (
+                                    <div key={race} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                        <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`race.${race}`)}</h4>
+                                        <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`raceBonuses.${race}`)}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Klasowe</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {Object.values(CharacterClass).map(charClass => (
+                                    <div key={charClass} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                        <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`class.${charClass}`)}</h4>
+                                        <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`class.${charClass}Description`)}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
