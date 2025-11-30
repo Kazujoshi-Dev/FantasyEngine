@@ -231,7 +231,7 @@ export default {
         cascadeUnequipNoSpace: 'Nie można zdjąć tego przedmiotu. Zdjęcie go spowodowałoby również automatyczne zdjęcie {count} innych przedmiotów, ale w ekwipunku nie ma wystarczająco miejsca.',
         autoUnequipped: 'Następujące przedmioty zostały automatycznie zdjęte, ponieważ przestałeś spełniać ich wymagania: {itemsList}',
         characterStats: 'Statystyki postaci',
-        usageHint: 'Wskazówka: Kliknij prawym przyciskiem myszy na przedmiot, aby wejść w interakcję.',
+        usageHint: 'Wskazówka: Kliknij dwukrotnie, aby założyć/zdjąć przedmiot. PPM: Opcje.',
         twoHandedWeaponEquipped: 'Nie można założyć przedmiotu do drugiej ręki, gdy używasz broni dwuręcznej.',
         selectItemPrompt: 'Wybierz przedmiot, aby zobaczyć jego szczegóły.',
         filterByType: 'Filtruj wg typu',
