@@ -1,3 +1,4 @@
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -752,6 +753,7 @@ export interface GameSettings {
     };
     loginBackground?: string;
     gameBackground?: string;
+    sidebarBackgroundUrl?: string; // Tło menu bocznego
     logoUrl?: string;
     windowBackgroundUrl?: string; // Nowe pole dla tekstury okien
     newsContent?: string;

@@ -126,9 +126,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
         return item.alwaysVisible || (currentLocation && currentLocation.availableTabs.includes(item.id));
     });
 
+  const sidebarStyle: React.CSSProperties = settings?.sidebarBackgroundUrl
+    ? {
+        backgroundImage: `url(${settings.sidebarBackgroundUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : {};
 
   return (
-    <aside className="w-56 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex-shrink-0 flex flex-col">
+    <aside 
+        className="w-56 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex-shrink-0 flex flex-col relative z-0"
+        style={sidebarStyle}
+    >
+        {/* Overlay if image is present to ensure text readability */}
+        {settings?.sidebarBackgroundUrl && (
+            <div className="absolute inset-0 bg-slate-900/80 -z-10 pointer-events-none" />
+        )}
+
       <div className="p-6 border-b border-slate-700/50">
         <h1 className="text-2xl font-bold text-white tracking-wider mb-2">
           Kroniki Mroku
