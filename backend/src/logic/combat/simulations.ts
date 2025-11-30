@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, BossSpecialAttack } from '../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from './core.js';
 import { randomUUID } from 'crypto';
@@ -38,6 +37,10 @@ const defaultEnemyStats: EnemyStats = {
 // ==========================================================================================
 export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy, gameData: GameData): CombatLogEntry[] => {
     
+    // Initialize State Objects
+    // NOTE: We maintain these specific object references throughout the entire combat.
+    // We must NOT reassign 'playerState' or 'enemyState' variables to new objects returned by performAttack.
+    // Instead, we will update their properties.
     let playerState: AttackerState & {data: PlayerCharacter} = {
         data: playerData,
         stats: playerData.stats,
@@ -73,19 +76,44 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats, enemyDescription: enemyState.description
     });
     
+    // Helper to safely update state from performAttack result
+    const applyCombatResult = (
+        source: AttackerState | DefenderState, 
+        target: AttackerState | DefenderState
+    ) => {
+        // We find which state object matches the name and update its mutable props
+        const update = (state: AttackerState | DefenderState) => {
+            if (state.name === playerState.name) {
+                playerState.currentHealth = state.currentHealth;
+                playerState.currentMana = state.currentMana;
+                playerState.statusEffects = state.statusEffects;
+                // Preserve specific player flags if passed back (though core usually returns base types)
+                if ((state as any).manaSurgeUsed !== undefined) playerState.manaSurgeUsed = (state as any).manaSurgeUsed;
+                if ((state as any).shadowBoltStacks !== undefined) playerState.shadowBoltStacks = (state as any).shadowBoltStacks;
+            } else if (state.name === enemyState.name) {
+                enemyState.currentHealth = state.currentHealth;
+                enemyState.currentMana = state.currentMana;
+                enemyState.statusEffects = state.statusEffects;
+                if ((state as any).shadowBoltStacks !== undefined) enemyState.shadowBoltStacks = (state as any).shadowBoltStacks;
+            }
+        };
+        update(source);
+        update(target);
+    };
+
     // --- Turn 0: Ranged Weapons Logic ---
     const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
     const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
 
     if (template?.isRanged && enemyState.currentHealth > 0) {
         // 1. Standard Ranged Attack (Everyone with ranged weapon)
-        const { logs: attackLogs, defenderState } = performAttack(playerState, enemyState, 0, gameData, []);
+        const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, enemyState, 0, gameData, []);
         log.push(...attackLogs);
-        enemyState = defenderState as typeof enemyState; // Sync state
+        applyCombatResult(attackerState, defenderState);
 
         // 2. Hunter Bonus Attack (Only Hunters, 50% damage)
         if (playerData.characterClass === CharacterClass.Hunter && enemyState.currentHealth > 0) {
-             const { logs: hunterLogs, defenderState: hunterDefenderState } = performAttack(playerState, enemyState, 0, gameData, []);
+             const { logs: hunterLogs, attackerState: hAttacker, defenderState: hDefender } = performAttack(playerState, enemyState, 0, gameData, []);
              
              // Apply 50% damage reduction logic manually to the log and state
              const lastLog = hunterLogs[hunterLogs.length - 1];
@@ -97,14 +125,11 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 // Correct the log
                 lastLog.damage = reducedDamage;
                 // Correct the actual health state (heal back the difference)
-                hunterDefenderState.currentHealth += diff;
-                // Sync local variable
-                enemyState = hunterDefenderState as typeof enemyState;
-                
-                // Update health in log entry to match new state
-                lastLog.enemyHealth = enemyState.currentHealth;
+                hDefender.currentHealth += diff;
+                lastLog.enemyHealth = hDefender.currentHealth; // Update log entry
              }
              log.push(...hunterLogs);
+             applyCombatResult(hAttacker, hDefender);
         }
     }
 
@@ -113,9 +138,9 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        const getHealthState = (pState: typeof playerState, eState: typeof enemyState) => ({
-            playerHealth: pState.currentHealth, playerMana: pState.currentMana,
-            enemyHealth: eState.currentHealth, enemyMana: eState.currentMana
+        const getHealthState = () => ({
+            playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+            enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
         });
 
         // --- Shaman Class Power ---
@@ -129,18 +154,20 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                     defender: enemyState.name,
                     action: 'shaman_power',
                     damage,
-                    ...getHealthState(playerState, enemyState)
+                    ...getHealthState()
                 });
                 if (enemyState.currentHealth <= 0) {
-                    log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...getHealthState(playerState, enemyState) });
+                    log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...getHealthState() });
                     break; 
                 }
             }
         }
         
         // --- Turn Start Effects & Mana Regen ---
-        const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
-        for(const combatant of turnParticipants) {
+        // We iterate over the actual state objects
+        const combatants = [playerState, enemyState];
+        
+        for(const combatant of combatants) {
             // Mana Regen
             const manaRegen = combatant.stats.manaRegen || 0;
             if (manaRegen > 0) {
@@ -148,7 +175,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 const manaGained = newMana - combatant.currentMana;
                 if(manaGained > 0) {
                     combatant.currentMana = newMana;
-                    log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...getHealthState(playerState, enemyState) });
+                    log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...getHealthState() });
                 }
             }
             // Burning Effect
@@ -156,135 +183,97 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             if (burningEffect) {
                 const burnDamage = Math.floor(combatant.stats.maxHealth * 0.05);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
-                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState(playerState, enemyState) });
+                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState() });
             }
             // Decrement status effect durations
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
         }
 
-        const attacker = playerAttacksFirst ? playerState : enemyState;
-        const defender = playerAttacksFirst ? enemyState : playerState;
+        // Determine who is attacker and who is defender for the FIRST phase
+        const firstAttacker = playerAttacksFirst ? playerState : enemyState;
+        const firstDefender = playerAttacksFirst ? enemyState : playerState;
 
         // --- Attacker's Turn ---
-        if (attacker.currentHealth > 0) {
-            const isPlayerAttacking = 'statPoints' in attacker.stats;
-            const attacks = isPlayerAttacking ? (attacker.stats as CharacterStats).attacksPerRound : (attacker.stats as EnemyStats).attacksPerTurn || 1;
-            const reducedAttacks = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').length;
+        if (firstAttacker.currentHealth > 0) {
+            const isPlayerAttacking = firstAttacker === playerState;
+            const attacks = isPlayerAttacking ? (firstAttacker.stats as CharacterStats).attacksPerRound : (firstAttacker.stats as EnemyStats).attacksPerTurn || 1;
+            const reducedAttacks = firstAttacker.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
             
-            if (attacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
-                log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
+            if (firstAttacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
+                log.push({ turn, attacker: firstAttacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
             } else {
-                 for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
+                 for (let i = 0; i < finalAttacks && firstDefender.currentHealth > 0; i++) {
                     // Warrior Bonus Check: First attack is Auto-Crit and Undodgeable
-                    let currentAttacker = attacker;
+                    let currentAttackerObj = firstAttacker;
                     let attackOptions = {};
 
-                    if (isPlayerAttacking && i === 0 && (attacker as any).data?.characterClass === CharacterClass.Warrior) {
-                         // Temporarily boost crit chance to 100% for this call
-                         currentAttacker = { ...attacker, stats: { ...attacker.stats, critChance: 100 } };
+                    if (isPlayerAttacking && i === 0 && playerData.characterClass === CharacterClass.Warrior) {
+                         // Temporarily boost crit chance to 100% for this call. 
+                         // Create shallow copy to avoid persistent stat modification.
+                         currentAttackerObj = { ...firstAttacker, stats: { ...firstAttacker.stats, critChance: 100 } };
                          attackOptions = { ignoreDodge: true };
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(currentAttacker, defender, turn, gameData, [], false, attackOptions);
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(currentAttackerObj, firstDefender, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
                     
-                    // Sync state back (careful not to overwrite original stats with the temp crit chance one if we cloned it)
-                    // performAttack returns state with updated health/mana/effects, so we should use it.
-                    // But we must ensure we don't persist the 100% crit chance if we cloned stats.
-                    if (playerAttacksFirst) {
-                        // attackerState is the new state of attacker (Player).
-                        // If we cloned 'stats' in currentAttacker, attackerState.stats might have 100 crit.
-                        // We only want to update dynamic props: health, mana, effects.
-                        playerState.currentHealth = attackerState.currentHealth;
-                        playerState.currentMana = attackerState.currentMana;
-                        playerState.statusEffects = attackerState.statusEffects;
-                        // Also update defender
-                        enemyState = defenderState as typeof enemyState;
-                    } else {
-                         // Enemy attacking Player (if we ever added Warrior logic for enemies, same applies)
-                         enemyState = attackerState as typeof enemyState;
-                         playerState = defenderState as typeof playerState;
-                    }
+                    // Update real states
+                    applyCombatResult(attackerState, defenderState);
                 }
 
                 // --- Berserker Bonus Attack (Player Only) ---
-                if (isPlayerAttacking && defender.currentHealth > 0) {
-                    const pAttacker = attacker as typeof playerState;
-                    if (pAttacker.data.characterClass === CharacterClass.Berserker && pAttacker.currentHealth < pAttacker.stats.maxHealth * 0.3) {
+                if (isPlayerAttacking && firstDefender.currentHealth > 0 && playerData.characterClass === CharacterClass.Berserker) {
+                    if (playerState.currentHealth < playerState.stats.maxHealth * 0.3) {
                         log.push({
-                            turn, attacker: attacker.name, defender: defender.name, action: 'berserker_frenzy',
-                            ...getHealthState(playerState, enemyState)
+                            turn, attacker: playerState.name, defender: firstDefender.name, action: 'berserker_frenzy',
+                            ...getHealthState()
                         });
-                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(pAttacker, defender, turn, gameData, []);
+                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, firstDefender, turn, gameData, []);
                         log.push(...bonusLogs);
-                        if (playerAttacksFirst) {
-                            playerState = attackerState as typeof playerState;
-                            enemyState = defenderState as typeof enemyState;
-                        } else {
-                            enemyState = attackerState as typeof enemyState; // Should typically not happen in 1v1 unless mechanics change
-                            playerState = defenderState as typeof playerState;
-                        }
+                        applyCombatResult(attackerState, defenderState);
                     }
                 }
             }
         }
         
-        // --- Defender's Turn (if they weren't first) ---
-        if (defender.currentHealth > 0) {
-            const isPlayerDefending = 'statPoints' in defender.stats;
-            const attacks = isPlayerDefending ? (defender.stats as CharacterStats).attacksPerRound : (defender.stats as EnemyStats).attacksPerTurn || 1;
-            const reducedAttacks = defender.statusEffects.filter(e => e.type === 'reduced_attacks').length;
+        // --- Defender's Turn (Counter-attack) ---
+        if (firstDefender.currentHealth > 0) {
+            const isPlayerDefending = firstDefender === playerState;
+            const attacks = isPlayerDefending ? (firstDefender.stats as CharacterStats).attacksPerRound : (firstDefender.stats as EnemyStats).attacksPerTurn || 1;
+            const reducedAttacks = firstDefender.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
 
-             if (defender.statusEffects.some(e => e.type === 'frozen_no_attack')) {
-                log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
+             if (firstDefender.statusEffects.some(e => e.type === 'frozen_no_attack')) {
+                log.push({ turn, attacker: firstDefender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
             } else {
-                for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
+                for (let i = 0; i < finalAttacks && firstAttacker.currentHealth > 0; i++) {
                     // Warrior Bonus Check for Defender's turn (counter-attack)
-                    let currentDefenderAttacker = defender;
+                    let currentCounterAttacker = firstDefender;
                     let attackOptions = {};
 
-                    if (isPlayerDefending && i === 0 && (defender as any).data?.characterClass === CharacterClass.Warrior) {
-                         currentDefenderAttacker = { ...defender, stats: { ...defender.stats, critChance: 100 } };
+                    if (isPlayerDefending && i === 0 && playerData.characterClass === CharacterClass.Warrior) {
+                         currentCounterAttacker = { ...firstDefender, stats: { ...firstDefender.stats, critChance: 100 } };
                          attackOptions = { ignoreDodge: true };
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(currentDefenderAttacker, attacker, turn, gameData, [], false, attackOptions);
+                    // NOTE: Attacker here is 'firstDefender' (Counter-Attacking), Defender is 'firstAttacker'
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(currentCounterAttacker, firstAttacker, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
                     
-                    if (playerAttacksFirst) {
-                        // enemyState (original attacker) is now defending against the counter
-                        enemyState = defenderState as typeof enemyState;
-                        // playerState (original defender) is now attacking
-                        playerState.currentHealth = attackerState.currentHealth;
-                        playerState.currentMana = attackerState.currentMana;
-                        playerState.statusEffects = attackerState.statusEffects;
-                    } else {
-                        // playerState (original attacker) is now defending
-                        playerState = defenderState as typeof playerState;
-                         // enemyState (original defender) is now attacking
-                        enemyState = attackerState as typeof enemyState;
-                    }
+                    applyCombatResult(attackerState, defenderState);
                 }
 
-                // --- Berserker Bonus Attack (Player as Defender/Second Attacker) ---
-                if (isPlayerDefending && attacker.currentHealth > 0) {
-                    const pDefender = defender as typeof playerState;
-                    if (pDefender.data.characterClass === CharacterClass.Berserker && pDefender.currentHealth < pDefender.stats.maxHealth * 0.3) {
+                // --- Berserker Bonus Attack (Player as Defender/Counter-Attacker) ---
+                if (isPlayerDefending && firstAttacker.currentHealth > 0 && playerData.characterClass === CharacterClass.Berserker) {
+                    if (playerState.currentHealth < playerState.stats.maxHealth * 0.3) {
                         log.push({
-                            turn, attacker: defender.name, defender: attacker.name, action: 'berserker_frenzy',
-                            ...getHealthState(playerState, enemyState)
+                            turn, attacker: playerState.name, defender: firstAttacker.name, action: 'berserker_frenzy',
+                            ...getHealthState()
                         });
-                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(pDefender, attacker, turn, gameData, []);
+                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, firstAttacker, turn, gameData, []);
                         log.push(...bonusLogs);
-                        if (playerAttacksFirst) {
-                            enemyState = defenderState as typeof enemyState;
-                            playerState = attackerState as typeof playerState;
-                        } else {
-                            playerState = attackerState as typeof playerState;
-                            enemyState = defenderState as typeof enemyState;
-                        }
+                        applyCombatResult(attackerState, defenderState);
                     }
                 }
             }
@@ -293,19 +282,16 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         playerAttacksFirst = playerState.stats.agility >= enemyState.stats.agility;
     }
     
-    // Final death check if loop exited due to HP <= 0 but no death log was pushed (e.g. Turn 0 kill)
+    // Final death check
+    const healthState = {
+        playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
+        enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
+    };
+    
     if (enemyState.currentHealth <= 0 && !log.some(l => l.action === 'enemy_death')) {
-         log.push({ 
-             turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', 
-             playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
-             enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
-         });
+         log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...healthState });
     } else if (playerState.currentHealth <= 0 && !log.some(l => l.action === 'death')) {
-         log.push({ 
-             turn, attacker: enemyState.name, defender: playerState.name, action: 'death', 
-             playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
-             enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana
-         });
+         log.push({ turn, attacker: enemyState.name, defender: playerState.name, action: 'death', ...healthState });
     }
     
     return log;
@@ -614,7 +600,10 @@ export const simulate1vManyCombat = (
                         });
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState);
                         
-                        playerState = attackerState as typeof playerState;
+                        playerState.currentHealth = attackerState.currentHealth;
+                        playerState.currentMana = attackerState.currentMana;
+                        playerState.statusEffects = attackerState.statusEffects;
+                        
                         enemiesState[targetIndex] = defenderState as typeof target;
                         log.push(...bonusLogs.map(l => ({...l, ...getHealthState()})));
 
@@ -645,15 +634,19 @@ export const simulate1vManyCombat = (
             for(let i = 0; i < finalAttacks; i++) {
                 if (playerState.currentHealth <= 0) break;
 
+                // Enemy attacks Player. 
+                // Attacker = Enemy. Defender = Player.
                 const { logs: attackLogs, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData, []);
                 
-                // Update states (enemyState needs to be updated in the array via reference or ID, 
-                // but performAttack returns a new object/state typically.
-                // Here `enemy` is a reference from `enemiesState`, but performAttack treats inputs as immutable-ish 
-                // returning new states. We must write back.)
+                // Update states
+                // Correctly update Enemy from attackerState
                 const eIndex = enemiesState.findIndex(e => e.uniqueId === enemy.uniqueId);
                 enemiesState[eIndex] = attackerState as typeof enemy;
-                playerState = defenderState as typeof playerState;
+                
+                // Correctly update Player from defenderState properties
+                playerState.currentHealth = defenderState.currentHealth;
+                playerState.currentMana = defenderState.currentMana;
+                playerState.statusEffects = defenderState.statusEffects;
 
                 log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
             }
@@ -664,7 +657,6 @@ export const simulate1vManyCombat = (
     if (playerState.currentHealth <= 0) {
          log.push({ turn, attacker: 'Enemies', defender: playerState.name, action: 'death', ...getHealthState() });
     } else if (enemiesState.every(e => e.currentHealth <= 0)) {
-         // Changed action from 'enemy_death' to 'all_enemies_defeated' to avoid singular "X został pokonany!" for a group victory summary
          log.push({ turn, attacker: playerState.name, defender: '', action: 'all_enemies_defeated', ...getHealthState() });
     }
 
@@ -672,7 +664,7 @@ export const simulate1vManyCombat = (
 };
 
 // ==========================================================================================
-//                                 TEAM vs BOSS COMBAT (REWRITTEN)
+//                                 TEAM vs BOSS COMBAT
 // ==========================================================================================
 export const simulateTeamVsBossCombat = (
     playersData: PlayerCharacter[],
@@ -738,13 +730,8 @@ export const simulateTeamVsBossCombat = (
              const playerAsAttacker: AttackerState = { ...player, stats: player.data.stats, name: player.data.name };
              const bossAsDefender: DefenderState = { ...bossState, stats: bossState.stats, name: bossState.name };
              
-             // Warrior Logic for Turn 0 Ranged? Technically Turn 0 is before Turn 1, so maybe first hit counts.
-             // But standard "turn" usually refers to loop. Let's apply it if it's the very first action they take.
-             // For now, keep Turn 0 distinct (Hunter perk territory).
-
              const { logs: attackLogs, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);
              bossState.currentHealth = defenderState.currentHealth;
-             // Push logs with updated health snapshot immediately
              log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 
              if (player.data.characterClass === CharacterClass.Hunter && bossState.currentHealth > 0) {
@@ -823,7 +810,6 @@ export const simulateTeamVsBossCombat = (
                                     damageDetails.push({ target: p.data.name, damage: dmg });
                                 }
                             });
-                            // Push log AFTER damage is applied to state so getHealthStateForLog works
                             log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, aoeDamage: damageDetails, ...getHealthStateForLog() });
                             break;
                         }
@@ -864,7 +850,6 @@ export const simulateTeamVsBossCombat = (
         
         // --- 3.3. Standard Combat Phase (Initiative) ---
         
-        // Construct Action Queue
         interface ActionEntity {
             type: 'player' | 'boss';
             index: number; // Index in playersState or -1 for boss
@@ -912,7 +897,6 @@ export const simulateTeamVsBossCombat = (
                 const playerIndex = actor.index;
                 const player = playersState[playerIndex];
                 
-                // Re-check death (might have died from earlier action, though improbable in standard phase unless Thorns existed)
                 if (player.isDead) continue;
 
                 // --- Player Turn Logic ---
@@ -941,13 +925,14 @@ export const simulateTeamVsBossCombat = (
 
                     const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
                     
-                    // Update stats - careful not to persist 100 crit chance
                     playersState[playerIndex].currentHealth = attackerState.currentHealth;
                     playersState[playerIndex].currentMana = attackerState.currentMana;
                     playersState[playerIndex].statusEffects = attackerState.statusEffects;
-                    // But don't update 'data.stats' from the temporary Warrior boost
 
-                    bossState = { ...bossState, ...defenderState };
+                    bossState.currentHealth = defenderState.currentHealth;
+                    bossState.currentMana = defenderState.currentMana;
+                    bossState.statusEffects = defenderState.statusEffects;
+                    
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
                 
@@ -957,18 +942,20 @@ export const simulateTeamVsBossCombat = (
                         ...getHealthStateForLog()
                      });
                      const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
-                     playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
-                     bossState = { ...bossState, ...defenderState };
+                     
+                     playersState[playerIndex].currentHealth = attackerState.currentHealth;
+                     playersState[playerIndex].currentMana = attackerState.currentMana;
+                     
+                     bossState.currentHealth = defenderState.currentHealth;
+                     bossState.currentMana = defenderState.currentMana;
+                     
                      log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
 
             } else {
                 // --- Boss Turn Logic ---
-                // Boss always attacks if alive (which is checked at loop start)
-                
                 const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
                 for (let i = 0; i < bossAttacks; i++) {
-                    // Check if targets remain (e.g. killed last player on previous attack in this loop)
                     const currentLivingTargets = playersState.filter(p => !p.isDead);
                     if (currentLivingTargets.length === 0) break;
                     
@@ -991,21 +978,19 @@ export const simulateTeamVsBossCombat = (
                         turn, gameData, [], true
                     );
                     
-                    bossState = { ...bossState, ...attackerState };
+                    bossState.currentHealth = attackerState.currentHealth;
+                    bossState.currentMana = attackerState.currentMana;
                     
-                    // Update main state array
                     playersState[targetIndex].currentHealth = defenderState.currentHealth;
                     playersState[targetIndex].currentMana = defenderState.currentMana;
                     playersState[targetIndex].statusEffects = defenderState.statusEffects;
                     
-                    // Update death status immediately so next attack doesn't hit dead player
                     if (playersState[targetIndex].currentHealth <= 0) {
                         playersState[targetIndex].isDead = true;
                     }
 
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 
-                    // --- Boss AoE Logic ---
                     if (aoeData) {
                         const otherPlayers = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
                         const splashDamageDetails: { target: string, damage: number }[] = [];
@@ -1013,7 +998,7 @@ export const simulateTeamVsBossCombat = (
                         if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
                             let splashDamage = 0;
                             if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
-                            if (aoeData.type === 'meteor_swarm') splashDamage = Math.floor(aoeData.baseDamage); // Meteor swarm splits or full? Usually full aoe or split. Assuming full based on name.
+                            if (aoeData.type === 'meteor_swarm') splashDamage = Math.floor(aoeData.baseDamage);
 
                             otherPlayers.forEach(p => {
                                 const wasAlive = p.currentHealth > 0;
@@ -1041,8 +1026,8 @@ export const simulateTeamVsBossCombat = (
                             }
                         }
                     }
-
-                    // --- Boss Chain Lightning Logic ---
+                    
+                    // Handle Chain Lightning
                     if (chainData && chainData.type === 'chain_lightning') {
                         const potentialTargets = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
                         let jumps = 0;
