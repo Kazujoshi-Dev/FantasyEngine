@@ -1,6 +1,4 @@
 
-
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -53,71 +51,48 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const trueMaxHealth = derivedChar.stats.maxHealth;
 
         // --- Energy Regeneration "Catch-up" Logic ---
-        // Checks if the player missed energy updates (e.g. server was down during cron)
-        
-        // Default to created_at time if lastEnergyUpdateTime is missing (migration path)
         const lastEnergyUpdate = character.lastEnergyUpdateTime || new Date(row.created_at).getTime();
-        
-        // Calculate how many full hours have passed since the last update
         const msPerHour = 60 * 60 * 1000;
         const hoursPassed = Math.floor((now - lastEnergyUpdate) / msPerHour);
 
         if (hoursPassed > 0) {
             const currentEnergy = character.stats.currentEnergy;
-
             if (currentEnergy < trueMaxEnergy) {
-                // Add 1 energy per hour passed, capped at actual max
                 character.stats.currentEnergy = Math.min(trueMaxEnergy, currentEnergy + hoursPassed);
                 needsDbUpdate = true;
             }
-            
-            // Update the timestamp to the most recent full hour relative to now
             character.lastEnergyUpdateTime = lastEnergyUpdate + (hoursPassed * msPerHour);
             needsDbUpdate = true;
         }
 
         // --- Health Regeneration Logic (Resting) ---
         if (character.isResting) {
-            // Fallback to 'now' if lastRestTime is missing/invalid to prevent NaN math
             const lastRestTime = Number(character.lastRestTime) || now;
             const msPassed = now - lastRestTime;
             
-            // Update if at least 1 second passed.
             if (msPassed >= 1000) { 
-                // Camp level % of Max HP per minute
                 const regenPercentagePerMinute = character.camp.level; 
-                
-                // Calculate fractional HP gain based on milliseconds passed
                 const hpToGain = (trueMaxHealth * (regenPercentagePerMinute / 100)) * (msPassed / 60000);
 
                 if (hpToGain > 0 && character.stats.currentHealth < trueMaxHealth) {
                     character.stats.currentHealth = Math.min(trueMaxHealth, character.stats.currentHealth + hpToGain);
-                    // Update cursor to now
                     character.lastRestTime = now;
                     needsDbUpdate = true;
                 } else if (character.stats.currentHealth >= trueMaxHealth) {
                     character.stats.currentHealth = trueMaxHealth;
-                    character.isResting = false; // Auto-stop resting if full
+                    character.isResting = false;
                     character.lastRestTime = undefined;
                     needsDbUpdate = true;
                 } else if (!character.lastRestTime) {
-                    // Fix data if lastRestTime was missing but we are resting
                     character.lastRestTime = now;
                     needsDbUpdate = true;
                 }
             }
         }
         
-        // Asynchronously update the character in the DB if needed, without blocking the response.
         if (needsDbUpdate) {
             pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
                 .catch(err => console.error("Async character update failed:", err));
-        }
-
-
-        // Check if expedition is finished and update character state in memory if needed, but don't finalize here
-        if (character.activeExpedition && Date.now() >= character.activeExpedition.finishTime) {
-            // The client will call /complete-expedition to finalize
         }
 
         if (character.activeTravel && Date.now() >= character.activeTravel.finishTime) {
@@ -127,7 +102,6 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
                 .catch(err => console.error("Async travel completion update failed:", err));
         }
 
-        // Inject Guild Info for Frontend UI Calculations
         character.guildBarracksLevel = barracksLevel;
 
         res.json(character);
@@ -157,16 +131,14 @@ router.get('/character/profile/:name', authenticateToken, async (req: any, res: 
         const row = result.rows[0];
         const data = row.data;
 
-        // Calculate total experience based on level and current progress
         const totalExperience = calculateTotalExperience(data.level, data.experience);
 
-        // Construct public profile
         const profile: PublicCharacterProfile = {
             name: data.name,
             race: data.race,
             characterClass: data.characterClass,
             level: data.level,
-            experience: totalExperience, // Use total XP instead of current level XP
+            experience: totalExperience,
             pvpWins: data.pvpWins || 0,
             pvpLosses: data.pvpLosses || 0,
             guildName: row.guild_name,
@@ -189,7 +161,6 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
     try {
         await client.query('BEGIN');
         
-        // 1. Fetch Character
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -197,7 +168,6 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
         }
         let character: PlayerCharacter = charRes.rows[0].data;
 
-        // 2. Validations
         if (character.activeExpedition) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Character is already on an expedition.' });
@@ -210,13 +180,11 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
              await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Character is resting.' });
         }
-        // FIX: Prevent dead characters from starting expeditions
         if (character.stats.currentHealth <= 0) {
              await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Twoje zdrowie jest zbyt niskie, aby wyruszyć na wyprawę. Odpocznij lub ulecz się.' });
         }
 
-        // 3. Fetch Expedition Data
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
         const expeditions: Expedition[] = gameDataRes.rows[0]?.data || [];
         const expedition = expeditions.find(e => e.id === expeditionId);
@@ -226,7 +194,6 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
             return res.status(404).json({ message: 'Expedition not found.' });
         }
 
-        // 4. Check Resources
         if ((character.resources?.gold || 0) < expedition.goldCost) {
              await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Not enough gold.' });
@@ -236,19 +203,17 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
             return res.status(400).json({ message: 'Not enough energy.' });
         }
 
-        // 5. Deduct Resources & Set State
         character.resources.gold = (Number(character.resources.gold) || 0) - expedition.goldCost;
         character.stats.currentEnergy -= expedition.energyCost;
         
         character.activeExpedition = {
             expeditionId: expedition.id,
             finishTime: Date.now() + expedition.duration * 1000,
-            enemies: [], // Populated on completion
+            enemies: [], 
             combatLog: [],
             rewards: { gold: 0, experience: 0 }
         };
 
-        // 6. Save
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
@@ -268,7 +233,6 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
     try {
         await client.query('BEGIN');
         
-        // Fetch character + Guild Building info for stats calculation
         const result = await client.query(`
             SELECT c.data, g.buildings
             FROM characters c 
@@ -304,24 +268,15 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         let expeditionName = 'Wyprawa';
 
         try {
-            // Attempt to process logic with guild bonus passed down
-            // Pass scoutHouseLevel to increase maxItems
             const processingResult = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel);
             updatedCharacter = processingResult.updatedCharacter;
             summary = processingResult.summary;
             expeditionName = processingResult.expeditionName;
         } catch (calcError: any) {
             console.error("CRITICAL ERROR processing expedition:", calcError);
-            
-            // EMERGENCY FALLBACK:
-            // If logic fails (e.g. enemy not found, loot table error), we MUST release the character
-            // otherwise they get stuck in "On Expedition" state forever because the transaction rolls back.
-            
-            // 1. Force clear expedition
             character.activeExpedition = null;
             updatedCharacter = character;
 
-            // 2. Create a dummy error report
             summary = {
                 rewardBreakdown: [],
                 totalGold: 0,
@@ -331,10 +286,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
                     attacker: 'System',
                     defender: 'Player',
                     action: 'Wystąpił błąd krytyczny podczas obliczania wyników wyprawy. Postać została bezpiecznie przywołana do obozu.',
-                    playerHealth: 0,
-                    playerMana: 0,
-                    enemyHealth: 0,
-                    enemyMana: 0
+                    playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0
                 }],
                 isVictory: false,
                 itemsFound: [],
@@ -345,7 +297,6 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
-        // Save expedition report as a message and get its ID
         const messageRes = await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
              VALUES ($1, 'System', 'expedition_report', $2, $3) RETURNING id`,
@@ -358,7 +309,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
 
     } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error('Error completing expedition (Transaction Rollback):', err);
+        console.error('Error completing expedition:', err);
         res.status(500).json({ message: err.message || 'Failed to complete expedition.' });
     } finally {
         client.release();
@@ -378,7 +329,6 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
             return res.status(409).json({ message: 'A character already exists for this user.' });
         }
 
-        // Send class choice message if character reaches level 10
         if (newCharacterData.level >= 10 && !newCharacterData.characterClass) {
              const subject = 'Czas wybrać klasę!';
              const content = 'Gratulacje! Osiągnąłeś 10 poziom. Możesz teraz wybrać klasę dla swojej postaci w zakładce Statystyki -> Ścieżka rozwoju. Wybierz mądrze, ponieważ ten wybór jest ostateczny!';
@@ -401,164 +351,57 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// PUT /api/character - Update character data
+// PUT /api/character - Restricted Update (Settings/Profile/Resting)
 router.put('/character', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
-        // 1. Fetch current server state (source of truth)
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found.' });
         }
         
-        const currentDbChar: PlayerCharacter = charRes.rows[0].data;
+        const dbChar: PlayerCharacter = charRes.rows[0].data;
         const incomingChar: PlayerCharacter = req.body;
 
-        // 2. Sanitize Incoming Data (Security Fix)
-        // We MUST overwrite sensitive fields in the incoming payload with the values from the DB.
-        // The client is NEVER allowed to set these directly.
-        incomingChar.level = currentDbChar.level;
-        incomingChar.experience = currentDbChar.experience;
-        incomingChar.experienceToNextLevel = currentDbChar.experienceToNextLevel;
-        incomingChar.resources = currentDbChar.resources; // Prevent gold injection
-        incomingChar.pvpWins = currentDbChar.pvpWins;
-        incomingChar.pvpLosses = currentDbChar.pvpLosses;
-        incomingChar.pvpProtectionUntil = currentDbChar.pvpProtectionUntil;
-        incomingChar.activeExpedition = currentDbChar.activeExpedition; // Cannot manipulate active expedition state
-        incomingChar.activeTravel = currentDbChar.activeTravel; // Cannot manipulate travel state
-        incomingChar.questProgress = currentDbChar.questProgress;
-        incomingChar.acceptedQuests = currentDbChar.acceptedQuests;
-        incomingChar.learnedSkills = currentDbChar.learnedSkills;
-        incomingChar.characterClass = currentDbChar.characterClass; // Class selection via dedicated endpoint
-        incomingChar.guildId = currentDbChar.guildId; // Guild managed via guild endpoints
-        
-        // 3. Validate Stat Distribution
-        // Calculate total stat points available (Base + Level Ups)
-        // Base: 10. Level 2+: +1 per level.
-        const expectedTotalPoints = 10 + (incomingChar.level - 1);
-        
-        const incomingStatsSum = 
-            (Number(incomingChar.stats.strength) || 0) +
-            (Number(incomingChar.stats.agility) || 0) +
-            (Number(incomingChar.stats.accuracy) || 0) +
-            (Number(incomingChar.stats.stamina) || 0) +
-            (Number(incomingChar.stats.intelligence) || 0) +
-            (Number(incomingChar.stats.energy) || 0) +
-            (Number(incomingChar.stats.statPoints) || 0);
-
-        // Allow a small margin of error? No, exact math.
-        // We use Math.abs because floating point issues shouldn't happen with integers, but just in case.
-        if (Math.abs(incomingStatsSum - expectedTotalPoints) > 0) {
-            // Reject stat tampering
-            console.warn(`[Security] User ${req.user!.id} tried to modify stats illegally. Expected total: ${expectedTotalPoints}, Got: ${incomingStatsSum}`);
-            // Revert stats to DB state
-            incomingChar.stats = currentDbChar.stats;
-        } else {
-            // Stats are mathematically valid, but we must ensure derived stats (maxHealth etc) aren't spoofed.
-            // Actually, derived stats are calculated on the fly by the server logic helper, 
-            // but stored in DB for caching. It's safer to recalculate them before saving if we updated base stats.
-            // For now, trust the base attribute distribution, but force vital stats (currentHP/Mana/Energy) to 
-            // stay within legitimate bounds or revert to DB values.
-            
-            // Allow currentHealth/Mana update (e.g. from resting), but safeguard max.
-            // NOTE: Ideally, current stats shouldn't be sent by client either, but calculated via actions.
-            // For resting, client calculates gain.
-            // Let's accept currentHealth updates ONLY if isResting is true or if it matches DB.
-            if (!currentDbChar.isResting && incomingChar.stats.currentHealth > currentDbChar.stats.currentHealth) {
-                 incomingChar.stats.currentHealth = currentDbChar.stats.currentHealth;
+        // Whitelist allowed fields for direct update
+        // Only strictly safe fields can be updated directly by the client
+        if (incomingChar.description !== undefined) dbChar.description = incomingChar.description;
+        if (incomingChar.avatarUrl !== undefined) dbChar.avatarUrl = incomingChar.avatarUrl;
+        if (incomingChar.settings) {
+            if (incomingChar.settings.language) {
+                if (!dbChar.settings) dbChar.settings = {};
+                dbChar.settings.language = incomingChar.settings.language;
             }
-            // Enforce max limits will be handled by client UI, but server should technically recalculate derived stats here.
-            // To keep this patch focused on anti-cheat, we've secured the points.
         }
+        if (incomingChar.lastReadNewsTimestamp !== undefined) dbChar.lastReadNewsTimestamp = incomingChar.lastReadNewsTimestamp;
 
-        // --- Server-side Equipment Validation Logic ---
-        
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
-        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
-        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
-
-        // Calculate Derived Stats to get TOTAL stats for validation
-        const derivedChar = calculateDerivedStatsOnServer(incomingChar, itemTemplates, affixes);
-
-        // Sanitize Inventory: Ensure user didn't add items.
-        // A naive check: Count of items must be <= DB count (allowing deletions/selling, but buying/finding is separate endpoint).
-        // Actually, selling/deleting has separate endpoints too? 
-        // If this endpoint allows equipping, item moves from inventory to equipment. Total item count (inv + equip) should be constant.
-        
-        const countItems = (c: PlayerCharacter) => {
-            let count = (c.inventory || []).length;
-            if (c.equipment) {
-                count += Object.values(c.equipment).filter(i => i).length;
-            }
-            return count;
-        };
-        
-        if (countItems(incomingChar) > countItems(currentDbChar)) {
-             console.warn(`[Security] User ${req.user!.id} tried to add items via PUT /character.`);
-             // Revert inventory and equipment
-             incomingChar.inventory = currentDbChar.inventory;
-             incomingChar.equipment = currentDbChar.equipment;
-        }
-
-        if (incomingChar.equipment) {
-            for (const slot of Object.values(EquipmentSlot)) {
-                const item = incomingChar.equipment[slot];
-                if (item) {
-                    const template = itemTemplates.find((t: any) => t.id === item.templateId);
-                    if (template) {
-                        let meetsRequirements = true;
-                        
-                        // Check Level
-                        if (incomingChar.level < template.requiredLevel) {
-                            meetsRequirements = false;
-                        }
-
-                        // Check Stats against DERIVED stats (Total Strength, etc.)
-                        if (meetsRequirements && template.requiredStats) {
-                            for (const stat in template.requiredStats) {
-                                const key = stat as keyof CharacterStats;
-                                const requiredVal = template.requiredStats[key] || 0;
-                                const playerVal = derivedChar.stats[key] || 0; 
-                                if (playerVal < requiredVal) {
-                                    meetsRequirements = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (!meetsRequirements) {
-                            // Unequip
-                            if (!incomingChar.inventory) incomingChar.inventory = [];
-                            incomingChar.inventory.push(item);
-                            incomingChar.equipment[slot] = null;
-                        }
-                    }
+        // Resting Toggle Logic
+        if (incomingChar.isResting !== undefined && incomingChar.isResting !== dbChar.isResting) {
+            // Check if action is allowed (not traveling/expedition)
+            if (dbChar.activeExpedition || dbChar.activeTravel) {
+                // Deny resting toggle
+            } else {
+                dbChar.isResting = incomingChar.isResting;
+                if (dbChar.isResting) {
+                    dbChar.restStartHealth = dbChar.stats.currentHealth;
+                    dbChar.lastRestTime = Date.now();
+                } else {
+                    dbChar.lastRestTime = undefined;
                 }
             }
-        }
-        // ---------------------------------------------
-
-        // Allow settings update (Language, Description, Avatar)
-        // These are safe to accept from client directly.
-
-        // Send class choice message if character reaches level 10 (Sanitized level used)
-        if (incomingChar.level >= 10 && !incomingChar.characterClass) {
-             // Logic to send message only if not already sent (optimization omitted for brevity as it's safe)
-             // The check is actually done in POST /character usually, or here if they level up somehow, 
-             // but we blocked leveling up here. So this block might be redundant but harmless.
         }
         
         await client.query(
             'UPDATE characters SET data = $1 WHERE user_id = $2',
-            [incomingChar, req.user!.id]
+            [dbChar, req.user!.id]
         );
         
         await client.query('COMMIT');
         
-        res.json(incomingChar);
+        res.json(dbChar);
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error updating character:', err);
@@ -567,6 +410,226 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
         client.release();
     }
 });
+
+// POST /api/character/distribute-points
+router.post('/character/distribute-points', authenticateToken, async (req: any, res: any) => {
+    const { stats: pointsToAdd } = req.body as { stats: Partial<CharacterStats> };
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        const totalToAdd = Object.values(pointsToAdd).reduce((a, b) => (a || 0) + (b || 0), 0) as number;
+        
+        if (totalToAdd <= 0) {
+             await client.query('ROLLBACK');
+             return res.json(character);
+        }
+
+        if (character.stats.statPoints < totalToAdd) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough stat points.' });
+        }
+
+        // Apply points
+        const statKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+        for (const key of statKeys) {
+            if (pointsToAdd[key]) {
+                character.stats[key] = (character.stats[key] || 0) + (pointsToAdd[key] || 0);
+            }
+        }
+        character.stats.statPoints -= totalToAdd;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error distributing points' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/character/reset-attributes
+router.post('/character/reset-attributes', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        const isFree = !character.freeStatResetUsed;
+        const cost = 100 * character.level;
+
+        if (!isFree && character.resources.gold < cost) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough gold.' });
+        }
+
+        if (!isFree) {
+            character.resources.gold -= cost;
+        }
+        
+        const totalPoints = 10 + (character.level - 1);
+        character.stats.strength = 0;
+        character.stats.agility = 0;
+        character.stats.accuracy = 0;
+        character.stats.stamina = 0;
+        character.stats.intelligence = 0;
+        character.stats.energy = 0;
+        character.stats.statPoints = totalPoints;
+        
+        character.freeStatResetUsed = true;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error resetting attributes' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/character/equip
+router.post('/character/equip', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        // Fetch Metadata
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        
+        // Find Item
+        const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (inventoryIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item not found in inventory' });
+        }
+        const itemToEquip = character.inventory[inventoryIndex];
+        const template = itemTemplates.find((t: any) => t.id === itemToEquip.templateId);
+        
+        if (!template) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item template invalid' });
+        }
+        
+        // Check Requirements (Level & Stats)
+        if (character.level < template.requiredLevel) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Level too low' });
+        }
+        
+        // Calculate stats to verify requirements
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        for (const stat in (template.requiredStats || {})) {
+             // @ts-ignore
+             if ((derivedChar.stats[stat] || 0) < template.requiredStats[stat]) {
+                 await client.query('ROLLBACK');
+                 return res.status(400).json({ message: `Requirement not met: ${stat}` });
+             }
+        }
+
+        // Determine Slot
+        let targetSlot: EquipmentSlot = template.slot as EquipmentSlot;
+        
+        // Handle Rings
+        if (template.slot === 'ring') {
+             if (!character.equipment.ring1) targetSlot = EquipmentSlot.Ring1;
+             else if (!character.equipment.ring2) targetSlot = EquipmentSlot.Ring2;
+             else {
+                 // Both full, swap with ring1 (or handle error? let's swap 1)
+                 // Alternatively fail if user didn't specify slot.
+                 // For simple API, assume swapping Ring 1 if full.
+                 targetSlot = EquipmentSlot.Ring1;
+             }
+        }
+        
+        // Unequip existing item in slot
+        if (character.equipment[targetSlot]) {
+             character.inventory.push(character.equipment[targetSlot]!);
+             character.equipment[targetSlot] = null;
+        }
+        
+        // Handle Two Handed Logic
+        if (targetSlot === EquipmentSlot.TwoHand) {
+            if (character.equipment.mainHand) {
+                character.inventory.push(character.equipment.mainHand);
+                character.equipment.mainHand = null;
+            }
+            if (character.equipment.offHand) {
+                character.inventory.push(character.equipment.offHand);
+                character.equipment.offHand = null;
+            }
+        }
+        if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
+             if (character.equipment.twoHand) {
+                character.inventory.push(character.equipment.twoHand);
+                character.equipment.twoHand = null;
+             }
+        }
+
+        // Equip
+        character.inventory.splice(inventoryIndex, 1); // Remove from inv
+        character.equipment[targetSlot] = itemToEquip;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error equipping item' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/character/unequip
+router.post('/character/unequip', authenticateToken, async (req: any, res: any) => {
+    const { slot } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        const item = character.equipment[slot as EquipmentSlot];
+        if (!item) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'No item in slot' });
+        }
+        
+        const capacity = getBackpackCapacity(character);
+        if (character.inventory.length >= capacity) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Backpack full' });
+        }
+
+        character.equipment[slot as EquipmentSlot] = null;
+        character.inventory.push(item);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error unequipping item' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // POST /api/character/select-class
 router.post('/character/select-class', authenticateToken, async (req: any, res: any) => {
@@ -602,7 +665,6 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
     try {
         await client.query('BEGIN');
         
-        // Join with Guild info to calculate derived stats correctly for requirements check
         const charRes = await client.query(`
             SELECT c.data, g.buildings
             FROM characters c 
@@ -636,11 +698,9 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             return res.status(404).json({ message: 'Skill not found.' });
         }
 
-        // Calculate derived stats to check requirements, including guild bonus
         const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
         const derivedStats = characterWithDerivedStats.stats;
 
-        // Check requirements using derived stats
         for (const key of Object.keys(skill.requirements) as (keyof SkillRequirements)[]) {
             if ((derivedStats[key as keyof typeof derivedStats] || 0) < (skill.requirements[key]!)) {
                 await client.query('ROLLBACK');
@@ -648,7 +708,6 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             }
         }
 
-        // Check cost
         for (const key of Object.keys(skill.cost) as (keyof SkillCost)[]) {
             if ((character.resources[key as keyof typeof character.resources] || 0) < (skill.cost[key]!)) {
                 await client.query('ROLLBACK');
@@ -656,12 +715,10 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             }
         }
 
-        // Deduct cost
         for (const key of Object.keys(skill.cost) as (keyof SkillCost)[]) {
             (character.resources[key as keyof typeof character.resources] as number) -= skill.cost[key]!
         }
 
-        // Learn skill
         character.learnedSkills.push(skillId);
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
@@ -678,7 +735,6 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
 
 
 router.post('/character/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    // Implementation for upgrading buildings like camp, chest, backpack
     res.status(501).json({ message: 'Not implemented' });
 });
 
@@ -688,7 +744,6 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
     try {
         await client.query('BEGIN');
         
-        // Fetch character + Guild Building info
         const charRes = await client.query(`
             SELECT c.data, g.buildings
             FROM characters c 
@@ -706,7 +761,6 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
         const character: PlayerCharacter = charRes.rows[0].data;
         const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
 
-        // Fetch game data to calculate correct Max HP
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
@@ -736,7 +790,6 @@ router.post('/character/accept-quest', authenticateToken, async (req: any, res: 
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
 
-        // Initialize arrays if they don't exist
         if (!character.acceptedQuests) character.acceptedQuests = [];
         if (!character.questProgress) character.questProgress = [];
 
@@ -789,7 +842,6 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
         
-        // Safeguard: Ensure questProgress is an array
         if (!Array.isArray(character.questProgress)) {
              character.questProgress = [];
         }
@@ -837,7 +889,6 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             return res.status(400).json({ message: 'Quest objective not met.' });
         }
 
-        // Deduct items/resources
         if (quest.objective.type === QuestType.Gather) {
             let count = quest.objective.amount;
             character.inventory = character.inventory.filter(item => {
@@ -853,7 +904,6 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             character.resources.gold = (Number(character.resources.gold) || 0) - quest.objective.amount;
         }
 
-        // Add rewards if rewards exist
         if (quest.rewards) {
             if (quest.rewards.gold) {
                 character.resources.gold = (Number(character.resources.gold) || 0) + quest.rewards.gold;
@@ -883,15 +933,13 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             });
         }
 
-        // Update quest progress
         progress.completions++;
         if (quest.repeatable === 0 || progress.completions < quest.repeatable) {
-            progress.progress = 0; // Reset for repeatable quests
+            progress.progress = 0;
         } else {
             character.acceptedQuests = character.acceptedQuests.filter(id => id !== questId);
         }
 
-        // Level up check
         while (character.experience >= character.experienceToNextLevel) {
             character.experience -= character.experienceToNextLevel;
             character.level += 1;

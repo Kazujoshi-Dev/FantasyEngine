@@ -6,6 +6,7 @@ import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import { MinusCircleIcon } from './icons/MinusCircleIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { useTranslation } from '../contexts/LanguageContext';
+import { api } from '../api';
 
 interface StatisticsProps {
   character: PlayerCharacter;
@@ -29,7 +30,6 @@ const StatTooltip: React.FC<{ text: string }> = ({ text }) => {
             const spaceOnLeft = parentRect.left;
 
             if (spaceOnRight < tooltipWidth && spaceOnLeft > tooltipWidth) {
-                // Not enough space on the right, position on the left
                 setStyle({
                     top: '50%',
                     right: '100%',
@@ -37,7 +37,6 @@ const StatTooltip: React.FC<{ text: string }> = ({ text }) => {
                     marginRight: '1rem'
                 });
             } else {
-                // Default: position on the right
                 setStyle({
                     top: '50%',
                     left: '100%',
@@ -107,7 +106,7 @@ const StatRow: React.FC<{
   </div>
 );
 
-export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData, onResetAttributes, onSelectClass }) => {
+export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter, onCharacterUpdate, calculateDerivedStats, gameData, onSelectClass }) => {
   const { t } = useTranslation();
   
   const [activeTab, setActiveTab] = useState<'stats' | 'development' | 'skills' | 'knowledge'>('stats');
@@ -117,11 +116,6 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
   const [nextEnergyCountdown, setNextEnergyCountdown] = useState('');
 
   useEffect(() => {
-    // This effect synchronizes the form with the canonical character data from the server.
-    // However, we don't want to wipe the user's changes if they are in the middle of
-    // assigning points when a background refresh happens.
-    // We check `spentPoints`. If it's 0, it means the user is not actively editing,
-    // so it's safe to reset the form to match the new `baseCharacter`.
     if (spentPoints === 0) {
         setPendingStats(baseCharacter.stats);
         setSpentPoints(0);
@@ -164,21 +158,50 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     setSpentPoints(prev => prev + delta);
   };
   
-  const handleSaveChanges = () => {
-    onCharacterUpdate({
-      ...baseCharacter,
-      stats: {
-        ...pendingStats,
-        statPoints: availablePoints,
-      }
-    }, true); // Force immediate save to the server
-    setSpentPoints(0);
+  const handleSaveChanges = async () => {
+    // Calculate changes to send to API
+    const pointsToAdd: Partial<CharacterStats> = {};
+    let totalAdded = 0;
+    
+    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    
+    baseStatKeys.forEach(key => {
+        const delta = (pendingStats[key] || 0) - (baseCharacter.stats[key] || 0);
+        if (delta > 0) {
+            pointsToAdd[key] = delta;
+            totalAdded += delta;
+        }
+    });
+    
+    if (totalAdded > 0) {
+        try {
+            const updatedChar = await api.distributeStatPoints(pointsToAdd);
+            onCharacterUpdate(updatedChar);
+            setSpentPoints(0);
+        } catch (e: any) {
+            alert(e.message || t('error.title'));
+        }
+    }
   };
 
   const handleResetChanges = () => {
     setPendingStats(baseCharacter.stats);
     setSpentPoints(0);
   };
+  
+  const handleResetAttributes = async () => {
+    if (!window.confirm(t('statistics.reset.confirm', { costText: isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost }) }))) {
+        return;
+    }
+    try {
+        const updatedChar = await api.resetAttributes();
+        onCharacterUpdate(updatedChar);
+        setSpentPoints(0);
+    } catch (e: any) {
+        alert(e.message || t('error.title'));
+    }
+  };
+
   
   const tempCharacterForPreview = useMemo(() => ({
     ...baseCharacter,
@@ -225,7 +248,6 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
           return <span className="font-mono text-base font-bold text-white">{min} - {max}</span>;
       }
 
-      // Reverse calculation to find base
       const multiplier = 1 + (barracksLevel * 0.05);
       const baseMin = Math.ceil(min / multiplier);
       const baseMax = Math.ceil(max / multiplier);
@@ -324,7 +346,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
               )}
               <div className="text-center">
                   <button
-                      onClick={onResetAttributes}
+                      onClick={handleResetAttributes}
                       disabled={spentPoints > 0 || !canAffordReset}
                       className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold transition-colors text-sm disabled:bg-slate-600 disabled:cursor-not-allowed"
                       title={spentPoints > 0 ? t('statistics.reset.applyChangesFirst') : !canAffordReset ? t('statistics.reset.notEnoughGold', { cost: resetCost }) : ''}

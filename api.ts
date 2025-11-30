@@ -107,13 +107,6 @@ export const api = {
             const latency = (requestEndTime - requestStartTime) / 2;
             const serverTime = response.time;
             
-            // Calculate offset: Server Time - Client Time
-            // We subtract latency to approximate the server time at the moment request reached the server
-            // Formula: ServerTime = ClientTime + Offset
-            // Offset = ServerTime - ClientTime
-            // Adjusted: Offset = (ServerTimeSent + Latency) - ClientTimeReceived
-            // Actually simpler: Offset = ServerTimestamp - (ClientRequestStart + Latency)
-            
             serverTimeOffset = serverTime - (requestStartTime + latency);
             console.log(`[Time Sync] Synchronized. Offset: ${serverTimeOffset.toFixed(2)}ms. Latency: ${latency.toFixed(2)}ms`);
             return serverTimeOffset;
@@ -262,10 +255,42 @@ export const api = {
         });
     },
 
-    async updateCharacter(character: PlayerCharacter): Promise<PlayerCharacter> {
+    // Restricted update: Only for settings, description, avatar, and isResting state
+    async updateCharacter(character: Partial<PlayerCharacter>): Promise<PlayerCharacter> {
         return fetchApi('/character', {
             method: 'PUT',
             body: JSON.stringify(character),
+        });
+    },
+
+    // Secure Stat Distribution
+    async distributeStatPoints(pointsToAdd: Partial<CharacterStats>): Promise<PlayerCharacter> {
+        return fetchApi('/character/distribute-points', {
+            method: 'POST',
+            body: JSON.stringify({ stats: pointsToAdd }),
+        });
+    },
+
+    // Secure Reset Attributes
+    async resetAttributes(): Promise<PlayerCharacter> {
+        return fetchApi('/character/reset-attributes', {
+            method: 'POST',
+        });
+    },
+
+    // Secure Equip
+    async equipItem(itemId: string): Promise<PlayerCharacter> {
+        return fetchApi('/character/equip', {
+            method: 'POST',
+            body: JSON.stringify({ itemId }),
+        });
+    },
+
+    // Secure Unequip
+    async unequipItem(slot: EquipmentSlot): Promise<PlayerCharacter> {
+        return fetchApi('/character/unequip', {
+            method: 'POST',
+            body: JSON.stringify({ slot }),
         });
     },
 

@@ -24,23 +24,24 @@ export const Options: React.FC<OptionsProps> = ({ character, onCharacterUpdate }
 
   const [saveProfileStatus, setSaveProfileStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setSaveProfileStatus('saving');
-    const updatedChar: PlayerCharacter = {
-      ...character,
-      description,
-      avatarUrl,
-      settings: {
-        ...character.settings,
-        language: selectedLang,
-      },
-    };
-    onCharacterUpdate(updatedChar, true);
-    
-    setTimeout(() => {
+    try {
+        const updatedChar = await api.updateCharacter({
+            description,
+            avatarUrl,
+            settings: {
+                ...character.settings,
+                language: selectedLang
+            }
+        });
+        onCharacterUpdate(updatedChar, false);
         setSaveProfileStatus('saved');
         setTimeout(() => setSaveProfileStatus('idle'), 2000);
-    }, 300);
+    } catch (e: any) {
+        alert('Failed to save profile: ' + e.message);
+        setSaveProfileStatus('idle');
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

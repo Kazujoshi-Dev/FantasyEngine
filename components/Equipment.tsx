@@ -5,6 +5,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
 import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
+import { api } from '../api'; // Added api import
 
 interface EquipmentProps {
   character: PlayerCharacter;
@@ -178,6 +179,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         [character.inventory, gameData.itemTemplates]
     );
 
+    // ... other useMemo and callbacks ...
     const equipmentSlotOptions = useMemo(() => {
         const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
@@ -239,17 +241,47 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         setContextMenu({ x: e.clientX, y: e.clientY, item, source, fromSlot });
     };
     
+    const handleEquip = async (item: ItemInstance) => {
+        try {
+            const updatedChar = await api.equipItem(item.uniqueId);
+            onEquipItem(item); // Call parent callback just in case it does local state update or re-fetches
+            // Or better, have onEquipItem accept the updated char, but existing App.tsx structure suggests fetching or local update. 
+            // Since App.tsx passes `handleEquipItem` which calls `handleCharacterUpdate`, we need to change App.tsx too OR 
+            // make `onEquipItem` prop simpler in `Equipment.tsx`.
+            // Given the prop `onEquipItem: (item: ItemInstance) => void`, we can't pass the updated char back up easily without refactoring App.tsx.
+            // However, we can't modify App.tsx easily in this context as it was not requested to be refactored heavily, but to fix security.
+            // The best way is to call api directly here, and assume parent will re-fetch or handle sync via `onEquipItem` if it does a refetch.
+            // Looking at App.tsx provided: `handleEquipItem` calls `handleCharacterUpdate`.
+            // So we should actually invoke the passed prop `onEquipItem`, BUT change App.tsx to call the secure API instead of local logic.
+            // WAIT, I can change App.tsx! 
+            // Let's change App.tsx logic to use the secure API. 
+            // But here in component, we just trigger the prop.
+            onEquipItem(item);
+        } catch (e: any) {
+            alert(e.message || t('error.title'));
+        }
+    };
+
+    const handleUnequip = async (item: ItemInstance, slot: EquipmentSlot) => {
+        try {
+            const updatedChar = await api.unequipItem(slot);
+            onUnequipItem(item, slot);
+        } catch (e: any) {
+            alert(e.message || t('error.title'));
+        }
+    };
+
     const contextMenuOptions = useMemo(() => {
         if (!contextMenu) return [];
         if (contextMenu.source === 'inventory') {
-            return [{ label: t('equipment.equip'), action: () => onEquipItem(contextMenu.item) }];
+            return [{ label: t('equipment.equip'), action: () => handleEquip(contextMenu.item) }];
         }
         const fromSlot = contextMenu.fromSlot;
         if (contextMenu.source === 'equipment' && fromSlot) {
-            return [{ label: t('equipment.unequip'), action: () => onUnequipItem(contextMenu.item, fromSlot) }];
+            return [{ label: t('equipment.unequip'), action: () => handleUnequip(contextMenu.item, fromSlot) }];
         }
         return [];
-    }, [contextMenu, onEquipItem, onUnequipItem, t]);
+    }, [contextMenu, t]);
 
     const selectedTemplate = useMemo(() => {
         if (!selectedItem) return null;
@@ -283,10 +315,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
         if (target === 'inventory') {
             if (source === 'equipment' && fromSlot) {
-                onUnequipItem(itemToMove, fromSlot);
+                handleUnequip(itemToMove, fromSlot);
             }
         } else {
-            onEquipItem(itemToMove);
+            handleEquip(itemToMove);
         }
     };
     
@@ -330,7 +362,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                                 e.stopPropagation(); // Prevent deselecting
                                                 handleItemClick(item, 'equipment', slot);
                                             }}
-                                            onDoubleClick={() => onUnequipItem(item, slot)}
+                                            onDoubleClick={() => handleUnequip(item, slot)}
                                             showPrimaryStat={false}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
@@ -424,7 +456,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             e.stopPropagation(); // Prevent deselecting
                                             handleItemClick(item, 'inventory');
                                         }}
-                                        onDoubleClick={() => onEquipItem(item)}
+                                        onDoubleClick={() => handleEquip(item)}
                                         showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
                                         draggable="true"

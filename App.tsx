@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
-import { ExpeditionComponent as Expedition, ExpeditionSummaryModal } from './components/Expedition';
+import { ExpeditionComponent, ExpeditionSummaryModal } from './components/Expedition';
 import { Camp } from './components/Camp';
 import { Location } from './components/Location';
 import { Resources } from './components/Resources';
@@ -329,7 +328,7 @@ const MainApp: React.FC = () => {
     useEffect(() => {
         if (!character?.activeExpedition) return;
         
-        const now = api.getServerTime(); // Use synchronized time
+        const now = api.getServerTime(); // Use synced time
         const finishTime = character.activeExpedition.finishTime;
         const timeLeft = finishTime - now;
 
@@ -368,56 +367,22 @@ const MainApp: React.FC = () => {
         setCharacter(updatedCharacter); // Optimistic update
         if (immediate) {
             try {
+                // Note: updateCharacter API now only updates safe fields.
+                // For complex actions like equipping/distributing stats, use specific API calls.
+                // This function is still valid for cosmetic/settings updates.
                 const syncedChar = await api.updateCharacter(updatedCharacter);
                 setCharacter(syncedChar);
             } catch (e) {
                 console.error("Failed to sync character", e);
                 alert(t('error.title'));
+                fetchCharacter(); // Revert on error
             }
         }
     }, [t]);
 
     const handleResetAttributes = useCallback(async () => {
-        if (!character || !gameData) return;
-
-        const baseCharacter = character; 
-        const isFreeReset = !baseCharacter.freeStatResetUsed;
-        const resetCost = 100 * baseCharacter.level;
-        const costText = isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost });
-
-        if (!window.confirm(t('statistics.reset.confirm', { costText }))) {
-            return;
-        }
-
-        if (!isFreeReset && (baseCharacter.resources?.gold || 0) < resetCost) {
-            alert(t('statistics.reset.notEnoughGold', { cost: resetCost }));
-            return;
-        }
-
-        const totalPointsToRefund = 10 + (baseCharacter.level - 1);
-
-        const updatedChar: PlayerCharacter = {
-            ...baseCharacter,
-            stats: {
-                ...baseCharacter.stats,
-                strength: 0,
-                agility: 0,
-                accuracy: 0,
-                stamina: 0,
-                intelligence: 0,
-                energy: 0,
-                statPoints: totalPointsToRefund,
-            },
-            resources: {
-                ...baseCharacter.resources,
-                gold: isFreeReset ? (baseCharacter.resources?.gold || 0) : (baseCharacter.resources?.gold || 0) - resetCost,
-            } as any,
-            freeStatResetUsed: true,
-        };
-        
-        await handleCharacterUpdate(updatedChar, true);
-
-    }, [character, gameData, handleCharacterUpdate, t]);
+        // Logic moved to Statistics.tsx component calling API directly
+    }, []);
 
     const calculateDerivedStats = (char: PlayerCharacter, data: GameData | null): PlayerCharacter => {
          if (!data || !char.equipment) return char;
@@ -649,82 +614,16 @@ const MainApp: React.FC = () => {
 
     const derivedCharacter = useMemo(() => character ? calculateDerivedStats(character, gameData) : null, [character, gameData]);
 
+    // New handlers to trigger re-fetch after actions
     const handleEquipItem = async (item: ItemInstance) => {
-        if (!character || !gameData) return;
-
-        const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
-        if (!template) return;
-        
-        const currentInventory = (character.inventory || []).filter(i => i);
-
-        if (template.slot === 'consumable') {
-            const newInventory = currentInventory.filter(i => i.uniqueId !== item.uniqueId);
-            let newStats = { ...character.stats };
-
-            if (item.templateId === 'health_potion') { // Example hardcoded logic
-                newStats.currentHealth = Math.min(newStats.maxHealth, newStats.currentHealth + 50);
-            }
-            
-            const updatedChar: PlayerCharacter = { ...character, inventory: newInventory, stats: newStats };
-            await handleCharacterUpdate(updatedChar, true);
-            return;
-        }
-
-        const newEquipment = { ...character.equipment };
-        let newInventory = [...currentInventory];
-        const targetSlot = template.slot;
-
-        const unequipToInventory = (slot: EquipmentSlot) => {
-            if (newEquipment[slot]) {
-                newInventory.push(newEquipment[slot]!);
-                newEquipment[slot] = null;
-            }
-        };
-
-        if (targetSlot === 'ring') {
-            if (!newEquipment.ring1) {
-                newEquipment.ring1 = item;
-            } else if (!newEquipment.ring2) {
-                newEquipment.ring2 = item;
-            } else {
-                alert(t('equipment.ringSlotsFull'));
-                return;
-            }
-        } else if (targetSlot === EquipmentSlot.TwoHand) {
-            unequipToInventory(EquipmentSlot.MainHand);
-            unequipToInventory(EquipmentSlot.OffHand);
-            unequipToInventory(EquipmentSlot.TwoHand);
-            newEquipment.twoHand = item;
-        } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
-            unequipToInventory(EquipmentSlot.TwoHand);
-            unequipToInventory(targetSlot);
-            newEquipment[targetSlot] = item;
-        } else {
-            const slot = targetSlot as EquipmentSlot;
-            unequipToInventory(slot);
-            newEquipment[slot] = item;
-        }
-
-        newInventory = newInventory.filter(i => i.uniqueId !== item.uniqueId);
-        
-        const updatedChar: PlayerCharacter = { ...character, equipment: newEquipment, inventory: newInventory };
-        await handleCharacterUpdate(updatedChar, true);
+        // Logic handled in Equipment.tsx calling api.equipItem which returns new char.
+        // Here we just re-fetch to be safe and sync state.
+        fetchCharacter();
     };
 
     const handleUnequipItem = async (item: ItemInstance, slot: EquipmentSlot) => {
-        if (!character) return;
-        const currentInventory = (character.inventory || []).filter(i => i);
-        const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
-        if (currentInventory.length >= backpackCapacity) {
-            alert(t('equipment.backpackFull'));
-            return;
-        }
-        
-        const newEquipment = { ...character.equipment, [slot]: null };
-        const newInventory = [...currentInventory, item];
-        
-        const newChar: PlayerCharacter = { ...character, equipment: newEquipment, inventory: newInventory };
-        await handleCharacterUpdate(newChar, true);
+         // Logic handled in Equipment.tsx calling api.unequipItem which returns new char.
+        fetchCharacter();
     };
 
 
@@ -834,7 +733,7 @@ const MainApp: React.FC = () => {
                     onUnequipItem={handleUnequipItem}
                 />;
             case Tab.Expedition:
-                return <Expedition 
+                return <ExpeditionComponent 
                     character={derivedCharacter} 
                     expeditions={gameData.expeditions} 
                     enemies={gameData.enemies} 
