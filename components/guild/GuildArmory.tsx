@@ -6,24 +6,20 @@ import { Guild as GuildType, GuildRole, GuildArmoryItem, ItemInstance, ItemTempl
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel } from '../shared/ItemSlot';
 
-export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, templates: ItemTemplate[], affixes: Affix[] }> = ({ guild, onUpdate, templates, affixes }) => {
+export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacter | null, onUpdate: () => void, templates: ItemTemplate[], affixes: Affix[] }> = ({ guild, character, onUpdate, templates, affixes }) => {
     const { t } = useTranslation();
     const [armoryData, setArmoryData] = useState<{ armoryItems: GuildArmoryItem[], borrowedItems: GuildArmoryItem[] } | null>(null);
     const [loading, setLoading] = useState(false);
-    const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     useEffect(() => {
         setLoading(true);
-        Promise.all([
-            api.getGuildArmory(),
-            api.getCharacter()
-        ]).then(([armory, char]) => {
-            setArmoryData(armory);
-            setCharacter(char);
-        }).catch(console.error).finally(() => setLoading(false));
+        api.getGuildArmory()
+            .then(setArmoryData)
+            .catch(console.error)
+            .finally(() => setLoading(false));
     }, [guild.id]);
 
     const canManage = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
@@ -40,9 +36,8 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
         try {
             await api.depositToArmory(item.uniqueId);
             onUpdate();
-            const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
+            const armory = await api.getGuildArmory();
             setArmoryData(armory);
-            setCharacter(char);
         } catch (e: any) {
             alert(e.message);
         }
@@ -71,9 +66,9 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
 
         try {
             await api.borrowFromArmory(armoryId);
-            const [armory, char] = await Promise.all([api.getGuildArmory(), api.getCharacter()]);
+            const armory = await api.getGuildArmory();
+            onUpdate(); // Refresh character too
             setArmoryData(armory);
-            setCharacter(char);
         } catch (e: any) {
             alert(e.message);
         }
@@ -220,6 +215,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                                     <th className="p-2">Przedmiot</th>
                                     <th className="p-2">Właściciel</th>
                                     <th className="p-2">Wypożyczone przez</th>
+                                    <th className="p-2">Data wypożyczenia</th>
                                     <th className="p-2 text-right">Akcja</th>
                                 </tr>
                             </thead>
@@ -234,6 +230,9 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                                             </td>
                                             <td className="p-2 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
+                                            <td className="p-2 text-gray-400 text-xs">
+                                                {entry.depositedAt ? new Date(entry.depositedAt).toLocaleString() : '-'}
+                                            </td>
                                             <td className="p-2 text-right">
                                                 <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
                                                     Wymuś Zwrot
@@ -243,7 +242,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, onUpdate: () => void, tem
                                     );
                                 })}
                                 {armoryData.borrowedItems.length === 0 && (
-                                    <tr><td colSpan={4} className="p-4 text-center text-gray-500">Brak wypożyczonych przedmiotów.</td></tr>
+                                    <tr><td colSpan={5} className="p-4 text-center text-gray-500">Brak wypożyczonych przedmiotów.</td></tr>
                                 )}
                             </tbody>
                         </table>

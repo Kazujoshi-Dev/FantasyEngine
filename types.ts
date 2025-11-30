@@ -435,6 +435,7 @@ export interface ItemInstance {
     borrowedFromGuildId?: number;
     originalOwnerId?: number;
     originalOwnerName?: string; // Optional for UI display
+    borrowedAt?: number; // Timestamp
 }
 
 export enum AffixType {

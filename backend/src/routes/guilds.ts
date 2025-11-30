@@ -207,7 +207,7 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
                             item: item,
                             ownerId: item.originalOwnerId!,
                             ownerName: item.originalOwnerName || 'Unknown',
-                            depositedAt: '',
+                            depositedAt: item.borrowedAt ? new Date(item.borrowedAt).toISOString() : '', // Map borrowedAt to depositedAt for display
                             borrowedBy: borrowerName,
                             userId: row.user_id
                         });
@@ -349,6 +349,7 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         item.borrowedFromGuildId = guildId;
         item.originalOwnerId = originalOwnerId;
         item.originalOwnerName = ownerName;
+        item.borrowedAt = Date.now(); // Set borrowed timestamp
 
         // Transaction
         char.resources.gold -= tax;
@@ -433,6 +434,7 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
         // Clean item data
         delete item.isBorrowed;
         delete item.borrowedFromGuildId;
+        delete item.borrowedAt;
         const ownerId = item.originalOwnerId!;
         delete item.originalOwnerId;
         delete item.originalOwnerName;

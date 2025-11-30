@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { Guild as GuildType, GuildRole, ItemTemplate, Affix } from '../types';
+import { Guild as GuildType, GuildRole, ItemTemplate, Affix, PlayerCharacter } from '../types';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { GuildChat } from './guild/GuildChat';
 import { GuildMembers } from './guild/GuildMembers';
@@ -16,6 +16,7 @@ import { FormattedText } from './guild/GuildSettings';
 export const Guild: React.FC = () => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
+    const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
@@ -32,11 +33,13 @@ export const Guild: React.FC = () => {
     const fetchGuild = async () => {
         setLoading(true);
         try {
-            const [data, gameData] = await Promise.all([
+            const [data, charData, gameData] = await Promise.all([
                 api.getMyGuild(),
+                api.getCharacter(),
                 api.getGameData()
             ]);
             setGuild(data);
+            setCharacter(charData);
             setItemTemplates(gameData.itemTemplates);
             setAffixes(gameData.affixes);
 
@@ -85,11 +88,6 @@ export const Guild: React.FC = () => {
         }
     };
 
-    // Callback to update local state when a new message arrives via Socket (handled inside GuildChat now but state lifted if needed)
-    // Actually, GuildChat can manage its own history or we lift it. To minimize changes from previous version, 
-    // we let GuildChat notify parent to update full guild object if we want persistency, OR GuildChat handles display.
-    // The previous implementation updated `guild.chatHistory`. Let's allow GuildChat to receive the full history and append new ones locally or trigger refresh.
-    // For consistency with the old file, we'll keep the handler here to update the main guild state.
     const handleNewChatMessage = (msg: any) => {
         setGuild(prev => {
             if (!prev) return null;
@@ -195,9 +193,9 @@ export const Guild: React.FC = () => {
             
             {tab === 'BUILDINGS' && <GuildBuildings guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
 
-            {tab === 'ARMORY' && <GuildArmory guild={guild} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
+            {tab === 'ARMORY' && <GuildArmory guild={guild} character={character} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
 
-            {tab === 'BANK' && <GuildBank guild={guild} onTransaction={fetchGuild} />}
+            {tab === 'BANK' && <GuildBank guild={guild} character={character} onTransaction={fetchGuild} />}
 
             {tab === 'CHAT' && <GuildChat guildId={guild.id} messages={guild.chatHistory || []} onMessageReceived={handleNewChatMessage} />}
 
