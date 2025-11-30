@@ -611,7 +611,7 @@ export enum GuildRole {
 }
 
 export interface GuildMember {
-    characterId: number; // Changed from userId
+    userId: number;
     name: string;
     level: number;
     race: Race;
@@ -623,7 +623,7 @@ export interface GuildMember {
 
 export interface GuildTransaction {
     id: number;
-    characterId: number; // Changed from userId
+    userId: number;
     characterName: string;
     type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL';
     currency: 'gold' | EssenceType;
@@ -646,15 +646,15 @@ export interface GuildArmoryItem {
     ownerId: number;
     ownerName: string;
     depositedAt: string;
-    borrowedBy?: string; 
-    characterId?: number; // ID of the character holding the item (if borrowed)
+    borrowedBy?: string; // For UI logic mostly, backend handles actual borrowing via character inventory
+    userId?: number; // ID of the player holding the item (if borrowed)
 }
 
 export interface Guild {
     id: number;
     name: string;
     tag: string;
-    leaderId: number; // Now refers to character_id
+    leaderId: number;
     description: string;
     crestUrl?: string; // Extended property
     resources: GuildResources;
@@ -676,7 +676,7 @@ export interface Guild {
 
 export interface GuildChatMessage {
     id: string; // UUID or simple generated ID
-    characterId: number; // Changed from userId
+    userId: number;
     characterName: string;
     role: GuildRole;
     content: string;
@@ -690,8 +690,7 @@ export interface GuildInviteBody {
 // --- End Guild System Types ---
 
 export interface PlayerCharacter {
-  id?: number; // User ID (Legacy)
-  characterId?: number; // Specific character ID
+  id?: number; // User ID
   username?: string;
   name: string;
   race: Race;
@@ -759,9 +758,6 @@ export interface GameSettings {
     newsContent?: string;
     newsLastUpdatedAt?: number;
     sidebarOrder?: Tab[];
-    sidebarBackgroundUrl?: string;
-    windowBackgroundUrl?: string;
-    reportBackgroundUrl?: string;
 }
 
 export interface GameData {

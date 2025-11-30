@@ -130,13 +130,6 @@ export const api = {
             body: JSON.stringify(credentials),
         });
     },
-    
-    async selectCharacter(characterId: number): Promise<void> {
-        return fetchApi('/auth/select-character', {
-            method: 'POST',
-            body: JSON.stringify({ characterId }),
-        });
-    },
 
     async logout(token: string): Promise<void> {
         return fetchApi('/auth/logout', {
@@ -161,10 +154,6 @@ export const api = {
     // --- Character Management ---
     async getCharacter(): Promise<PlayerCharacter> {
         return fetchApi('/character');
-    },
-    
-    async getCharactersList(): Promise<PublicCharacterProfile[]> {
-        return fetchApi('/character/list');
     },
 
     async getCharacterProfile(name: string): Promise<PublicCharacterProfile> {
@@ -708,10 +697,10 @@ export const api = {
         });
     },
 
-    async recallFromMember(targetCharacterId: number, itemUniqueId: string): Promise<void> {
+    async recallFromMember(targetUserId: number, itemUniqueId: string): Promise<void> {
         return fetchApi('/guilds/armory/recall', {
             method: 'POST',
-            body: JSON.stringify({ targetCharacterId, itemUniqueId })
+            body: JSON.stringify({ targetUserId, itemUniqueId })
         });
     },
 

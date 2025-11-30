@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
-import { CharacterSelection } from './components/CharacterSelection';
 import { Sidebar, NewsModal } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { Equipment } from './components/Equipment';
@@ -24,18 +23,13 @@ import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType, PvpRewardSummary, PublicCharacterProfile } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTemplate, Affix, RolledAffixStats, CharacterStats, EquipmentSlot, ExpeditionRewardSummary, RankingPlayer, ItemInstance, EssenceType, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
 const MainApp: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
-    const [charactersList, setCharactersList] = useState<PublicCharacterProfile[]>([]);
-    
-    // New View State Logic
-    const [view, setView] = useState<'loading' | 'auth' | 'char-select' | 'char-create' | 'game'>('loading');
-    
     const [gameData, setGameData] = useState<GameData | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
     const [isNewsOpen, setIsNewsOpen] = useState(false);
@@ -58,6 +52,7 @@ const MainApp: React.FC = () => {
     const [isRankingLoading, setIsRankingLoading] = useState(false);
 
     // Loading State
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [showForceLogout, setShowForceLogout] = useState(false);
@@ -66,53 +61,57 @@ const MainApp: React.FC = () => {
     // Refs
     const isCompletingExpeditionRef = useRef(false);
     const isLoadingRef = useRef(false); 
+    // Ref to track active tab inside intervals/callbacks without dependency loops
     const activeTabRef = useRef<Tab>(Tab.Statistics);
 
     const t = getT(character?.settings?.language || Language.PL);
 
-    // Force logout handler
+    // Force logout handler - Clean state without reload to avoid loops
     const handleForceLogout = () => {
         console.log("Force logout triggered");
         localStorage.removeItem('token');
         setToken(null);
         setCharacter(null);
         setGameData(null);
-        setCharactersList([]);
-        setView('auth');
+        setIsInitialLoading(false);
         setLoadingError(null);
+        // window.location.reload(); // Disabled to prevent refresh loops
     };
     
     const checkUnreadMessages = useCallback(async () => {
-        if (!token || view !== 'game') return;
+        if (!token) return;
         try {
             const hasUnread = await api.getUnreadMessagesStatus();
             setHasUnreadMessages(hasUnread);
         } catch (e) {
             console.error("Failed to check unread messages", e);
         }
-    }, [token, view]);
+    }, [token]);
 
     // Update ref when activeTab changes
     useEffect(() => {
         activeTabRef.current = activeTab;
         
+        // Clear tavern notification if we switch to tavern
         if (activeTab === Tab.Tavern && tavernMessages.length > 0) {
             const latestId = tavernMessages[tavernMessages.length - 1].id;
             setLastSeenTavernMsgId(latestId);
             setHasNewTavernMessages(false);
         }
         
-        if (token && view === 'game') {
+        // Check messages when switching tabs (user might have read them)
+        if (token) {
             checkUnreadMessages();
         }
-    }, [activeTab, tavernMessages, token, view, checkUnreadMessages]);
+    }, [activeTab, tavernMessages, token, checkUnreadMessages]);
 
     // Loading Timer Effect
     useEffect(() => {
         let timer: any;
-        if (view === 'loading') {
+        if (isInitialLoading) {
             timer = setInterval(() => {
                 setLoadingTime(t => {
+                    // Show force logout faster (after 2 seconds)
                     if (t >= 2) setShowForceLogout(true);
                     return t + 1;
                 });
@@ -122,169 +121,126 @@ const MainApp: React.FC = () => {
             setShowForceLogout(false);
         }
         return () => clearInterval(timer);
-    }, [view]);
+    }, [isInitialLoading]);
 
-    // Heartbeat Effect
+    // Heartbeat Effect - keeps the player "Online" in ranking
     useEffect(() => {
-        if (!token || view !== 'game') return;
+        if (!token) return;
 
         const doHeartbeat = () => {
             api.sendHeartbeat().catch(e => console.error("Heartbeat failed", e));
         };
 
-        doHeartbeat();
-        const interval = setInterval(doHeartbeat, 60000);
+        doHeartbeat(); // Send one immediately
+        const interval = setInterval(doHeartbeat, 60000); // Then every minute
 
         return () => clearInterval(interval);
-    }, [token, view]);
+    }, [token]);
 
-    // Initial Auth Check and Character List Fetch
+    // Main Data Loading Effect
     useEffect(() => {
-        const init = async () => {
-            if (!token) {
-                setView('auth');
-                return;
-            }
+        if (!token) {
+            setIsInitialLoading(false);
+            return;
+        }
 
-            // If we are already in game or selecting, don't reset
-            // But on first load (when view is loading/auth), fetch list.
-            if (view !== 'loading' && view !== 'auth') return;
+        let isMounted = true;
+        isLoadingRef.current = true;
+        setIsInitialLoading(true);
+        setLoadingError(null);
+        setShowForceLogout(false);
 
-            setView('loading');
-            setLoadingMessage("Pobieranie listy postaci...");
-            
+        const loadData = async () => {
             try {
-                const chars = await api.getCharactersList();
-                setCharactersList(chars);
+                // 0. Sync Time
+                await api.synchronizeTime();
+
+                // 1. Game Data
+                setLoadingMessage(t('loading') + " (Pobieranie konfiguracji...)");
+                const data = await api.getGameData();
                 
-                // If user has no characters, go to creation
-                if (chars.length === 0) {
-                    setView('char-create');
-                } else {
-                    // If user has characters, go to selection
-                    setView('char-select');
+                if (!isMounted) return;
+                
+                // More robust check - allow empty object but check if call actually succeeded/returned JSON
+                if (!data) {
+                    throw new Error("Nieprawidłowe dane gry (pusta odpowiedź). Serwer może być niedostępny.");
                 }
-            } catch (e: any) {
-                console.error("Init error:", e);
-                // If token is invalid, logout
-                if (e.message === 'Invalid token' || e.message.includes('403')) {
-                    handleForceLogout();
+                setGameData(data);
+
+                // 2. Character
+                setLoadingMessage(t('loading') + " (Wczytywanie postaci...)");
+                const char = await api.getCharacter();
+                
+                if (!isMounted) return;
+
+                setCharacter(char);
+                
+                // News check logic
+                if (char && char.lastReadNewsTimestamp && data.settings?.newsLastUpdatedAt) {
+                    setHasNewNews(char.lastReadNewsTimestamp < data.settings.newsLastUpdatedAt);
+                } else if (data.settings?.newsContent) {
+                     if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
+                }
+                
+                setIsInitialLoading(false);
+                isLoadingRef.current = false;
+
+            } catch (e) {
+                if (!isMounted) return;
+                console.error("Initial load error:", e);
+                const errorMessage = (e as Error).message;
+                
+                // If token is invalid, logout immediately.
+                if (errorMessage === 'Invalid token' || errorMessage === 'Invalid username or password.') {
+                     handleForceLogout();
                 } else {
-                    setLoadingError(e.message);
+                     setLoadingError(errorMessage || "Wystąpił nieznany błąd podczas ładowania.");
+                     setIsInitialLoading(false);
+                     isLoadingRef.current = false;
                 }
             }
         };
 
-        init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [token]);
-
-    // Game Data Loading (triggered after character selection)
-    const loadGameDataAndCharacter = async () => {
-        if (!token) return;
+        loadData();
         
-        isLoadingRef.current = true;
-        setView('loading');
-        setLoadingMessage(t('loading') + " (Wczytywanie świata...)");
-        setLoadingError(null);
-        
-        try {
-            await api.synchronizeTime();
-            const data = await api.getGameData();
-            if (!data) throw new Error("Nieprawidłowe dane gry.");
-            setGameData(data);
-
-            setLoadingMessage(t('loading') + " (Wczytywanie postaci...)");
-            const char = await api.getCharacter();
-            setCharacter(char);
-
-            if (char && char.lastReadNewsTimestamp && data.settings?.newsLastUpdatedAt) {
-                setHasNewNews(char.lastReadNewsTimestamp < data.settings.newsLastUpdatedAt);
-            } else if (data.settings?.newsContent) {
-                 if(char && !char.lastReadNewsTimestamp) setHasNewNews(true);
+        // Safety timeout: if loading takes > 8s (aligned with API timeout), assume failure
+        const failTimer = setTimeout(() => {
+            if (isMounted && isLoadingRef.current) {
+                setLoadingError("Przekroczono limit czasu. Serwer nie odpowiada.");
+                setIsInitialLoading(false);
+                isLoadingRef.current = false;
             }
+        }, 8000);
 
-            setView('game');
-            isLoadingRef.current = false;
-        } catch (e: any) {
-             console.error("Game load error:", e);
-             if (e.message === 'Invalid token' || e.message.includes('403')) {
-                 handleForceLogout();
-             } else {
-                 setLoadingError(e.message || "Wystąpił błąd.");
-                 isLoadingRef.current = false;
-             }
-        }
-    };
-
-    // --- Handlers for Selection/Creation ---
-
-    const handleSelectCharacter = async (characterId: number) => {
-        try {
-            await api.selectCharacter(characterId);
-            await loadGameDataAndCharacter();
-        } catch (e: any) {
-            alert("Błąd wyboru postaci: " + e.message);
-        }
-    };
-
-    const handleCreateCharacter = async (data: { name: string, race: Race }) => {
-        try {
-            // We need gameData to get start location. If not loaded, fetch it briefly
-            let currentGameData = gameData;
-            if (!currentGameData) {
-                 currentGameData = await api.getGameData();
-                 setGameData(currentGameData);
-            }
-            
-            const startLocationId = currentGameData?.locations.find(l => l.isStartLocation)?.id || '';
-            
-            const newChar = await api.createCharacter(data.name, data.race, startLocationId);
-            
-            // Once created, it should implicitly be active or we need to select it?
-            // Usually create returns the new char but doesn't select it in session automatically unless backend does.
-            // Let's assume we need to select it or refresh list.
-            // Best flow: Refresh list, go to selection (or select automatically).
-            
-            const chars = await api.getCharactersList();
-            setCharactersList(chars);
-            
-            // Auto-select if possible
-            // Note: createCharacter returns PlayerCharacter. The ID returned in response is user_id for compatibility 
-            // but for listing it returns actual ID. 
-            // Actually, we updated api.createCharacter to return the full character object. 
-            // The create endpoint returns `newChar` which has `id` as the character ID now (based on `backend/src/routes/character.ts`).
-            
-            if (newChar && (newChar as any).id) {
-                 await handleSelectCharacter((newChar as any).id);
-            } else {
-                setView('char-select');
-            }
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-    
-    // --- Polling for Character Updates ---
-    useEffect(() => {
-        if (view !== 'game' || !token) return;
-        
         const interval = setInterval(async () => {
-            if (isLoadingRef.current) return;
+            if (!token || isLoadingRef.current) return;
             try {
                 const char = await api.getCharacter();
-                setCharacter(char);
-            } catch (e: any) {
-                if (e.message === 'Invalid token') handleForceLogout();
+                if (isMounted) setCharacter(char);
+            } catch (e) {
+                if ((e as Error).message === 'Invalid token') {
+                    handleForceLogout();
+                }
             }
         }, 10000);
-        
-        return () => clearInterval(interval);
-    }, [view, token]);
 
+        return () => {
+            isMounted = false;
+            clearTimeout(failTimer);
+            clearInterval(interval);
+        };
+    }, [token]); 
 
+    // Poll for Unread Messages
+    useEffect(() => {
+        if (!token) return;
+        checkUnreadMessages(); // Initial check
+        const msgInterval = setInterval(checkUnreadMessages, 15000); // Every 15 seconds
+        return () => clearInterval(msgInterval);
+    }, [token, checkUnreadMessages]);
+
+    // ... rest of existing functions ...
     const fetchRanking = useCallback(async () => {
-        if (view !== 'game') return;
         setIsRankingLoading(true);
         try {
             const data = await api.getRanking();
@@ -294,17 +250,16 @@ const MainApp: React.FC = () => {
         } finally {
             setIsRankingLoading(false);
         }
-    }, [view]);
+    }, []);
 
     const fetchTraderInventory = useCallback(async (force = false) => {
-        if (view !== 'game') return;
         try {
             const inventory = await api.getTraderInventory(force);
             setTraderInventory(inventory);
         } catch (e) {
             console.error("Failed to fetch trader inventory", e);
         }
-    }, [view]);
+    }, []);
 
     const handleForceTraderRefresh = useCallback(async () => {
         try {
@@ -317,49 +272,70 @@ const MainApp: React.FC = () => {
     }, [fetchTraderInventory]);
 
     const fetchTavernData = useCallback(async () => {
-        if (view !== 'game') return;
         try {
             const data = await api.getTavernMessages();
             setTavernMessages(data.messages);
             setActiveUsers(data.activeUsers);
 
+            // Handle Notifications
             if (data.messages.length > 0) {
                 const latestMsg = data.messages[data.messages.length - 1];
                 const latestId = latestMsg.id;
 
                 setLastSeenTavernMsgId(prevLastSeen => {
-                    if (prevLastSeen === 0) return latestId;
-                    if (activeTabRef.current === Tab.Tavern) return latestId;
+                    // Initial load or first fetch
+                    if (prevLastSeen === 0) {
+                        return latestId;
+                    }
+                    
+                    // If we are currently in Tavern, update seen ID
+                    if (activeTabRef.current === Tab.Tavern) {
+                        return latestId;
+                    } 
+                    
+                    // If we are NOT in Tavern and there is a newer message
                     if (latestId > prevLastSeen) {
                         setHasNewTavernMessages(true);
-                        return prevLastSeen;
+                        return prevLastSeen; // Keep old seen ID until user visits
                     }
+
                     return prevLastSeen;
                 });
             }
         } catch (e) {
             console.error("Failed to fetch tavern data", e);
         }
-    }, [view]);
+    }, []);
 
     useEffect(() => {
-        if (activeTab === Tab.Ranking) fetchRanking();
-        if (activeTab === Tab.Trader) fetchTraderInventory();
+        if (activeTab === Tab.Ranking) {
+            fetchRanking();
+        }
+        
+        if (activeTab === Tab.Trader) {
+            fetchTraderInventory();
+        }
+
         if (activeTab === Tab.Admin) {
              api.getUsers().then(setUsers).catch(console.error);
              api.getAllCharacters().then(setAllCharacters).catch(console.error);
         }
     }, [activeTab, fetchRanking, fetchTraderInventory]);
 
+    // Independent polling for Tavern messages to enable notifications even when tab is closed
     useEffect(() => {
-        if (!token || view !== 'game') return;
-        fetchTavernData();
+        if (!token) return;
+        
+        fetchTavernData(); // Initial fetch
         const tavernInterval = setInterval(fetchTavernData, 5000);
         return () => clearInterval(tavernInterval);
-    }, [token, view, fetchTavernData]);
+    }, [token, fetchTavernData]);
 
+    // --- Global Expedition Watcher ---
     const handleExpeditionCompletion = useCallback(async () => {
         if (isCompletingExpeditionRef.current || !character?.activeExpedition) return;
+        
+        // Use synchronized time
         if (api.getServerTime() < character.activeExpedition.finishTime) return;
 
         isCompletingExpeditionRef.current = true;
@@ -367,6 +343,7 @@ const MainApp: React.FC = () => {
             const result = await api.completeExpedition();
             setCharacter(result.updatedCharacter);
             setExpeditionReport({ summary: result.summary, messageId: result.messageId });
+            // Update messages status as a new report has arrived
             checkUnreadMessages();
         } catch (e) {
             console.error("Failed to complete expedition automatically", e);
@@ -377,23 +354,30 @@ const MainApp: React.FC = () => {
 
     useEffect(() => {
         if (!character?.activeExpedition) return;
-        const now = api.getServerTime();
-        const timeLeft = character.activeExpedition.finishTime - now;
+        
+        const now = api.getServerTime(); // Use synced time
+        const finishTime = character.activeExpedition.finishTime;
+        const timeLeft = finishTime - now;
+
         let timer: ReturnType<typeof setTimeout>;
+
         if (timeLeft <= 0) {
              handleExpeditionCompletion();
         } else {
-             timer = setTimeout(handleExpeditionCompletion, timeLeft);
+             timer = setTimeout(() => {
+                 handleExpeditionCompletion();
+             }, timeLeft);
         }
-        return () => { if (timer) clearTimeout(timer); };
+
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
     }, [character?.activeExpedition, handleExpeditionCompletion]);
+    // ---------------------------------
 
-
-    // --- Render Logic ---
     const handleLoginSuccess = (newToken: string) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);
-        // Effect will trigger init
     };
 
     const handleLogout = () => {
@@ -407,7 +391,7 @@ const MainApp: React.FC = () => {
     }
 
     const handleCharacterUpdate = useCallback(async (updatedCharacter: PlayerCharacter, immediate = false) => {
-        setCharacter(updatedCharacter);
+        setCharacter(updatedCharacter); // Optimistic update
         if (immediate) {
             try {
                 const syncedChar = await api.updateCharacter(updatedCharacter);
@@ -415,65 +399,342 @@ const MainApp: React.FC = () => {
             } catch (e) {
                 console.error("Failed to sync character", e);
                 alert(t('error.title'));
-                fetchCharacter();
+                fetchCharacter(); // Revert on error
             }
         }
     }, [t]);
 
-    // --- View Switching ---
+    const handleResetAttributes = useCallback(async () => {
+        // Logic moved to Statistics.tsx component calling API directly
+    }, []);
 
-    if (view === 'auth' || !token) {
+    const calculateDerivedStats = (char: PlayerCharacter, data: GameData | null): PlayerCharacter => {
+         if (!data || !char.equipment) return char;
+         // FIX: Default to empty arrays to prevent crash if DB is empty/corrupted
+         const itemTemplates = data.itemTemplates || [];
+         const affixes = data.affixes || [];
+
+        const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
+            if (value === undefined || value === null) return 0;
+            if (typeof value === 'number') return value;
+            if (typeof value === 'object' && 'max' in value) return value.max;
+            return 0;
+        };
+    
+        const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
+            strength: Number(char.stats.strength) || 0, 
+            agility: Number(char.stats.agility) || 0, 
+            accuracy: Number(char.stats.accuracy) || 0,
+            stamina: Number(char.stats.stamina) || 0, 
+            intelligence: Number(char.stats.intelligence) || 0, 
+            energy: Number(char.stats.energy) || 0
+        };
+    
+        let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
+        let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
+        let bonusAttacksPerRound = 0;
+        let bonusCritDamageModifier = 0;
+        let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
+        let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
+        let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
+    
+        const applyAffixBonuses = (source: RolledAffixStats) => {
+            if (source.statsBonus) {
+                for (const stat in source.statsBonus) {
+                    const key = stat as keyof typeof source.statsBonus;
+                    const val = Number(source.statsBonus[key]) || 0;
+                    totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + val;
+                }
+            }
+            bonusDamageMin += Number(source.damageMin) || 0;
+            bonusDamageMax += Number(source.damageMax) || 0;
+            bonusMagicDamageMin += Number(source.magicDamageMin) || 0;
+            bonusMagicDamageMax += Number(source.magicDamageMax) || 0;
+            bonusArmor += Number(source.armorBonus) || 0;
+            bonusCritChance += Number(source.critChanceBonus) || 0;
+            bonusMaxHealth += Number(source.maxHealthBonus) || 0;
+            bonusCritDamageModifier += Number(source.critDamageModifierBonus) || 0;
+            bonusArmorPenetrationPercent += Number(source.armorPenetrationPercent) || 0;
+            bonusArmorPenetrationFlat += Number(source.armorPenetrationFlat) || 0;
+            bonusLifeStealPercent += Number(source.lifeStealPercent) || 0;
+            bonusLifeStealFlat += Number(source.lifeStealFlat) || 0;
+            bonusManaStealPercent += Number(source.manaStealPercent) || 0;
+            bonusManaStealFlat += Number(source.manaStealFlat) || 0;
+            bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
+            bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
+        };
+    
+        for (const slot in char.equipment) {
+            const itemInstance = char.equipment[slot as EquipmentSlot];
+            if (itemInstance && typeof itemInstance === 'object') {
+                const template = itemTemplates.find(t => t.id === itemInstance.templateId);
+
+                // Definitive guard clause: if an item instance exists but its template doesn't,
+                // skip it entirely to prevent crashes from corrupted data.
+                if (!template) {
+                    console.warn(`Could not find template for item ${itemInstance.uniqueId} (templateId: ${itemInstance.templateId}). Skipping for stat calculation.`);
+                    continue;
+                }
+
+                const upgradeLevel = itemInstance.upgradeLevel || 0;
+                const upgradeBonusFactor = upgradeLevel * 0.1;
+    
+                if (itemInstance.rolledBaseStats) {
+                    const baseStats = itemInstance.rolledBaseStats;
+                    const applyUpgrade = (val: number | undefined) => (Number(val) || 0) + Math.round((Number(val) || 0) * upgradeBonusFactor);
+                    
+                    if (baseStats.statsBonus) {
+                        for (const stat in baseStats.statsBonus) {
+                            const key = stat as keyof typeof baseStats.statsBonus;
+                            const baseBonus = Number(baseStats.statsBonus[key]) || 0;
+                            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                        }
+                    }
+                    
+                    bonusDamageMin += applyUpgrade(baseStats.damageMin);
+                    bonusDamageMax += applyUpgrade(baseStats.damageMax);
+                    bonusMagicDamageMin += applyUpgrade(baseStats.magicDamageMin);
+                    bonusMagicDamageMax += applyUpgrade(baseStats.magicDamageMax);
+                    bonusArmor += applyUpgrade(baseStats.armorBonus);
+                    bonusMaxHealth += applyUpgrade(baseStats.maxHealthBonus);
+                    bonusCritChance += (Number(baseStats.critChanceBonus) || 0) + ((Number(baseStats.critChanceBonus) || 0) * upgradeBonusFactor);
+                    
+                    bonusCritDamageModifier += applyUpgrade(baseStats.critDamageModifierBonus);
+                    bonusArmorPenetrationFlat += applyUpgrade(baseStats.armorPenetrationFlat);
+                    bonusLifeStealFlat += applyUpgrade(baseStats.lifeStealFlat);
+                    bonusManaStealFlat += applyUpgrade(baseStats.manaStealFlat);
+
+                    bonusArmorPenetrationPercent += Number(baseStats.armorPenetrationPercent) || 0;
+                    bonusLifeStealPercent += Number(baseStats.lifeStealPercent) || 0;
+                    bonusManaStealPercent += Number(baseStats.manaStealPercent) || 0;
+    
+                } else if (template) {
+                     if (template.statsBonus) {
+                        for (const stat in template.statsBonus) {
+                            const key = stat as keyof typeof template.statsBonus;
+                            const bonusValue = template.statsBonus[key];
+                            const baseBonus = getMaxValue(bonusValue as any);
+                            totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                        }
+                    }
+    
+                    const baseDamageMin = getMaxValue(template.damageMin as any);
+                    const baseDamageMax = getMaxValue(template.damageMax as any);
+                    const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);
+                    const baseMagicDamageMax = getMaxValue(template.magicDamageMax as any);
+                    const baseArmor = getMaxValue(template.armorBonus as any);
+                    const baseCritChance = getMaxValue(template.critChanceBonus as any);
+                    const baseMaxHealth = getMaxValue(template.maxHealthBonus as any);
+                    
+                    bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
+                    bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
+                    bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
+                    bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
+                    bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
+                    bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
+                    bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
+                    
+                    const getBaseAndUpgrade = (prop: any) => {
+                        const base = getMaxValue(prop);
+                        return base + Math.round(base * upgradeBonusFactor);
+                    }
+
+                    bonusCritDamageModifier += getBaseAndUpgrade(template.critDamageModifierBonus);
+                    bonusArmorPenetrationFlat += getBaseAndUpgrade(template.armorPenetrationFlat);
+                    bonusLifeStealFlat += getBaseAndUpgrade(template.lifeStealFlat);
+                    bonusManaStealFlat += getBaseAndUpgrade(template.manaStealFlat);
+
+                    bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
+                    bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
+                    bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
+                }
+    
+                if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
+                if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);
+            }
+        }
+        
+        const mainHandItem = char.equipment[EquipmentSlot.MainHand] || char.equipment[EquipmentSlot.TwoHand];
+        const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+        
+        // Force numeric type to prevent string concatenation which causes .toFixed() error on strings
+        const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
+        
+        const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
+    
+        const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
+    
+        const maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+        const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
+        const maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+        
+        let minDamage, maxDamage;
+        if (mainHandTemplate?.isMagical) {
+            minDamage = baseMinDamage + bonusDamageMin;
+            maxDamage = baseMaxDamage + bonusDamageMax;
+        } else if (mainHandTemplate?.isRanged) {
+            // Ranged weapons scale with Agility
+            minDamage = baseMinDamage + (totalPrimaryStats.agility * 1) + bonusDamageMin;
+            maxDamage = baseMaxDamage + (totalPrimaryStats.agility * 2) + bonusDamageMax;
+        } else {
+            // Melee weapons scale with Strength
+            minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
+            maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
+        }
+        
+        const critChance = totalPrimaryStats.accuracy * 0.5 + bonusCritChance;
+        const critDamageModifier = 200 + bonusCritDamageModifier;
+        const armorPenetrationPercent = bonusArmorPenetrationPercent;
+        const armorPenetrationFlat = bonusArmorPenetrationFlat;
+        const lifeStealPercent = bonusLifeStealPercent;
+        const lifeStealFlat = bonusLifeStealFlat;
+        const manaStealPercent = bonusManaStealPercent;
+        const manaStealFlat = bonusManaStealFlat;
+        let dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
+    
+        let armor = bonusArmor;
+        let manaRegen = totalPrimaryStats.intelligence * 2;
+    
+        if (char.race === Race.Dwarf) armor += 5;
+        if (char.race === Race.Elf) manaRegen += 10;
+        if (char.race === Race.Gnome) dodgeChance += 10;
+        
+        const intelligenceDamageBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
+        const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
+        const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
+
+        // Apply Guild Barracks Bonus (5% per level) to Physical and Magic Damage
+        const barracksLevel = char.guildBarracksLevel || 0;
+        let finalMinDamage = minDamage;
+        let finalMaxDamage = maxDamage;
+        let finalMagicDamageMin = magicDamageMin;
+        let finalMagicDamageMax = magicDamageMax;
+
+        if (barracksLevel > 0) {
+            const damageMultiplier = 1 + (barracksLevel * 0.05);
+            finalMinDamage = Math.floor(minDamage * damageMultiplier);
+            finalMaxDamage = Math.floor(maxDamage * damageMultiplier);
+            finalMagicDamageMin = Math.floor(magicDamageMin * damageMultiplier);
+            finalMagicDamageMax = Math.floor(magicDamageMax * damageMultiplier);
+        }
+    
+        const currentHealth = Math.min(char.stats.currentHealth, maxHealth);
+        const currentMana = Math.min(char.stats.currentMana, maxMana);
+        const currentEnergy = Math.min(char.stats.currentEnergy, maxEnergy);
+    
+        return {
+            ...char,
+            stats: {
+                ...char.stats, ...totalPrimaryStats,
+                maxHealth, maxEnergy, maxMana, 
+                minDamage: finalMinDamage, 
+                maxDamage: finalMaxDamage, 
+                critChance, armor,
+                magicDamageMin: finalMagicDamageMin, 
+                magicDamageMax: finalMagicDamageMax, 
+                attacksPerRound, manaRegen,
+                currentHealth, currentMana, currentEnergy,
+                critDamageModifier, armorPenetrationPercent, armorPenetrationFlat,
+                lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,
+                dodgeChance,
+            }
+        };
+    };
+
+    const derivedCharacter = useMemo(() => character ? calculateDerivedStats(character, gameData) : null, [character, gameData]);
+
+    // New handlers to trigger re-fetch after actions
+    const handleEquipItem = async (item: ItemInstance) => {
+        // Logic handled in Equipment.tsx calling api.equipItem which returns new char.
+        // Here we just re-fetch to be safe and sync state.
+        fetchCharacter();
+    };
+
+    const handleUnequipItem = async (item: ItemInstance, slot: EquipmentSlot) => {
+         // Logic handled in Equipment.tsx calling api.unequipItem which returns new char.
+        fetchCharacter();
+    };
+
+
+    // --- Render Logic ---
+
+    // 1. Not Logged In
+    if (!token) {
         return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
             <Auth onLoginSuccess={handleLoginSuccess} />
         </LanguageContext.Provider>;
     }
 
-    if (view === 'loading') {
-        return (
+    // 2. Initial Loading OR Error during Initial Load
+    if (isInitialLoading) {
+         return (
              <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-                 <p>{loadingMessage}</p>
+                 <p>{loadingMessage || t('loading')}</p>
+                 <p className="text-xs text-gray-500">Czas: {loadingTime}s</p>
                  {showForceLogout && (
-                     <button onClick={handleForceLogout} className="mt-4 px-6 py-2 bg-red-700 rounded-lg text-white">Wyloguj się</button>
+                     <div className="mt-6 flex flex-col items-center gap-2 animate-fade-in">
+                         <p className="text-sm text-gray-400">Ładowanie trwa zbyt długo?</p>
+                         <button 
+                            onClick={handleForceLogout} 
+                            className="px-6 py-2 bg-red-700 rounded-lg hover:bg-red-600 font-semibold text-white shadow-lg transition-colors"
+                         >
+                            Wyloguj się (Napraw błąd)
+                         </button>
+                         <p className="text-xs text-gray-500 mt-1">Kliknij, jeśli Twój "bilet" wygasł lub gra się zacięła.</p>
+                     </div>
                  )}
-                 {loadingError && (
-                    <div className="text-center">
-                         <p className="text-red-400 mb-2">{loadingError}</p>
-                         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-slate-700 rounded">Odśwież</button>
-                    </div>
-                 )}
+             </div>
+         );
+    }
+    
+    // 2b. Error State (Loading finished, but has error)
+    if (loadingError) {
+        return (
+             <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
+                 <div className="text-center">
+                     <p className="text-red-400 mb-4 text-lg font-bold">{t('error.title')}: {loadingError}</p>
+                     <div className="flex gap-4 justify-center">
+                        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 rounded hover:bg-indigo-700 font-semibold">
+                            {t('error.refresh')}
+                        </button>
+                        <button onClick={handleForceLogout} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 font-semibold">
+                            {t('error.logout')}
+                        </button>
+                     </div>
+                 </div>
              </div>
         );
     }
 
-    if (view === 'char-select') {
+    // 3. Missing Critical Data (GameData)
+    if (!gameData) {
         return (
-            <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
-                <CharacterSelection 
-                    characters={charactersList} 
-                    onSelect={handleSelectCharacter} 
-                    onCreateNew={() => setView('char-create')} 
-                    onLogout={handleLogout}
-                />
-            </LanguageContext.Provider>
+            <div className="flex flex-col items-center justify-center h-screen text-white text-center bg-gray-900">
+                <p className="text-lg font-bold mb-2">{t('error.title')}</p>
+                <p className="text-sm text-gray-400 mb-4">Nie udało się załadować danych gry.</p>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
+                     {t('error.refresh')}
+                </button>
+            </div>
         );
     }
 
-    if (view === 'char-create') {
-        return (
-            <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
-                <div className="relative">
-                    <button onClick={() => setView('char-select')} className="absolute top-4 left-4 px-4 py-2 bg-slate-700 text-white rounded z-50 hover:bg-slate-600">
-                        &larr; Powrót
-                    </button>
-                    <CharacterCreation onCharacterCreate={handleCreateCharacter} />
-                </div>
-            </LanguageContext.Provider>
-        );
+    // 4. New User (Character creation)
+    // If token exists, initial loading is done, but character is null => New User
+    if (!character) {
+        return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
+            <CharacterCreation onCharacterCreate={async (data) => {
+                const newChar = await api.createCharacter(data.name, data.race, gameData.locations.find(l => l.isStartLocation)?.id || '');
+                setCharacter(newChar);
+            }} />
+        </LanguageContext.Provider>;
     }
 
-    // VIEW === 'game'
-    if (!character || !gameData) return <div className="bg-gray-900 h-screen text-white flex items-center justify-center">Błąd danych...</div>;
+    // 5. Calculation Fallback (Should technically not happen if character exists, but safe to keep)
+    if (!derivedCharacter) {
+        return <div className="flex items-center justify-center h-screen text-white bg-gray-900">{t('loading')}... (Obliczanie statystyk)</div>;
+    }
 
     const currentLocation = gameData.locations.find(l => l.id === character.currentLocationId);
 
@@ -481,12 +742,12 @@ const MainApp: React.FC = () => {
         switch (activeTab) {
             case Tab.Statistics:
                 return <Statistics 
-                    character={character} 
+                    character={derivedCharacter} 
                     baseCharacter={character} 
                     onCharacterUpdate={handleCharacterUpdate} 
-                    calculateDerivedStats={(c) => c} // No-op as backend handles stats now
+                    calculateDerivedStats={calculateDerivedStats}
                     gameData={gameData}
-                    onResetAttributes={() => {}} 
+                    onResetAttributes={handleResetAttributes}
                     onSelectClass={async (cls) => {
                         const updated = await api.selectClass(cls);
                         setCharacter(updated);
@@ -494,20 +755,21 @@ const MainApp: React.FC = () => {
                 />;
             case Tab.Equipment:
                 return <Equipment 
-                    character={character} 
+                    character={derivedCharacter} 
                     baseCharacter={character} 
                     gameData={gameData} 
-                    onEquipItem={async (item) => { await api.equipItem(item.uniqueId); fetchCharacter(); }}
-                    onUnequipItem={async (item, slot) => { await api.unequipItem(slot); fetchCharacter(); }}
+                    onEquipItem={handleEquipItem}
+                    onUnequipItem={handleUnequipItem}
                 />;
             case Tab.Expedition:
                 return <ExpeditionComponent 
-                    character={character} 
+                    character={derivedCharacter} 
                     expeditions={gameData.expeditions} 
                     enemies={gameData.enemies} 
                     currentLocation={currentLocation!} 
                     onStartExpedition={async (expId) => {
                         try {
+                            // Call the new safe API endpoint
                             const updatedChar = await api.startExpedition(expId);
                             setCharacter(updatedChar);
                         } catch(e: any) {
@@ -527,37 +789,71 @@ const MainApp: React.FC = () => {
                     return { gold, essences };
                 };
                 const getChestUpgradeCost = (level: number) => {
-                     const gold = Math.floor(150 * Math.pow(level, 1.5));
-                     const essences: { type: EssenceType, amount: number }[] = [];
-                     if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
-                     return { gold, essences };
-                 };
-                 const getBackpackUpgradeCost = (level: number) => {
-                     const gold = Math.floor(150 * Math.pow(level, 1.5));
-                     const essences: { type: EssenceType, amount: number }[] = [];
-                     if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
-                     if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
-                     if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
-                     return { gold, essences };
-                 };
-
+                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                    const essences: { type: EssenceType, amount: number }[] = [];
+                    if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
+                    return { gold, essences };
+                };
+                const getBackpackUpgradeCost = (level: number) => {
+                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                    const essences: { type: EssenceType, amount: number }[] = [];
+                    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+                    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+                    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+                    return { gold, essences };
+                };
                 return <Camp 
-                    character={character} baseCharacter={character}
+                    character={derivedCharacter} 
+                    baseCharacter={character} 
                     onToggleResting={() => {
-                         handleCharacterUpdate({ ...character, isResting: !character.isResting }, true);
+                        const now = api.getServerTime(); // Use synced time
+                        handleCharacterUpdate({ 
+                            ...character, 
+                            isResting: !character.isResting, 
+                            restStartHealth: character.stats.currentHealth,
+                            lastRestTime: !character.isResting ? now : undefined // Set timestamp if starting rest
+                        }, true);
                     }}
-                    onUpgradeCamp={async () => { await api.upgradeCamp(); fetchCharacter(); }}
+                    onUpgradeCamp={() => {
+                        const cost = getCampUpgradeCost(character.camp.level);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                            const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                            cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: newResources as any };
+                            handleCharacterUpdate(newChar, true);
+                        }
+                    }}
                     getCampUpgradeCost={getCampUpgradeCost}
                     onCharacterUpdate={handleCharacterUpdate}
                     onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
-                    onUpgradeChest={async () => { await api.upgradeChest(); fetchCharacter(); }}
-                    onUpgradeBackpack={async () => { await api.upgradeBackpack(); fetchCharacter(); }}
+                     onUpgradeChest={() => {
+                        const cost = getChestUpgradeCost(character.chest.level);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: character.chest.level + 1 }, resources: newResources as any };
+                             handleCharacterUpdate(newChar, true);
+                        }
+                    }}
+                    onUpgradeBackpack={() => {
+                        const currentLevel = character.backpack?.level || 1;
+                        const cost = getBackpackUpgradeCost(currentLevel);
+                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+                        if (canAfford) {
+                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
+                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
+                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: newResources as any };
+                             handleCharacterUpdate(newChar, true);
+                        }
+                    }}
                     getChestUpgradeCost={getChestUpgradeCost}
                     getBackpackUpgradeCost={getBackpackUpgradeCost}
                 />;
-             case Tab.Location:
+            case Tab.Location:
                 return <Location 
-                    playerCharacter={character} 
+                    playerCharacter={derivedCharacter} 
                     baseCharacter={character}
                     onCharacterUpdate={handleCharacterUpdate} 
                     locations={gameData.locations} 
@@ -572,17 +868,18 @@ const MainApp: React.FC = () => {
                     onAttack={async (id) => {
                         try {
                             const { summary, updatedAttacker } = await api.attackPlayer(id);
-                            setCharacter(updatedAttacker); 
+                            setCharacter(updatedAttacker); // Optimistic update of attacker stats (energy etc.)
                             setPvpReport(summary);
+                            // Update unread messages as we get a report
                             checkUnreadMessages();
-                            fetchCharacter(); 
+                            fetchCharacter(); // Sync fully
                         } catch(e: any) {
                             alert(e.message || t('error.title'));
                         }
                     }}
                     onComposeMessage={() => {}}
                 />;
-             case Tab.Messages:
+            case Tab.Messages:
                 return <Messages 
                     itemTemplates={gameData.itemTemplates || []} 
                     affixes={gameData.affixes || []} 
@@ -602,7 +899,7 @@ const MainApp: React.FC = () => {
                 />;
             case Tab.Trader:
                 return <Trader 
-                    character={character}
+                    character={derivedCharacter}
                     baseCharacter={character}
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
@@ -621,7 +918,7 @@ const MainApp: React.FC = () => {
                 />;
              case Tab.Blacksmith:
                 return <Blacksmith 
-                    character={character}
+                    character={derivedCharacter}
                     baseCharacter={character} 
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
@@ -630,8 +927,8 @@ const MainApp: React.FC = () => {
                             const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
                             setCharacter(updatedCharacter);
                             return result;
-                        } catch (e: any) {
-                            alert((e as Error).message);
+                        } catch (e) {
+                            alert(t('error.title') + ': ' + (e as Error).message);
                             return { success: false };
                         }
                     }}
@@ -640,8 +937,8 @@ const MainApp: React.FC = () => {
                             const { updatedCharacter, result } = await api.upgradeItem(item.uniqueId);
                             setCharacter(updatedCharacter);
                             return result;
-                        } catch (e: any) {
-                            alert((e as Error).message);
+                        } catch (e) {
+                            alert(t('error.title') + ': ' + (e as Error).message);
                             return { success: false, messageKey: 'error.title' };
                         }
                     }}
@@ -666,13 +963,13 @@ const MainApp: React.FC = () => {
                 return <Options character={character} onCharacterUpdate={handleCharacterUpdate} />;
             case Tab.University:
                 return <University 
-                    character={character}
+                    character={derivedCharacter}
                     gameData={gameData}
                     onLearnSkill={async (id) => { await api.learnSkill(id); fetchCharacter(); }}
                 />;
             case Tab.Hunting:
                 return <Hunting 
-                    character={character}
+                    character={derivedCharacter}
                     enemies={gameData.enemies}
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
@@ -688,14 +985,20 @@ const MainApp: React.FC = () => {
                             await api.updateGameData(key, data);
                             const refreshedData = await api.getGameData();
                             setGameData(refreshedData);
-                        } catch (e) { console.error(e); }
+                        } catch (e) {
+                            console.error(`Failed to update ${key}:`, e);
+                            alert(t('error.title'));
+                        }
                     }}
                     onSettingsUpdate={async (s) => {
                         try {
                             await api.updateGameSettings(s);
                             const refreshedData = await api.getGameData();
                             setGameData(refreshedData);
-                        } catch (e) { console.error(e); }
+                        } catch (e) {
+                            console.error("Failed to update settings:", e);
+                            alert(t('error.title'));
+                        }
                     }}
                     users={users}
                     onDeleteUser={async (id) => { await api.deleteUser(id); }}
@@ -735,9 +1038,9 @@ const MainApp: React.FC = () => {
                 <Sidebar 
                     activeTab={activeTab} 
                     setActiveTab={setActiveTab} 
-                    playerCharacter={character}
+                    playerCharacter={derivedCharacter}
                     currentLocation={currentLocation}
-                    onLogout={() => { setView('char-select'); }}
+                    onLogout={handleLogout}
                     hasUnreadMessages={hasUnreadMessages}
                     hasNewTavernMessages={hasNewTavernMessages}
                     onOpenNews={() => setIsNewsOpen(true)}
@@ -757,7 +1060,7 @@ const MainApp: React.FC = () => {
                     }} 
                     content={gameData.settings.newsContent || ''} 
                 />
-                {/* Modals... */}
+                {/* Global Expedition Report Modal Overlay */}
                 {expeditionReport && (
                     <ExpeditionSummaryModal
                         reward={expeditionReport.summary}
@@ -771,6 +1074,7 @@ const MainApp: React.FC = () => {
                         backgroundImage={gameData.settings.reportBackgroundUrl}
                     />
                 )}
+                {/* PvP Report Modal Overlay */}
                 {pvpReport && (
                     <ExpeditionSummaryModal
                         reward={{

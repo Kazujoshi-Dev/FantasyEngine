@@ -35,62 +35,26 @@ const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// GET /api/character/list - Get basic info for all characters owned by user
-router.get('/character/list', authenticateToken, async (req: any, res: any) => {
-    try {
-        const result = await pool.query(
-            `SELECT id, data->>'name' as name, data->>'race' as race, 
-             (data->>'level')::int as level, data->>'characterClass' as "characterClass", 
-             data->>'avatarUrl' as "avatarUrl"
-             FROM characters 
-             WHERE user_id = $1 
-             ORDER BY created_at ASC`,
-            [req.user!.id]
-        );
-        
-        const characters = result.rows.map(row => ({
-            id: row.id,
-            name: row.name,
-            race: row.race,
-            level: row.level,
-            characterClass: row.characterClass,
-            avatarUrl: row.avatarUrl
-        }));
-
-        res.json(characters);
-    } catch (err) {
-        console.error('Error fetching character list:', err);
-        res.status(500).json({ message: 'Failed to fetch characters.' });
-    }
-});
-
-// GET /api/character - Get the current ACTIVE character data
+// GET /api/character - Get the current user's character data
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
-        // Check if a character is selected
-        if (!req.user.characterId) {
-            return res.status(200).json(null);
-        }
-
         const result = await pool.query(`
-            SELECT c.id, c.user_id, c.data, u.username, c.created_at, g.buildings 
+            SELECT c.user_id, c.data, u.username, c.created_at, g.buildings 
             FROM characters c 
             JOIN users u ON c.user_id = u.id 
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
-            WHERE c.id = $1 AND c.user_id = $2
-        `, [req.user.characterId, req.user.id]);
+            WHERE c.user_id = $1
+        `, [req.user!.id]);
         
         if (result.rows.length === 0) {
-            // Should theoretically not happen if characterId is valid, unless deleted
-            return res.status(404).json({ message: "Character not found" });
+            return res.status(200).json(null);
         }
         
         const row = result.rows[0];
         const character: PlayerCharacter = {
             ...row.data,
-            id: row.user_id, // legacy mapping
-            characterId: row.id, // specific character ID
+            id: row.user_id,
             username: row.username,
         };
         
@@ -152,14 +116,14 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         }
         
         if (needsDbUpdate) {
-            pool.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId])
+            pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
                 .catch(err => console.error("Async character update failed:", err));
         }
 
         if (character.activeTravel && Date.now() >= character.activeTravel.finishTime) {
             character.currentLocationId = character.activeTravel.destinationLocationId;
             character.activeTravel = null;
-            pool.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId])
+            pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id])
                 .catch(err => console.error("Async travel completion update failed:", err));
         }
 
@@ -222,7 +186,7 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
     try {
         await client.query('BEGIN');
         
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user!.characterId, req.user!.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found.' });
@@ -275,7 +239,7 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
             rewards: { gold: 0, experience: 0 }
         };
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
         res.json(character);
@@ -299,9 +263,9 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
             FROM characters c 
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
-            WHERE c.id = $1 AND c.user_id = $2
+            WHERE c.user_id = $1 
             FOR UPDATE OF c
-        `, [req.user.characterId, req.user.id]);
+        `, [req.user!.id]);
         
         if (result.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -356,7 +320,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
             expeditionName = "Błąd Wyprawy";
         }
         
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [updatedCharacter, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user!.id]);
 
         const messageRes = await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
@@ -385,18 +349,9 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'Name and race are required.' });
         }
         
-        // Check slots limit (Max 3 characters)
-        const existingChars = await pool.query('SELECT COUNT(*) FROM characters WHERE user_id = $1', [req.user!.id]);
-        const count = parseInt(existingChars.rows[0].count);
-        
-        if (count >= 3) {
-            return res.status(409).json({ message: 'You have reached the maximum limit of 3 characters.' });
-        }
-        
-        // Check name uniqueness globally
-        const nameCheck = await pool.query("SELECT 1 FROM characters WHERE data->>'name' = $1", [newCharacterData.name]);
-        if (nameCheck.rows.length > 0) {
-             return res.status(409).json({ message: 'Character name already taken.' });
+        const existingChar = await pool.query('SELECT 1 FROM characters WHERE user_id = $1', [req.user!.id]);
+        if (existingChar.rows.length > 0) {
+            return res.status(409).json({ message: 'A character already exists for this user.' });
         }
 
         if (newCharacterData.level >= 10 && !newCharacterData.characterClass) {
@@ -411,12 +366,10 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
         }
 
         const result = await pool.query(
-            'INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING id, data',
+            'INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data',
             [req.user!.id, newCharacterData]
         );
-        
-        const newChar = { ...result.rows[0].data, id: result.rows[0].id }; // Return with ID
-        res.status(201).json(newChar);
+        res.status(201).json(result.rows[0].data);
     } catch (err) {
         console.error('Error creating character:', err);
         res.status(500).json({ message: 'Failed to create character.' });
@@ -429,7 +382,7 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found.' });
@@ -467,8 +420,8 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
         }
         
         await client.query(
-            'UPDATE characters SET data = $1 WHERE id = $2',
-            [dbChar, req.user.characterId]
+            'UPDATE characters SET data = $1 WHERE user_id = $2',
+            [dbChar, req.user!.id]
         );
         
         await client.query('COMMIT');
@@ -490,7 +443,7 @@ router.post('/character/distribute-points', authenticateToken, async (req: any, 
 
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
         
         const totalToAdd = Object.values(pointsToAdd).reduce((a, b) => (a || 0) + (b || 0), 0) as number;
@@ -514,7 +467,7 @@ router.post('/character/distribute-points', authenticateToken, async (req: any, 
         }
         character.stats.statPoints -= totalToAdd;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
 
@@ -531,7 +484,7 @@ router.post('/character/reset-attributes', authenticateToken, async (req: any, r
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
 
         const isFree = !character.freeStatResetUsed;
@@ -557,7 +510,7 @@ router.post('/character/reset-attributes', authenticateToken, async (req: any, r
         
         character.freeStatResetUsed = true;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch(err) {
@@ -574,7 +527,7 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
         
         // Fetch Metadata
@@ -655,7 +608,7 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
         character.inventory.splice(inventoryIndex, 1); // Remove from inv
         character.equipment[targetSlot] = itemToEquip;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
 
@@ -673,7 +626,7 @@ router.post('/character/unequip', authenticateToken, async (req: any, res: any) 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
         
         const item = character.equipment[slot as EquipmentSlot];
@@ -691,7 +644,7 @@ router.post('/character/unequip', authenticateToken, async (req: any, res: any) 
         character.equipment[slot as EquipmentSlot] = null;
         character.inventory.push(item);
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch(err) {
@@ -710,7 +663,7 @@ router.post('/character/select-class', authenticateToken, async (req: any, res: 
         return res.status(400).json({ message: 'Invalid character class.' });
     }
     try {
-        const charRes = await pool.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2', [req.user.characterId, req.user.id]);
+        const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user!.id]);
         if (charRes.rows.length === 0) {
             return res.status(404).json({ message: 'Character not found.' });
         }
@@ -722,7 +675,7 @@ router.post('/character/select-class', authenticateToken, async (req: any, res: 
 
         character.characterClass = characterClass;
 
-        const result = await pool.query('UPDATE characters SET data = $1 WHERE id = $2 RETURNING data', [character, req.user.characterId]);
+        const result = await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2 RETURNING data', [character, req.user!.id]);
         res.json(result.rows[0].data);
 
     } catch (err) {
@@ -742,9 +695,9 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             FROM characters c 
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
-            WHERE c.id = $1 AND c.user_id = $2
+            WHERE c.user_id = $1 
             FOR UPDATE OF c
-        `, [req.user.characterId, req.user.id]);
+        `, [req.user!.id]);
         
         let character: PlayerCharacter = charRes.rows[0].data;
         const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
@@ -793,7 +746,7 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
 
         character.learnedSkills.push(skillId);
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -815,7 +768,7 @@ router.post('/character/upgrade-camp', authenticateToken, async (req: any, res: 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
         const character: PlayerCharacter = charRes.rows[0].data;
         
@@ -840,7 +793,7 @@ router.post('/character/upgrade-camp', authenticateToken, async (req: any, res: 
         for (const e of cost.essences) character.resources[e.type] -= e.amount;
         character.camp.level += 1;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -854,7 +807,7 @@ router.post('/character/upgrade-chest', authenticateToken, async (req: any, res:
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
         const character: PlayerCharacter = charRes.rows[0].data;
         
@@ -876,7 +829,7 @@ router.post('/character/upgrade-chest', authenticateToken, async (req: any, res:
         for (const e of cost.essences) character.resources[e.type] -= e.amount;
         character.chest.level += 1;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -890,7 +843,7 @@ router.post('/character/upgrade-backpack', authenticateToken, async (req: any, r
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
         const character: PlayerCharacter = charRes.rows[0].data;
         
@@ -915,7 +868,7 @@ router.post('/character/upgrade-backpack', authenticateToken, async (req: any, r
         for (const e of cost.essences) character.resources[e.type] -= e.amount;
         character.backpack = { level: currentLevel + 1 };
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -935,9 +888,9 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
             FROM characters c 
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
-            WHERE c.id = $1 AND c.user_id = $2
+            WHERE c.user_id = $1 
             FOR UPDATE OF c
-        `, [req.user.characterId, req.user.id]);
+        `, [req.user!.id]);
         
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -955,7 +908,7 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
         character.stats.currentHealth = derivedChar.stats.maxHealth;
         character.stats.currentMana = derivedChar.stats.maxMana;
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
         res.json(character);
@@ -973,7 +926,7 @@ router.post('/character/accept-quest', authenticateToken, async (req: any, res: 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
 
         if (!character.acceptedQuests) character.acceptedQuests = [];
@@ -1007,7 +960,7 @@ router.post('/character/accept-quest', authenticateToken, async (req: any, res: 
             character.questProgress.push({ questId, progress: 0, completions: 0 });
         }
         
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
@@ -1025,7 +978,7 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.user.characterId, req.user.id]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
         let character: PlayerCharacter = charRes.rows[0].data;
         
         if (!Array.isArray(character.questProgress)) {
@@ -1133,7 +1086,7 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             character.experienceToNextLevel = Math.floor(100 * Math.pow(character.level, 1.3));
         }
 
-        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [character, req.user.characterId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {

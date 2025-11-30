@@ -51,7 +51,6 @@ router.post('/login', async (req: any, res: any) => {
         }
 
         const token = randomBytes(64).toString('hex');
-        // Note: active_character_id defaults to NULL on login, forcing selection
         await pool.query(
             'INSERT INTO sessions (token, user_id) VALUES ($1, $2)',
             [token, user.id]
@@ -61,40 +60,6 @@ router.post('/login', async (req: any, res: any) => {
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ message: 'Login failed.' });
-    }
-});
-
-// POST /api/auth/select-character
-router.post('/select-character', authenticateToken, async (req: any, res: any) => {
-    const { characterId } = req.body;
-    const userId = req.user.id;
-
-    if (!characterId) {
-        return res.status(400).json({ message: 'Character ID is required' });
-    }
-
-    try {
-        // Verify ownership
-        const charRes = await pool.query(
-            'SELECT 1 FROM characters WHERE id = $1 AND user_id = $2',
-            [characterId, userId]
-        );
-
-        if (charRes.rows.length === 0) {
-            return res.status(403).json({ message: 'Character does not belong to this user' });
-        }
-
-        // Update session with active_character_id
-        const token = req.headers['authorization'].split(' ')[1];
-        await pool.query(
-            'UPDATE sessions SET active_character_id = $1 WHERE token = $2',
-            [characterId, token]
-        );
-
-        res.sendStatus(200);
-    } catch (err) {
-        console.error('Select character error:', err);
-        res.status(500).json({ message: 'Failed to select character' });
     }
 });
 
