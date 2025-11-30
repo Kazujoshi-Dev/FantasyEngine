@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType } from '../types';
@@ -124,10 +123,16 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         );
     }
     
+    const windowBackground = gameData?.settings?.windowBackgroundUrl 
+        ? `url(${gameData.settings.windowBackgroundUrl})` 
+        : undefined;
 
     return (
         <LanguageContext.Provider value={{ lang: Language.PL, t }}>
-            <div className="bg-gray-900">
+            <div 
+                className="bg-gray-900"
+                style={{ "--window-bg": windowBackground } as React.CSSProperties}
+            >
                 <ExpeditionSummaryModal {...modalProps} />
             </div>
         </LanguageContext.Provider>

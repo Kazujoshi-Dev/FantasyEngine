@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GameSettings, ItemRarity, Tab, Language, TraderSettings } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -181,6 +182,24 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ settings: propSettings, 
                              <img src={settings.logoUrl} alt="Podgląd logo" className="max-h-16 object-contain" />
                         </div>
                     )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tekstura Okien (URL)</label>
+                    <input
+                        type="text"
+                        name="windowBackgroundUrl"
+                        value={settings.windowBackgroundUrl || ''}
+                        onChange={handleSettingsChange}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/texture.jpg"
+                    />
+                    {settings.windowBackgroundUrl && (
+                        <div 
+                            className="mt-2 w-full h-16 rounded-md border border-slate-600 bg-center bg-cover"
+                            style={{ backgroundImage: `url(${settings.windowBackgroundUrl})` }}
+                        ></div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Tekstura używana jako tło dla paneli i kart postaci.</p>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Tło Ekranu Logowania (URL)</label>

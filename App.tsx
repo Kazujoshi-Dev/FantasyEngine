@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -1047,9 +1044,16 @@ const MainApp: React.FC = () => {
         ? { backgroundImage: `url(${gameData.settings.gameBackground})` } 
         : { backgroundImage: `url('/bg_pattern.png')` };
 
+    const windowBackground = gameData?.settings?.windowBackgroundUrl 
+        ? `url(${gameData.settings.windowBackgroundUrl})` 
+        : undefined;
+
     return (
         <LanguageContext.Provider value={{ lang: character.settings?.language || Language.PL, t }}>
-            <div className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans">
+            <div 
+                className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans"
+                style={{ "--window-bg": windowBackground } as React.CSSProperties}
+            >
                 <Sidebar 
                     activeTab={activeTab} 
                     setActiveTab={setActiveTab} 

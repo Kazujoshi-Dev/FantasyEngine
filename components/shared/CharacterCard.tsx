@@ -59,9 +59,15 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
             <div 
                 className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-lg w-full relative overflow-hidden" 
                 onClick={e => e.stopPropagation()}
+                style={{ 
+                    backgroundImage: 'var(--window-bg)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundBlendMode: 'overlay'
+                }}
             >
                 {/* Header / Avatar */}
-                <div className="flex flex-col items-center mb-6">
+                <div className="flex flex-col items-center mb-6 relative z-10">
                     <div className="w-24 h-24 rounded-full border-4 border-slate-600 bg-slate-900 overflow-hidden shadow-lg mb-4">
                         {profile.avatarUrl ? (
                             <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
@@ -79,7 +85,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
 
                 {/* Guild Info */}
                 {profile.guildName && (
-                    <div className="bg-slate-900/50 rounded-lg p-3 mb-6 text-center border border-indigo-900/30">
+                    <div className="bg-slate-900/50 rounded-lg p-3 mb-6 text-center border border-indigo-900/30 relative z-10">
                         <p className="text-sm text-gray-400 uppercase tracking-widest text-[10px] mb-1">{t('sidebar.guild')}</p>
                         <p className="text-amber-400 font-bold text-lg">
                             <span className="text-white mr-2">[{profile.guildTag}]</span>
@@ -89,7 +95,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
                 )}
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
                     <div className="bg-slate-700/30 p-3 rounded-lg flex flex-col items-center">
                         <div className="flex items-center text-sky-400 mb-1">
                             <StarIcon className="h-4 w-4 mr-1" />
@@ -110,7 +116,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
 
                 {/* Description */}
                 {profile.description && (
-                    <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 mb-6">
+                    <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 mb-6 relative z-10">
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">{t('options.profile.description')}</h4>
                         <p className="text-sm text-gray-300 italic whitespace-pre-line leading-relaxed">
                             "{profile.description}"
@@ -120,7 +126,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
 
                 <button 
                     onClick={onClose}
-                    className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors"
+                    className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors relative z-10"
                 >
                     Zamknij
                 </button>
