@@ -41,6 +41,10 @@ const MainApp: React.FC = () => {
     const [expeditionReport, setExpeditionReport] = useState<{ summary: ExpeditionRewardSummary; messageId: number; } | null>(null);
     const [traderInventory, setTraderInventory] = useState<{ regularItems: ItemInstance[], specialOfferItems: ItemInstance[] }>({ regularItems: [], specialOfferItems: [] });
     
+    // Tavern Notification State
+    const [lastSeenTavernMsgId, setLastSeenTavernMsgId] = useState<number>(0);
+    const [hasNewTavernMessages, setHasNewTavernMessages] = useState(false);
+
     // Ranking State
     const [ranking, setRanking] = useState<RankingPlayer[]>([]);
     const [isRankingLoading, setIsRankingLoading] = useState(false);
@@ -55,6 +59,8 @@ const MainApp: React.FC = () => {
     // Refs
     const isCompletingExpeditionRef = useRef(false);
     const isLoadingRef = useRef(false); 
+    // Ref to track active tab inside intervals/callbacks without dependency loops
+    const activeTabRef = useRef<Tab>(Tab.Statistics);
 
     const t = getT(character?.settings?.language || Language.PL);
 
@@ -69,6 +75,18 @@ const MainApp: React.FC = () => {
         setLoadingError(null);
         // window.location.reload(); // Disabled to prevent refresh loops
     };
+
+    // Update ref when activeTab changes
+    useEffect(() => {
+        activeTabRef.current = activeTab;
+        
+        // Clear tavern notification if we switch to tavern
+        if (activeTab === Tab.Tavern && tavernMessages.length > 0) {
+            const latestId = tavernMessages[tavernMessages.length - 1].id;
+            setLastSeenTavernMsgId(latestId);
+            setHasNewTavernMessages(false);
+        }
+    }, [activeTab, tavernMessages]);
 
     // Loading Timer Effect
     useEffect(() => {
@@ -233,6 +251,32 @@ const MainApp: React.FC = () => {
             const data = await api.getTavernMessages();
             setTavernMessages(data.messages);
             setActiveUsers(data.activeUsers);
+
+            // Handle Notifications
+            if (data.messages.length > 0) {
+                const latestMsg = data.messages[data.messages.length - 1];
+                const latestId = latestMsg.id;
+
+                setLastSeenTavernMsgId(prevLastSeen => {
+                    // Initial load or first fetch
+                    if (prevLastSeen === 0) {
+                        return latestId;
+                    }
+                    
+                    // If we are currently in Tavern, update seen ID
+                    if (activeTabRef.current === Tab.Tavern) {
+                        return latestId;
+                    } 
+                    
+                    // If we are NOT in Tavern and there is a newer message
+                    if (latestId > prevLastSeen) {
+                        setHasNewTavernMessages(true);
+                        return prevLastSeen; // Keep old seen ID until user visits
+                    }
+
+                    return prevLastSeen;
+                });
+            }
         } catch (e) {
             console.error("Failed to fetch tavern data", e);
         }
@@ -251,13 +295,16 @@ const MainApp: React.FC = () => {
              api.getUsers().then(setUsers).catch(console.error);
              api.getAllCharacters().then(setAllCharacters).catch(console.error);
         }
+    }, [activeTab, fetchRanking, fetchTraderInventory]);
+
+    // Independent polling for Tavern messages to enable notifications even when tab is closed
+    useEffect(() => {
+        if (!token) return;
         
-        if (activeTab === Tab.Tavern) {
-             fetchTavernData();
-             const tavernInterval = setInterval(fetchTavernData, 5000);
-             return () => clearInterval(tavernInterval);
-        }
-    }, [activeTab, fetchRanking, fetchTraderInventory, fetchTavernData]);
+        fetchTavernData(); // Initial fetch
+        const tavernInterval = setInterval(fetchTavernData, 5000);
+        return () => clearInterval(tavernInterval);
+    }, [token, fetchTavernData]);
 
     // --- Global Expedition Watcher ---
     const handleExpeditionCompletion = useCallback(async () => {
@@ -1055,7 +1102,7 @@ const MainApp: React.FC = () => {
                     currentLocation={currentLocation}
                     onLogout={handleLogout}
                     hasUnreadMessages={false} // TODO: Implement check
-                    hasNewTavernMessages={false} // TODO: Implement check
+                    hasNewTavernMessages={hasNewTavernMessages}
                     onOpenNews={() => setIsNewsOpen(true)}
                     hasNewNews={hasNewNews}
                     settings={gameData.settings}
