@@ -324,6 +324,26 @@ const CombatLogRow: React.FC<{
         );
     }
     
+    if (log.action === 'orc_fury') {
+        const text = t('expedition.orcFuryLog').replace('{attacker}', '');
+        return (
+             <p className="text-sm text-red-500 font-bold italic animate-pulse">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.attacker)} {text}
+            </p>
+        );
+    }
+
+    if (log.action === 'berserker_frenzy') {
+        const text = t('expedition.berserkerFrenzyLog').replace('{attacker}', '');
+        return (
+             <p className="text-sm text-orange-500 font-bold italic animate-pulse">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.attacker)} {text}
+            </p>
+        );
+    }
+    
     if (log.action === 'notEnoughMana') {
          return (
              <p className="text-sm text-amber-400 italic">

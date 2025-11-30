@@ -325,6 +325,8 @@ export default {
         earthquakeLog: '{attacker} wywołuje trzęsienie ziemi!',
         lowHealthWarning: 'Twoje zdrowie jest poniżej 15%. Czy na pewno chcesz wyruszyć? Ryzyko porażki jest wysokie.',
         forMana: '(za {amount} many)',
+        orcFuryLog: '{attacker} czuje zapach krwi i wpada w furię! (Obrażenia +25%)',
+        berserkerFrenzyLog: '{attacker} ignoruje ból i wyprowadza dodatkowy cios!',
         combatLog: {
             effect: {
                 applied: '{defender} zostaje {effect}!',
@@ -341,6 +343,33 @@ export default {
                 meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'
             }
+        }
+    },
+    hunting: {
+        title: 'Polowanie',
+        statusLabel: 'Status',
+        startsIn: 'Start za',
+        leave: 'Opuść grupę',
+        disband: 'Rozwiąż grupę',
+        leaveConfirm: 'Czy na pewno chcesz opuścić grupę?',
+        chooseBoss: 'Wybierz Bossa',
+        partySize: 'Rozmiar Grupy',
+        create: 'Utwórz Grupę',
+        availableParties: 'Dostępne Grupy',
+        noParties: 'Brak dostępnych grup. Utwórz własną!',
+        join: 'Dołącz',
+        emptySlot: 'Wolne miejsce',
+        members: 'Członkowie Drużyny',
+        status: {
+            FORMING: 'Formowanie',
+            PREPARING: 'Przygotowanie',
+            FIGHTING: 'Walka',
+            FINISHED: 'Zakończone'
+        },
+        memberStatus: {
+            LEADER: 'Lider',
+            MEMBER: 'Członek',
+            PENDING: 'Oczekujący'
         }
     },
     camp: {
@@ -772,6 +801,13 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         EmpoweredStrikesDesc: 'Boss do końca walki otrzymuje +15% szansy na trafienie krytyczne.',
         Earthquake: 'Trzęsienie Ziemi',
         EarthquakeDesc: 'Każdy gracz traci 20% swojego maksymalnego zdrowia.'
+    },
+    bossShouts: {
+        Stun: 'Poczuj potęgę mojego ogłuszenia!',
+        ArmorPierce: 'Twój pancerz jest niczym papier!',
+        DeathTouch: 'Twoja dusza należy teraz do mnie!',
+        EmpoweredStrikes: 'Moje ciosy staną się miażdżące!',
+        Earthquake: 'Ziemia zadrży przed moją potęgą!'
     },
     admin: {
         title: 'Panel Admina',

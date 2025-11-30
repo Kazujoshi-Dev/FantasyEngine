@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 import { spellRegistry } from './spells/registry.js';
@@ -199,6 +198,13 @@ export const performAttack = <
 
     if (attackerIsPlayer && attacker.data?.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
         damage = Math.floor(damage * 1.25);
+        logs.push({
+            turn, 
+            attacker: attacker.name, 
+            defender: defender.name, 
+            action: 'orc_fury',
+            ...getHealthState(attacker, defender)
+        });
     }
     if (defenderIsPlayer && defender.data?.race === Race.Dwarf && defender.currentHealth < defender.stats.maxHealth * 0.5) {
         const reduction = Math.floor(damage * 0.20);

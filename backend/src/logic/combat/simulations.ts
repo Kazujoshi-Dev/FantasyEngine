@@ -186,6 +186,26 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                         playerState = defenderState as typeof playerState;
                     }
                 }
+
+                // --- Berserker Bonus Attack (Player Only) ---
+                if (isPlayerAttacking && defender.currentHealth > 0) {
+                    const pAttacker = attacker as typeof playerState;
+                    if (pAttacker.data.characterClass === CharacterClass.Berserker && pAttacker.currentHealth < pAttacker.stats.maxHealth * 0.3) {
+                        log.push({
+                            turn, attacker: attacker.name, defender: defender.name, action: 'berserker_frenzy',
+                            ...getHealthState(playerState, enemyState)
+                        });
+                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(pAttacker, defender, turn, gameData, []);
+                        log.push(...bonusLogs);
+                        if (playerAttacksFirst) {
+                            playerState = attackerState as typeof playerState;
+                            enemyState = defenderState as typeof enemyState;
+                        } else {
+                            enemyState = attackerState as typeof enemyState; // Should typically not happen in 1v1 unless mechanics change
+                            playerState = defenderState as typeof playerState;
+                        }
+                    }
+                }
             }
         }
         
@@ -208,6 +228,26 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                     } else {
                         playerState = attackerState as typeof playerState;
                         enemyState = defenderState as typeof enemyState;
+                    }
+                }
+
+                // --- Berserker Bonus Attack (Player as Defender/Second Attacker) ---
+                if (isPlayerDefending && attacker.currentHealth > 0) {
+                    const pDefender = defender as typeof playerState;
+                    if (pDefender.data.characterClass === CharacterClass.Berserker && pDefender.currentHealth < pDefender.stats.maxHealth * 0.3) {
+                        log.push({
+                            turn, attacker: defender.name, defender: attacker.name, action: 'berserker_frenzy',
+                            ...getHealthState(playerState, enemyState)
+                        });
+                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(pDefender, attacker, turn, gameData, []);
+                        log.push(...bonusLogs);
+                        if (playerAttacksFirst) {
+                            enemyState = defenderState as typeof enemyState;
+                            playerState = attackerState as typeof playerState;
+                        } else {
+                            playerState = attackerState as typeof playerState;
+                            enemyState = defenderState as typeof enemyState;
+                        }
                     }
                 }
             }
@@ -509,6 +549,27 @@ export const simulate1vManyCombat = (
                                 aoeDamage: chainDamageDetails,
                                 ...getHealthState() 
                             });
+                        }
+                    }
+                }
+
+                // --- Berserker Bonus Attack (Player vs Many) ---
+                if (playerData.characterClass === CharacterClass.Berserker && playerState.currentHealth < playerState.stats.maxHealth * 0.3) {
+                    const targetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
+                    if (targetIndex !== -1) {
+                        const target = enemiesState[targetIndex];
+                        log.push({
+                            turn, attacker: playerState.name, defender: target.name, action: 'berserker_frenzy',
+                            ...getHealthState()
+                        });
+                        const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState);
+                        
+                        playerState = attackerState as typeof playerState;
+                        enemiesState[targetIndex] = defenderState as typeof target;
+                        log.push(...bonusLogs.map(l => ({...l, ...getHealthState()})));
+
+                        if (defenderState.currentHealth <= 0) {
+                            log.push({ turn, attacker: playerState.name, defender: defenderState.name, action: 'enemy_death', ...getHealthState() });
                         }
                     }
                 }
@@ -829,6 +890,10 @@ export const simulateTeamVsBossCombat = (
                 }
                 
                 if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3 && bossState.currentHealth > 0) {
+                     log.push({
+                        turn, attacker: player.data.name, defender: bossState.name, action: 'berserker_frenzy',
+                        ...getHealthStateForLog()
+                     });
                      const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
                      playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
                      bossState = { ...bossState, ...defenderState };
