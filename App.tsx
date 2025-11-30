@@ -788,28 +788,13 @@ const MainApp: React.FC = () => {
                     enemies={gameData.enemies} 
                     currentLocation={currentLocation!} 
                     onStartExpedition={async (expId) => {
-                        const expedition = gameData.expeditions.find(e => e.id === expId);
-                        if (!expedition) return;
-
-                        if ((character.resources?.gold || 0) < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost) {
-                            alert(t('expedition.lackResources'));
-                            return;
+                        try {
+                            // Call the new safe API endpoint
+                            const updatedChar = await api.startExpedition(expId);
+                            setCharacter(updatedChar);
+                        } catch(e: any) {
+                            alert(e.message || t('error.title'));
                         }
-
-                        const updatedChar: PlayerCharacter = { 
-                            ...character,
-                            resources: { ...character.resources, gold: (character.resources?.gold || 0) - expedition.goldCost } as any,
-                            stats: { ...character.stats, currentEnergy: character.stats.currentEnergy - expedition.energyCost },
-                            activeExpedition: {
-                                expeditionId: expId,
-                                finishTime: Date.now() + expedition.duration * 1000,
-                                enemies: [], // Populated on completion
-                                combatLog: [],
-                                rewards: { gold: 0, experience: 0 }
-                            }
-                        };
-                        
-                        await handleCharacterUpdate(updatedChar, true);
                     }}
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}

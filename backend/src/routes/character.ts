@@ -2,7 +2,7 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile, EquipmentSlot, CharacterStats } from '../types.js';
+import { PlayerCharacter, CharacterClass, GameData, ItemReward, ResourceReward, QuestType, CharacterResources, ItemInstance, PlayerQuestProgress, LootDrop, Skill, SkillRequirements, SkillCost, ExpeditionRewardSummary, PublicCharacterProfile, EquipmentSlot, CharacterStats, Expedition } from '../types.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -177,6 +177,82 @@ router.get('/character/profile/:name', authenticateToken, async (req: any, res: 
     } catch (e: any) {
         console.error(e);
         res.status(500).json({ message: 'Failed to fetch profile' });
+    }
+});
+
+router.post('/character/start-expedition', authenticateToken, async (req: any, res: any) => {
+    const { expeditionId } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Fetch Character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        // 2. Validations
+        if (character.activeExpedition) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Character is already on an expedition.' });
+        }
+        if (character.activeTravel) {
+             await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Character is travelling.' });
+        }
+        if (character.isResting) {
+             await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Character is resting.' });
+        }
+
+        // 3. Fetch Expedition Data
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
+        const expeditions: Expedition[] = gameDataRes.rows[0]?.data || [];
+        const expedition = expeditions.find(e => e.id === expeditionId);
+
+        if (!expedition) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Expedition not found.' });
+        }
+
+        // 4. Check Resources
+        if ((character.resources?.gold || 0) < expedition.goldCost) {
+             await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold.' });
+        }
+        if (character.stats.currentEnergy < expedition.energyCost) {
+             await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough energy.' });
+        }
+
+        // 5. Deduct Resources & Set State
+        character.resources.gold = (Number(character.resources.gold) || 0) - expedition.goldCost;
+        character.stats.currentEnergy -= expedition.energyCost;
+        
+        character.activeExpedition = {
+            expeditionId: expedition.id,
+            finishTime: Date.now() + expedition.duration * 1000,
+            enemies: [], // Populated on completion
+            combatLog: [],
+            rewards: { gold: 0, experience: 0 }
+        };
+
+        // 6. Save
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('Error starting expedition:', err);
+        res.status(500).json({ message: 'Failed to start expedition.' });
+    } finally {
+        client.release();
     }
 });
 

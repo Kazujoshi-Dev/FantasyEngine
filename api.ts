@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile } from './types';
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile, Language } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -130,6 +130,13 @@ export const api = {
 
     async getCharacterProfile(name: string): Promise<PublicCharacterProfile> {
         return fetchApi(`/character/profile/${encodeURIComponent(name)}`);
+    },
+
+    async startExpedition(expeditionId: string): Promise<PlayerCharacter> {
+        return fetchApi('/character/start-expedition', {
+            method: 'POST',
+            body: JSON.stringify({ expeditionId }),
+        });
     },
 
     async completeExpedition(): Promise<{ updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, messageId: number }> {
