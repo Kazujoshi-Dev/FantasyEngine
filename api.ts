@@ -1,4 +1,5 @@
-import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile } from './types';
+
+import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, Language, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile } from './types';
 
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
@@ -515,6 +516,10 @@ export const api = {
 
     async getGuildList(): Promise<any[]> {
         return fetchApi('/guilds/list');
+    },
+
+    async getGuildProfile(guildId: number): Promise<PublicGuildProfile> {
+        return fetchApi(`/guilds/profile/${guildId}`);
     },
 
     async createGuild(name: string, tag: string, description: string): Promise<void> {

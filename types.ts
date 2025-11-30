@@ -728,6 +728,7 @@ export interface PlayerCharacter {
   description?: string;
   avatarUrl?: string;
   rentalTax?: number;
+  windowBackgroundUrl?: string;
 }
 
 export interface TraderSettings {
@@ -753,9 +754,9 @@ export interface GameSettings {
     };
     loginBackground?: string;
     gameBackground?: string;
-    sidebarBackgroundUrl?: string; // Tło menu bocznego
+    sidebarBackgroundUrl?: string;
     logoUrl?: string;
-    windowBackgroundUrl?: string; // Nowe pole dla tekstury okien
+    windowBackgroundUrl?: string;
     newsContent?: string;
     newsLastUpdatedAt?: number;
     sidebarOrder?: Tab[];
@@ -915,4 +916,18 @@ export interface PublicCharacterProfile {
     guildTag?: string;
     description?: string;
     avatarUrl?: string;
+}
+
+export interface PublicGuildProfile {
+    name: string;
+    tag: string;
+    leaderName: string;
+    description: string;
+    crestUrl?: string;
+    memberCount: number;
+    maxMembers: number;
+    totalLevel: number;
+    createdAt: string;
+    isPublic: boolean;
+    minLevel: number;
 }

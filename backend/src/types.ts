@@ -914,3 +914,17 @@ export interface PublicCharacterProfile {
     description?: string;
     avatarUrl?: string;
 }
+
+export interface PublicGuildProfile {
+    name: string;
+    tag: string;
+    leaderName: string;
+    description: string;
+    crestUrl?: string;
+    memberCount: number;
+    maxMembers: number;
+    totalLevel: number;
+    createdAt: string;
+    isPublic: boolean;
+    minLevel: number;
+}

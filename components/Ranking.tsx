@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry } from '../types';
@@ -13,6 +11,7 @@ import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { api } from '../api';
 import { CharacterCard } from './shared/CharacterCard';
+import { GuildCard } from './shared/GuildCard';
 
 interface RankingProps {
   ranking: RankingPlayer[];
@@ -57,8 +56,9 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
   
-  // State for Character Card Modal
+  // State for Cards
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
+  const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
 
   useEffect(() => {
       if (activeTab === 'GUILDS') {
@@ -88,6 +88,13 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
           <CharacterCard 
             characterName={viewingProfileName} 
             onClose={() => setViewingProfileName(null)} 
+          />
+      )}
+      
+      {viewingGuildId && (
+          <GuildCard 
+            guildId={viewingGuildId} 
+            onClose={() => setViewingGuildId(null)} 
           />
       )}
       
@@ -233,8 +240,13 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
                         {index + 1}
                         </td>
                         <td className="p-4 font-medium text-white">
-                            <span className="text-amber-400 font-mono mr-2">[{guild.tag}]</span>
-                            {guild.name}
+                            <span 
+                                className="cursor-pointer hover:text-indigo-400 hover:underline flex items-center"
+                                onClick={() => setViewingGuildId(guild.id)}
+                            >
+                                <span className="text-amber-400 font-mono mr-2">[{guild.tag}]</span>
+                                {guild.name}
+                            </span>
                         </td>
                         <td className="p-4 text-center text-gray-300">
                             {guild.memberCount}

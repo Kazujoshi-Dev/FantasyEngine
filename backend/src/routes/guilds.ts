@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix, PublicGuildProfile } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { canManage, getBuildingCost } from '../logic/guilds.js';
 
@@ -119,6 +119,47 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch guild info' });
+    }
+});
+
+// GET /api/guilds/profile/:id - Get public guild profile
+router.get('/profile/:id', authenticateToken, async (req: any, res: any) => {
+    const guildId = req.params.id;
+    try {
+        const result = await pool.query(`
+            SELECT 
+                g.name, g.tag, g.description, g.crest_url, g.created_at, g.is_public, g.min_level, g.max_members,
+                c.data->>'name' as leader_name,
+                (SELECT COUNT(*) FROM guild_members WHERE guild_id = g.id) as member_count,
+                (SELECT SUM((c2.data->>'level')::int) FROM guild_members gm2 JOIN characters c2 ON gm2.user_id = c2.user_id WHERE gm2.guild_id = g.id) as total_level
+            FROM guilds g
+            JOIN characters c ON g.leader_id = c.user_id
+            WHERE g.id = $1
+        `, [guildId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Guild not found' });
+        }
+
+        const row = result.rows[0];
+        const profile: PublicGuildProfile = {
+            name: row.name,
+            tag: row.tag,
+            leaderName: row.leader_name,
+            description: row.description,
+            crestUrl: row.crest_url,
+            memberCount: parseInt(row.member_count),
+            maxMembers: row.max_members,
+            totalLevel: parseInt(row.total_level) || 0,
+            createdAt: row.created_at,
+            isPublic: row.is_public,
+            minLevel: row.min_level
+        };
+
+        res.json(profile);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch guild profile' });
     }
 });
 
