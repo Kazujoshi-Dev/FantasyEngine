@@ -1,44 +1,92 @@
 
 import React, { useState } from 'react';
-import { GameData, AdminCharacterInfo } from '../../../types';
+import { AdminCharacterInfo, PlayerCharacter, GameData } from '../../../types';
+import { useTranslation } from '../../../contexts/LanguageContext';
 import { CharacterInspectorModal } from '../editors/CharacterInspectorModal';
 
 interface UsersTabProps {
-    allCharacters: any[];
-    gameData: GameData;
-    onHealCharacter: (id: number) => Promise<void>;
-    onResetCharacterStats: (id: number) => Promise<void>;
-    onResetCharacterProgress: (id: number) => Promise<void>;
-    onDeleteCharacter: (id: number) => Promise<void>;
-    onUpdateCharacterGold: (id: number, gold: number) => Promise<void>;
-    onRegenerateCharacterEnergy: (id: number) => Promise<void>;
-    onChangeUserPassword: (id: number, pass: string) => Promise<void>;
+  allCharacters: AdminCharacterInfo[];
+  gameData: GameData;
+  onHealCharacter: (userId: number) => void;
+  onResetCharacterStats: (userId: number) => void;
+  onDeleteCharacter: (userId: number) => void;
+  onUpdateCharacterGold: (userId: number, gold: number) => Promise<void>;
+  onRegenerateCharacterEnergy: (userId: number) => Promise<void>;
+  onChangeUserPassword: (userId: number, newPassword: string) => Promise<void>;
+  onInspectCharacter: (userId: number) => Promise<PlayerCharacter>;
+  onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
 export const UsersTab: React.FC<UsersTabProps> = (props) => {
-    const [inspectingChar, setInspectingChar] = useState<AdminCharacterInfo | null>(null);
+  const { t } = useTranslation();
+  const [inspectingChar, setInspectingChar] = useState<AdminCharacterInfo | null>(null);
 
-    // Mocking onInspectCharacter since it wasn't in props but is used in snippet
-    const onInspectCharacter = (char: any) => setInspectingChar(char);
+  const validCharacters = Array.isArray(props.allCharacters)
+    ? props.allCharacters.filter(char => char && typeof char === 'object' && char.user_id != null)
+    : [];
 
-    return (
-        <div>
-            <h3>Users Tab</h3>
-            {/* ... other UI ... */}
-            {inspectingChar && (
-                <CharacterInspectorModal 
-                  characterInfo={inspectingChar}
-                  gameData={props.gameData}
-                  onClose={() => setInspectingChar(null)}
-                  onHealCharacter={props.onHealCharacter}
-                  onRegenerateCharacterEnergy={props.onRegenerateCharacterEnergy}
-                  onResetCharacterStats={props.onResetCharacterStats}
-                  onResetCharacterProgress={props.onResetCharacterProgress}
-                  onDeleteCharacter={props.onDeleteCharacter}
-                  onChangeUserPassword={props.onChangeUserPassword}
-                  onInspectCharacter={onInspectCharacter}
-                />
-            )}
-        </div>
-    );
+  const renderText = (val: any) => {
+      if (typeof val === 'string' || typeof val === 'number') return val;
+      return 'N/A';
+  };
+
+  return (
+    <>
+      {inspectingChar && (
+        <CharacterInspectorModal 
+          characterInfo={inspectingChar}
+          gameData={props.gameData}
+          onClose={() => setInspectingChar(null)}
+          onHealCharacter={props.onHealCharacter}
+          onRegenerateCharacterEnergy={props.onRegenerateCharacterEnergy}
+          onResetCharacterStats={props.onResetCharacterStats}
+          onDeleteCharacter={props.onDeleteCharacter}
+          onChangeUserPassword={props.onChangeUserPassword}
+          onInspectCharacter={props.onInspectCharacter}
+          onDeleteCharacterItem={props.onDeleteCharacterItem}
+          onUpdateCharacterGold={props.onUpdateCharacterGold}
+        />
+      )}
+      <div className="animate-fade-in">
+        <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.manageCharacters')}</h3>
+        {validCharacters.length === 0 ? (
+          <p className="text-gray-500">{t('admin.noCharacters')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider">
+                <tr>
+                  <th className="p-3">ID</th>
+                  <th className="p-3">{t('admin.owner')}</th>
+                  <th className="p-3">{t('admin.general.name')}</th>
+                  <th className="p-3">{t('statistics.level')}</th>
+                  <th className="p-3">{t('resources.gold')}</th>
+                  <th className="p-3 text-right">Akcje</th>
+                </tr>
+              </thead>
+              <tbody>
+                {validCharacters.map(char => (
+                  <tr key={char.user_id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
+                    <td className="p-3">{char.user_id}</td>
+                    <td className="p-3">{renderText(char.username)}</td>
+                    <td className="p-3 font-semibold">{renderText(char.name)}</td>
+                    <td className="p-3">{char.level ?? 0}</td>
+                    <td className="p-3 font-mono">{(char.gold ?? 0).toLocaleString()}</td>
+                    <td className="p-3 text-right">
+                      <button 
+                        onClick={() => setInspectingChar(char)}
+                        className="px-3 py-1 text-xs rounded bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Zarządzaj
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
 };
