@@ -47,10 +47,34 @@ declare global {
 
 const app = express();
 const httpServer = createServer(app);
+
+// --- CORS Configuration ---
+// Define allowed origins. In production, this should be specific domains.
+// Example in .env: ALLOWED_ORIGINS=https://mygame.com,https://admin.mygame.com
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',') 
+    : ['*']; // Default to permissive if not set (dev mode)
+
+const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes('*') || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+};
+
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // Allow all origins for simplicity in this setup, secure in prod
-        methods: ["GET", "POST"]
+        origin: allowedOrigins.includes('*') ? "*" : allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -60,7 +84,7 @@ app.use((req: any, res, next) => {
     next();
 });
 
-app.use(cors() as any);
+app.use(cors(corsOptions) as any);
 app.use(express.json({ limit: '10mb' }) as any);
 
 // ===================================================================================
