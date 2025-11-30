@@ -40,7 +40,7 @@ const __dirname = path.dirname(__filename);
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number };
+      user?: { id: number; characterId?: number };
     }
   }
 }
@@ -118,13 +118,12 @@ app.use('/api', characterRoutes);
 io.on('connection', (socket) => {
     // Join guild room
     socket.on('join_guild', async (guildId: number, token: string) => {
-        // Basic validation: check if token user belongs to guildId
-        // For simplicity, we trust the client sends correct room, but in prod verify token -> user -> guild
         try {
-            const res = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
-            if(res.rows.length > 0) {
-                const userId = res.rows[0].user_id;
-                const memberRes = await pool.query('SELECT 1 FROM guild_members WHERE user_id = $1 AND guild_id = $2', [userId, guildId]);
+            const res = await pool.query('SELECT active_character_id FROM sessions WHERE token = $1', [token]);
+            if(res.rows.length > 0 && res.rows[0].active_character_id) {
+                const characterId = res.rows[0].active_character_id;
+                // Check membership using character_id
+                const memberRes = await pool.query('SELECT 1 FROM guild_members WHERE character_id = $1 AND guild_id = $2', [characterId, guildId]);
                 if (memberRes.rows.length > 0) {
                     socket.join(`guild_${guildId}`);
                 }
@@ -137,17 +136,18 @@ io.on('connection', (socket) => {
     socket.on('send_guild_message', async (data: { guildId: number, content: string, token: string }) => {
         try {
             const { guildId, content, token } = data;
-            const res = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
-            if(res.rows.length === 0) return;
-            const userId = res.rows[0].user_id;
+            const res = await pool.query('SELECT active_character_id FROM sessions WHERE token = $1', [token]);
+            if(res.rows.length === 0 || !res.rows[0].active_character_id) return;
+            
+            const characterId = res.rows[0].active_character_id;
 
-            // Verify membership & Get Character Name
+            // Verify membership & Get Character Name using character_id
             const charRes = await pool.query(`
                 SELECT c.data->>'name' as name, gm.role 
                 FROM characters c 
-                JOIN guild_members gm ON c.user_id = gm.user_id 
-                WHERE c.user_id = $1 AND gm.guild_id = $2
-            `, [userId, guildId]);
+                JOIN guild_members gm ON c.id = gm.character_id 
+                WHERE c.id = $1 AND gm.guild_id = $2
+            `, [characterId, guildId]);
 
             if (charRes.rows.length === 0) return;
 
@@ -155,14 +155,14 @@ io.on('connection', (socket) => {
 
             // Insert into DB
             const insertRes = await pool.query(`
-                INSERT INTO guild_chat (guild_id, user_id, content) 
+                INSERT INTO guild_chat (guild_id, character_id, content) 
                 VALUES ($1, $2, $3) 
                 RETURNING id, created_at
-            `, [guildId, userId, content]);
+            `, [guildId, characterId, content]);
 
             const msg = {
                 id: insertRes.rows[0].id,
-                userId,
+                characterId,
                 characterName: name,
                 role: role as GuildRole,
                 content,

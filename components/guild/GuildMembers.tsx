@@ -77,7 +77,7 @@ export const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | unde
                         </thead>
                         <tbody>
                             {members.map(m => (
-                                <tr key={m.userId} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                <tr key={m.characterId} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                                     <td className="p-2 font-medium text-white flex items-center gap-2">
                                         <span className={`w-2 h-2 rounded-full ${m.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={m.isOnline ? 'Online' : 'Offline'}></span>
                                         {m.name}
@@ -89,11 +89,11 @@ export const GuildMembers: React.FC<{ guild: GuildType, myRole: GuildRole | unde
                                     <td className="p-2 text-gray-300">{t(`race.${m.race}`)}</td>
                                     <td className="p-2 text-gray-300">{m.characterClass ? t(`class.${m.characterClass}`) : '-'}</td>
                                     <td className="p-2 text-right">
-                                        {canManage && m.userId !== guild.leaderId && rolePriority[effectiveRole] > rolePriority[m.role] && (
+                                        {canManage && m.characterId !== guild.leaderId && rolePriority[effectiveRole] > rolePriority[m.role] && (
                                             <div className="flex gap-1 justify-end">
-                                                <button onClick={() => handleAction(m.userId, 'promote')} className="px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded text-xs" title="Awansuj">▲</button>
-                                                <button onClick={() => handleAction(m.userId, 'demote')} className="px-2 py-1 bg-orange-700 hover:bg-orange-600 rounded text-xs" title="Degraduj">▼</button>
-                                                <button onClick={() => handleAction(m.userId, 'kick')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs" title="Wyrzuć">✕</button>
+                                                <button onClick={() => handleAction(m.characterId, 'promote')} className="px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded text-xs" title="Awansuj">▲</button>
+                                                <button onClick={() => handleAction(m.characterId, 'demote')} className="px-2 py-1 bg-orange-700 hover:bg-orange-600 rounded text-xs" title="Degraduj">▼</button>
+                                                <button onClick={() => handleAction(m.characterId, 'kick')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs" title="Wyrzuć">✕</button>
                                             </div>
                                         )}
                                     </td>

@@ -74,10 +74,10 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
         }
     };
 
-    const handleRecall = async (targetUserId: number, itemUniqueId: string) => {
+    const handleRecall = async (targetCharacterId: number, itemUniqueId: string) => {
         if (!confirm('Czy na pewno chcesz wymusić zwrot przedmiotu do zbrojowni?')) return;
         try {
-            await api.recallFromMember(targetUserId, itemUniqueId);
+            await api.recallFromMember(targetCharacterId, itemUniqueId);
             const armory = await api.getGuildArmory();
             setArmoryData(armory);
         } catch (e: any) {
@@ -234,7 +234,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                                 {entry.depositedAt ? new Date(entry.depositedAt).toLocaleString() : '-'}
                                             </td>
                                             <td className="p-2 text-right">
-                                                <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
+                                                <button onClick={() => handleRecall(entry.characterId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
                                                     Wymuś Zwrot
                                                 </button>
                                             </td>

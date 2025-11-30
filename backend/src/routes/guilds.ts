@@ -8,13 +8,25 @@ import { canManage, getBuildingCost } from '../logic/guilds.js';
 
 const router = express.Router();
 
-// GET /api/guilds/my-guild - Get current user's guild data with detailed members
+// Middleware to ensure character is selected
+const requireCharacter = (req: any, res: any, next: any) => {
+    if (!req.user || !req.user.characterId) {
+        return res.status(400).json({ message: 'No character selected.' });
+    }
+    next();
+};
+
+router.use(requireCharacter);
+
+// GET /api/guilds/my-guild - Get current CHARACTER'S guild data
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
     try {
-        // Get user's guild membership
+        const characterId = req.user.characterId;
+
+        // Get character's guild membership
         const membershipRes = await pool.query(
-            `SELECT guild_id, role FROM guild_members WHERE user_id = $1`,
-            [req.user.id]
+            `SELECT guild_id, role FROM guild_members WHERE character_id = $1`,
+            [characterId]
         );
 
         if (membershipRes.rows.length === 0) {
@@ -28,12 +40,12 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         const guildRes = await pool.query(`SELECT * FROM guilds WHERE id = $1`, [guildId]);
         const guildData = guildRes.rows[0];
 
-        // Fetch Members with Character Info
+        // Fetch Members
         const membersRes = await pool.query(`
-            SELECT gm.user_id, gm.role, gm.joined_at, c.data->>'name' as name, c.data->>'level' as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
-            EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
+            SELECT gm.character_id, gm.role, gm.joined_at, c.data->>'name' as name, c.data->>'level' as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
+            EXISTS (SELECT 1 FROM sessions s WHERE s.active_character_id = gm.character_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
             FROM guild_members gm
-            JOIN characters c ON gm.user_id = c.user_id
+            JOIN characters c ON gm.character_id = c.id
             WHERE gm.guild_id = $1
             ORDER BY 
                 CASE gm.role WHEN 'LEADER' THEN 1 WHEN 'OFFICER' THEN 2 WHEN 'MEMBER' THEN 3 ELSE 4 END ASC,
@@ -41,7 +53,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         `, [guildId]);
 
         const members: GuildMember[] = membersRes.rows.map(row => ({
-            userId: row.user_id,
+            characterId: row.character_id,
             role: row.role,
             joinedAt: row.joined_at,
             name: row.name,
@@ -55,14 +67,14 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         const historyRes = await pool.query(`
             SELECT gbh.*, c.data->>'name' as character_name
             FROM guild_bank_history gbh
-            LEFT JOIN characters c ON gbh.user_id = c.user_id
+            LEFT JOIN characters c ON gbh.character_id = c.id
             WHERE gbh.guild_id = $1
             ORDER BY gbh.created_at DESC LIMIT 100
         `, [guildId]);
 
         const transactions: GuildTransaction[] = historyRes.rows.map(row => ({
             id: row.id,
-            userId: row.user_id,
+            characterId: row.character_id,
             characterName: row.character_name || 'Unknown',
             type: row.type,
             currency: row.currency,
@@ -74,22 +86,21 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         const chatRes = await pool.query(`
             SELECT gc.*, c.data->>'name' as name, gm.role
             FROM guild_chat gc
-            JOIN characters c ON gc.user_id = c.user_id
-            JOIN guild_members gm ON gc.user_id = gm.user_id AND gm.guild_id = gc.guild_id
+            JOIN characters c ON gc.character_id = c.id
+            JOIN guild_members gm ON gc.character_id = gm.character_id AND gm.guild_id = gc.guild_id
             WHERE gc.guild_id = $1
             ORDER BY gc.created_at ASC LIMIT 50
         `, [guildId]);
         
         const chatHistory = chatRes.rows.map(row => ({
             id: row.id,
-            userId: row.user_id,
+            characterId: row.character_id,
             characterName: row.name,
             role: row.role,
             content: row.content,
             timestamp: row.created_at
         }));
 
-        // Robust merging of buildings to ensure new types (like scoutHouse) are present even if DB JSON is old
         const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 };
         const mergedBuildings = { ...defaultBuildings, ...(guildData.buildings || {}) };
 
@@ -97,7 +108,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             id: guildData.id,
             name: guildData.name,
             tag: guildData.tag,
-            leaderId: guildData.leader_id,
+            leaderId: guildData.leader_id, // Now refers to character_id
             description: guildData.description,
             crestUrl: guildData.crest_url,
             resources: guildData.resources,
@@ -131,9 +142,9 @@ router.get('/profile/:id', authenticateToken, async (req: any, res: any) => {
                 g.name, g.tag, g.description, g.crest_url, g.created_at, g.is_public, g.min_level, g.max_members,
                 c.data->>'name' as leader_name,
                 (SELECT COUNT(*) FROM guild_members WHERE guild_id = g.id) as member_count,
-                (SELECT SUM((c2.data->>'level')::int) FROM guild_members gm2 JOIN characters c2 ON gm2.user_id = c2.user_id WHERE gm2.guild_id = g.id) as total_level
+                (SELECT SUM((c2.data->>'level')::int) FROM guild_members gm2 JOIN characters c2 ON gm2.character_id = c2.id WHERE gm2.guild_id = g.id) as total_level
             FROM guilds g
-            JOIN characters c ON g.leader_id = c.user_id
+            JOIN characters c ON g.leader_id = c.id
             WHERE g.id = $1
         `, [guildId]);
 
@@ -166,7 +177,8 @@ router.get('/profile/:id', authenticateToken, async (req: any, res: any) => {
 // GET /api/guilds/armory - Get items in guild armory
 router.get('/armory', authenticateToken, async (req: any, res: any) => {
     try {
-        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        const characterId = req.user.characterId;
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         const guildId = memberRes.rows[0].guild_id;
 
@@ -174,7 +186,7 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
         const itemsRes = await pool.query(`
             SELECT gai.*, c.data->>'name' as owner_name 
             FROM guild_armory_items gai
-            JOIN characters c ON gai.owner_id = c.user_id
+            JOIN characters c ON gai.owner_id = c.id
             WHERE gai.guild_id = $1
         `, [guildId]);
 
@@ -187,13 +199,13 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
         }));
 
         // Fetch borrowed items (scan all guild members characters)
-        const guildMembersRes = await pool.query('SELECT user_id FROM guild_members WHERE guild_id = $1', [guildId]);
-        const userIds = guildMembersRes.rows.map(r => r.user_id);
+        const guildMembersRes = await pool.query('SELECT character_id FROM guild_members WHERE guild_id = $1', [guildId]);
+        const characterIds = guildMembersRes.rows.map(r => r.character_id);
         
         const borrowedItems: GuildArmoryItem[] = [];
         
-        if (userIds.length > 0) {
-            const charsRes = await pool.query(`SELECT user_id, data FROM characters WHERE user_id = ANY($1)`, [userIds]);
+        if (characterIds.length > 0) {
+            const charsRes = await pool.query(`SELECT id, data FROM characters WHERE id = ANY($1)`, [characterIds]);
             
             charsRes.rows.forEach(row => {
                 const char: PlayerCharacter = row.data;
@@ -207,9 +219,9 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
                             item: item,
                             ownerId: item.originalOwnerId!,
                             ownerName: item.originalOwnerName || 'Unknown',
-                            depositedAt: item.borrowedAt ? new Date(item.borrowedAt).toISOString() : '', // Map borrowedAt to depositedAt for display
+                            depositedAt: item.borrowedAt ? new Date(item.borrowedAt).toISOString() : '', 
                             borrowedBy: borrowerName,
-                            userId: row.user_id
+                            characterId: row.id // ID of the character holding the item
                         });
                     }
                 };
@@ -230,6 +242,7 @@ router.get('/armory', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/armory/deposit
 router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => {
     const { itemId } = req.body;
+    const characterId = req.user.characterId;
     const userId = req.user.id;
     
     const client = await pool.connect();
@@ -237,7 +250,7 @@ router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => 
         await client.query('BEGIN');
         
         // Verify guild
-        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) throw new Error('Not in guild');
         const guildId = memberRes.rows[0].guild_id;
 
@@ -253,7 +266,7 @@ router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => 
         }
 
         // Lock character
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [characterId, userId]);
         const char: PlayerCharacter = charRes.rows[0].data;
 
         // Find item in inventory
@@ -265,12 +278,12 @@ router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => 
 
         // Remove from inventory
         char.inventory.splice(itemIndex, 1);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [char, characterId]);
 
         // Add to armory
         await client.query(
             `INSERT INTO guild_armory_items (guild_id, owner_id, item_data) VALUES ($1, $2, $3)`,
-            [guildId, userId, JSON.stringify(item)]
+            [guildId, characterId, JSON.stringify(item)]
         );
 
         await client.query('COMMIT');
@@ -287,6 +300,7 @@ router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => 
 // POST /api/guilds/armory/borrow
 router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
     const { armoryId } = req.body;
+    const characterId = req.user.characterId;
     const userId = req.user.id;
 
     const client = await pool.connect();
@@ -294,7 +308,7 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         await client.query('BEGIN');
 
         // Verify guild
-        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) throw new Error('Not in guild');
         const guildId = memberRes.rows[0].guild_id;
 
@@ -307,7 +321,7 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         const originalOwnerId = armoryEntry.owner_id;
 
         // Get character
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [characterId, userId]);
         const char: PlayerCharacter = charRes.rows[0].data;
 
         // Check backpack space
@@ -341,7 +355,7 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         if (char.resources.gold < tax) throw new Error(`Not enough gold for tax (${tax})`);
 
         // Get owner name for metadata
-        const ownerRes = await client.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [originalOwnerId]);
+        const ownerRes = await client.query("SELECT data->>'name' as name FROM characters WHERE id = $1", [originalOwnerId]);
         const ownerName = ownerRes.rows[0]?.name || 'Unknown';
 
         // Modify item
@@ -355,14 +369,15 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         char.resources.gold -= tax;
         char.inventory.push(item);
         
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [char, characterId]);
         await client.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
         
         // Add tax to guild bank
         resources.gold += tax;
         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [resources, guildId]);
         
-        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'RENTAL', 'gold', $3)`, [guildId, userId, tax]);
+        // Note: We log transaction with character_id now
+        await client.query(`INSERT INTO guild_bank_history (guild_id, character_id, type, currency, amount) VALUES ($1, $2, 'RENTAL', 'gold', $3)`, [guildId, characterId, tax]);
 
         await client.query('COMMIT');
         res.json({ message: 'Item borrowed', taxPaid: tax });
@@ -377,22 +392,23 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/armory/recall
 router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
-    const { targetUserId, itemUniqueId } = req.body;
-    const requesterId = req.user.id;
+    const { targetCharacterId, itemUniqueId } = req.body;
+    const requesterCharacterId = req.user.characterId;
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
         // Check requester role
-        const requesterRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [requesterId]);
+        const requesterRes = await client.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [requesterCharacterId]);
         if (requesterRes.rows.length === 0) throw new Error('Not in guild');
         const { guild_id, role } = requesterRes.rows[0];
 
         // Check target character
-        const targetRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [targetUserId]);
+        const targetRes = await client.query('SELECT data, user_id FROM characters WHERE id = $1 FOR UPDATE', [targetCharacterId]);
         if (targetRes.rows.length === 0) throw new Error('Target not found');
         const targetChar: PlayerCharacter = targetRes.rows[0].data;
+        const targetUserId = targetRes.rows[0].user_id;
 
         // Find item on target
         let itemIndex = -1;
@@ -419,7 +435,7 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
         if (!item.isBorrowed || item.borrowedFromGuildId !== guild_id) throw new Error('Item is not borrowed from this guild');
 
         // Verify permissions: Must be owner OR Leader/Officer
-        if (item.originalOwnerId !== requesterId && !canManage(role)) {
+        if (item.originalOwnerId !== requesterCharacterId && !canManage(role)) {
             throw new Error('No permission to recall this item');
         }
 
@@ -429,7 +445,7 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
         } else {
             (targetChar.equipment as any)[location] = null;
         }
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [targetChar, targetUserId]);
+        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [targetChar, targetCharacterId]);
 
         // Clean item data
         delete item.isBorrowed;
@@ -459,11 +475,11 @@ router.post('/armory/recall', authenticateToken, async (req: any, res: any) => {
 // DELETE /api/guilds/armory/:id
 router.delete('/armory/:id', authenticateToken, async (req: any, res: any) => {
     const armoryId = req.params.id;
-    const userId = req.user.id;
+    const characterId = req.user.characterId;
 
     try {
         // Verify guild and role
-        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         
         const { guild_id, role } = memberRes.rows[0];
@@ -493,7 +509,7 @@ router.get('/list', authenticateToken, async (req: any, res: any) => {
         const result = await pool.query(`
             SELECT g.id, g.name, g.tag, g.max_members, g.min_level, c.data->>'name' as leader_name
             FROM guilds g
-            JOIN characters c ON g.leader_id = c.user_id
+            JOIN characters c ON g.leader_id = c.id
             WHERE g.is_public = TRUE
             LIMIT 20
         `);
@@ -514,6 +530,7 @@ router.get('/list', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/create
 router.post('/create', authenticateToken, async (req: any, res: any) => {
     const { name, tag, description } = req.body;
+    const characterId = req.user.characterId;
     const userId = req.user.id;
     const COST = 1000;
 
@@ -524,33 +541,33 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
 
-        // Check if user is already in guild
-        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
-        if (memberCheck.rows.length > 0) return res.status(400).json({ message: 'You are already in a guild' });
+        // Check if character is already in guild
+        const memberCheck = await client.query('SELECT 1 FROM guild_members WHERE character_id = $1', [characterId]);
+        if (memberCheck.rows.length > 0) return res.status(400).json({ message: 'This character is already in a guild' });
 
         // Check Gold
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 AND user_id = $2 FOR UPDATE', [characterId, userId]);
         const char: PlayerCharacter = charRes.rows[0].data;
         if (char.resources.gold < COST) return res.status(400).json({ message: 'Not enough gold' });
 
         // Deduct Gold
         char.resources.gold -= COST;
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [char, characterId]);
 
-        // Create Guild with full default buildings, explicitly including scoutHouse
+        // Create Guild (leader_id is now character_id)
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]
+            [name, tag, characterId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]
         );
         const guildId = createRes.rows[0].id;
 
         // Add Member as Leader
         await client.query(
-            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'LEADER')`,
-            [guildId, userId]
+            `INSERT INTO guild_members (guild_id, character_id, role, user_id) VALUES ($1, $2, 'LEADER', $3)`,
+            [guildId, characterId, userId]
         );
         
-        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
+        await client.query('UPDATE characters SET guild_id = $1 WHERE id = $2', [guildId, characterId]);
 
         await client.query('COMMIT');
         res.status(201).json({ message: 'Guild created', guildId });
@@ -567,11 +584,11 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/update - Update description and crest
 router.post('/update', authenticateToken, async (req: any, res: any) => {
     const { description, crestUrl, minLevel, isPublic, rentalTax } = req.body;
-    const userId = req.user.id;
+    const characterId = req.user.characterId;
 
     try {
         // Check permissions (Only Leader)
-        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         
         const { guild_id, role } = memberRes.rows[0];
@@ -622,26 +639,28 @@ router.post('/update', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/invite
 router.post('/invite', authenticateToken, async (req: any, res: any) => {
     const { characterName } = req.body;
-    const userId = req.user.id;
+    const characterId = req.user.characterId;
 
     try {
         // Check permissions
-        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (senderRes.rows.length === 0 || !canManage(senderRes.rows[0].role)) {
             return res.status(403).json({ message: 'No permission' });
         }
         const guildId = senderRes.rows[0].guild_id;
 
-        // Find recipient
-        const targetRes = await pool.query("SELECT user_id FROM characters WHERE data->>'name' = $1", [characterName]);
+        // Find recipient character
+        const targetRes = await pool.query("SELECT id, user_id FROM characters WHERE data->>'name' = $1", [characterName]);
         if (targetRes.rows.length === 0) return res.status(404).json({ message: 'Player not found' });
-        const targetId = targetRes.rows[0].user_id;
+        
+        const targetCharacterId = targetRes.rows[0].id;
+        const targetUserId = targetRes.rows[0].user_id; // Recipient of message (User)
 
-        // Check if target is in guild
-        const inGuildCheck = await pool.query('SELECT 1 FROM guild_members WHERE user_id = $1', [targetId]);
+        // Check if target char is in guild
+        const inGuildCheck = await pool.query('SELECT 1 FROM guild_members WHERE character_id = $1', [targetCharacterId]);
         if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'Player is already in a guild' });
 
-        // Send Message Invite
+        // Send Message Invite (To User, but payload contains character context if needed later)
         const guildRes = await pool.query('SELECT name FROM guilds WHERE id = $1', [guildId]);
         const guildName = guildRes.rows[0].name;
 
@@ -650,7 +669,7 @@ router.post('/invite', authenticateToken, async (req: any, res: any) => {
         await pool.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
              VALUES ($1, $2, 'guild_invite', $3, $4)`,
-            [targetId, 'System', `Zaproszenie do gildii: ${guildName}`, JSON.stringify(inviteBody)]
+            [targetUserId, 'System', `Zaproszenie do gildii: ${guildName}`, JSON.stringify(inviteBody)]
         );
 
         res.json({ message: 'Invite sent' });
@@ -664,6 +683,7 @@ router.post('/invite', authenticateToken, async (req: any, res: any) => {
 router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
     const { messageId } = req.body;
     const userId = req.user.id;
+    const characterId = req.user.characterId; // Ensure active character joins
 
     const client = await pool.connect();
     try {
@@ -681,9 +701,9 @@ router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
         const body = msgRes.rows[0].body as GuildInviteBody;
         if (!body.guildId) return res.status(400).json({ message: 'Invalid invite' });
 
-        // 2. Check if user is already in a guild
-        const inGuildCheck = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
-        if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'You are already in a guild' });
+        // 2. Check if CURRENT character is already in a guild
+        const inGuildCheck = await client.query('SELECT 1 FROM guild_members WHERE character_id = $1', [characterId]);
+        if (inGuildCheck.rows.length > 0) return res.status(400).json({ message: 'This character is already in a guild' });
 
         // 3. Check guild capacity
         const guildRes = await client.query('SELECT max_members, (SELECT COUNT(*) FROM guild_members WHERE guild_id = $1) as count FROM guilds WHERE id = $1 FOR UPDATE', [body.guildId]);
@@ -696,10 +716,10 @@ router.post('/accept-invite', authenticateToken, async (req: any, res: any) => {
 
         // 4. Add member
         await client.query(
-            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'MEMBER')`,
-            [body.guildId, userId]
+            `INSERT INTO guild_members (guild_id, character_id, role, user_id) VALUES ($1, $2, 'MEMBER', $3)`,
+            [body.guildId, characterId, userId]
         );
-        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [body.guildId, userId]);
+        await client.query('UPDATE characters SET guild_id = $1 WHERE id = $2', [body.guildId, characterId]);
 
         // 5. Delete Message
         await client.query('DELETE FROM messages WHERE id = $1', [messageId]);
@@ -735,6 +755,7 @@ router.post('/reject-invite', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/join/:guildId
 router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
     const guildId = parseInt(req.params.guildId);
+    const characterId = req.user.characterId;
     const userId = req.user.id;
 
     const client = await pool.connect();
@@ -742,7 +763,7 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
         await client.query('BEGIN');
 
         // Check if already in guild
-        const inGuild = await client.query('SELECT 1 FROM guild_members WHERE user_id = $1', [userId]);
+        const inGuild = await client.query('SELECT 1 FROM guild_members WHERE character_id = $1', [characterId]);
         if (inGuild.rows.length > 0) return res.status(400).json({ message: 'Already in a guild' });
 
         // Check guild capacity and restrictions
@@ -762,7 +783,7 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
         }
 
         // Check level requirement
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE id = $1', [characterId]);
         const charLevel = charRes.rows[0].data.level || 1;
         
         if (charLevel < guildInfo.min_level) {
@@ -771,10 +792,10 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
         }
 
         await client.query(
-            `INSERT INTO guild_members (guild_id, user_id, role) VALUES ($1, $2, 'RECRUIT')`,
-            [guildId, userId]
+            `INSERT INTO guild_members (guild_id, character_id, role, user_id) VALUES ($1, $2, 'RECRUIT', $3)`,
+            [guildId, characterId, userId]
         );
-        await client.query('UPDATE characters SET guild_id = $1 WHERE user_id = $2', [guildId, userId]);
+        await client.query('UPDATE characters SET guild_id = $1 WHERE id = $2', [guildId, characterId]);
 
         await client.query('COMMIT');
         res.json({ message: 'Joined guild' });
@@ -789,9 +810,9 @@ router.post('/join/:guildId', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/leave
 router.post('/leave', authenticateToken, async (req: any, res: any) => {
-    const userId = req.user.id;
+    const characterId = req.user.characterId;
     try {
-        const memRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const memRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (memRes.rows.length === 0) return res.status(400).json({ message: 'Not in a guild' });
         
         if (memRes.rows[0].role === GuildRole.LEADER) {
@@ -802,13 +823,13 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
             } else {
                 // Delete guild
                 await pool.query('DELETE FROM guilds WHERE id = $1', [memRes.rows[0].guild_id]);
-                await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [userId]);
+                await pool.query('UPDATE characters SET guild_id = NULL WHERE id = $1', [characterId]);
                 return res.json({ message: 'Guild disbanded' });
             }
         }
 
-        await pool.query('DELETE FROM guild_members WHERE user_id = $1', [userId]);
-        await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM guild_members WHERE character_id = $1', [characterId]);
+        await pool.query('UPDATE characters SET guild_id = NULL WHERE id = $1', [characterId]);
         res.json({ message: 'Left guild' });
 
     } catch (err) {
@@ -818,18 +839,23 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/manage-member
 router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
-    const { targetUserId, action } = req.body; // action: 'kick' | 'promote' | 'demote'
-    const userId = req.user.id;
+    const { targetUserId: targetCharacterId, action } = req.body; // action: 'kick' | 'promote' | 'demote'
+    // Note: Frontend sends targetCharacterId in `targetUserId` field or we need to adjust frontend. 
+    // Assuming frontend sends the `userId` from member list, but `GuildMember` struct now has `characterId`.
+    // Let's assume the frontend sends the ID that was in the member list object, which we mapped to `characterId` in GET /my-guild.
+    // So `targetUserId` in payload is actually `targetCharacterId`.
+    
+    const characterId = req.user.characterId;
 
     try {
         // Auth check
-        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const senderRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (senderRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         
         const guildId = senderRes.rows[0].guild_id;
         const senderRole = senderRes.rows[0].role;
 
-        const targetRes = await pool.query('SELECT role FROM guild_members WHERE user_id = $1 AND guild_id = $2', [targetUserId, guildId]);
+        const targetRes = await pool.query('SELECT role FROM guild_members WHERE character_id = $1 AND guild_id = $2', [targetCharacterId, guildId]);
         if (targetRes.rows.length === 0) return res.status(404).json({ message: 'Target not in guild' });
         const targetRole = targetRes.rows[0].role;
 
@@ -841,25 +867,26 @@ router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
         }
 
         if (action === 'kick') {
-            await pool.query('DELETE FROM guild_members WHERE user_id = $1', [targetUserId]);
-            await pool.query('UPDATE characters SET guild_id = NULL WHERE user_id = $1', [targetUserId]);
+            await pool.query('DELETE FROM guild_members WHERE character_id = $1', [targetCharacterId]);
+            await pool.query('UPDATE characters SET guild_id = NULL WHERE id = $1', [targetCharacterId]);
         } else if (action === 'promote') {
             if (targetRole === GuildRole.RECRUIT) {
-                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE user_id = $1", [targetUserId]);
+                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE character_id = $1", [targetCharacterId]);
             } else if (targetRole === GuildRole.MEMBER && senderRole === GuildRole.LEADER) {
-                await pool.query("UPDATE guild_members SET role = 'OFFICER' WHERE user_id = $1", [targetUserId]);
+                await pool.query("UPDATE guild_members SET role = 'OFFICER' WHERE character_id = $1", [targetCharacterId]);
             }
         } else if (action === 'demote') {
              if (targetRole === GuildRole.MEMBER) {
-                await pool.query("UPDATE guild_members SET role = 'RECRUIT' WHERE user_id = $1", [targetUserId]);
+                await pool.query("UPDATE guild_members SET role = 'RECRUIT' WHERE character_id = $1", [targetCharacterId]);
             } else if (targetRole === GuildRole.OFFICER && senderRole === GuildRole.LEADER) {
-                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE user_id = $1", [targetUserId]);
+                await pool.query("UPDATE guild_members SET role = 'MEMBER' WHERE character_id = $1", [targetCharacterId]);
             }
         }
 
         res.sendStatus(200);
 
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Action failed' });
     }
 });
@@ -867,6 +894,7 @@ router.post('/manage-member', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/bank
 router.post('/bank', authenticateToken, async (req: any, res: any) => {
     const { type, currency, amount } = req.body; // type: 'DEPOSIT' (WITHDRAW disabled)
+    const characterId = req.user.characterId;
     const userId = req.user.id;
     const amountInt = parseInt(amount);
 
@@ -882,12 +910,12 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
         await client.query('BEGIN');
 
         // Check user
-        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         const { guild_id } = memberRes.rows[0];
 
         // Lock Character and Guild
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE id = $1 FOR UPDATE', [characterId]);
         let char: PlayerCharacter = charRes.rows[0].data;
         
         const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
@@ -906,13 +934,13 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
         }
 
         // Save Updates
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        await client.query('UPDATE characters SET data = $1 WHERE id = $2', [char, characterId]);
         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [guildResources, guild_id]);
 
         // Log Transaction
         await client.query(
-            `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, $3, $4, $5)`,
-            [guild_id, userId, type, currency, amountInt]
+            `INSERT INTO guild_bank_history (guild_id, character_id, type, currency, amount, user_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [guild_id, characterId, type, currency, amountInt, userId]
         );
 
         await client.query('COMMIT');
@@ -930,7 +958,7 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
     const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse'
-    const userId = req.user.id;
+    const characterId = req.user.characterId;
 
     if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse') return res.status(400).json({ message: 'Invalid building type' });
 
@@ -939,7 +967,7 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         await client.query('BEGIN');
 
         // Check user role
-        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE character_id = $1', [characterId]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
         const { guild_id, role } = memberRes.rows[0];
 

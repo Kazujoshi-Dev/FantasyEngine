@@ -40,7 +40,6 @@ export const initializeDatabase = async () => {
         `);
         
         // --- MIGRATION: ALLOW MULTIPLE CHARACTERS ---
-        // Drop the UNIQUE constraint on user_id if it exists to allow multiple characters per user
         await client.query(`
             ALTER TABLE characters DROP CONSTRAINT IF EXISTS characters_user_id_key;
         `);
@@ -232,56 +231,48 @@ export const initializeDatabase = async () => {
             );
         `);
 
-        // --- Guild System Tables ---
+        // --- Guild System Tables Migration ---
+        // Check if we are using the old schema (user_id driven)
+        const guildMembersCheck = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guild_members' AND column_name='user_id';
+        `);
+        
+        if (guildMembersCheck.rowCount && guildMembersCheck.rowCount > 0) {
+             console.log("MIGRATING SCHEMA: Converting Guilds from User-based to Character-based. Dropping old tables...");
+             await client.query('DROP TABLE IF EXISTS guild_armory_items CASCADE');
+             await client.query('DROP TABLE IF EXISTS guild_chat CASCADE');
+             await client.query('DROP TABLE IF EXISTS guild_bank_history CASCADE');
+             await client.query('DROP TABLE IF EXISTS guild_invites CASCADE');
+             await client.query('DROP TABLE IF EXISTS guild_members CASCADE');
+             await client.query('DROP TABLE IF EXISTS guilds CASCADE');
+        }
+
         await client.query(`
             CREATE TABLE IF NOT EXISTS guilds (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(50) UNIQUE NOT NULL,
                 tag VARCHAR(5) UNIQUE NOT NULL,
-                leader_id INT NOT NULL REFERENCES users(id),
+                leader_id INT NOT NULL REFERENCES characters(id) ON DELETE SET NULL,
                 description TEXT DEFAULT '',
                 resources JSONB DEFAULT '{"gold": 0, "commonEssence": 0, "uncommonEssence": 0, "rareEssence": 0, "epicEssence": 0, "legendaryEssence": 0}',
                 max_members INT DEFAULT 10,
                 is_public BOOLEAN DEFAULT FALSE,
                 min_level INT DEFAULT 1,
+                buildings JSONB DEFAULT '{"headquarters": 0}',
+                crest_url TEXT,
+                rental_tax INT DEFAULT 10,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
-        
-        const hasBuildingsColumn = await client.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name='guilds' AND column_name='buildings';
-        `);
-        if (!hasBuildingsColumn.rowCount) {
-             console.log("MIGRATING SCHEMA: Adding 'buildings' column to 'guilds' table...");
-             await client.query(`ALTER TABLE guilds ADD COLUMN buildings JSONB DEFAULT '{"headquarters": 0}';`);
-        }
-        
-        const hasCrestUrlColumn = await client.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name='guilds' AND column_name='crest_url';
-        `);
-        if (!hasCrestUrlColumn.rowCount) {
-             console.log("MIGRATING SCHEMA: Adding 'crest_url' column to 'guilds' table...");
-             await client.query(`ALTER TABLE guilds ADD COLUMN crest_url TEXT;`);
-        }
-        
-        const hasRentalTaxColumn = await client.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name='guilds' AND column_name='rental_tax';
-        `);
-        if (!hasRentalTaxColumn.rowCount) {
-             console.log("MIGRATING SCHEMA: Adding 'rental_tax' column to 'guilds' table...");
-             await client.query(`ALTER TABLE guilds ADD COLUMN rental_tax INT DEFAULT 10;`);
-        }
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS guild_members (
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                character_id INT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
                 role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                 joined_at TIMESTAMPTZ DEFAULT NOW(),
-                PRIMARY KEY (guild_id, user_id)
+                PRIMARY KEY (guild_id, character_id)
             );
         `);
 
@@ -289,8 +280,8 @@ export const initializeDatabase = async () => {
             CREATE TABLE IF NOT EXISTS guild_invites (
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-                recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                sender_id INT REFERENCES users(id) ON DELETE SET NULL,
+                recipient_id INT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                sender_id INT REFERENCES characters(id) ON DELETE SET NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
@@ -299,7 +290,7 @@ export const initializeDatabase = async () => {
             CREATE TABLE IF NOT EXISTS guild_bank_history (
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-                user_id INT NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+                character_id INT NOT NULL REFERENCES characters(id) ON DELETE SET NULL,
                 type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW, RENTAL
                 currency VARCHAR(50) NOT NULL,
                 amount INT NOT NULL,
@@ -311,7 +302,7 @@ export const initializeDatabase = async () => {
             CREATE TABLE IF NOT EXISTS guild_chat (
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                character_id INT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
                 content TEXT NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
@@ -321,7 +312,7 @@ export const initializeDatabase = async () => {
             CREATE TABLE IF NOT EXISTS guild_armory_items (
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-                owner_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                owner_id INT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
                 item_data JSONB NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );

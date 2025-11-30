@@ -708,10 +708,10 @@ export const api = {
         });
     },
 
-    async recallFromMember(targetUserId: number, itemUniqueId: string): Promise<void> {
+    async recallFromMember(targetCharacterId: number, itemUniqueId: string): Promise<void> {
         return fetchApi('/guilds/armory/recall', {
             method: 'POST',
-            body: JSON.stringify({ targetUserId, itemUniqueId })
+            body: JSON.stringify({ targetCharacterId, itemUniqueId })
         });
     },
 
