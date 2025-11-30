@@ -6,11 +6,22 @@ import { useTranslation } from '../../contexts/LanguageContext';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { UsersIcon } from '../icons/UsersIcon';
 import { StarIcon } from '../icons/StarIcon';
+import { FormattedText } from '../guild/GuildSettings';
 
 interface GuildCardProps {
     guildId: number;
     onClose: () => void;
 }
+
+const getImageUrl = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
+    const uploadsIndex = url.indexOf('uploads/');
+    if (uploadsIndex > -1) {
+        return `/api/${url.substring(uploadsIndex)}`;
+    }
+    return url;
+};
 
 export const GuildCard: React.FC<GuildCardProps> = ({ guildId, onClose }) => {
     const { t } = useTranslation();
@@ -54,6 +65,8 @@ export const GuildCard: React.FC<GuildCardProps> = ({ guildId, onClose }) => {
         );
     }
 
+    const crestSrc = getImageUrl(profile.crestUrl);
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
             <div 
@@ -69,8 +82,8 @@ export const GuildCard: React.FC<GuildCardProps> = ({ guildId, onClose }) => {
                 {/* Header / Crest */}
                 <div className="flex flex-col items-center mb-6 relative z-10">
                     <div className="w-32 h-32 mb-4">
-                        {profile.crestUrl ? (
-                            <img src={profile.crestUrl} alt={profile.name} className="w-full h-full object-contain drop-shadow-xl" />
+                        {crestSrc ? (
+                            <img src={crestSrc} alt={profile.name} className="w-full h-full object-contain drop-shadow-xl" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-600">
                                 <ShieldIcon className="h-full w-full opacity-30" />
@@ -117,13 +130,10 @@ export const GuildCard: React.FC<GuildCardProps> = ({ guildId, onClose }) => {
 
                 {/* Description */}
                 {profile.description && (
-                    <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 mb-6 relative z-10 max-h-40 overflow-y-auto">
+                    <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 mb-6 relative z-10 max-h-60 overflow-y-auto">
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">{t('guild.description')}</h4>
-                        <div className="text-sm text-gray-300 italic whitespace-pre-line leading-relaxed">
-                            {/* Simple text rendering for now, mimicking FormattedText behavior slightly */}
-                            {profile.description.split('\n').map((line, i) => (
-                                <span key={i}>{line}<br/></span>
-                            ))}
+                        <div className="text-sm">
+                            <FormattedText text={profile.description} />
                         </div>
                     </div>
                 )}
