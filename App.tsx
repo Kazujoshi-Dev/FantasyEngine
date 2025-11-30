@@ -225,6 +225,16 @@ const MainApp: React.FC = () => {
         }
     }, [fetchTraderInventory]);
 
+    const fetchTavernData = useCallback(async () => {
+        try {
+            const data = await api.getTavernMessages();
+            setTavernMessages(data.messages);
+            setActiveUsers(data.activeUsers);
+        } catch (e) {
+            console.error("Failed to fetch tavern data", e);
+        }
+    }, []);
+
     useEffect(() => {
         if (activeTab === Tab.Ranking) {
             fetchRanking();
@@ -240,20 +250,11 @@ const MainApp: React.FC = () => {
         }
         
         if (activeTab === Tab.Tavern) {
-             api.getTavernMessages().then(data => {
-                 setTavernMessages(data.messages);
-                 setActiveUsers(data.activeUsers);
-             }).catch(console.error);
-             
-             const tavernInterval = setInterval(() => {
-                 api.getTavernMessages().then(data => {
-                     setTavernMessages(data.messages);
-                     setActiveUsers(data.activeUsers);
-                 }).catch(console.error);
-             }, 5000);
+             fetchTavernData();
+             const tavernInterval = setInterval(fetchTavernData, 5000);
              return () => clearInterval(tavernInterval);
         }
-    }, [activeTab, fetchRanking, fetchTraderInventory]);
+    }, [activeTab, fetchRanking, fetchTraderInventory, fetchTavernData]);
 
     // --- Global Expedition Watcher ---
     const handleExpeditionCompletion = useCallback(async () => {
@@ -977,7 +978,10 @@ const MainApp: React.FC = () => {
                     character={character}
                     messages={tavernMessages}
                     activeUsers={activeUsers}
-                    onSendMessage={async (content) => { await api.sendTavernMessage(content); }}
+                    onSendMessage={async (content) => { 
+                        await api.sendTavernMessage(content); 
+                        fetchTavernData();
+                    }}
                 />;
             case Tab.Options:
                 return <Options character={character} onCharacterUpdate={handleCharacterUpdate} />;
