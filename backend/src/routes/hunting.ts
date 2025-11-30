@@ -1,6 +1,3 @@
-
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -251,6 +248,37 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
         res.sendStatus(200);
     } catch (err) {
         res.status(500).json({ message: 'Failed to update member status' });
+    }
+});
+
+// POST /api/hunting/start - Leader manually starts if full (e.g. for solo)
+router.post('/start', authenticateToken, async (req: any, res: any) => {
+    try {
+        const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'You are not a leader of any party.' });
+        
+        const party = partyRes.rows[0];
+        
+        // Validation: Must be FORMING and Full
+        if (party.status !== 'FORMING') return res.status(400).json({ message: 'Party is not in forming state.' });
+        
+        const members = party.members as any[];
+        const acceptedCount = members.filter(m => m.status !== PartyMemberStatus.Pending).length;
+        
+        if (acceptedCount < party.max_members) {
+            return res.status(400).json({ message: 'Party is not full yet.' });
+        }
+
+        const newStatus = 'PREPARING';
+        const startTime = new Date().toISOString();
+
+        await pool.query('UPDATE hunting_parties SET status = $1, start_time = $2 WHERE id = $3', 
+            [newStatus, startTime, party.id]);
+
+        res.sendStatus(200);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to start party' });
     }
 });
 

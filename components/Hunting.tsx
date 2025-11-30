@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -220,6 +217,18 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         }
     };
 
+    const handleStartHunt = async () => {
+        setIsLoading(true);
+        try {
+            await api.startParty();
+            await fetchMyParty();
+        } catch (err: any) {
+            alert(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
     const bosses = enemies.filter(e => e.isBoss);
     const selectedBoss = bosses.find(b => b.id === createBossId);
     
@@ -297,6 +306,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         const boss = enemies.find(e => e.id === myParty.bossId);
         const preparationTime = boss?.preparationTimeSeconds ?? 30;
         const finishTime = myParty.startTime ? new Date(new Date(myParty.startTime).getTime() + preparationTime * 1000).toISOString() : '';
+        
+        // Count confirmed members (not pending)
+        const confirmedMembersCount = myParty.members.filter(m => m.status !== PartyMemberStatus.Pending).length;
+        const isPartyFull = confirmedMembersCount >= myParty.maxMembers;
 
         return (
             <ContentPanel title={t('hunting.title')}>
@@ -356,9 +369,16 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                         ))}
                     </div>
 
-                    <button onClick={handleLeave} className="px-6 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-white font-bold transition-colors">
-                        {isLeader ? t('hunting.disband') : t('hunting.leave')}
-                    </button>
+                    <div className="flex justify-center gap-4">
+                        {isLeader && myParty.status === PartyStatus.Forming && isPartyFull && (
+                            <button onClick={handleStartHunt} disabled={isLoading} className="px-6 py-2 bg-green-700 hover:bg-green-600 rounded-lg text-white font-bold transition-colors disabled:bg-slate-600 shadow-lg border border-green-500/50">
+                                Rozpocznij Polowanie
+                            </button>
+                        )}
+                        <button onClick={handleLeave} className="px-6 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-white font-bold transition-colors">
+                            {isLeader ? t('hunting.disband') : t('hunting.leave')}
+                        </button>
+                    </div>
                 </div>
             </ContentPanel>
         );
