@@ -65,6 +65,11 @@ export const Options: React.FC<OptionsProps> = ({ character, onCharacterUpdate }
       }
   };
 
+  const handleSyncTime = async () => {
+      const offset = await api.synchronizeTime();
+      alert(`Czas zsynchronizowany. Offset: ${offset.toFixed(0)}ms`);
+  };
+
   return (
     <ContentPanel title={t('options.title')}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -130,6 +135,17 @@ export const Options: React.FC<OptionsProps> = ({ character, onCharacterUpdate }
                         </button>
                     </div>
                 </div>
+              </div>
+              
+              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
+                  <h3 className="text-xl font-bold text-gray-300 mb-4">Debugowanie</h3>
+                  <button 
+                    onClick={handleSyncTime}
+                    className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold text-white transition-colors"
+                  >
+                      Synchronizuj Zegar (Napraw Błędy Czasu)
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2">Użyj tej opcji, jeśli liczniki czasu (wyprawy, polowania) nie zgadzają się z rzeczywistością.</p>
               </div>
           </div>
 

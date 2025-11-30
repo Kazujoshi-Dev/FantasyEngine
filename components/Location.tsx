@@ -12,6 +12,7 @@ import { AnvilIcon } from './icons/AnvilIcon';
 import { QuestIcon } from './icons/QuestIcon';
 import { MessageSquareIcon } from './icons/MessageSquareIcon';
 import { ScaleIcon } from './icons/ScaleIcon';
+import { api } from '../api';
 
 interface LocationProps {
   playerCharacter: PlayerCharacter;
@@ -40,7 +41,8 @@ const TravelInProgressPanel: React.FC<{
     useEffect(() => {
         if (activeTravel) {
             const updateTimer = () => {
-                const remaining = Math.max(0, Math.floor((activeTravel.finishTime - Date.now()) / 1000));
+                // Use api.getServerTime() for sync
+                const remaining = Math.max(0, Math.floor((activeTravel.finishTime - api.getServerTime()) / 1000));
                 setTimeLeft(remaining);
             };
 
@@ -100,7 +102,12 @@ export const Location: React.FC<LocationProps> = ({ playerCharacter, baseCharact
         },
         activeTravel: {
           destinationLocationId: destination.id,
-          finishTime: Date.now() + destination.travelTime * 1000,
+          // Calculate finish time using server time logic on client is OK, 
+          // but ideally server should set this timestamp.
+          // Since this is a local optimistic update, using Date.now() here is acceptable 
+          // as long as backend overwrites/validates it or if the discrepancy is small.
+          // However, strictly speaking, to be safe with our new system:
+          finishTime: api.getServerTime() + destination.travelTime * 1000,
         }
       };
       onCharacterUpdate(updatedCharacter, true);

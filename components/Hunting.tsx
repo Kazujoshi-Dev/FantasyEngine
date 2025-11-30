@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -16,11 +17,12 @@ interface HuntingProps {
     gameData: GameData;
 }
 
-const CountdownTimer: React.FC<{ finishTime: string, serverNow: string, onZero: () => void }> = ({ finishTime, serverNow, onZero }) => {
+const CountdownTimer: React.FC<{ finishTime: string, onZero: () => void }> = ({ finishTime, onZero }) => {
     const calculateTimeLeft = useCallback(() => {
-        const diff = new Date(finishTime).getTime() - new Date(serverNow).getTime();
+        // Use api.getServerTime() for sync
+        const diff = new Date(finishTime).getTime() - api.getServerTime();
         return Math.max(0, diff);
-    }, [finishTime, serverNow]);
+    }, [finishTime]);
     
     const [timeLeftMs, setTimeLeftMs] = useState(calculateTimeLeft);
 
@@ -35,19 +37,16 @@ const CountdownTimer: React.FC<{ finishTime: string, serverNow: string, onZero: 
         }
 
         const interval = setInterval(() => {
-            setTimeLeftMs(prev => {
-                const newTime = prev - 1000;
-                if (newTime <= 0) {
-                    clearInterval(interval);
-                    onZero();
-                    return 0;
-                }
-                return newTime;
-            });
+            const newTime = calculateTimeLeft();
+            setTimeLeftMs(newTime);
+            if (newTime <= 0) {
+                clearInterval(interval);
+                onZero();
+            }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [timeLeftMs, onZero]);
+    }, [timeLeftMs, onZero, calculateTimeLeft]);
     
     const m = Math.floor(timeLeftMs / 60000);
     const s = Math.floor((timeLeftMs % 60000) / 1000);
@@ -324,10 +323,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
                     <p className="text-gray-400 mb-6">{t('hunting.statusLabel')}: <span className="text-white font-bold">{t(`hunting.status.${myParty.status}`)}</span></p>
                     
-                    {myParty.status === PartyStatus.Preparing && myParty.startTime && serverTime && (
+                    {myParty.status === PartyStatus.Preparing && myParty.startTime && (
                         <div className="mb-6">
                             <p className="text-sm text-gray-400 mb-1">{t('hunting.startsIn')}</p>
-                            <CountdownTimer finishTime={finishTime} serverNow={serverTime} onZero={fetchMyParty} />
+                            <CountdownTimer finishTime={finishTime} onZero={fetchMyParty} />
                         </div>
                     )}
 

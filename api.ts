@@ -1,6 +1,9 @@
 
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile, Language } from './types';
 
+// Variable to store the time difference between client and server
+let serverTimeOffset = 0;
+
 // Helper to determine API URL based on environment
 const getApiBaseUrl = () => {
     // Check if running on typical dev port 3000 (Vite) or 8000 (esbuild)
@@ -88,6 +91,38 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}): Promise<an
 
 
 export const api = {
+    // Helper to get synchronized server time
+    getServerTime(): number {
+        return Date.now() + serverTimeOffset;
+    },
+
+    // Force synchronize time with server
+    async synchronizeTime(): Promise<number> {
+        try {
+            const requestStartTime = Date.now();
+            const response = await fetchApi('/time');
+            const requestEndTime = Date.now();
+            
+            // Calculate latency (approximate, assuming symmetric delay)
+            const latency = (requestEndTime - requestStartTime) / 2;
+            const serverTime = response.time;
+            
+            // Calculate offset: Server Time - Client Time
+            // We subtract latency to approximate the server time at the moment request reached the server
+            // Formula: ServerTime = ClientTime + Offset
+            // Offset = ServerTime - ClientTime
+            // Adjusted: Offset = (ServerTimeSent + Latency) - ClientTimeReceived
+            // Actually simpler: Offset = ServerTimestamp - (ClientRequestStart + Latency)
+            
+            serverTimeOffset = serverTime - (requestStartTime + latency);
+            console.log(`[Time Sync] Synchronized. Offset: ${serverTimeOffset.toFixed(2)}ms. Latency: ${latency.toFixed(2)}ms`);
+            return serverTimeOffset;
+        } catch (e) {
+            console.error("Time synchronization failed", e);
+            return serverTimeOffset; // Keep existing
+        }
+    },
+
     // --- Authentication ---
     async register(credentials: { username: string, password?: string }): Promise<void> {
         return fetchApi('/auth/register', {

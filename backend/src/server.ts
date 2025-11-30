@@ -1,5 +1,4 @@
 
-
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -67,6 +66,10 @@ app.use(express.json({ limit: '10mb' }) as any);
 // ===================================================================================
 //                                  API ROUTES
 // ===================================================================================
+app.get('/api/time', (req, res) => {
+    res.json({ time: Date.now() });
+});
+
 app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/game-data', gameDataRoutes);

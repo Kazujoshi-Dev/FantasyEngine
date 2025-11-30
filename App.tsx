@@ -117,6 +117,9 @@ const MainApp: React.FC = () => {
 
         const loadData = async () => {
             try {
+                // 0. Sync Time
+                await api.synchronizeTime();
+
                 // 1. Game Data
                 setLoadingMessage(t('loading') + " (Pobieranie konfiguracji...)");
                 const data = await api.getGameData();
@@ -260,7 +263,8 @@ const MainApp: React.FC = () => {
     const handleExpeditionCompletion = useCallback(async () => {
         if (isCompletingExpeditionRef.current || !character?.activeExpedition) return;
         
-        if (Date.now() < character.activeExpedition.finishTime) return;
+        // Use synchronized time
+        if (api.getServerTime() < character.activeExpedition.finishTime) return;
 
         isCompletingExpeditionRef.current = true;
         try {
@@ -277,7 +281,7 @@ const MainApp: React.FC = () => {
     useEffect(() => {
         if (!character?.activeExpedition) return;
         
-        const now = Date.now();
+        const now = api.getServerTime(); // Use synchronized time
         const finishTime = character.activeExpedition.finishTime;
         const timeLeft = finishTime - now;
 
@@ -826,7 +830,7 @@ const MainApp: React.FC = () => {
                     character={derivedCharacter} 
                     baseCharacter={character} 
                     onToggleResting={() => {
-                        const now = Date.now();
+                        const now = api.getServerTime(); // Use synced time
                         handleCharacterUpdate({ 
                             ...character, 
                             isResting: !character.isResting, 

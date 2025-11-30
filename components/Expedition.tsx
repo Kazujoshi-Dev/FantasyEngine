@@ -9,6 +9,7 @@ import { ClockIcon } from './icons/ClockIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
+import { api } from '../api';
 
 interface ExpeditionProps {
     character: PlayerCharacter;
@@ -1212,7 +1213,8 @@ const ActiveExpeditionPanel: React.FC<{
         if (character.activeExpedition) {
             completionCalledRef.current = false; // Reset on new expedition
             const updateTimer = () => {
-                const remaining = Math.max(0, Math.floor((character.activeExpedition!.finishTime - Date.now()) / 1000));
+                // Use api.getServerTime() for sync
+                const remaining = Math.max(0, Math.floor((character.activeExpedition!.finishTime - api.getServerTime()) / 1000));
                 setTimeLeft(remaining);
 
                 if (remaining <= 0 && !completionCalledRef.current) {

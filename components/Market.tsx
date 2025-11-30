@@ -16,7 +16,8 @@ const CountdownTimer: React.FC<{ until: string, onFinish?: () => void }> = ({ un
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const remaining = new Date(until).getTime() - Date.now();
+            // Use api.getServerTime() for sync
+            const remaining = new Date(until).getTime() - api.getServerTime();
             if (remaining > 0) {
                  const hours = Math.floor(remaining / (1000 * 60 * 60));
                  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
