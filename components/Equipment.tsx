@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -346,16 +347,12 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     </div>
                 </div>
 
-                {/* Details/Stats Panel */}
+                {/* Details/Stats Panel - ALWAYS SHOW COMBAT STATS NOW */}
                 <div 
                     className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
                     onClick={(e) => e.stopPropagation()} // Prevent clicks in detail panel from deselecting item
                 >
-                    {selectedItem ? (
-                        <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes || []} character={character} />
-                    ) : (
-                        <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
-                    )}
+                    <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
                 </div>
 
                 {/* Inventory */}
