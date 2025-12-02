@@ -148,11 +148,14 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
 
   const handleStatChange = (stat: keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>, delta: number) => {
     if (delta > 0 && availablePoints <= 0) return;
-    if (delta < 0 && (pendingStats[stat] as number) <= (baseCharacter.stats[stat] as number)) return;
+
+    const currentPendingValue = Number(pendingStats[stat]) || 0;
+    const currentBaseValue = Number(baseCharacter.stats[stat]) || 0;
+    if (delta < 0 && currentPendingValue <= currentBaseValue) return;
 
     setPendingStats(prev => ({
       ...prev,
-      [stat]: (prev[stat] as number) + delta
+      [stat]: (Number(prev[stat]) || 0) + delta
     }));
     setSpentPoints(prev => prev + delta);
   };
@@ -165,7 +168,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
     
     baseStatKeys.forEach(key => {
-        const delta = (pendingStats[key] || 0) - (baseCharacter.stats[key] || 0);
+        const delta = (Number(pendingStats[key]) || 0) - (Number(baseCharacter.stats[key]) || 0);
         if (delta > 0) {
             pointsToAdd[key] = delta;
             totalAdded += delta;
@@ -299,18 +302,22 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
               )}
               <div className="space-y-1">
                 {baseStatKeys.map(key => {
-                  const itemBonus = character.stats[key] - baseCharacter.stats[key];
+                  const pendingValue = Number(pendingStats[key]) || 0;
+                  const baseValue = Number(baseCharacter.stats[key]) || 0;
+                  const derivedValue = Number(character.stats[key]) || 0;
+                  const itemBonus = derivedValue - baseValue;
+
                   return (
                       <StatRow
                       key={key}
                       label={t(`statistics.${key}`)}
                       value={
                           <div className="flex items-baseline justify-end">
-                              <span className="font-mono text-lg font-bold text-white">{pendingStats[key]}</span>
+                              <span className="font-mono text-lg font-bold text-white">{pendingValue}</span>
                               {itemBonus > 0 && (
                                   <>
                                       <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>
-                                      <span className="font-mono text-base text-sky-400 ml-2">({pendingStats[key] + itemBonus})</span>
+                                      <span className="font-mono text-base text-sky-400 ml-2">({pendingValue + itemBonus})</span>
                                   </>
                               )}
                           </div>
@@ -318,7 +325,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                       onIncrease={() => handleStatChange(key, 1)}
                       canIncrease={availablePoints > 0}
                       onDecrease={() => handleStatChange(key, -1)}
-                      canDecrease={pendingStats[key] > baseCharacter.stats[key]}
+                      canDecrease={pendingValue > baseValue}
                       description={t(`statistics.${key}Desc`)}
                       />
                   )
