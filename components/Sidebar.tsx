@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
@@ -162,6 +161,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
                     <div 
                         className="bg-red-600 h-full rounded-full transition-all duration-500" 
                         style={{ width: `${(playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100}%` }}
+                    ></div>
+                </div>
+                <div title={`XP: ${playerCharacter.experience} / ${playerCharacter.experienceToNextLevel}`} className="w-full bg-slate-700 rounded-full h-2 border border-slate-600 mt-1.5">
+                    <div 
+                        className="bg-sky-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(playerCharacter.experience / playerCharacter.experienceToNextLevel) * 100}%` }}
                     ></div>
                 </div>
             </div>
