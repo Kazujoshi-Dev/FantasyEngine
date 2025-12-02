@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot, Affix } from '../types';
+import { PlayerCharacter, ItemInstance, ItemTemplate, ItemRarity, EssenceType, EquipmentSlot, Affix, CharacterClass } from '../types';
 import { ItemList, ItemDetailsPanel, ItemListItem } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { AnvilIcon } from './icons/AnvilIcon';
 import { ArrowRightIcon } from './icons/ArrowRightIcon';
 import { rarityStyles } from './shared/ItemSlot';
 import { StarIcon } from './icons/StarIcon';
+import { api } from '../api';
 
 type BlacksmithTab = 'disenchant' | 'upgrade';
 type NotificationType = { message: string; type: 'success' | 'error' };
@@ -328,12 +329,12 @@ const UpgradePanel: React.FC<{
 
     const selectedTemplate = selectedItem ? itemTemplates.find(t=> t.id === selectedItem.templateId) : null;
     
-    const { cost, chance, canUpgrade } = useMemo(() => {
-        if (!selectedTemplate || !selectedItem) return { cost: null, chance: 0, canUpgrade: false };
+    const { cost, chance, canUpgrade, baseSuccessChance } = useMemo(() => {
+        if (!selectedTemplate || !selectedItem) return { cost: null, chance: 0, canUpgrade: false, baseSuccessChance: 0 };
         const currentLevel = selectedItem.upgradeLevel || 0;
         const nextLevel = currentLevel + 1;
 
-        if (nextLevel > 10) return { cost: null, chance: 0, canUpgrade: false };
+        if (nextLevel > 10) return { cost: null, chance: 0, canUpgrade: false, baseSuccessChance: 0 };
 
         const rarityMultiplier = {
             [ItemRarity.Common]: 1, [ItemRarity.Uncommon]: 1.5, [ItemRarity.Rare]: 2.5,
@@ -350,13 +351,22 @@ const UpgradePanel: React.FC<{
             case ItemRarity.Epic: essenceType = EssenceType.Epic; break;
             case ItemRarity.Legendary: essenceType = EssenceType.Legendary; break;
         }
-        const successChance = Math.max(10, 100 - (currentLevel * 10));
+        const baseChance = Math.max(10, 100 - (currentLevel * 10));
+
+        let finalSuccessChance = baseChance;
+        if (character.characterClass === CharacterClass.Blacksmith) {
+            const p = baseChance / 100;
+            const effectiveP = 1 - Math.pow((1 - p), 2);
+            finalSuccessChance = Math.round(effectiveP * 100);
+        }
+
         return {
             cost: { gold: goldCost, essenceType, essenceAmount: essenceCostAmount },
-            chance: successChance,
-            canUpgrade: true
+            chance: finalSuccessChance,
+            canUpgrade: true,
+            baseSuccessChance: baseChance
         };
-    }, [selectedItem, selectedTemplate]);
+    }, [selectedItem, selectedTemplate, character.characterClass]);
     
     const hasEnoughGold = cost ? (baseCharacter.resources?.gold || 0) >= cost.gold : false;
     const hasEnoughEssence = cost && cost.essenceType ? ((baseCharacter.resources || {})[cost.essenceType] || 0) >= cost.essenceAmount : false;
@@ -435,6 +445,11 @@ const UpgradePanel: React.FC<{
                                         <span className="text-gray-300">{t('blacksmith.upgrade.successChance')}:</span>
                                         <span className="font-mono font-bold text-amber-400">{chance}%</span>
                                     </div>
+                                    {character.characterClass === CharacterClass.Blacksmith && baseSuccessChance !== chance && (
+                                        <p className="text-xs text-green-400 text-right">
+                                            Bonus Kowala aktywny (bazowa szansa: {baseSuccessChance}%)
+                                        </p>
+                                    )}
                                     <div className="border-t border-slate-700/50"></div>
                                     <h4 className="font-semibold text-gray-300">{t('blacksmith.upgrade.cost')}:</h4>
                                     <div className="flex justify-between text-md">
