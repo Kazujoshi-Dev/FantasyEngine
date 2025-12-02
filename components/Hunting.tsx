@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -223,8 +222,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     {/* Left: Boss Info */}
                     <div className="bg-slate-900/40 p-4 rounded-xl border border-red-900/30">
                         <h3 className="text-xl font-bold text-red-400 mb-2">{boss?.name}</h3>
-                        <div className="h-40 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
-                             {boss?.image ? <img src={boss.image} className="w-full h-full object-cover" /> : <CrossedSwordsIcon className="h-16 w-16 text-red-700 opacity-50" />}
+                        <div className="h-64 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
+                             {boss?.image ? <img src={boss.image} className="w-full h-full object-contain" /> : <CrossedSwordsIcon className="h-16 w-16 text-red-700 opacity-50" />}
                         </div>
                         <p className="text-sm text-gray-400 italic mb-4">{boss?.description}</p>
                         <div className="space-y-2 text-sm">
@@ -342,7 +341,9 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                         <div className="pt-4">
                             <button 
                                 onClick={handleCreate} 
-                                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                                disabled={character.stats.currentHealth <= 0}
+                                title={character.stats.currentHealth <= 0 ? "Nie możesz stworzyć grupy z 0 HP." : ""}
+                                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"
                             >
                                 <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
                             </button>
@@ -431,7 +432,9 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                         </div>
                                         <button 
                                             onClick={() => handleJoin(party.id)} 
-                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors"
+                                            disabled={character.stats.currentHealth <= 0}
+                                            title={character.stats.currentHealth <= 0 ? "Nie możesz dołączyć z 0 HP." : ""}
+                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
                                         >
                                             {t('hunting.join')}
                                         </button>

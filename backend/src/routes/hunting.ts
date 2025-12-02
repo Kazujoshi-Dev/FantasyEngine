@@ -149,14 +149,21 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
         const hasLoneWolf = (char.learnedSkills || []).includes('lone-wolf');
+        
+        if (char.stats.currentHealth <= 0) {
+            return res.status(400).json({ message: 'Nie możesz założyć grupy, gdy masz 0 punktów życia. Ulecz swoją postać.' });
+        }
+
         const minMembers = hasLoneWolf ? 1 : 2;
 
-        if (maxMembers < minMembers || maxMembers > 5) {
-            const errorMessage = minMembers > 1 
-                ? 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".'
-                : `Rozmiar grupy musi być pomiędzy ${minMembers} a 5.`;
-            return res.status(400).json({ message: errorMessage });
+        if (maxMembers < 1 || maxMembers > 5) {
+             return res.status(400).json({ message: 'Rozmiar grupy musi być pomiędzy 1 a 5.' });
         }
+
+        if (maxMembers === 1 && !hasLoneWolf) {
+            return res.status(400).json({ message: 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".' });
+        }
+
 
         const existingParty = await getPartyByMember(req.user.id);
         if (existingParty) return res.status(400).json({ message: 'Jesteś już w grupie.' });
@@ -199,6 +206,10 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
 
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
+
+        if (char.stats.currentHealth <= 0) {
+            return res.status(400).json({ message: 'Nie możesz dołączyć do grupy, gdy masz 0 punktów życia. Ulecz swoją postać.' });
+        }
 
         members.push({
             userId: req.user.id,
