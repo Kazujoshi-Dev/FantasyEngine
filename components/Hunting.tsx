@@ -1,12 +1,15 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { PlayerCharacter, Enemy, ItemTemplate, Affix, GameData, HuntingParty, PartyStatus, PartyMemberStatus, PartyMember } from '../types';
+import { PlayerCharacter, Enemy, HuntingParty, PartyMember, PartyStatus, PartyMemberStatus, ItemTemplate, Affix, GameData } from '../types';
+import { ExpeditionSummaryModal } from './Expedition';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
-import { UsersIcon } from './icons/UsersIcon';
 import { ClockIcon } from './icons/ClockIcon';
+import { UsersIcon } from './icons/UsersIcon';
+import { CoinsIcon } from './icons/CoinsIcon';
+import { StarIcon } from './icons/StarIcon';
 
 interface HuntingProps {
     character: PlayerCharacter;
@@ -18,107 +21,210 @@ interface HuntingProps {
 
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
+    const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT'>('DASHBOARD');
+    const [parties, setParties] = useState<any[]>([]);
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [parties, setParties] = useState<any[]>([]); // active lobbies
-    const [view, setView] = useState<'LOBBY' | 'CREATE'>('LOBBY');
+    
+    // Form State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
-    const [partySize, setPartySize] = useState<number>(3);
+    const [createMembers, setCreateMembers] = useState(3);
+    
+    const [loading, setLoading] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
-    // Polling for party status
-    const fetchMyParty = useCallback(async () => {
-        try {
-            const res = await api.getMyParty();
-            setMyParty(res.party);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+    const lobbyPollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Filter for bosses only
+    const bosses = useMemo(() => enemies.filter(e => e.isBoss), [enemies]);
+    
+    // Auto-select first boss
+    useEffect(() => {
+        if (bosses.length > 0 && !selectedBossId) {
+            setSelectedBossId(bosses[0].id);
         }
-    }, []);
+    }, [bosses, selectedBossId]);
+
+    const fetchParties = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getHuntingParties();
+            setParties(data);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+    };
+
+    const fetchMyParty = async () => {
+        try {
+            const { party, serverTime } = await api.getMyParty();
+            if (party) {
+                setMyParty(party);
+                if (serverTime) {
+                    setServerTimeOffset(new Date(serverTime).getTime() - Date.now());
+                }
+                
+                if (party.status === PartyStatus.Forming || party.status === PartyStatus.Preparing) {
+                    setView('LOBBY');
+                } else if (party.status === PartyStatus.Fighting || party.status === PartyStatus.Finished) {
+                    setView('COMBAT');
+                    // Automatically open report if finished and just loaded
+                    if (party.status === PartyStatus.Finished) {
+                        setReportModalOpen(true);
+                    }
+                }
+            } else {
+                setMyParty(null);
+                setView('DASHBOARD');
+            }
+        } catch (e) { console.error(e); }
+    };
 
     useEffect(() => {
         fetchMyParty();
-        const interval = setInterval(fetchMyParty, 5000);
-        return () => clearInterval(interval);
-    }, [fetchMyParty]);
+        fetchParties();
+        
+        // Poll for party status updates
+        lobbyPollInterval.current = setInterval(() => {
+            fetchMyParty();
+            if(view === 'DASHBOARD') fetchParties();
+        }, 2000);
 
-    // Fetch lobbies if not in party
-    useEffect(() => {
-        if (!myParty && view === 'LOBBY') {
-            api.getHuntingParties().then(setParties).catch(console.error);
-            const interval = setInterval(() => {
-                if(!myParty) api.getHuntingParties().then(setParties).catch(console.error);
-            }, 10000);
-            return () => clearInterval(interval);
-        }
-    }, [myParty, view]);
+        return () => {
+            if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
+        };
+    }, [view]);
 
     const handleCreate = async () => {
-        if (!selectedBossId) return;
         try {
-            await api.createParty(selectedBossId, partySize);
-            setView('LOBBY');
-            fetchMyParty();
-        } catch (e: any) {
-            alert(e.message);
-        }
+            await api.createParty(selectedBossId, createMembers);
+            await fetchMyParty();
+        } catch (e: any) { alert(e.message); }
     };
 
     const handleJoin = async (partyId: number) => {
         try {
             await api.joinParty(partyId);
-            fetchMyParty();
-        } catch (e: any) {
-            alert(e.message);
-        }
+            await fetchMyParty();
+        } catch (e: any) { alert(e.message); }
     };
 
     const handleLeave = async () => {
         if (!confirm(t('hunting.leaveConfirm'))) return;
         try {
             await api.leaveParty();
-            setMyParty(null);
-        } catch (e: any) {
-            alert(e.message);
-        }
+            await fetchMyParty();
+            setView('DASHBOARD');
+        } catch (e: any) { alert(e.message); }
     };
 
-    const handleRespond = async (userId: number, action: 'accept' | 'reject' | 'kick') => {
+    const handleAction = async (userId: number, action: 'accept' | 'reject' | 'kick') => {
         try {
             await api.respondToJoinRequest(userId, action);
-            fetchMyParty();
-        } catch (e: any) {
-            alert(e.message);
-        }
+            await fetchMyParty();
+        } catch (e: any) { alert(e.message); }
     };
 
     const handleStart = async () => {
         try {
             await api.startParty();
-            fetchMyParty();
-        } catch (e: any) {
-            alert(e.message);
-        }
+            await fetchMyParty();
+        } catch (e: any) { alert(e.message); }
     };
 
-    if (loading) return <ContentPanel title={t('hunting.title')}><p>{t('loading')}</p></ContentPanel>;
+    const selectedBoss = useMemo(() => bosses.find(b => b.id === selectedBossId), [bosses, selectedBossId]);
 
-    // ------------------ MY PARTY VIEW ------------------
-    if (myParty) {
-        const boss = enemies.find(e => e.id === myParty.bossId);
+    const estimatedRewards = useMemo(() => {
+        if (!selectedBoss) return null;
+        // Dynamic bonus multiplier based on party size (matches backend logic)
+        const bonusMult = 1.0 + (createMembers * 0.3);
+
+        return {
+            minGold: Math.floor(selectedBoss.rewards.minGold * bonusMult),
+            maxGold: Math.floor(selectedBoss.rewards.maxGold * bonusMult),
+            minExp: Math.floor(selectedBoss.rewards.minExperience * bonusMult),
+            maxExp: Math.floor(selectedBoss.rewards.maxExperience * bonusMult),
+        }
+    }, [selectedBoss, createMembers]);
+
+    // Report data preparation
+    const reportData = useMemo(() => {
+        if (!myParty) return null;
+        return {
+            combatLog: myParty.combatLog || [],
+            isVictory: myParty.victory || false,
+            totalGold: myParty.myRewards?.gold || 0,
+            totalExperience: myParty.myRewards?.experience || 0,
+            rewardBreakdown: [],
+            itemsFound: myParty.myRewards?.items || [],
+            essencesFound: myParty.myRewards?.essences || {},
+            huntingMembers: myParty.members,
+            allRewards: myParty.allRewards,
+            encounteredEnemies: selectedBoss ? [selectedBoss] : []
+        };
+    }, [myParty, selectedBoss]);
+
+    // --- RENDER: Combat View ---
+    if (view === 'COMBAT' && myParty) {
+        return (
+            <div className="fixed inset-0 bg-gray-900 z-50 overflow-auto">
+                <ExpeditionSummaryModal 
+                    reward={reportData!}
+                    onClose={() => {
+                        if (myParty.status === PartyStatus.Finished) {
+                            api.leaveParty().then(() => {
+                                setMyParty(null);
+                                setView('DASHBOARD');
+                            });
+                        } else {
+                            setReportModalOpen(false);
+                        }
+                    }}
+                    characterName={character.name}
+                    itemTemplates={itemTemplates}
+                    affixes={affixes}
+                    isHunting={true}
+                    huntingMembers={myParty.members}
+                    allRewards={myParty.allRewards}
+                    initialEnemy={gameData.enemies.find(e => e.id === myParty.bossId)}
+                    messageId={myParty.messageId}
+                />
+            </div>
+        );
+    }
+
+    // --- RENDER: Lobby View (Inside a party) ---
+    if (view === 'LOBBY' && myParty) {
         const isLeader = myParty.leaderId === character.id;
+        const boss = gameData.enemies.find(e => e.id === myParty.bossId);
+        const acceptedMembers = myParty.members.filter(m => m.status !== PartyMemberStatus.Pending);
         const pendingMembers = myParty.members.filter(m => m.status === PartyMemberStatus.Pending);
-        const activeMembers = myParty.members.filter(m => m.status !== PartyMemberStatus.Pending);
+        const isFull = acceptedMembers.length >= myParty.maxMembers;
+        
+        let statusText = t(`hunting.status.${myParty.status}`);
+        let timerText = '';
+
+        if (myParty.status === PartyStatus.Preparing && myParty.startTime) {
+            const startTimestamp = new Date(myParty.startTime).getTime();
+            const prepTime = (boss?.preparationTimeSeconds || 30) * 1000;
+            const fightStart = startTimestamp + prepTime;
+            const now = Date.now() + serverTimeOffset;
+            const diff = Math.ceil((fightStart - now) / 1000);
+            
+            if (diff > 0) {
+                timerText = `${diff}s`;
+            } else {
+                timerText = '0s';
+            }
+        }
 
         return (
             <ContentPanel title={t('hunting.title')}>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Left: Boss Info */}
                     <div className="bg-slate-900/40 p-4 rounded-xl border border-red-900/30">
                         <h3 className="text-xl font-bold text-red-400 mb-2">{boss?.name}</h3>
-                        <div className="h-64 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
-                             {boss?.image ? <img src={boss.image} className="w-full h-full object-contain" /> : <CrossedSwordsIcon className="h-16 w-16 text-red-700 opacity-50" />}
+                        <div className="h-40 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
+                             {boss?.image ? <img src={boss.image} className="w-full h-full object-cover" /> : <CrossedSwordsIcon className="h-16 w-16 text-red-700 opacity-50" />}
                         </div>
                         <p className="text-sm text-gray-400 italic mb-4">{boss?.description}</p>
                         <div className="space-y-2 text-sm">
@@ -127,60 +233,50 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                         </div>
                     </div>
 
-                    {/* Middle: Party Status & Members */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                            <div>
-                                <p className="text-gray-400 text-sm">{t('hunting.statusLabel')}</p>
-                                <p className="text-xl font-bold text-white uppercase tracking-wider">{t(`hunting.status.${myParty.status}` as any)}</p>
+                    {/* Middle: Members */}
+                    <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col md:col-span-2">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-indigo-400">{t('hunting.members')} ({acceptedMembers.length}/{myParty.maxMembers})</h3>
+                            <div className="text-right">
+                                <p className="text-sm text-gray-400">{t('hunting.statusLabel')}: <span className="text-white font-bold">{statusText}</span></p>
+                                {timerText && <p className="text-xl font-mono text-amber-400 animate-pulse">{t('hunting.startsIn')}: {timerText}</p>}
                             </div>
-                            {myParty.status === PartyStatus.Preparing && myParty.startTime && (
-                                <div className="text-right">
-                                    <p className="text-gray-400 text-sm">{t('hunting.startsIn')}</p>
-                                    <p className="text-2xl font-mono text-amber-400 animate-pulse">
-                                        <Countdown target={myParty.startTime} offset={30000} /> {/* Assuming 30s prep time */}
-                                    </p>
-                                </div>
-                            )}
                         </div>
 
-                        <div className="bg-slate-900/40 p-4 rounded-xl">
-                            <h4 className="text-lg font-bold text-indigo-400 mb-4">{t('hunting.members')} ({activeMembers.length}/{myParty.maxMembers})</h4>
-                            <div className="space-y-2">
-                                {activeMembers.map(m => (
-                                    <div key={m.userId} className="flex justify-between items-center bg-slate-800 p-2 rounded">
-                                        <div>
-                                            <span className="font-bold text-white">{m.characterName}</span>
-                                            <span className="text-xs text-gray-400 ml-2">Lvl {m.level} {t(`class.${m.characterClass}`)}</span>
-                                            {m.status === PartyMemberStatus.Leader && <span className="text-xs text-amber-400 ml-2">[{t('hunting.memberStatus.LEADER')}]</span>}
+                        <div className="space-y-2 mb-6">
+                            {acceptedMembers.map((m, i) => (
+                                <div key={i} className="flex justify-between items-center bg-slate-800 p-3 rounded border border-slate-700">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center font-bold text-white border border-slate-600">
+                                            {m.characterName.charAt(0)}
                                         </div>
-                                        {isLeader && m.userId !== character.id && (
-                                            <button onClick={() => handleRespond(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs">Wyrzuć</button>
-                                        )}
+                                        <div>
+                                            <p className={`font-bold ${m.userId === myParty.leaderId ? 'text-amber-400' : 'text-white'}`}>{m.characterName}</p>
+                                            <p className="text-xs text-gray-400">Lvl {m.level} {t(`race.${m.race}`)} {m.characterClass ? t(`class.${m.characterClass}`) : ''}</p>
+                                        </div>
                                     </div>
-                                ))}
-                                {Array.from({ length: myParty.maxMembers - activeMembers.length }).map((_, i) => (
-                                    <div key={`empty-${i}`} className="bg-slate-800/30 p-2 rounded border border-dashed border-slate-700 text-center text-gray-500 text-sm">
-                                        {t('hunting.emptySlot')}
-                                    </div>
-                                ))}
-                            </div>
+                                    {isLeader && m.userId !== character.id && (
+                                        <button onClick={() => handleAction(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs font-bold px-2 py-1">Wyrzuć</button>
+                                    )}
+                                </div>
+                            ))}
+                            {Array.from({ length: myParty.maxMembers - acceptedMembers.length }).map((_, i) => (
+                                <div key={`empty-${i}`} className="flex items-center justify-center bg-slate-800/30 p-3 rounded border border-slate-800 border-dashed text-gray-600">
+                                    {t('hunting.emptySlot')}
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Pending Requests (Leader Only) */}
                         {isLeader && pendingMembers.length > 0 && (
-                            <div className="bg-slate-900/40 p-4 rounded-xl border border-yellow-900/30">
-                                <h4 className="text-lg font-bold text-amber-400 mb-4">Oczekujący ({pendingMembers.length})</h4>
+                            <div className="mb-4 pt-4 border-t border-slate-700">
+                                <h4 className="text-sm font-bold text-gray-400 mb-2">Oczekujący</h4>
                                 <div className="space-y-2">
                                     {pendingMembers.map(m => (
-                                        <div key={m.userId} className="flex justify-between items-center bg-slate-800 p-2 rounded">
-                                            <div>
-                                                <span className="font-bold text-white">{m.characterName}</span>
-                                                <span className="text-xs text-gray-400 ml-2">Lvl {m.level}</span>
-                                            </div>
-                                            <div className="space-x-2">
-                                                <button onClick={() => handleRespond(m.userId, 'accept')} className="text-green-400 hover:text-green-300 text-xs font-bold">Akceptuj</button>
-                                                <button onClick={() => handleRespond(m.userId, 'reject')} className="text-red-400 hover:text-red-300 text-xs">Odrzuć</button>
+                                        <div key={m.userId} className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
+                                            <span className="text-sm text-gray-300">{m.characterName} (Lvl {m.level})</span>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleAction(m.userId, 'accept')} className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs text-white">Akceptuj</button>
+                                                <button onClick={() => handleAction(m.userId, 'reject')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs text-white">Odrzuć</button>
                                             </div>
                                         </div>
                                     ))}
@@ -188,14 +284,13 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                             </div>
                         )}
 
-                        {/* Actions */}
-                        <div className="flex justify-end gap-4">
-                            <button onClick={handleLeave} className="px-4 py-2 rounded bg-red-900 hover:bg-red-800 text-white font-bold">
+                        <div className="mt-auto flex justify-between pt-4 border-t border-slate-700">
+                            <button onClick={handleLeave} className="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded border border-red-800">
                                 {isLeader ? t('hunting.disband') : t('hunting.leave')}
                             </button>
-                            {isLeader && myParty.status === PartyStatus.Forming && activeMembers.length === myParty.maxMembers && (
-                                <button onClick={handleStart} className="px-6 py-2 rounded bg-green-700 hover:bg-green-600 text-white font-bold animate-pulse">
-                                    Rozpocznij Polowanie
+                            {isLeader && isFull && myParty.status === PartyStatus.Forming && (
+                                <button onClick={handleStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg animate-pulse">
+                                    Rozpocznij
                                 </button>
                             )}
                         </div>
@@ -205,97 +300,158 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         );
     }
 
-    // ------------------ CREATE VIEW ------------------
-    if (view === 'CREATE') {
-        const availableBosses = enemies.filter(e => e.isBoss);
-        return (
-            <ContentPanel title={t('hunting.create')}>
-                <div className="max-w-md mx-auto space-y-6">
-                    <div>
-                        <label className="block text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
-                        <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2">
-                            {availableBosses.map(boss => (
-                                <div 
-                                    key={boss.id} 
-                                    onClick={() => setSelectedBossId(boss.id)}
-                                    className={`p-3 rounded-lg cursor-pointer border ${selectedBossId === boss.id ? 'bg-indigo-900 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
-                                >
-                                    <div className="font-bold text-white">{boss.name}</div>
-                                    <div className="text-xs text-gray-400">Lvl Rec: 10+</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-gray-300 mb-2">{t('hunting.partySize')}</label>
-                        <select value={partySize} onChange={e => setPartySize(Number(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white">
-                            <option value={1}>1 (Solo - Wymaga "Samotny Wilk")</option>
-                            <option value={2}>2</option>
-                            <option value={3}>3</option>
-                            <option value={4}>4</option>
-                            <option value={5}>5</option>
-                        </select>
-                    </div>
-                    <div className="flex gap-4">
-                        <button onClick={() => setView('LOBBY')} className="flex-1 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">Anuluj</button>
-                        <button onClick={handleCreate} disabled={!selectedBossId} className="flex-1 py-2 rounded bg-green-700 hover:bg-green-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed">Stwórz</button>
-                    </div>
-                </div>
-            </ContentPanel>
-        );
-    }
-
-    // ------------------ LOBBY VIEW ------------------
+    // --- RENDER: Dashboard View (Main) ---
     return (
         <ContentPanel title={t('hunting.title')}>
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-indigo-400">{t('hunting.availableParties')}</h3>
-                <button onClick={() => setView('CREATE')} className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-white font-bold flex items-center gap-2">
-                    <CrossedSwordsIcon className="h-4 w-4" /> {t('hunting.create')}
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {parties.length === 0 && <p className="text-gray-500 col-span-full text-center py-8">{t('hunting.noParties')}</p>}
-                {parties.map(p => {
-                    const boss = enemies.find(e => e.id === p.bossId);
-                    return (
-                        <div key={p.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl hover:border-indigo-500 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="font-bold text-red-400">{boss?.name || 'Unknown Boss'}</span>
-                                <span className="text-xs bg-slate-700 px-2 py-1 rounded text-white">{p.currentMembersCount}/{p.maxMembers}</span>
-                            </div>
-                            <p className="text-sm text-gray-400 mb-4">Lider: {p.leaderName}</p>
-                            <button 
-                                onClick={() => handleJoin(p.id)} 
-                                disabled={p.currentMembersCount >= p.maxMembers}
-                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-white font-bold disabled:bg-slate-700 disabled:text-gray-500"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
+                
+                {/* Column 1: Controls (Create Party) */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
+                            <select 
+                                value={selectedBossId} 
+                                onChange={(e) => setSelectedBossId(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                             >
-                                {t('hunting.join')}
+                                {bosses.map(boss => (
+                                    <option key={boss.id} value={boss.id}>{boss.name} (Lvl {boss.stats.maxHealth > 1000 ? 'Boss' : 'Mini'})</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.partySize')}</label>
+                            <select
+                                value={createMembers}
+                                onChange={(e) => setCreateMembers(parseInt(e.target.value))}
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            >
+                                <option value={1}>1 Gracz (Solo)</option>
+                                <option value={2}>2 Graczy</option>
+                                <option value={3}>3 Graczy</option>
+                                <option value={4}>4 Graczy</option>
+                                <option value={5}>5 Graczy (Pełna)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-2">Większa drużyna = większe nagrody, ale boss jest silniejszy.</p>
+                        </div>
+
+                        <div className="pt-4">
+                            <button 
+                                onClick={handleCreate} 
+                                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                            >
+                                <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
                             </button>
                         </div>
-                    );
-                })}
+                    </div>
+                </div>
+
+                {/* Column 2: Boss Info & Rewards */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <h3 className="text-xl font-bold text-red-400 mb-4 text-center">Cel Polowania</h3>
+                    {selectedBoss ? (
+                        <div className="flex flex-col h-full">
+                            <div className="text-center mb-4">
+                                <h4 className="text-lg font-bold text-white mb-2">{selectedBoss.name}</h4>
+                                <div className="h-48 w-48 mx-auto bg-slate-800 rounded-full flex items-center justify-center overflow-hidden border-4 border-slate-700 shadow-xl mb-4">
+                                    {selectedBoss.image ? (
+                                        <img src={selectedBoss.image} className="w-full h-full object-cover" alt={selectedBoss.name} />
+                                    ) : (
+                                        <CrossedSwordsIcon className="h-20 w-20 text-red-700 opacity-50" />
+                                    )}
+                                </div>
+                                <div className="flex justify-center gap-4 text-sm font-mono text-gray-300 bg-slate-800/50 py-2 rounded-lg mx-4">
+                                    <span className="flex items-center gap-1">HP: <span className="text-white">{selectedBoss.stats.maxHealth}</span></span>
+                                    <span className="text-gray-600">|</span>
+                                    <span className="flex items-center gap-1">DMG: <span className="text-white">{selectedBoss.stats.minDamage}-{selectedBoss.stats.maxDamage}</span></span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2 px-4 italic">{selectedBoss.description}</p>
+                            </div>
+
+                            {estimatedRewards && (
+                                <div className="mt-auto bg-slate-800/80 p-4 rounded-lg border border-slate-700">
+                                    <p className="text-gray-400 text-xs uppercase tracking-widest text-center mb-3">Szacowane Nagrody (Na Osobę)</p>
+                                    <div className="grid grid-cols-2 gap-4 divide-x divide-slate-700">
+                                        <div className="text-center">
+                                            <div className="flex items-center justify-center gap-1 text-amber-400 font-mono font-bold text-lg">
+                                                <CoinsIcon className="h-4 w-4" />
+                                                <span>{estimatedRewards.minGold}-{estimatedRewards.maxGold}</span>
+                                            </div>
+                                            <span className="text-xs text-gray-500">Złota</span>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="flex items-center justify-center gap-1 text-sky-400 font-mono font-bold text-lg">
+                                                <StarIcon className="h-4 w-4" />
+                                                <span>{estimatedRewards.minExp}-{estimatedRewards.maxExp}</span>
+                                            </div>
+                                            <span className="text-xs text-gray-500">XP</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 italic">
+                            Wybierz bossa z menu po lewej stronie.
+                        </div>
+                    )}
+                </div>
+
+                {/* Column 3: Party List */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-indigo-400">{t('hunting.availableParties')}</h3>
+                        <span className="text-xs text-gray-500 bg-slate-800 px-2 py-1 rounded">{parties.length}</span>
+                    </div>
+                    
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-3">
+                        {parties.length === 0 && (
+                            <div className="text-center py-12 text-gray-500 italic">
+                                <p>{t('hunting.noParties')}</p>
+                                <p className="text-xs mt-2">Bądź pierwszy i utwórz grupę!</p>
+                            </div>
+                        )}
+                        {parties.map(party => {
+                            const boss = gameData.enemies.find(e => e.id === party.bossId);
+                            return (
+                                <div key={party.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center overflow-hidden">
+                                                {boss?.image ? <img src={boss.image} className="w-full h-full object-cover"/> : <CrossedSwordsIcon className="h-4 w-4 text-gray-500"/>}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
+                                                <p className="text-xs text-gray-400">Lider: {party.leaderName}</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleJoin(party.id)} 
+                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors"
+                                        >
+                                            {t('hunting.join')}
+                                        </button>
+                                    </div>
+                                    <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
+                                        <div 
+                                            className="bg-green-500 h-full transition-all" 
+                                            style={{ width: `${(party.currentMembersCount / party.maxMembers) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Gracze</span>
+                                        <span>{party.currentMembersCount} / {party.maxMembers}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
         </ContentPanel>
     );
 };
-
-const Countdown: React.FC<{ target: string, offset: number }> = ({ target, offset }) => {
-    const [timeLeft, setTimeLeft] = useState('');
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const end = new Date(target).getTime() + offset; // offset is prep time in ms
-            const diff = Math.max(0, Math.floor((end - now) / 1000));
-            const m = Math.floor(diff / 60).toString().padStart(2, '0');
-            const s = (diff % 60).toString().padStart(2, '0');
-            setTimeLeft(`${m}:${s}`);
-            if (diff <= 0) clearInterval(interval);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [target, offset]);
-
-    return <span>{timeLeft}</span>;
-}
