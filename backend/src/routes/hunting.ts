@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -148,12 +149,16 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         const hasLoneWolf = (char.learnedSkills || []).includes('lone-wolf');
         const minMembers = hasLoneWolf ? 1 : 2;
 
+        if (maxMembers === 1 && !hasLoneWolf) {
+            return res.status(400).json({ message: "Aby wyruszyć na polowanie samotnie, musisz posiadać umiejętność 'Samotny Wilk'." });
+        }
+
         if (maxMembers < minMembers || maxMembers > 5) {
-            return res.status(400).json({ message: `Party size must be between ${minMembers} and 5.` });
+            return res.status(400).json({ message: `Rozmiar drużyny musi wynosić od ${minMembers} do 5.` });
         }
 
         const existingParty = await getPartyByMember(req.user.id);
-        if (existingParty) return res.status(400).json({ message: 'You are already in a party.' });
+        if (existingParty) return res.status(400).json({ message: 'Jesteś już członkiem innej grupy.' });
 
         const initialMembers = [{
             userId: req.user.id,
