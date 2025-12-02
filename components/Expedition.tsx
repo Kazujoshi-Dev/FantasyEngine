@@ -896,8 +896,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 
                 <div className="flex-grow overflow-y-auto min-h-0">
                     {reward.combatLog && reward.combatLog.length > 0 ? (
-                        <div className="flex gap-6 mb-6 min-h-[300px]">
-                            <div className="w-72 flex-shrink-0">
+                        <div className="grid grid-cols-[288px_1fr_288px] gap-6 mb-6 min-h-[300px]">
+                            <div>
                                 {isHunting ? (
                                     <PartyMemberList 
                                         members={partyMembersState} 
@@ -915,7 +915,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                 )}
                             </div>
                             
-                            <div ref={logContainerRef} className="bg-slate-900/50 p-4 rounded-lg flex-grow overflow-y-auto font-mono">
+                            <div ref={logContainerRef} className="bg-slate-900/50 p-4 rounded-lg overflow-y-auto font-mono">
                                 <div className="space-y-1 text-left">
                                     {displayedLogs.map((log, index) => {
                                         const prevLog = index > 0 ? displayedLogs[index - 1] : null;
@@ -935,7 +935,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                 </div>
                             </div>
                             
-                            <div className="w-72 flex-shrink-0">
+                            <div>
                                 {encounteredEnemies.length > 1 && !isHunting ? (
                                      <EnemyListPanel 
                                         enemies={encounteredEnemies} 
@@ -1122,7 +1122,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
-                        // FIX: Changed onClick handler to call handleCopyLink without arguments.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
