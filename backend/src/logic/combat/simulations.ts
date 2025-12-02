@@ -972,10 +972,21 @@ export const simulateTeamVsBossCombat = (
                         data: playersState[targetIndex].data
                     };
 
+                    const livingPlayersAsDefenders = playersState
+                        .filter(p => !p.isDead)
+                        .map(p => ({
+                            stats: p.data.stats,
+                            name: p.data.name,
+                            currentHealth: p.currentHealth,
+                            currentMana: p.currentMana,
+                            statusEffects: p.statusEffects,
+                            data: p.data
+                        }));
+
                     const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(
                         { ...bossState }, 
                         targetAsDefender, 
-                        turn, gameData, [], true
+                        turn, gameData, livingPlayersAsDefenders, true
                     );
                     
                     bossState.currentHealth = attackerState.currentHealth;

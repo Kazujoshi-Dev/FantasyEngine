@@ -896,8 +896,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 
                 <div className="flex-grow overflow-y-auto min-h-0">
                     {reward.combatLog && reward.combatLog.length > 0 ? (
-                        <div className="flex gap-4 mb-6 min-h-[300px]">
-                            <div className="w-1/4 flex-shrink-0">
+                        <div className="flex gap-6 mb-6 min-h-[300px]">
+                            <div className="w-72 flex-shrink-0">
                                 {isHunting ? (
                                     <PartyMemberList 
                                         members={partyMembersState} 
@@ -935,7 +935,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                 </div>
                             </div>
                             
-                            <div className="w-1/4 flex-shrink-0">
+                            <div className="w-72 flex-shrink-0">
                                 {encounteredEnemies.length > 1 && !isHunting ? (
                                      <EnemyListPanel 
                                         enemies={encounteredEnemies} 
@@ -1122,6 +1122,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
+                        // FIX: Changed onClick handler to call handleCopyLink without arguments.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
@@ -1342,7 +1343,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expe
                                     </div>
                                     
                                     <div className="mb-4">
-                                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t('expedition.reward')}</p>
+                                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">{t('expedition.reward')}</p>
                                          <div className="flex gap-3 text-xs font-mono">
                                              <span className="text-amber-300">{expedition.minBaseGoldReward}-{expedition.maxBaseGoldReward} <CoinsIcon className="inline w-3 h-3"/></span>
                                              <span className="text-sky-300">{expedition.minBaseExperienceReward}-{expedition.maxBaseExperienceReward} XP</span>

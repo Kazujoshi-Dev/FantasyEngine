@@ -71,6 +71,17 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         if (!charData.questProgress) charData.questProgress = [];
         if (!charData.acceptedQuests) charData.acceptedQuests = [];
         if (!charData.equipment) charData.equipment = { head: null, chest: null, legs: null, feet: null, hands: null, waist: null, neck: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null };
+        if (!charData.stats) {
+            console.warn(`Character ${charData.name} (ID: ${row.user_id}) is missing 'stats' object. Initializing with defaults.`);
+            charData.stats = {
+              strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
+              statPoints: 10, currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10,
+              currentMana: 20, maxMana: 20, minDamage: 1, maxDamage: 2, magicDamageMin: 0, magicDamageMax: 0,
+              critChance: 5, critDamageModifier: 200, armor: 0, armorPenetrationPercent: 0, armorPenetrationFlat: 0,
+              attacksPerRound: 1, manaRegen: 0, lifeStealPercent: 0, lifeStealFlat: 0,
+              manaStealPercent: 0, manaStealFlat: 0, dodgeChance: 0
+            };
+        }
 
         rawCharactersMap[row.user_id] = charData;
         rawCharactersMap[row.user_id].guildBarracksLevel = row.buildings?.barracks || 0;
@@ -118,7 +129,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         rawChar.stats.currentMana = Math.max(0, finalState.currentMana);
     }
 
-    const isVictory = combatLog[combatLog.length - 1].action === 'enemy_death';
+    const isVictory = combatLog.length > 0 && combatLog[combatLog.length - 1].action === 'enemy_death';
 
     // 5. Calculate Rewards and Save State
     const allRewardsForReport: Record<string, { gold: number; experience: number; items?: ItemInstance[]; essences?: Partial<Record<EssenceType, number>> }> = {};
