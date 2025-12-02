@@ -192,8 +192,6 @@ router.post('/characters/:userId/reset-progress', async (req: any, res: any) => 
             // Ideally reset to start, but we'd need to fetch locations. 
             // Keeping current location is safer to prevent null pointer if startLocationId logic is complex, 
             // but better UX is to go home. Let's assume location 1 is safe or keep current.
-            // Let's keep current location to be safe against missing IDs, unless it's a high level zone?
-            // Actually, let's reset to the first location in DB if possible, or keep current.
             // For now, keeping current location ID is the safest implementation without querying game_data.
             currentLocationId: oldChar.currentLocationId, 
             
@@ -812,11 +810,101 @@ router.post('/audit/fix-characters', async (req, res) => {
 });
 
 router.post('/audit/fix-gold', async (req, res) => {
-     res.status(501).json({ checked: 0, fixed: 0 });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+        let fixed = 0;
+        for (const row of result.rows) {
+            let character = row.data as PlayerCharacter;
+            let needsUpdate = false;
+
+            if (!character.resources) {
+                character.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+                needsUpdate = true;
+            }
+
+            const currentGold = character.resources.gold;
+            if (currentGold == null || isNaN(Number(currentGold))) {
+                character.resources.gold = 0;
+                needsUpdate = true;
+            } else {
+                const numericGold = Number(currentGold);
+                if (character.resources.gold !== numericGold) {
+                    character.resources.gold = numericGold;
+                    needsUpdate = true;
+                }
+            }
+
+            if (needsUpdate) {
+                await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [character, row.user_id]);
+                fixed++;
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ checked: result.rows.length, fixed });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Gold audit failed:", err);
+        res.status(500).json({ message: 'Failed to run gold audit' });
+    } finally {
+        client.release();
+    }
 });
 
 router.post('/audit/fix-values', async (req, res) => {
-     res.status(501).json({ itemsChecked: 0, itemsFixed: 0, affixesChecked: 0, affixesFixed: 0 });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Item Templates
+        const itemsRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates' FOR UPDATE");
+        let itemsChecked = 0;
+        let itemsFixed = 0;
+        if (itemsRes.rows.length > 0) {
+            let itemTemplates = itemsRes.rows[0].data as any[];
+            itemsChecked = itemTemplates.length;
+            itemTemplates.forEach(item => {
+                const currentValue = Number(item.value);
+                if (isNaN(currentValue) || currentValue <= 0) {
+                    item.value = 10;
+                    itemsFixed++;
+                }
+            });
+            if (itemsFixed > 0) {
+                await client.query("UPDATE game_data SET data = $1 WHERE key = 'itemTemplates'", [JSON.stringify(itemTemplates)]);
+            }
+        }
+
+        // Affixes
+        const affixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes' FOR UPDATE");
+        let affixesChecked = 0;
+        let affixesFixed = 0;
+        if (affixesRes.rows.length > 0) {
+            let affixes = affixesRes.rows[0].data as any[];
+            affixesChecked = affixes.length;
+            affixes.forEach(affix => {
+                const currentValue = Number(affix.value);
+                if (isNaN(currentValue) || currentValue <= 0) {
+                    affix.value = 10;
+                    affixesFixed++;
+                }
+            });
+            if (affixesFixed > 0) {
+                await client.query("UPDATE game_data SET data = $1 WHERE key = 'affixes'", [JSON.stringify(affixes)]);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ itemsChecked, itemsFixed, affixesChecked, affixesFixed });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Values audit failed:", err);
+        res.status(500).json({ message: 'Failed to run values audit' });
+    } finally {
+        client.release();
+    }
 });
 
 router.post('/audit/fix-attributes', async (req, res) => {
