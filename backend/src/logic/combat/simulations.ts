@@ -166,7 +166,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
 
         // --- Attacker's Turn ---
         if (attacker.currentHealth > 0) {
-            const isPlayerAttacking = 'statPoints' in attacker.stats;
+            const isPlayerAttacking = 'data' in attacker;
             const attacks = isPlayerAttacking ? (attacker.stats as CharacterStats).attacksPerRound : (attacker.stats as EnemyStats).attacksPerTurn || 1;
             const reducedAttacks = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
@@ -175,14 +175,25 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                  for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attacker, defender, turn, gameData, []);
+                    const isWarrior = isPlayerAttacking && (attacker as any).data.characterClass === CharacterClass.Warrior;
+                    
+                    const attackerForThisHit = { ...attacker };
+                    const attackOptions = {};
+
+                    if (isWarrior && i === 0) {
+                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
+                    }
+
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attackerForThisHit, defender, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
+
                     if (playerAttacksFirst) {
-                        playerState = attackerState as typeof playerState;
-                        enemyState = defenderState as typeof enemyState;
+                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                        Object.assign(enemyState, defenderState);
                     } else {
-                        enemyState = attackerState as typeof enemyState;
-                        playerState = defenderState as typeof playerState;
+                        Object.assign(enemyState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                        Object.assign(playerState, defenderState);
                     }
                 }
 
@@ -196,12 +207,12 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                         });
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(pAttacker, defender, turn, gameData, []);
                         log.push(...bonusLogs);
-                        if (playerAttacksFirst) {
-                            playerState = attackerState as typeof playerState;
-                            enemyState = defenderState as typeof enemyState;
+                         if (playerAttacksFirst) {
+                            Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                            Object.assign(enemyState, defenderState);
                         } else {
-                            enemyState = attackerState as typeof enemyState; // Should typically not happen in 1v1 unless mechanics change
-                            playerState = defenderState as typeof playerState;
+                            Object.assign(enemyState, attackerState);
+                            Object.assign(playerState, defenderState);
                         }
                     }
                 }
@@ -210,7 +221,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         
         // --- Defender's Turn (if they weren't first) ---
         if (defender.currentHealth > 0) {
-            const isPlayerDefending = 'statPoints' in defender.stats;
+            const isPlayerDefending = 'data' in defender;
             const attacks = isPlayerDefending ? (defender.stats as CharacterStats).attacksPerRound : (defender.stats as EnemyStats).attacksPerTurn || 1;
             const reducedAttacks = defender.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, attacks - reducedAttacks);
@@ -219,14 +230,24 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(defender, attacker, turn, gameData, []);
+                    const isWarrior = isPlayerDefending && (defender as any).data.characterClass === CharacterClass.Warrior;
+
+                    const attackerForThisHit = { ...defender };
+                    const attackOptions = {};
+                    if (isWarrior && i === 0) {
+                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
+                    }
+
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attackerForThisHit, attacker, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
+
                     if (playerAttacksFirst) {
-                        enemyState = attackerState as typeof enemyState;
-                        playerState = defenderState as typeof playerState;
+                        Object.assign(enemyState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                        Object.assign(playerState, defenderState);
                     } else {
-                        playerState = attackerState as typeof playerState;
-                        enemyState = defenderState as typeof enemyState;
+                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                        Object.assign(enemyState, defenderState);
                     }
                 }
 
@@ -240,12 +261,12 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                         });
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(pDefender, attacker, turn, gameData, []);
                         log.push(...bonusLogs);
-                        if (playerAttacksFirst) {
-                            enemyState = defenderState as typeof enemyState;
-                            playerState = attackerState as typeof playerState;
+                         if (playerAttacksFirst) {
+                            Object.assign(enemyState, attackerState);
+                            Object.assign(playerState, defenderState);
                         } else {
-                            playerState = attackerState as typeof playerState;
-                            enemyState = defenderState as typeof enemyState;
+                            Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                            Object.assign(enemyState, defenderState);
                         }
                     }
                 }
@@ -450,16 +471,25 @@ export const simulate1vManyCombat = (
                 const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
 
                 for(let i = 0; i < finalAttacks; i++) {
-                    // DYNAMICALLY FIND TARGET inside the loop
                     const targetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
-                    if (targetIndex === -1) break; // All enemies dead
-
+                    if (targetIndex === -1) break; 
                     const target = enemiesState[targetIndex];
 
-                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState);
+                    const attackerForThisHit = { ...playerState };
+                    const attackOptions = {};
+                    if (playerData.characterClass === CharacterClass.Warrior && i === 0) {
+                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
+                    }
 
-                    // Update states
-                    playerState = attackerState as typeof playerState;
+                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(attackerForThisHit, target, turn, gameData, enemiesState, false, attackOptions);
+
+                    playerState.currentHealth = attackerState.currentHealth;
+                    playerState.currentMana = attackerState.currentMana;
+                    playerState.statusEffects = attackerState.statusEffects;
+                    playerState.manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playerState.shadowBoltStacks = attackerState.shadowBoltStacks;
+
                     enemiesState[targetIndex] = defenderState as typeof target;
 
                     log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
@@ -563,7 +593,7 @@ export const simulate1vManyCombat = (
                         });
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState);
                         
-                        playerState = attackerState as typeof playerState;
+                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
                         enemiesState[targetIndex] = defenderState as typeof target;
                         log.push(...bonusLogs.map(l => ({...l, ...getHealthState()})));
 
@@ -596,13 +626,9 @@ export const simulate1vManyCombat = (
 
                 const { logs: attackLogs, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData, []);
                 
-                // Update states (enemyState needs to be updated in the array via reference or ID, 
-                // but performAttack returns a new object/state typically.
-                // Here `enemy` is a reference from `enemiesState`, but performAttack treats inputs as immutable-ish 
-                // returning new states. We must write back.)
                 const eIndex = enemiesState.findIndex(e => e.uniqueId === enemy.uniqueId);
-                enemiesState[eIndex] = attackerState as typeof enemy;
-                playerState = defenderState as typeof playerState;
+                Object.assign(enemiesState[eIndex], { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                Object.assign(playerState, defenderState);
 
                 log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
             }
@@ -876,15 +902,22 @@ export const simulateTeamVsBossCombat = (
                     if (bossState.currentHealth <= 0) break;
 
                     let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
-                    
-                    if (i === 0 && player.data.characterClass === CharacterClass.Warrior) {
+                    const attackOptions = {};
+
+                    if (player.data.characterClass === CharacterClass.Warrior && i === 0) {
                         playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
                     
-                    playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
-                    bossState = { ...bossState, ...defenderState };
+                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
+                    playersState[playerIndex].currentMana = attackerState.currentMana;
+                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
+                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
+                    
+                    Object.assign(bossState, defenderState);
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
                 
@@ -894,8 +927,14 @@ export const simulateTeamVsBossCombat = (
                         ...getHealthStateForLog()
                      });
                      const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
-                     playersState[playerIndex] = { ...playersState[playerIndex], ...attackerState };
-                     bossState = { ...bossState, ...defenderState };
+                     
+                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
+                    playersState[playerIndex].currentMana = attackerState.currentMana;
+                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
+                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
+                     
+                     Object.assign(bossState, defenderState);
                      log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
 
