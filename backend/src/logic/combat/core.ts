@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 import { spellRegistry } from './spells/registry.js';
@@ -62,7 +61,7 @@ export const performAttack = <
     gameData: GameData,
     allEnemies: DefenderState[],
     isBossAttacking: boolean = false,
-    options: { ignoreArmor?: boolean; ignoreDodge?: boolean } = {}
+    options: { ignoreArmor?: boolean; ignoreDodge?: boolean, critChanceOverride?: number } = {}
 ): { logs: CombatLogEntry[], attackerState: TAttacker, defenderState: TDefender, aoeData?: any, chainData?: any } => {
 
     const logs: CombatLogEntry[] = [];
@@ -177,7 +176,7 @@ export const performAttack = <
         }
     } else {
         damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
-        const critChance = attacker.stats.critChance + (attacker.isEmpowered ? 15 : 0);
+        const critChance = options.critChanceOverride ?? (attacker.stats.critChance + (attacker.isEmpowered ? 15 : 0));
         if (Math.random() * 100 < critChance) {
             isCrit = true;
             const critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;

@@ -62,30 +62,32 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
 
     if (template?.isRanged && enemyState.currentHealth > 0) {
         // 1. Standard Ranged Attack (Everyone with ranged weapon)
-        const { logs: attackLogs, defenderState } = performAttack(playerState, enemyState, 0, gameData, []);
+        const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+        if (playerData.characterClass === CharacterClass.Warrior) {
+            attackOptions.critChanceOverride = 100;
+            attackOptions.ignoreDodge = true;
+        }
+
+        const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, enemyState, 0, gameData, [], false, attackOptions);
         log.push(...attackLogs);
-        enemyState = defenderState as typeof enemyState; // Sync state
+        Object.assign(playerState, attackerState);
+        Object.assign(enemyState, defenderState);
 
         // 2. Hunter Bonus Attack (Only Hunters, 50% damage)
         if (playerData.characterClass === CharacterClass.Hunter && enemyState.currentHealth > 0) {
              const { logs: hunterLogs, defenderState: hunterDefenderState } = performAttack(playerState, enemyState, 0, gameData, []);
              
-             // Apply 50% damage reduction logic manually to the log and state
              const lastLog = hunterLogs[hunterLogs.length - 1];
              if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
                 const originalDamage = lastLog.damage;
                 const reducedDamage = Math.floor(originalDamage * 0.5);
                 const diff = originalDamage - reducedDamage;
                 
-                // Correct the log
                 lastLog.damage = reducedDamage;
-                // Correct the actual health state (heal back the difference)
                 hunterDefenderState.currentHealth += diff;
-                // Sync local variable
-                enemyState = hunterDefenderState as typeof enemyState;
-                
-                // Update health in log entry to match new state
-                lastLog.enemyHealth = enemyState.currentHealth;
+                lastLog.enemyHealth = hunterDefenderState.currentHealth;
+
+                Object.assign(enemyState, hunterDefenderState);
              }
              log.push(...hunterLogs);
         }
@@ -161,22 +163,20 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                  for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
                     const isWarrior = isPlayerAttacking && (attacker as any).data.characterClass === CharacterClass.Warrior;
                     
-                    const attackerForThisHit = { ...attacker };
-                    const attackOptions = {};
-
+                    const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
                     if (isWarrior && i === 0) {
-                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
-                        Object.assign(attackOptions, { ignoreDodge: true });
+                        attackOptions.critChanceOverride = 100;
+                        attackOptions.ignoreDodge = true;
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attackerForThisHit, defender, turn, gameData, [], false, attackOptions);
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attacker, defender, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
 
                     if (playerAttacksFirst) {
-                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                        Object.assign(playerState, attackerState);
                         Object.assign(enemyState, defenderState);
                     } else {
-                        Object.assign(enemyState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                        Object.assign(enemyState, attackerState);
                         Object.assign(playerState, defenderState);
                     }
                 }
@@ -192,7 +192,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(pAttacker, defender, turn, gameData, []);
                         log.push(...bonusLogs);
                          if (playerAttacksFirst) {
-                            Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                            Object.assign(playerState, attackerState);
                             Object.assign(enemyState, defenderState);
                         } else {
                             Object.assign(enemyState, attackerState);
@@ -216,21 +216,20 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
                     const isWarrior = isPlayerDefending && (defender as any).data.characterClass === CharacterClass.Warrior;
 
-                    const attackerForThisHit = { ...defender };
-                    const attackOptions = {};
+                    const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
                     if (isWarrior && i === 0) {
-                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
-                        Object.assign(attackOptions, { ignoreDodge: true });
+                        attackOptions.critChanceOverride = 100;
+                        attackOptions.ignoreDodge = true;
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(attackerForThisHit, attacker, turn, gameData, [], false, attackOptions);
+                    const { logs: attackLogs, attackerState, defenderState } = performAttack(defender, attacker, turn, gameData, [], false, attackOptions);
                     log.push(...attackLogs);
 
                     if (playerAttacksFirst) {
-                        Object.assign(enemyState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                        Object.assign(enemyState, attackerState);
                         Object.assign(playerState, defenderState);
                     } else {
-                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                        Object.assign(playerState, attackerState);
                         Object.assign(enemyState, defenderState);
                     }
                 }
@@ -249,7 +248,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                             Object.assign(enemyState, attackerState);
                             Object.assign(playerState, defenderState);
                         } else {
-                            Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                            Object.assign(playerState, attackerState);
                             Object.assign(enemyState, defenderState);
                         }
                     }

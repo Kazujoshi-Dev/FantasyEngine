@@ -98,9 +98,14 @@ export const simulate1vManyCombat = (
         const target = enemiesState.find(e => e.currentHealth > 0);
         if (target) {
             // 1. Standard Ranged Attack
-            const { logs: attackLogs, defenderState } = performAttack(playerState, target, 0, gameData, enemiesState);
+            const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+            if (playerData.characterClass === CharacterClass.Warrior) {
+                attackOptions.critChanceOverride = 100;
+                attackOptions.ignoreDodge = true;
+            }
+            const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, target, 0, gameData, enemiesState, false, attackOptions);
             
-            // Update target health in the main array
+            Object.assign(playerState, attackerState);
             const targetIndex = enemiesState.findIndex(e => e.uniqueId === target.uniqueId);
             enemiesState[targetIndex] = defenderState as typeof target;
             
@@ -198,21 +203,15 @@ export const simulate1vManyCombat = (
                     if (targetIndex === -1) break; 
                     const target = enemiesState[targetIndex];
 
-                    const attackerForThisHit = { ...playerState };
-                    const attackOptions = {};
+                    const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
                     if (playerData.characterClass === CharacterClass.Warrior && i === 0) {
-                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
-                        Object.assign(attackOptions, { ignoreDodge: true });
+                        attackOptions.critChanceOverride = 100;
+                        attackOptions.ignoreDodge = true;
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(attackerForThisHit, target, turn, gameData, enemiesState, false, attackOptions);
-
-                    playerState.currentHealth = attackerState.currentHealth;
-                    playerState.currentMana = attackerState.currentMana;
-                    playerState.statusEffects = attackerState.statusEffects;
-                    playerState.manaSurgeUsed = attackerState.manaSurgeUsed;
-                    playerState.shadowBoltStacks = attackerState.shadowBoltStacks;
-
+                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState, false, attackOptions);
+                    
+                    Object.assign(playerState, attackerState);
                     enemiesState[targetIndex] = defenderState as typeof target;
 
                     log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
@@ -316,7 +315,7 @@ export const simulate1vManyCombat = (
                         });
                         const { logs: bonusLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState);
                         
-                        Object.assign(playerState, { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects, manaSurgeUsed: attackerState.manaSurgeUsed, shadowBoltStacks: attackerState.shadowBoltStacks });
+                        Object.assign(playerState, attackerState);
                         enemiesState[targetIndex] = defenderState as typeof target;
                         log.push(...bonusLogs.map(l => ({...l, ...getHealthState()})));
 
@@ -350,7 +349,7 @@ export const simulate1vManyCombat = (
                 const { logs: attackLogs, attackerState, defenderState } = performAttack(enemy, playerState, turn, gameData, []);
                 
                 const eIndex = enemiesState.findIndex(e => e.uniqueId === enemy.uniqueId);
-                Object.assign(enemiesState[eIndex], { currentHealth: attackerState.currentHealth, currentMana: attackerState.currentMana, statusEffects: attackerState.statusEffects });
+                Object.assign(enemiesState[eIndex], attackerState);
                 Object.assign(playerState, defenderState);
 
                 log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
