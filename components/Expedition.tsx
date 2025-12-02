@@ -59,19 +59,19 @@ const CombatLogRow: React.FC<{
         return 'text-red-400';
     };
 
-    const getHpForEntity = (name: string) => {
+    const getHpForEntity = (name: string, healthSnapshot: any) => {
         if (friendlyNames.includes(name)) {
-            const playerHealthData = log.allPlayersHealth?.find(p => p.name === name);
+            const playerHealthData = healthSnapshot?.allPlayersHealth?.find((p: any) => p.name === name);
             if (playerHealthData) {
                 return playerHealthData.currentHealth;
             }
-            return log.playerHealth; // Fallback
+            return healthSnapshot?.playerHealth; // Fallback
         }
-        const enemyHealthData = log.allEnemiesHealth?.find(e => e.name === name);
+        const enemyHealthData = healthSnapshot?.allEnemiesHealth?.find((e: any) => e.name === name);
         if (enemyHealthData) {
             return enemyHealthData.currentHealth;
         }
-        return log.enemyHealth; // Fallback for 1v1
+        return healthSnapshot?.enemyHealth; // Fallback for 1v1
     };
 
 
@@ -79,7 +79,7 @@ const CombatLogRow: React.FC<{
         const color = getCombatantColor(name);
         if(name === 'Team') return <span className={`font-semibold ${color}`}>{name}</span>;
         
-        const hp = Math.max(0, Math.ceil(getHpForEntity(name)));
+        const hp = Math.max(0, Math.ceil(getHpForEntity(name, log)));
         
         return (
             <>
@@ -620,6 +620,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     } = props;
     const { t } = useTranslation();
 
+    const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+
+
     const defaultDummyStats: CharacterStats = {
         strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0,
         statPoints: 0, currentHealth: 0, maxHealth: 1, currentEnergy: 0, maxEnergy: 0,
@@ -711,6 +714,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-40 p-4"
             style={backgroundStyle}
         >
+             {inspectingItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setInspectingItem(null)}>
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <button className="absolute top-2 right-2 text-gray-400 hover:text-white" onClick={() => setInspectingItem(null)}>✕</button>
+                        <ItemDetailsPanel item={inspectingItem.item} template={inspectingItem.template} affixes={affixes} />
+                    </div>
+                </div>
+            )}
             <div 
                 className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh]"
                 style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
@@ -759,7 +770,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
 
-                <div className="mt-4 text-center animate-fade-in">
+                <div className="mt-4 text-center">
                     <h3 className={`text-4xl font-extrabold mb-4 ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
                         {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
                     </h3>
@@ -785,8 +796,15 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                             {reward.itemsFound.map((item, index) => {
                                                 const template = itemTemplates.find(t => t.id === item.templateId);
                                                 if (!template) return null;
+                                                const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
                                                 return (
-                                                    <ItemListItem key={index} item={item} template={template} affixes={affixes} isSelected={false} onClick={() => {}} />
+                                                    <div 
+                                                        key={index}
+                                                        onClick={() => setInspectingItem({ item, template })}
+                                                        className={`text-sm py-1 px-2 rounded cursor-pointer hover:bg-slate-700 ${rarityStyles[template.rarity].text}`}
+                                                    >
+                                                        {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                                    </div>
                                                 );
                                             })}
                                         </div>
