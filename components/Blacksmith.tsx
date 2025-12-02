@@ -111,53 +111,41 @@ const DisenchantPanel: React.FC<{
 
     const { upgradeLevel, finalDamageMin, finalDamageMax, finalMagicDamageMin, finalMagicDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost, finalCritDamageModifier } = useMemo(() => {
         if (!selectedItem || !selectedTemplate) return { 
-            upgradeLevel: 0,
-            finalDamageMin: 0,
-            finalDamageMax: 0,
-            finalMagicDamageMin: 0,
-            finalMagicDamageMax: 0,
-            finalCritChanceBonus: 0,
-            attacksPerRound: undefined,
-            finalArmorBonus: 0,
-            statBonusEntries: [],
-            manaCost: undefined,
-            finalCritDamageModifier: 0
+            upgradeLevel: 0, finalDamageMin: 0, finalDamageMax: 0, finalMagicDamageMin: 0, finalMagicDamageMax: 0,
+            finalCritChanceBonus: 0, attacksPerRound: undefined, finalArmorBonus: 0, statBonusEntries: [], manaCost: undefined, finalCritDamageModifier: 0
         };
-
-        const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
-            if (value === undefined || value === null) return 0;
-            if (typeof value === 'number') return value;
-            if (typeof value === 'object' && 'max' in value) return value.max;
-            return 0;
-        };
-
+    
         const upgradeLevel = selectedItem.upgradeLevel || 0;
         const upgradeBonusFactor = upgradeLevel * 0.1;
         
         const calculateUpgradedStat = (base?: number): number => {
-            if (base === undefined) return 0;
+            if (base === undefined || base === null) return 0;
             return base + Math.round(base * upgradeBonusFactor);
         };
         
         const calculateUpgradedFloatStat = (base?: number): number => {
-            if (base === undefined) return 0;
-            return base + (base * upgradeBonusFactor);
+            if (base === undefined || base === null) return 0;
+            // toFixed(1) for precision, then parse back to number
+            return parseFloat((base + (base * upgradeBonusFactor)).toFixed(1));
         };
-
+    
+        const rolledStats = selectedItem.rolledBaseStats || {};
+        const baseStatBonuses = rolledStats.statsBonus || {};
+    
         return {
             upgradeLevel,
-            finalDamageMin: calculateUpgradedStat(getMaxValue(selectedTemplate.damageMin as any)),
-            finalDamageMax: calculateUpgradedStat(getMaxValue(selectedTemplate.damageMax as any)),
-            finalMagicDamageMin: calculateUpgradedStat(getMaxValue(selectedTemplate.magicDamageMin as any)),
-            finalMagicDamageMax: calculateUpgradedStat(getMaxValue(selectedTemplate.magicDamageMax as any)),
-            finalCritChanceBonus: calculateUpgradedFloatStat(getMaxValue(selectedTemplate.critChanceBonus as any)),
-            attacksPerRound: selectedTemplate.attacksPerRound,
-            finalArmorBonus: calculateUpgradedStat(getMaxValue(selectedTemplate.armorBonus as any)),
-            statBonusEntries: Object.entries(selectedTemplate.statsBonus || {})
+            finalDamageMin: calculateUpgradedStat(rolledStats.damageMin),
+            finalDamageMax: calculateUpgradedStat(rolledStats.damageMax),
+            finalMagicDamageMin: calculateUpgradedStat(rolledStats.magicDamageMin),
+            finalMagicDamageMax: calculateUpgradedStat(rolledStats.magicDamageMax),
+            finalCritChanceBonus: calculateUpgradedFloatStat(rolledStats.critChanceBonus),
+            attacksPerRound: selectedTemplate.attacksPerRound, // Static, does not roll or upgrade
+            finalArmorBonus: calculateUpgradedStat(rolledStats.armorBonus),
+            statBonusEntries: Object.entries(baseStatBonuses)
                 .filter(([, value]) => value)
-                .map(([key, value]) => ({ key, value: calculateUpgradedStat(getMaxValue(value as any)) })),
-            manaCost: selectedTemplate.manaCost,
-            finalCritDamageModifier: calculateUpgradedStat(getMaxValue(selectedTemplate.critDamageModifierBonus as any))
+                .map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) })),
+            manaCost: selectedTemplate.manaCost, // Static from template
+            finalCritDamageModifier: calculateUpgradedStat(rolledStats.critDamageModifierBonus)
         };
     }, [selectedItem, selectedTemplate]);
 
@@ -238,6 +226,52 @@ const DisenchantPanel: React.FC<{
         </div>
     );
 };
+
+const UpgradeItemPreview: React.FC<{ item: ItemInstance, template: ItemTemplate }> = ({ item, template }) => {
+    const { t } = useTranslation();
+    const { upgradeLevel, finalDamageMin, finalDamageMax, finalMagicDamageMin, finalMagicDamageMax, finalCritChanceBonus, attacksPerRound, finalArmorBonus, statBonusEntries, manaCost, finalCritDamageModifier } = useMemo(() => {
+        const upgradeLevel = item.upgradeLevel || 0;
+        const upgradeBonusFactor = upgradeLevel * 0.1;
+        const calculateUpgradedStat = (base?: number) => (base === undefined || base === null) ? 0 : base + Math.round(base * upgradeBonusFactor);
+        const calculateUpgradedFloatStat = (base?: number) => (base === undefined || base === null) ? 0 : parseFloat((base + (base * upgradeBonusFactor)).toFixed(1));
+
+        const rolledStats = item.rolledBaseStats || {};
+        const baseStatBonuses = rolledStats.statsBonus || {};
+
+        return {
+            upgradeLevel,
+            finalDamageMin: calculateUpgradedStat(rolledStats.damageMin),
+            finalDamageMax: calculateUpgradedStat(rolledStats.damageMax),
+            finalMagicDamageMin: calculateUpgradedStat(rolledStats.magicDamageMin),
+            finalMagicDamageMax: calculateUpgradedStat(rolledStats.magicDamageMax),
+            finalCritChanceBonus: calculateUpgradedFloatStat(rolledStats.critChanceBonus),
+            attacksPerRound: template.attacksPerRound,
+            finalArmorBonus: calculateUpgradedStat(rolledStats.armorBonus),
+            statBonusEntries: Object.entries(baseStatBonuses).filter(([, value]) => value).map(([key, value]) => ({ key, value: calculateUpgradedStat(value as number) })),
+            manaCost: template.manaCost,
+            finalCritDamageModifier: calculateUpgradedStat(rolledStats.critDamageModifierBonus)
+        };
+    }, [item, template]);
+
+    return (
+        <div className="bg-slate-800/50 p-4 rounded-lg text-left">
+            <h4 className={`font-bold text-lg mb-1 ${rarityStyles[template.rarity].text}`}>
+                {template.name} {upgradeLevel > 0 && `+${upgradeLevel}`}
+            </h4>
+            <div className="space-y-1 text-xs border-t border-slate-700/50 pt-2 mt-2">
+                {finalDamageMin !== 0 && finalDamageMax !== 0 && <p className="flex justify-between"><span>{t('item.damage')}:</span> <span className="font-mono">{finalDamageMin}-{finalDamageMax}</span></p>}
+                {finalMagicDamageMin !== 0 && finalMagicDamageMax !== 0 && <p className="flex justify-between text-purple-300"><span>{t('statistics.magicDamage')}:</span> <span className="font-mono">{finalMagicDamageMin}-{finalMagicDamageMax}</span></p>}
+                {manaCost && <p className="flex justify-between text-cyan-300"><span>{t('item.manaCost')}:</span> <span className="font-mono">{manaCost.min === manaCost.max ? manaCost.min : `${manaCost.min}-${manaCost.max}`}</span></p>}
+                {attacksPerRound && <p className="flex justify-between"><span>{t('statistics.attacksPerTurn')}:</span> <span className="font-mono">{attacksPerRound}</span></p>}
+                {finalArmorBonus > 0 && <p className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="font-mono">+{finalArmorBonus}</span></p>}
+                {finalCritChanceBonus > 0 && <p className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="font-mono">+{finalCritChanceBonus.toFixed(1)}%</span></p>}
+                {finalCritDamageModifier > 0 && <p className="flex justify-between"><span>{t('statistics.critDamageModifier')}:</span> <span className="font-mono">+{finalCritDamageModifier}%</span></p>}
+                {statBonusEntries?.map(({ key, value }) => value > 0 && <p key={key} className="flex justify-between text-green-300/80"><span>{t(`statistics.${key}`)}</span> <span className="font-mono">+{value}</span></p>)}
+            </div>
+        </div>
+    );
+};
+
 
 const UpgradePanel: React.FC<{
     character: PlayerCharacter;
@@ -431,12 +465,12 @@ const UpgradePanel: React.FC<{
                                 <div className="flex justify-center items-start gap-4 my-2">
                                      <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.currentStats')}</p>
-                                        <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" hideAffixes={true} />
+                                        <UpgradeItemPreview item={selectedItem} template={selectedTemplate} />
                                     </div>
                                     <ArrowRightIcon className="h-6 w-6 text-slate-500 mt-8" />
                                     <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.statsAfterUpgrade')}</p>
-                                        <ItemDetailsPanel item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" hideAffixes={true} />
+                                        <UpgradeItemPreview item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} />
                                     </div>
                                 </div>
 
