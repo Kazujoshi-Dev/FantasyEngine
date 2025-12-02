@@ -1,4 +1,3 @@
-
 export default {
     loading: 'Loading adventure...',
     error: {

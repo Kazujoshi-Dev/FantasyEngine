@@ -1,8 +1,5 @@
 
 
-
-
-
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -34,13 +31,14 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     };
 
     // Initialize base stats from character (ensure they are numbers)
-    const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
+    const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'> = {
         strength: Number(character.stats.strength) || 0, 
         agility: Number(character.stats.agility) || 0, 
         accuracy: Number(character.stats.accuracy) || 0,
         stamina: Number(character.stats.stamina) || 0, 
         intelligence: Number(character.stats.intelligence) || 0, 
-        energy: Number(character.stats.energy) || 0
+        energy: Number(character.stats.energy) || 0,
+        luck: Number(character.stats.luck) || 0,
     };
 
     let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
@@ -56,7 +54,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
             for (const stat in source.statsBonus) {
                 const key = stat as keyof typeof source.statsBonus;
                 const val = Number(source.statsBonus[key]) || 0;
-                totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + val;
+                (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + val;
             }
         }
         bonusDamageMin += Number(source.damageMin) || 0;
@@ -101,7 +99,7 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
                     for (const stat in baseStats.statsBonus) {
                         const key = stat as keyof typeof baseStats.statsBonus;
                         const baseBonus = Number(baseStats.statsBonus[key]) || 0;
-                        totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                        (totalPrimaryStats as any)[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
                 
@@ -132,10 +130,10 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
                         const key = stat as keyof typeof template.statsBonus;
                         const bonusValue = template.statsBonus[key];
                         const baseBonus = getMaxValue(bonusValue as any);
-                        totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                        (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
-
+    
                 const baseDamageMin = getMaxValue(template.damageMin as any);
                 const baseDamageMax = getMaxValue(template.damageMax as any);
                 const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);

@@ -1,3 +1,4 @@
+
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -41,7 +42,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
 
         if (res.rows.length > 0) {
              const defaultStats: CharacterStats = {
-                strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, statPoints: 0,
+// @FIX: Add missing 'luck' property
+                strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0, statPoints: 0,
                 currentHealth: 1, maxHealth: 1, currentEnergy: 1, maxEnergy: 1, currentMana: 0, maxMana: 0,
                 minDamage: 0, maxDamage: 1, magicDamageMin: 0, magicDamageMax: 0, critChance: 0, critDamageModifier: 150,
                 armor: 0, armorPenetrationPercent: 0, armorPenetrationFlat: 0, attacksPerRound: 1, manaRegen: 0,

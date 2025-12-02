@@ -63,7 +63,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         onSave(formData as ItemTemplate);
     };
 
-    const primaryStats: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const primaryStats: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
     const MinMaxInput: React.FC<{ label: string; field: keyof ItemTemplate }> = ({ label, field }) => {
         const value = (formData as any)[field] || {};

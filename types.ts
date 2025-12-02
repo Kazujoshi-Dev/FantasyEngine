@@ -281,6 +281,7 @@ export interface CharacterStats {
   stamina: number;
   intelligence: number;
   energy: number;
+  luck: number;
 
   // Distributable points
   statPoints: number;
@@ -379,7 +380,7 @@ export interface ItemTemplate {
     requiredLevel: number;
     requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     // Bonuses with min-max ranges
-    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>]: { min: number; max: number } }>;
     damageMin?: { min: number; max: number; };
     damageMax?: { min: number; max: number; };
     attacksPerRound?: number;
@@ -403,7 +404,7 @@ export interface ItemTemplate {
 }
 
 export interface RolledAffixStats {
-    statsBonus?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
+    statsBonus?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>>;
     damageMin?: number;
     damageMax?: number;
     attacksPerRoundBonus?: number;
@@ -456,7 +457,7 @@ export interface Affix {
     requiredLevel?: number;
     requiredStats?: Partial<Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>>;
     
-    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>]: { min: number; max: number } }>;
+    statsBonus?: Partial<{ [key in keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>]: { min: number; max: number } }>;
     damageMin?: { min: number; max: number; };
     damageMax?: { min: number; max: number; };
     attacksPerRoundBonus?: { min: number; max: number; };

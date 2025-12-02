@@ -112,7 +112,7 @@ export const AffixEditor: React.FC<{
         onSave(finalAffix);
     };
     
-    const primaryStats: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const primaryStats: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
 
     const MinMaxInput: React.FC<{ label: string; field: keyof Affix }> = ({ label, field }) => {

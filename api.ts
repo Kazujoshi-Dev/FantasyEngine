@@ -181,7 +181,8 @@ export const api = {
 
     async createCharacter(name: string, race: Race, startLocationId: string): Promise<PlayerCharacter> {
         const initialStats: CharacterStats = {
-          strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
+// @FIX: Add missing 'luck' property
+          strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0,
           statPoints: 10,
           currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10,
           currentMana: 20, maxMana: 20,
