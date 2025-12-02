@@ -200,7 +200,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
 
             if (Math.random() * 100 < drop.chance) {
                 if (finalCharacter.inventory.length < backpackCapacity) {
-                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || []);
+                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
                     finalCharacter.inventory.push(newItem);
                     itemsFound.push(newItem);
                 } else {

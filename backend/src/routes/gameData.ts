@@ -41,7 +41,6 @@ router.put('/', authenticateToken, async (req: any, res: any) => {
             'INSERT INTO game_data (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2',
             [key, JSON.stringify(data)]
         );
-// @FIX: Fix implicit symbol to string conversion error by explicitly casting the key to a string in the template literal.
         res.status(200).json({ message: `Game data for '${String(key)}' updated successfully.` });
     } catch (err) {
         console.error(`Error updating game data for key ${String(key)}:`, err);

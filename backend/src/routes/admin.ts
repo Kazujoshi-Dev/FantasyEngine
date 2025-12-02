@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language } from '../types.js';
@@ -118,6 +117,7 @@ router.post('/characters/:userId/reset-stats', async (req: any, res: any) => {
         character.stats.stamina = 0;
         character.stats.intelligence = 0;
         character.stats.energy = 0;
+        character.stats.luck = 0;
         character.stats.statPoints = correctTotalPoints;
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.params.userId]);
@@ -145,7 +145,6 @@ router.post('/characters/:userId/reset-progress', async (req: any, res: any) => 
         
         // Construct clean state, keeping only identity info
         const initialStats: CharacterStats = {
-// @FIX: Add missing 'luck' property
           strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0,
           statPoints: 10,
           currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10,

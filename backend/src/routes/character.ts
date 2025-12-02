@@ -1,4 +1,3 @@
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -513,7 +512,7 @@ router.post('/character/distribute-points', authenticateToken, async (req: any, 
         }
 
         // Apply points
-        const statKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+        const statKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
         for (const key of statKeys) {
             if (pointsToAdd[key]) {
                 character.stats[key] = (character.stats[key] || 0) + (pointsToAdd[key] || 0);
@@ -560,6 +559,7 @@ router.post('/character/reset-attributes', authenticateToken, async (req: any, r
         character.stats.stamina = 0;
         character.stats.intelligence = 0;
         character.stats.energy = 0;
+        character.stats.luck = 0;
         character.stats.statPoints = totalPoints;
         
         character.freeStatResetUsed = true;
@@ -1108,7 +1108,7 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             (quest.rewards.itemRewards || []).forEach((reward: ItemReward) => {
                 for (let i = 0; i < reward.quantity; i++) {
                     if (character.inventory.length < getBackpackCapacity(character)) {
-                        character.inventory.push(createItemInstance(reward.templateId, itemTemplates, affixes));
+                        character.inventory.push(createItemInstance(reward.templateId, itemTemplates, affixes, character));
                     }
                 }
             });
@@ -1120,7 +1120,7 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
             (quest.rewards.lootTable || []).forEach((drop: LootDrop) => {
                 if (Math.random() * 100 < drop.chance) {
                     if (character.inventory.length < getBackpackCapacity(character)) {
-                        character.inventory.push(createItemInstance(drop.templateId, itemTemplates, affixes));
+                        character.inventory.push(createItemInstance(drop.templateId, itemTemplates, affixes, character));
                     }
                 }
             });

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType } from '../types';
@@ -147,7 +146,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
 
   const availablePoints = baseCharacter.stats.statPoints - spentPoints;
 
-  const handleStatChange = (stat: keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>, delta: number) => {
+  const handleStatChange = (stat: keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>, delta: number) => {
     if (delta > 0 && availablePoints <= 0) return;
     if (delta < 0 && (pendingStats[stat] as number) <= (baseCharacter.stats[stat] as number)) return;
 
@@ -163,7 +162,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     const pointsToAdd: Partial<CharacterStats> = {};
     let totalAdded = 0;
     
-    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
     
     baseStatKeys.forEach(key => {
         const delta = (pendingStats[key] || 0) - (baseCharacter.stats[key] || 0);
@@ -210,7 +209,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
 
   const previewCharacter = useMemo(() => calculateDerivedStats(tempCharacterForPreview, gameData), [tempCharacterForPreview, calculateDerivedStats, gameData]);
   
-  const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+  const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
   const experiencePercentage = (character.experience / character.experienceToNextLevel) * 100;
 

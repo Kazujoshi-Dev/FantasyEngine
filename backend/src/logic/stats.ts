@@ -20,7 +20,6 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
     const safeAffixes = affixes || [];
-    // FIX: Ensure equipment object exists on character to prevent crash on iteration
     const safeEquipment = character.equipment || {};
 
     const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
