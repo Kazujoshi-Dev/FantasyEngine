@@ -1,5 +1,4 @@
-
-import { HuntingParty, PartyMember, GameData, ItemInstance, EssenceType, PlayerCharacter, Enemy, CharacterClass, Race, PartyStatus } from '../types.js';
+import { HuntingParty, PartyMember, GameData, ItemInstance, EssenceType, PlayerCharacter, Enemy, CharacterClass, Race, PartyStatus, EquipmentSlot } from '../types.js';
 import { pool } from '../db.js';
 import { simulateTeamVsBossCombat } from './combat/simulations.js';
 import { createItemInstance } from './items.js';
@@ -65,8 +64,15 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     
     const rawCharactersMap: Record<number, PlayerCharacter> = {};
     charsRes.rows.forEach((row: any) => {
-        rawCharactersMap[row.user_id] = row.data;
-        // Inject guild bonus level if needed for derived stats
+        let charData = row.data as PlayerCharacter;
+        // Defensive initialization to prevent crashes from legacy/corrupted character data
+        if (!charData.resources) charData.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+        if (!charData.inventory) charData.inventory = [];
+        if (!charData.questProgress) charData.questProgress = [];
+        if (!charData.acceptedQuests) charData.acceptedQuests = [];
+        if (!charData.equipment) charData.equipment = { head: null, chest: null, legs: null, feet: null, hands: null, waist: null, neck: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null };
+
+        rawCharactersMap[row.user_id] = charData;
         rawCharactersMap[row.user_id].guildBarracksLevel = row.buildings?.barracks || 0;
         rawCharactersMap[row.user_id].id = row.user_id; // Ensure ID is present
     });

@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -69,19 +68,33 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
             const fightStartTime = new Date(party.startTime).getTime() + preparationTimeSeconds * 1000;
 
             if (Date.now() >= fightStartTime) {
-                await client.query("UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1", [party.id]);
-                
+                await client.query('SAVEPOINT before_combat');
                 try {
+                    await client.query("UPDATE hunting_parties SET status = 'FIGHTING' WHERE id = $1", [party.id]);
                     await processPartyCombat(party, gameData, client);
                 } catch (combatError) {
-                    console.error(`CRITICAL: processPartyCombat failed for party ${party.id}. Forcing FINISHED status.`, combatError);
-                    await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
+                    console.error(`CRITICAL: processPartyCombat failed for party ${party.id}. Rolling back combat and marking as failed.`, combatError);
+                    await client.query('ROLLBACK TO SAVEPOINT before_combat');
+                    
+                    const failureLog = [{
+                        turn: 0,
+                        action: 'Wystąpił krytyczny błąd podczas przetwarzania walki. Skontaktuj się z administratorem.',
+                        attacker: 'System',
+                        defender: 'Gracze',
+                        playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0
+                    }];
+
+                    await client.query(
+                        `UPDATE hunting_parties 
+                         SET status = 'FINISHED', victory = false, combat_log = $1, rewards = '{}'::jsonb 
+                         WHERE id = $2`, 
+                        [JSON.stringify(failureLog), party.id]
+                    );
                 }
-                
-                // After processing, the party state has changed significantly. Re-fetch the entire row to ensure consistency.
+
+                // After processing (success or failure), re-fetch to get the final state.
                 const finalPartyRes = await client.query('SELECT * FROM hunting_parties WHERE id = $1', [party.id]);
                 if (finalPartyRes.rows.length > 0) {
-                    // Overwrite the stale 'party' object with the fresh one from the database.
                     party = camelizeParty(finalPartyRes.rows[0]);
                 }
             }
