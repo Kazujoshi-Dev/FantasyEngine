@@ -352,6 +352,17 @@ const MainApp: React.FC = () => {
         }
     }, [character, checkUnreadMessages]);
 
+    const handleCancelExpedition = async () => {
+        if (window.confirm("Czy na pewno chcesz anulować wyprawę? Zasoby zostaną zwrócone.")) {
+            try {
+                const updatedChar = await api.cancelExpedition();
+                setCharacter(updatedChar);
+            } catch (e: any) {
+                alert(e.message || t('error.title'));
+            }
+        }
+    };
+
     useEffect(() => {
         if (!character?.activeExpedition) return;
         
@@ -779,6 +790,7 @@ const MainApp: React.FC = () => {
                     itemTemplates={gameData.itemTemplates || []}
                     affixes={gameData.affixes || []}
                     onCompletion={handleExpeditionCompletion}
+                    onCancelExpedition={handleCancelExpedition}
                 />;
             case Tab.Camp:
                 const getCampUpgradeCost = (level: number) => {

@@ -298,6 +298,32 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
     }
 });
 
+// POST /api/hunting/cancel - Leader cancels a preparing hunt
+router.post('/cancel', authenticateToken, async (req: any, res: any) => {
+    try {
+        const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
+        if (partyRes.rows.length === 0) {
+            return res.status(403).json({ message: 'Nie jesteś liderem żadnej grupy.' });
+        }
+        
+        const party = partyRes.rows[0];
+        
+        if (party.status !== 'PREPARING') {
+            return res.status(400).json({ message: 'Polowanie można anulować tylko na etapie przygotowań.' });
+        }
+
+        await pool.query(
+            "UPDATE hunting_parties SET status = 'FORMING', start_time = NULL WHERE id = $1",
+            [party.id]
+        );
+
+        res.sendStatus(200);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Nie udało się anulować polowania.' });
+    }
+});
+
 // POST /api/hunting/leave
 router.post('/leave', authenticateToken, async (req: any, res: any) => {
     try {

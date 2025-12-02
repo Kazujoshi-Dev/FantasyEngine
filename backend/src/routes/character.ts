@@ -253,6 +253,60 @@ router.post('/character/start-expedition', authenticateToken, async (req: any, r
     }
 });
 
+router.post('/character/cancel-expedition', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.activeExpedition) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'No active expedition to cancel.' });
+        }
+
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
+        const expeditions: Expedition[] = gameDataRes.rows[0]?.data || [];
+        const expedition = expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
+
+        if (!expedition) {
+            // Failsafe: if expedition template is gone, just cancel without refund
+            character.activeExpedition = null;
+        } else {
+            // Refund costs
+            character.resources.gold = (Number(character.resources.gold) || 0) + expedition.goldCost;
+            character.stats.currentEnergy += expedition.energyCost;
+
+            // Cap energy at max energy
+            const gameDataForStatsRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+            const itemTemplates = gameDataForStatsRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const affixes = gameDataForStatsRes.rows.find(r => r.key === 'affixes')?.data || [];
+            const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+            character.stats.currentEnergy = Math.min(character.stats.currentEnergy, derivedChar.stats.maxEnergy);
+
+            // Nullify expedition
+            character.activeExpedition = null;
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('Error canceling expedition:', err);
+        res.status(500).json({ message: 'Failed to cancel expedition.' });
+    } finally {
+        client.release();
+    }
+});
+
 router.post('/character/complete-expedition', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {

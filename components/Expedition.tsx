@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType } from '../types';
@@ -20,6 +21,7 @@ export interface ExpeditionProps {
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     onCompletion: () => Promise<void>;
+    onCancelExpedition: () => Promise<void>;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -1190,7 +1192,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     )
 };
 
-export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, affixes, onCompletion }) => {
+export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, affixes, onCompletion, onCancelExpedition }) => {
     const { t } = useTranslation();
     const [timeLeft, setTimeLeft] = useState(0);
 
@@ -1237,6 +1239,12 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expe
                             {formatTimeLeft(timeLeft)}
                         </div>
                     </div>
+                     <button
+                        onClick={() => onCancelExpedition()}
+                        className="px-6 py-2 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
+                    >
+                        Anuluj Wyprawę
+                    </button>
                     {timeLeft <= 0 && (
                         <div className="text-green-400 font-bold text-xl animate-bounce">
                             {t('expedition.finalizing')}

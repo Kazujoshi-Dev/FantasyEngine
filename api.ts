@@ -173,6 +173,12 @@ export const api = {
         });
     },
     
+    async cancelExpedition(): Promise<PlayerCharacter> {
+        return fetchApi('/character/cancel-expedition', {
+            method: 'POST',
+        });
+    },
+
     async createCharacter(name: string, race: Race, startLocationId: string): Promise<PlayerCharacter> {
         const initialStats: CharacterStats = {
           strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0,
@@ -594,6 +600,12 @@ export const api = {
 
     async leaveParty(): Promise<void> {
         return fetchApi('/hunting/leave', {
+            method: 'POST'
+        });
+    },
+
+    async cancelParty(): Promise<void> {
+        return fetchApi('/hunting/cancel', {
             method: 'POST'
         });
     },

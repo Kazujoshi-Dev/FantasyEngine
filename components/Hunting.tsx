@@ -130,6 +130,15 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         } catch (e: any) { alert(e.message); }
     };
 
+    const handleCancel = async () => {
+        try {
+            await api.cancelParty();
+            await fetchMyParty(); // Refresh the party state
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
     const selectedBoss = useMemo(() => bosses.find(b => b.id === selectedBossId), [bosses, selectedBossId]);
 
     const estimatedRewards = useMemo(() => {
@@ -283,15 +292,22 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                             </div>
                         )}
 
-                        <div className="mt-auto flex justify-between pt-4 border-t border-slate-700">
+                        <div className="mt-auto flex justify-between items-center pt-4 border-t border-slate-700">
                             <button onClick={handleLeave} className="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded border border-red-800">
                                 {isLeader ? t('hunting.disband') : t('hunting.leave')}
                             </button>
-                            {isLeader && isFull && myParty.status === PartyStatus.Forming && (
-                                <button onClick={handleStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg animate-pulse">
-                                    Rozpocznij
-                                </button>
-                            )}
+                            <div className="flex gap-4">
+                                {isLeader && myParty.status === PartyStatus.Preparing && (
+                                    <button onClick={handleCancel} className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded shadow-lg">
+                                        Anuluj Wyprawę
+                                    </button>
+                                )}
+                                {isLeader && isFull && myParty.status === PartyStatus.Forming && (
+                                    <button onClick={handleStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg animate-pulse">
+                                        Rozpocznij
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
