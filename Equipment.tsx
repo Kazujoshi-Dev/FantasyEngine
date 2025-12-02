@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
 import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
+import { api } from '../api'; // Added api import
 
 interface EquipmentProps {
   character: PlayerCharacter;
@@ -39,7 +41,7 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
     const { t } = useTranslation();
     const stats = character.stats;
 
-    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const baseStatKeys: (keyof Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'>)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
     return (
         <div className="flex flex-col h-full">
@@ -48,8 +50,8 @@ const CombatStatsPanel: React.FC<{ character: PlayerCharacter; baseCharacter: Pl
 
                 <h4 className="font-semibold text-gray-300 text-xs px-2 mt-2 mb-0.5 uppercase tracking-wider">{t('statistics.baseAttributes')}</h4>
                 {baseStatKeys.map(key => {
-                    const total = character.stats[key];
-                    const base = baseCharacter.stats[key];
+                    const total = character.stats[key] || 0;
+                    const base = baseCharacter.stats[key] || 0;
                     const bonus = total - base;
                     return (
                         <StatDisplayRow 
@@ -101,7 +103,7 @@ const ItemComparisonTooltip: React.FC<{
 }> = ({ hoveredItem, character, gameData }) => {
     const { t } = useTranslation();
     
-    const hoveredTemplate = gameData.itemTemplates.find(t => t.id === hoveredItem.templateId);
+    const hoveredTemplate = (gameData.itemTemplates || []).find(t => t.id === hoveredItem.templateId);
     if (!hoveredTemplate) return null;
 
     const equippedItemsToCompare: { item: ItemInstance | null, slotName: string }[] = [];
@@ -137,13 +139,13 @@ const ItemComparisonTooltip: React.FC<{
         <div className="fixed inset-0 z-30 flex justify-center items-center pointer-events-none animate-fade-in">
             <div className="flex gap-4">
                 {equippedItemsToCompare.map(({ item, slotName }, index) => {
-                    const equippedTemplate = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
+                    const equippedTemplate = item ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
                     return (
                         <div key={index} className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
                             <ItemDetailsPanel
                                 item={item}
                                 template={equippedTemplate}
-                                affixes={gameData.affixes}
+                                affixes={gameData.affixes || []}
                                 character={character}
                                 size="small"
                                 title={item ? `${t('equipment.equipped')}: ${slotName}` : slotName}
@@ -152,7 +154,7 @@ const ItemComparisonTooltip: React.FC<{
                     );
                 })}
                 <div className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
-                    <ItemDetailsPanel item={hoveredItem} template={hoveredTemplate} affixes={gameData.affixes} character={character} size="small" title={t('equipment.itemToEquip')} />
+                    <ItemDetailsPanel item={hoveredItem} template={hoveredTemplate} affixes={gameData.affixes || []} character={character} size="small" title={t('equipment.itemToEquip')} />
                 </div>
             </div>
         </div>
@@ -172,10 +174,11 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const backpackCapacity = getBackpackCapacity(character);
 
     const validInventoryCount = useMemo(() => 
-        character.inventory.filter(item => item && gameData.itemTemplates.find(t => t.id === item.templateId)).length,
+        (character.inventory || []).filter(item => item && (gameData.itemTemplates || []).find(t => t.id === item.templateId)).length,
         [character.inventory, gameData.itemTemplates]
     );
 
+    // ... other useMemo and callbacks ...
     const equipmentSlotOptions = useMemo(() => {
         const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
@@ -186,7 +189,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     }, [t]);
 
     const meetsRequirements = useCallback((item: ItemInstance): boolean => {
-        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+        const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
         if (!template) return true; // Should not happen
 
         if (character.level < template.requiredLevel) {
@@ -205,9 +208,9 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     }, [character, gameData.itemTemplates]);
 
     const filteredInventory = useMemo(() => {
-        return character.inventory.filter(item => {
+        return (character.inventory || []).filter(item => {
             if (!item) return false;
-            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+            const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
             if (!template) return false;
 
             if (hideUnusable && !meetsRequirements(item)) {
@@ -237,21 +240,51 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
         setContextMenu({ x: e.clientX, y: e.clientY, item, source, fromSlot });
     };
     
+    const handleEquip = async (item: ItemInstance) => {
+        try {
+            const updatedChar = await api.equipItem(item.uniqueId);
+            onEquipItem(item); // Call parent callback just in case it does local state update or re-fetches
+            // Or better, have onEquipItem accept the updated char, but existing App.tsx structure suggests fetching or local update. 
+            // Since App.tsx passes `handleEquipItem` which calls `handleCharacterUpdate`, we need to change App.tsx too OR 
+            // make `onEquipItem` prop simpler in `Equipment.tsx`.
+            // Given the prop `onEquipItem: (item: ItemInstance) => void`, we can't pass the updated char back up easily without refactoring App.tsx.
+            // However, we can't modify App.tsx easily in this context as it was not requested to be refactored heavily, but to fix security.
+            // The best way is to call api directly here, and assume parent will re-fetch or handle sync via `onEquipItem` if it does a refetch.
+            // Looking at App.tsx provided: `handleEquipItem` calls `handleCharacterUpdate`.
+            // So we should actually invoke the passed prop `onEquipItem`, BUT change App.tsx to call the secure API instead of local logic.
+            // WAIT, I can change App.tsx! 
+            // Let's change App.tsx logic to use the secure API. 
+            // But here in component, we just trigger the prop.
+            onEquipItem(item);
+        } catch (e: any) {
+            alert(e.message || t('error.title'));
+        }
+    };
+
+    const handleUnequip = async (item: ItemInstance, slot: EquipmentSlot) => {
+        try {
+            const updatedChar = await api.unequipItem(slot);
+            onUnequipItem(item, slot);
+        } catch (e: any) {
+            alert(e.message || t('error.title'));
+        }
+    };
+
     const contextMenuOptions = useMemo(() => {
         if (!contextMenu) return [];
         if (contextMenu.source === 'inventory') {
-            return [{ label: t('equipment.equip'), action: () => onEquipItem(contextMenu.item) }];
+            return [{ label: t('equipment.equip'), action: () => handleEquip(contextMenu.item) }];
         }
         const fromSlot = contextMenu.fromSlot;
         if (contextMenu.source === 'equipment' && fromSlot) {
-            return [{ label: t('equipment.unequip'), action: () => onUnequipItem(contextMenu.item, fromSlot) }];
+            return [{ label: t('equipment.unequip'), action: () => handleUnequip(contextMenu.item, fromSlot) }];
         }
         return [];
-    }, [contextMenu, onEquipItem, onUnequipItem, t]);
+    }, [contextMenu, t]);
 
     const selectedTemplate = useMemo(() => {
         if (!selectedItem) return null;
-        return gameData.itemTemplates.find(t => t.id === selectedItem.item.templateId) || null;
+        return (gameData.itemTemplates || []).find(t => t.id === selectedItem.item.templateId) || null;
     }, [selectedItem, gameData.itemTemplates]);
 
     const handleDragStart = (e: React.DragEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
@@ -272,7 +305,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
         let itemToMove: ItemInstance | null | undefined = null;
         if (source === 'inventory') {
-            itemToMove = character.inventory.find(i => i.uniqueId === itemUniqueId);
+            itemToMove = (character.inventory || []).find(i => i && i.uniqueId === itemUniqueId);
         } else if (source === 'equipment' && fromSlot) {
             itemToMove = character.equipment[fromSlot];
         }
@@ -281,10 +314,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
         if (target === 'inventory') {
             if (source === 'equipment' && fromSlot) {
-                onUnequipItem(itemToMove, fromSlot);
+                handleUnequip(itemToMove, fromSlot);
             }
         } else {
-            onEquipItem(itemToMove);
+            handleEquip(itemToMove);
         }
     };
     
@@ -294,18 +327,20 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
     return (
         <ContentPanel title={t('equipment.title')}>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]">
+            <div 
+                className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]"
+            >
                 {/* Equipped Items */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1">
                         {slotOrder.map(slot => {
-                            const item = character.equipment[slot];
-                            const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
-                             if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) {
+                            const item = character.equipment ? character.equipment[slot] : null;
+                            const template = (item && typeof item === 'object') ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
+                             if (slot === EquipmentSlot.TwoHand && character.equipment?.mainHand) {
                                 return null;
                             }
-                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) {
+                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment?.twoHand) {
                                 return null;
                             }
                             return (
@@ -320,17 +355,21 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         <ItemListItem
                                             item={item}
                                             template={template}
-                                            affixes={gameData.affixes}
+                                            affixes={gameData.affixes || []}
                                             isSelected={selectedItem?.item.uniqueId === item.uniqueId}
-                                            onClick={() => handleItemClick(item, 'equipment', slot)}
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent deselecting
+                                                handleItemClick(item, 'equipment', slot);
+                                            }}
+                                            onDoubleClick={() => handleUnequip(item, slot)}
                                             showPrimaryStat={false}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
                                         />
-                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes} />
+                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes || []} />
                                     </div>
                                 ) : (
-                                    <div onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
+                                    <div key={slot} onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
                                         <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
                                     </div>
                                 )
@@ -339,13 +378,12 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     </div>
                 </div>
 
-                {/* Details/Stats Panel */}
-                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
-                    {selectedItem ? (
-                        <ItemDetailsPanel item={selectedItem.item} template={selectedTemplate} affixes={gameData.affixes} character={character} />
-                    ) : (
-                        <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
-                    )}
+                {/* Details/Stats Panel - ALWAYS SHOW COMBAT STATS NOW */}
+                <div 
+                    className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
+                    onClick={(e) => e.stopPropagation()} // Prevent clicks in detail panel from deselecting
+                >
+                    <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
                 </div>
 
                 {/* Inventory */}
@@ -356,7 +394,10 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                             {validInventoryCount} / {backpackCapacity}
                         </div>
                     </div>
-                    <div className="px-2 mb-4 space-y-2">
+                    <div 
+                        className="px-2 mb-4 space-y-2"
+                        onClick={(e) => e.stopPropagation()} // Prevent interacting with filters from deselecting
+                    >
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-center space-x-2">
                                 <label htmlFor="item-filter" className="text-sm text-gray-400 flex-shrink-0">{t('equipment.filterByType')}:</label>
@@ -396,7 +437,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                     </div>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredInventoryItem(null)} onDrop={(e) => handleDrop(e, 'inventory')} onDragOver={handleDragOver}>
                         {filteredInventory.map(item => {
-                            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+                            const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
                             if (!template) return null;
                             const isSelected = selectedItem?.item.uniqueId === item.uniqueId;
                             return (
@@ -408,9 +449,13 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                     <ItemListItem
                                         item={item}
                                         template={template}
-                                        affixes={gameData.affixes}
+                                        affixes={gameData.affixes || []}
                                         isSelected={isSelected}
-                                        onClick={() => handleItemClick(item, 'inventory')}
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Prevent deselecting
+                                            handleItemClick(item, 'inventory');
+                                        }}
+                                        onDoubleClick={() => handleEquip(item)}
                                         showPrimaryStat={false}
                                         meetsRequirements={meetsRequirements(item)}
                                         draggable="true"

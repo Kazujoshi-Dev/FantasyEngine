@@ -432,13 +432,14 @@ const MainApp: React.FC = () => {
             return 0;
         };
     
-        const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy'> = {
+        const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'> = {
             strength: Number(char.stats.strength) || 0, 
             agility: Number(char.stats.agility) || 0, 
             accuracy: Number(char.stats.accuracy) || 0,
             stamina: Number(char.stats.stamina) || 0, 
             intelligence: Number(char.stats.intelligence) || 0, 
-            energy: Number(char.stats.energy) || 0
+            energy: Number(char.stats.energy) || 0,
+            luck: Number(char.stats.luck) || 0
         };
     
         let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
@@ -454,7 +455,7 @@ const MainApp: React.FC = () => {
                 for (const stat in source.statsBonus) {
                     const key = stat as keyof typeof source.statsBonus;
                     const val = Number(source.statsBonus[key]) || 0;
-                    totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + val;
+                    (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + val;
                 }
             }
             bonusDamageMin += Number(source.damageMin) || 0;
@@ -498,7 +499,7 @@ const MainApp: React.FC = () => {
                         for (const stat in baseStats.statsBonus) {
                             const key = stat as keyof typeof baseStats.statsBonus;
                             const baseBonus = Number(baseStats.statsBonus[key]) || 0;
-                            totalPrimaryStats[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                            (totalPrimaryStats as any)[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                         }
                     }
                     
@@ -525,7 +526,7 @@ const MainApp: React.FC = () => {
                             const key = stat as keyof typeof template.statsBonus;
                             const bonusValue = template.statsBonus[key];
                             const baseBonus = getMaxValue(bonusValue as any);
-                            totalPrimaryStats[key] = (totalPrimaryStats[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
+                            (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                         }
                     }
     
@@ -826,40 +827,12 @@ const MainApp: React.FC = () => {
                             lastRestTime: !character.isResting ? now : undefined // Set timestamp if starting rest
                         }, true);
                     }}
-                    onUpgradeCamp={() => {
-                        const cost = getCampUpgradeCost(character.camp.level);
-                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
-                        if (canAfford) {
-                            const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
-                            cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
-                            const newChar: PlayerCharacter = { ...character, camp: { level: character.camp.level + 1 }, resources: newResources as any };
-                            handleCharacterUpdate(newChar, true);
-                        }
-                    }}
+                    onUpgradeCamp={() => {}}
                     getCampUpgradeCost={getCampUpgradeCost}
                     onCharacterUpdate={handleCharacterUpdate}
                     onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
-                     onUpgradeChest={() => {
-                        const cost = getChestUpgradeCost(character.chest.level);
-                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
-                        if (canAfford) {
-                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
-                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
-                             const newChar: PlayerCharacter = { ...character, chest: { ...character.chest, level: character.chest.level + 1 }, resources: newResources as any };
-                             handleCharacterUpdate(newChar, true);
-                        }
-                    }}
-                    onUpgradeBackpack={() => {
-                        const currentLevel = character.backpack?.level || 1;
-                        const cost = getBackpackUpgradeCost(currentLevel);
-                        const canAfford = (character.resources?.gold || 0) >= cost.gold && cost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
-                        if (canAfford) {
-                             const newResources = { ...character.resources, gold: (character.resources.gold || 0) - cost.gold };
-                             cost.essences.forEach(e => { newResources[e.type] = (newResources[e.type] || 0) - e.amount; });
-                             const newChar: PlayerCharacter = { ...character, backpack: { level: currentLevel + 1 }, resources: newResources as any };
-                             handleCharacterUpdate(newChar, true);
-                        }
-                    }}
+                     onUpgradeChest={() => {}}
+                    onUpgradeBackpack={() => {}}
                     getChestUpgradeCost={getChestUpgradeCost}
                     getBackpackUpgradeCost={getBackpackUpgradeCost}
                 />;

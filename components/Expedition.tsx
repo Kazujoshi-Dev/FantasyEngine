@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType } from '../types';
+import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType, EssenceType, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { StarIcon } from './icons/StarIcon';
@@ -9,7 +8,7 @@ import { ClockIcon } from './icons/ClockIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { MapIcon } from './icons/MapIcon';
 import { useTranslation } from '../contexts/LanguageContext';
-import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
+import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName, ItemListItem } from './shared/ItemSlot';
 import { api } from '../api';
 
 export interface ExpeditionProps {
@@ -570,20 +569,20 @@ const PartyMemberList: React.FC<{
                             onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onMemberLeave}
                         >
-                            <div className="flex justify-between items-center mb-1">
-                                <span className={`font-bold text-sm ${isDead ? 'line-through text-red-500' : 'text-white'}`}>{member.characterName}</span>
-                                <span className="text-xs text-gray-400">Lvl {member.level}</span>
-                            </div>
-                            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                                <div className="bg-green-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
+                            <p className={`font-bold text-sm ${isDead ? 'text-red-500 line-through' : 'text-white'}`}>
+                                {member.characterName}
+                            </p>
+                            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
+                                <div className="bg-red-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
                             </div>
                         </div>
                     );
                 })}
             </div>
         </div>
-    )
-};
+    );
+}
+
 
 export interface ExpeditionSummaryModalProps {
     reward: ExpeditionRewardSummary;
@@ -592,769 +591,473 @@ export interface ExpeditionSummaryModalProps {
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     isPvp?: boolean;
-    pvpData?: {
-        attacker: PlayerCharacter;
-        defender: PlayerCharacter;
-    };
+    pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
     isDefenderView?: boolean;
-    // New Props for Hunting
     isHunting?: boolean;
     huntingMembers?: PartyMember[];
-    allRewards?: Record<string, { gold: number; experience: number }>;
+    allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, any>> }>;
     initialEnemy?: Enemy;
+    encounteredEnemies?: Enemy[];
     bossName?: string;
     messageId?: number | null;
-    encounteredEnemies?: Enemy[];
-    backgroundImage?: string; // New Prop for Background Image
+    backgroundImage?: string;
 }
 
-export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
-    reward, 
-    onClose, 
-    characterName, 
-    itemTemplates,
-    affixes,
-    isPvp = false,
-    pvpData,
-    isDefenderView = false,
-    isHunting = false,
-    huntingMembers = [],
-    allRewards,
-    initialEnemy,
-    bossName,
-    messageId,
-    backgroundImage
-}) => {
+const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+    [EssenceType.Common]: ItemRarity.Common,
+    [EssenceType.Uncommon]: ItemRarity.Uncommon,
+    [EssenceType.Rare]: ItemRarity.Rare,
+    [EssenceType.Epic]: ItemRarity.Epic,
+    [EssenceType.Legendary]: ItemRarity.Legendary,
+};
+
+export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (props) => {
+    const { 
+        reward, onClose, characterName, itemTemplates, affixes, 
+        isPvp = false, pvpData, isDefenderView = false, 
+        isHunting = false, huntingMembers, allRewards,
+        initialEnemy, encounteredEnemies, bossName, messageId
+    } = props;
     const { t } = useTranslation();
-    const [displayedLogs, setDisplayedLogs] = useState<CombatLogEntry[]>([]);
-    const [isAnimationComplete, setIsAnimationComplete] = useState(false);
-    const logContainerRef = useRef<HTMLDivElement>(null);
-    const [copyStatus, setCopyStatus] = useState('');
-    
-    const [currentPlayerStats, setCurrentPlayerStats] = useState<CharacterStats | null>(null);
-    const [partyMembersState, setPartyMembersState] = useState<PartyMember[]>([]);
 
-    const [currentEnemy, setCurrentEnemy] = useState<{name: string, description?: string, stats: EnemyStats | CharacterStats, currentHealth: number, currentMana: number} | null>(() => {
-        const startLog = reward.combatLog && reward.combatLog.length > 0 ? reward.combatLog[0] : null;
+    const defaultDummyStats: CharacterStats = {
+        strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0,
+        statPoints: 0, currentHealth: 0, maxHealth: 1, currentEnergy: 0, maxEnergy: 0,
+        currentMana: 0, maxMana: 0, minDamage: 0, maxDamage: 0, magicDamageMin: 0, magicDamageMax: 0,
+        critChance: 0, critDamageModifier: 0, armor: 0, armorPenetrationPercent: 0,
+        armorPenetrationFlat: 0, attacksPerRound: 0, manaRegen: 0, lifeStealPercent: 0,
+        lifeStealFlat: 0, manaStealPercent: 0, manaStealFlat: 0, dodgeChance: 0,
+    };
 
-        if (initialEnemy) {
-             const effectiveStats = (startLog && startLog.enemyStats) ? startLog.enemyStats : initialEnemy.stats;
+    const [animatedLog, setAnimatedLog] = useState<CombatLogEntry[]>([]);
+    const [animationSpeed, setAnimationSpeed] = useState(200);
+    const animationTimerRef = useRef<number | null>(null);
+    const animationIndexRef = useRef<number>(0);
+    const frameRef = useRef(0);
 
-             return {
-                 name: initialEnemy.name,
-                 description: initialEnemy.description,
-                 stats: effectiveStats,
-                 currentHealth: startLog ? startLog.enemyHealth : initialEnemy.stats.maxHealth,
-                 currentMana: startLog ? startLog.enemyMana : (initialEnemy.stats.maxMana || 0)
-             };
+    const initialPlayerStats = useMemo(() => {
+        if (isPvp) return isDefenderView ? pvpData!.defender.stats : pvpData!.attacker.stats;
+        return reward.combatLog[0]?.playerStats || reward.combatLog[0]?.partyMemberStats?.[characterName];
+    }, [isPvp, isDefenderView, pvpData, reward.combatLog, characterName]);
+
+    const initialEnemyForDisplay = useMemo(() => {
+        if (isPvp) {
+            const opponent = isDefenderView ? pvpData!.attacker : pvpData!.defender;
+            return { name: opponent.name, stats: opponent.stats, description: `Lvl ${opponent.level} ${t(`race.${opponent.race}`)}` };
+        }
+        if (isHunting && bossName && reward.combatLog[0]?.enemyStats) {
+            return { name: bossName, stats: reward.combatLog[0].enemyStats, description: reward.combatLog[0].enemyDescription };
+        }
+        if (encounteredEnemies && encounteredEnemies.length > 0) {
+            return { name: encounteredEnemies[0].name, stats: encounteredEnemies[0].stats, description: encounteredEnemies[0].description };
+        }
+        if (reward.combatLog.length > 0) {
+            const firstLog = reward.combatLog[0];
+            return { name: firstLog.defender, stats: firstLog.enemyStats, description: firstLog.enemyDescription };
         }
         return null;
-    });
+    }, [isPvp, isDefenderView, pvpData, isHunting, bossName, reward.combatLog, encounteredEnemies, t]);
 
-    useEffect(() => {
-        if (isHunting && huntingMembers.length > 0) {
-            const startLog = reward.combatLog?.find(l => l.action === 'starts a fight with');
-            
-            if (startLog && startLog.partyMemberStats) {
-                 setPartyMembersState(huntingMembers.map(member => ({
-                    ...member,
-                    stats: startLog.partyMemberStats![member.characterName] || member.stats
-                })));
-            } else {
-                 if (!huntingMembers[0].stats) {
-                    const statsMap = new Map<string, CharacterStats>();
-                    for (const log of reward.combatLog) {
-                        if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
-                            statsMap.set(log.attacker, log.playerStats);
-                        }
-                    }
-                    setPartyMembersState(huntingMembers.map(member => ({
-                        ...member,
-                        stats: statsMap.get(member.characterName)
-                    })));
-                } else {
-                    setPartyMembersState(huntingMembers);
-                }
-            }
-        } else {
-            setPartyMembersState(huntingMembers);
+    const initialPartyState = useMemo(() => {
+        if (!isHunting || !huntingMembers) return {};
+        const state: Record<string, { currentHealth: number, maxHealth: number }> = {};
+        for (const member of huntingMembers) {
+            const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+            state[member.characterName] = {
+                currentHealth: stats?.currentHealth ?? 0,
+                maxHealth: stats?.maxHealth ?? 1
+            };
         }
+        return state;
     }, [isHunting, huntingMembers, reward.combatLog]);
 
-    // FIX: Changed timer refs to use 'number' type for browser compatibility and ensure window scope for timer functions.
-    const animationTimerRef = useRef<number | null>(null);
-    const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
-    const tooltipTimeoutRef = useRef<number | null>(null);
-    
-    const [hoveredMember, setHoveredMember] = useState<{ data: PartyMember, rect: DOMRect } | null>(null);
-    const [hoveredEnemy, setHoveredEnemy] = useState<{ data: Enemy, rect: DOMRect } | null>(null);
+    const [partyHealth, setPartyHealth] = useState(initialPartyState);
+    const [currentEnemyHealth, setCurrentEnemyHealth] = useState(() => initialEnemyForDisplay?.stats?.maxHealth || 0);
+    const [currentPlayerHealth, setCurrentPlayerHealth] = useState(() => initialPlayerStats?.currentHealth || 0);
+    const [currentTurn, setCurrentTurn] = useState(0);
+    const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
 
-    const handleCopyLink = () => {
+    const resetAnimation = useCallback(() => {
+        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+        animationIndexRef.current = 0;
+        setAnimatedLog([]);
+        setCurrentTurn(0);
+        setPartyHealth(initialPartyState);
+        setCurrentPlayerHealth(initialPlayerStats?.currentHealth || 0);
+        setCurrentEnemyHealth(initialEnemyForDisplay?.stats?.maxHealth || 0);
+    }, [initialPartyState, initialPlayerStats, initialEnemyForDisplay]);
+    
+    useEffect(() => {
+        resetAnimation();
+    }, [reward.combatLog, resetAnimation]);
+
+    useEffect(() => {
+        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+
+        const animate = () => {
+            const index = animationIndexRef.current;
+            if (index >= reward.combatLog.length) {
+                return;
+            }
+
+            animationTimerRef.current = window.setTimeout(() => {
+                const currentLog = reward.combatLog[index];
+                setAnimatedLog(prev => [...prev, currentLog]);
+                setCurrentTurn(currentLog.turn);
+                
+                if (currentLog.allPlayersHealth && isHunting) {
+                    setPartyHealth(prev => {
+                        const newState = { ...prev };
+                        currentLog.allPlayersHealth!.forEach(p => {
+                            newState[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
+                        });
+                        return newState;
+                    });
+                } else if (!isHunting) {
+                    setCurrentPlayerHealth(currentLog.playerHealth);
+                }
+                
+                if (!currentLog.allEnemiesHealth) {
+                    setCurrentEnemyHealth(currentLog.enemyHealth);
+                }
+
+                animationIndexRef.current += 1;
+                animate();
+            }, animationSpeed);
+        };
+
+        animate();
+
+        return () => {
+            if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+        };
+    }, [reward.combatLog, animationSpeed, isHunting, resetAnimation]);
+
+    const changeSpeed = (speed: number) => {
+        frameRef.current = animationIndexRef.current; // Save current frame
+        setAnimationSpeed(speed);
+        // We don't reset, useEffect will pick up speed change and restart timer
+    };
+
+    const skipAnimation = () => {
+        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+        
+        animationIndexRef.current = reward.combatLog.length;
+        setAnimatedLog(reward.combatLog);
+        
+        const lastLog = reward.combatLog[reward.combatLog.length - 1];
+        if (lastLog) {
+            setCurrentTurn(lastLog.turn);
+            if (lastLog.allPlayersHealth && isHunting) {
+                const newState: Record<string, { currentHealth: number; maxHealth: number; }> = {};
+                lastLog.allPlayersHealth.forEach(p => {
+                    newState[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
+                });
+                setPartyHealth(newState);
+            } else if (!isHunting) {
+                setCurrentPlayerHealth(lastLog.playerHealth);
+            }
+            if (!lastLog.allEnemiesHealth) {
+                 setCurrentEnemyHealth(lastLog.enemyHealth);
+            }
+        }
+    };
+    
+    const handleCopyLink = useCallback(() => {
         if (!messageId) return;
         const url = `${window.location.origin}/report/${messageId}`;
         navigator.clipboard.writeText(url).then(() => {
-            setCopyStatus('Skopiowano link!');
-            window.setTimeout(() => setCopyStatus(''), 2000);
-        }, (err) => {
-            setCopyStatus('Błąd kopiowania');
+            alert('Skopiowano link do schowka!');
+        }).catch(err => {
             console.error('Could not copy text: ', err);
-            window.setTimeout(() => setCopyStatus(''), 2000);
+            alert('Błąd kopiowania linku.');
         });
-    };
+    }, [messageId]);
 
-    const handleItemMouseEnter = (itemInstance: ItemInstance) => {
-        if (tooltipTimeoutRef.current) window.clearTimeout(tooltipTimeoutRef.current);
-        const template = itemTemplates.find(t => t.id === itemInstance.templateId);
-        if (template) {
-            setTooltipData({ item: itemInstance, template });
-        }
-    };
-
-    const handleItemMouseLeave = () => {
-        tooltipTimeoutRef.current = window.setTimeout(() => {
-            setTooltipData(null);
-        }, 200);
-    };
-    
-    const finalVictoryStatus = isDefenderView ? !reward.isVictory : reward.isVictory;
-
-    const updateCombatantState = (log: CombatLogEntry) => {
-        if (isHunting) {
-            setPartyMembersState(prev => {
-                if (log.allPlayersHealth) {
-                    return prev.map(member => {
-                        const snapshot = log.allPlayersHealth!.find(p => p.name === member.characterName);
-                        if (snapshot && member.stats) {
-                            return { ...member, stats: { ...member.stats, currentHealth: snapshot.currentHealth } };
-                        }
-                        return member;
-                    });
-                }
-                return prev;
-            });
-            if (currentEnemy) {
-                setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
-            }
-        } else {
-             if (isPvp && pvpData) {
-                 setCurrentPlayerStats({ ...pvpData.attacker.stats, currentHealth: log.playerHealth, currentMana: log.playerMana });
-                 setCurrentEnemy({ name: pvpData.defender.name, stats: pvpData.defender.stats, currentHealth: log.enemyHealth, currentMana: log.enemyMana });
-             } else {
-                 setCurrentPlayerStats(prev => {
-                    if (log.playerStats) {
-                        return { ...log.playerStats, currentHealth: log.playerHealth, currentMana: log.playerMana };
-                    }
-                    if (prev) {
-                        return { ...prev, currentHealth: log.playerHealth, currentMana: log.playerMana };
-                    }
-                    return null;
-                 });
-
-                 if (!currentEnemy && log.enemyStats && (reward.encounteredEnemies || []).length <= 1) {
-                      setCurrentEnemy({
-                        name: log.defender,
-                        description: log.enemyDescription,
-                        stats: log.enemyStats,
-                        currentHealth: log.enemyHealth,
-                        currentMana: log.enemyMana,
-                    });
-                 } else if (currentEnemy) {
-                     setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
-                 }
-             }
-         }
-    };
-
-    const handleSkipAnimation = () => {
-        if (animationTimerRef.current) {
-            window.clearTimeout(animationTimerRef.current);
-        }
-        setDisplayedLogs(reward.combatLog);
-        const lastLog = reward.combatLog[reward.combatLog.length - 1];
-        if (lastLog) updateCombatantState(lastLog);
-        setIsAnimationComplete(true);
-    };
-
-    useEffect(() => {
-        if (!reward.combatLog || reward.combatLog.length === 0) {
-            setIsAnimationComplete(true);
-            return;
-        }
-
-        const playAnimation = () => {
-             if (displayedLogs.length < reward.combatLog.length) {
-                const nextLog = reward.combatLog[displayedLogs.length];
-                updateCombatantState(nextLog);
-                setDisplayedLogs(prev => [...prev, nextLog]);
-                
-                animationTimerRef.current = window.setTimeout(playAnimation, isHunting ? 500 : 800);
-            } else {
-                setIsAnimationComplete(true);
-            }
-        };
-
-        if (!isAnimationComplete && !animationTimerRef.current) {
-             playAnimation();
-        }
-
-        return () => {
-            if(animationTimerRef.current) {
-                window.clearTimeout(animationTimerRef.current);
-                animationTimerRef.current = null;
-            }
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [displayedLogs.length, reward.combatLog.length, isAnimationComplete]);
-
-    useEffect(() => {
-        if (logContainerRef.current) {
-            logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-        }
-    }, [displayedLogs]);
-
-    const damageStats = useMemo(() => {
-        if (!reward.combatLog) return [];
-
-        const damageMap: Record<string, number> = {};
-        let totalPartyDamage = 0;
-
-        const playerNames = new Set<string>();
-        if (isHunting && huntingMembers) {
-            huntingMembers.forEach(m => playerNames.add(m.characterName));
-        } else {
-            playerNames.add(characterName);
-        }
-
-        reward.combatLog.forEach(log => {
-            if (playerNames.has(log.attacker) && (log.damage || 0) > 0) {
-                const dmg = log.damage || 0;
-                damageMap[log.attacker] = (damageMap[log.attacker] || 0) + dmg;
-                totalPartyDamage += dmg;
-            }
-        });
-
-        return Object.entries(damageMap)
-            .map(([name, dmg]) => ({
-                name,
-                damage: dmg,
-                percent: totalPartyDamage > 0 ? (dmg / totalPartyDamage) * 100 : 0
-            }))
-            .sort((a, b) => b.damage - a.damage);
-    }, [reward.combatLog, isHunting, huntingMembers, characterName]);
-
-    const combatant1Name = isPvp && pvpData ? pvpData.attacker.name : characterName;
-    const combatant2Name = isPvp && pvpData ? pvpData.defender.name : (currentEnemy?.name || (isHunting ? 'Boss' : ''));
-    
-    const encounteredEnemies = reward.encounteredEnemies || [];
-    const latestLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : null;
-    const currentEnemiesHealth = latestLog?.allEnemiesHealth;
-
-    const currentActor = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1].attacker : '';
+    const backgroundStyle = props.backgroundImage ? { backgroundImage: `url(${props.backgroundImage})` } : {};
+    const isAnimationFinished = animatedLog.length === reward.combatLog.length;
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-40 p-4"
+            style={backgroundStyle}
+        >
             <div 
-                className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-7xl w-full flex flex-col" 
-                style={{
-                    maxHeight: '90vh',
-                    backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundBlendMode: 'overlay'
-                }}
+                className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh]"
+                style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
             >
-                <div className="relative mb-6 flex-shrink-0">
-                    <h2 className="text-3xl font-bold text-indigo-400 text-center">
-                        {isPvp ? t('pvp.duelResult') : t('expedition.combatReport')}
-                    </h2>
-                    {!isAnimationComplete && (
-                        <button
-                            onClick={handleSkipAnimation}
-                            className="absolute top-1/2 -translate-y-1/2 right-0 px-4 py-2 text-sm rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-semibold transition-colors"
-                        >
-                            {t('expedition.skipAnimation')}
-                        </button>
-                    )}
+                <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
+                <div className="grid grid-cols-12 gap-6 flex-grow min-h-0">
+                    <div className="col-span-3">
+                         {isHunting && huntingMembers ? (
+                             <PartyMemberList 
+                                members={huntingMembers.map(m => ({ ...m, stats: { ...defaultDummyStats, ...(m.stats || {}), ...partyHealth[m.characterName] } }))} 
+                                onMemberHover={(member, rect) => {
+                                    const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+                                    if(stats) setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats }, rect });
+                                }}
+                                onMemberLeave={() => setHoveredCombatant(null)}
+                            />
+                         ) : isPvp ? (
+                            <CombatantStatsPanel name={isDefenderView ? pvpData!.defender.name : pvpData!.attacker.name} stats={initialPlayerStats} currentHealth={currentPlayerHealth} />
+                         ) : (
+                             <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={currentPlayerHealth} />
+                         )}
+                    </div>
+
+                    <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col">
+                        <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
+                            {animatedLog.map((log, index) => (
+                                <CombatLogRow key={index} log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
+                            ))}
+                        </div>
+                         <div className="pt-2 mt-2 border-t border-slate-700/50 flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">Szybkość:</span>
+                                <button onClick={() => changeSpeed(400)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 400 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x0.5</button>
+                                <button onClick={() => changeSpeed(200)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 200 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x1</button>
+                                <button onClick={() => changeSpeed(100)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 100 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x2</button>
+                            </div>
+                             <button onClick={skipAnimation} disabled={isAnimationFinished} className="text-xs px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded disabled:opacity-50">{t('expedition.skipAnimation')}</button>
+                         </div>
+                    </div>
+
+                    <div className="col-span-3">
+                        {isPvp ? (
+                             <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={currentEnemyHealth} />
+                        ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
+                             <EnemyListPanel 
+                                enemies={encounteredEnemies} 
+                                currentEnemiesHealth={animatedLog[animatedLog.length - 1]?.allEnemiesHealth}
+                                onEnemyHover={(enemy, rect) => setHoveredCombatant({ type: 'enemy', data: enemy, rect })}
+                                onEnemyLeave={() => setHoveredCombatant(null)}
+                            />
+                        ) : (
+                             <CombatantStatsPanel name={initialEnemyForDisplay?.name || ''} description={initialEnemyForDisplay?.description} stats={initialEnemyForDisplay?.stats || null} currentHealth={currentEnemyHealth} />
+                        )}
+                    </div>
                 </div>
-                
-                <div className="flex-grow overflow-y-auto min-h-0">
-                    {reward.combatLog && reward.combatLog.length > 0 ? (
-                        <div className="grid grid-cols-[288px_1fr_288px] gap-6 mb-6 min-h-[300px]">
-                            <div className="w-72">
-                                {isHunting ? (
-                                    <PartyMemberList 
-                                        members={partyMembersState} 
-                                        currentTurnActor={currentActor} 
-                                        onMemberHover={(data, rect) => setHoveredMember({ data, rect })}
-                                        onMemberLeave={() => setHoveredMember(null)}
-                                    />
-                                ) : (
-                                    <CombatantStatsPanel 
-                                        name={combatant1Name} 
-                                        stats={currentPlayerStats} 
-                                        currentHealth={currentPlayerStats?.currentHealth}
-                                        currentMana={currentPlayerStats?.currentMana}
-                                    />
-                                )}
-                            </div>
-                            
-                            <div ref={logContainerRef} className="bg-slate-900/50 p-4 rounded-lg overflow-y-auto font-mono">
-                                <div className="space-y-1 text-left">
-                                    {displayedLogs.map((log, index) => {
-                                        const prevLog = index > 0 ? displayedLogs[index - 1] : null;
-                                        const isNewTurn = prevLog && log.turn !== prevLog.turn;
-                                        return (
-                                            <React.Fragment key={index}>
-                                                {isNewTurn && <div className="my-2 border-t border-slate-700/50"></div>}
-                                                <CombatLogRow 
-                                                    log={log} 
-                                                    characterName={characterName} 
-                                                    isHunting={isHunting} 
-                                                    huntingMembers={huntingMembers}
-                                                />
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            
-                            <div className="w-72">
-                                {encounteredEnemies.length > 1 && !isHunting ? (
-                                     <EnemyListPanel 
-                                        enemies={encounteredEnemies} 
-                                        currentEnemiesHealth={currentEnemiesHealth} 
-                                        onEnemyHover={(data, rect) => setHoveredEnemy({ data, rect })}
-                                        onEnemyLeave={() => setHoveredEnemy(null)}
-                                    />
-                                ) : (
-                                    <CombatantStatsPanel 
-                                        name={combatant2Name}
-                                        description={isPvp ? undefined : currentEnemy?.description}
-                                        stats={currentEnemy?.stats || null}
-                                        currentHealth={currentEnemy?.currentHealth}
-                                        currentMana={currentEnemy?.currentMana}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center min-h-[300px] bg-slate-900/50 p-4 rounded-lg mb-6">
-                            <p className="text-gray-400 italic">{t('expedition.noEnemiesEncountered')}</p>
-                        </div>
-                    )}
 
-
-                    {isAnimationComplete && (
-                        <div className="animate-fade-in text-center">
-                            <h3 className={`text-2xl font-bold mb-4 ${finalVictoryStatus ? 'text-green-400' : 'text-red-500'}`}>
-                                {finalVictoryStatus ? t('expedition.victory') : t('expedition.defeat')}
-                            </h3>
-                            
-                            {isPvp && (
-                                <div className="bg-slate-900/50 p-4 rounded-lg mb-6">
-                                    <div className="flex justify-center items-center space-x-8 font-bold text-md px-2">
-                                        <span className={finalVictoryStatus ? 'text-amber-300' : 'text-red-400'}>
-                                            {finalVictoryStatus ? t('pvp.goldStolen', { amount: reward.totalGold }) : t('pvp.goldLost', { amount: reward.totalGold })}
-                                        </span>
-                                        <span className="text-sky-300">
-                                            {finalVictoryStatus ? t('pvp.xpGained', { amount: reward.totalExperience }) : t('pvp.xpLost', { amount: reward.totalExperience })}
-                                        </span>
+                {isAnimationFinished && (
+                    <div className="mt-4 text-center animate-fade-in">
+                        <h3 className={`text-4xl font-extrabold mb-4 ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
+                            {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
+                        </h3>
+                        {reward.isVictory && (
+                            <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-4">
+                                <h4 className="font-bold text-lg text-amber-400 mb-3 text-center">Podsumowanie Nagród</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center">
+                                        <p className="flex items-center justify-between text-lg">
+                                            <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
+                                            <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
+                                        </p>
+                                        <p className="flex items-center justify-between text-lg mt-2">
+                                            <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
+                                            <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
+                                        </p>
                                     </div>
-                                </div>
-                            )}
-
-                            {!isPvp && reward.isVictory && (
-                                <div className="bg-slate-900/50 p-4 rounded-lg mb-6">
-                                    {isHunting && damageStats.length > 0 && (
-                                        <div className="mb-6">
-                                            <h4 className="font-bold text-white mb-2 flex items-center justify-center gap-2">
-                                                <SwordsIcon className="h-4 w-4 text-red-400" />
-                                                Zadane Obrażenia (DPS)
-                                            </h4>
-                                            <div className="bg-slate-800/80 rounded-lg overflow-hidden border border-slate-700/50">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead className="text-xs text-gray-400 bg-slate-800 uppercase">
-                                                        <tr>
-                                                            <th className="px-3 py-2">Gracz</th>
-                                                            <th className="px-3 py-2 text-right">Obrażenia</th>
-                                                            <th className="px-3 py-2 text-right w-32">%</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-700/50">
-                                                        {damageStats.map((stat, idx) => (
-                                                            <tr key={idx} className="hover:bg-slate-700/30">
-                                                                <td className="px-3 py-2 font-medium text-white">
-                                                                    {stat.name}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-right font-mono text-red-300">
-                                                                    {stat.damage.toLocaleString()}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-right">
-                                                                    <div className="flex items-center justify-end gap-2">
-                                                                        <span className="text-xs text-gray-400 w-8">{stat.percent.toFixed(1)}%</span>
-                                                                        <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                                            <div 
-                                                                                className="h-full bg-red-500 transition-all duration-500" 
-                                                                                style={{ width: `${stat.percent}%` }}
-                                                                            ></div>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {isHunting && allRewards && (
-                                        <div className="mb-4">
-                                            <h4 className="font-bold text-white mb-2">Nagrody Drużynowe</h4>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead className="text-xs text-gray-400 bg-slate-800">
-                                                        <tr>
-                                                            <th className="px-3 py-2">Gracz</th>
-                                                            <th className="px-3 py-2 text-right">Złoto</th>
-                                                            <th className="px-3 py-2 text-right">Doświadczenie</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {Object.entries(allRewards).map(([name, rew], idx) => (
-                                                            <tr key={idx} className="border-b border-slate-700/50">
-                                                                <td className="px-3 py-2 font-medium text-white">{name}</td>
-                                                                <td className="px-3 py-2 text-right text-amber-400">{rew.gold}</td>
-                                                                <td className="px-3 py-2 text-right text-sky-400">{rew.experience}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            <div className="border-t border-slate-700 my-3"></div>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="flex justify-between items-center font-bold text-md px-2">
-                                        <span className="text-white">{t('expedition.totalRewards')} (Ty)</span>
-                                        <div className="flex items-center space-x-4 font-mono">
-                                            <span className="text-amber-300 flex items-center gap-1">
-                                                <CoinsIcon className="h-5 w-5" /> +{reward.totalGold}
-                                            </span>
-                                            <span className="text-sky-300 flex items-center gap-1">
-                                                <StarIcon className="h-5 w-5" /> +{reward.totalExperience}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {reward.itemsFound.length > 0 && (
-                                        <div className="border-t border-slate-700 my-3 pt-3">
-                                            <h4 className="font-bold text-md text-white mb-2">{t('expedition.itemsFound')}:</h4>
-                                            <div className="flex flex-wrap justify-center gap-2">
-                                                {reward.itemsFound.map(itemInstance => {
-                                                    const template = itemTemplates.find(t => t.id === itemInstance.templateId);
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
+                                        {reward.itemsFound.length > 0 ? (
+                                            <div className="max-h-24 overflow-y-auto space-y-1 pr-2">
+                                                {reward.itemsFound.map((item, index) => {
+                                                    const template = itemTemplates.find(t => t.id === item.templateId);
                                                     if (!template) return null;
-                                                    const colorClass = rarityStyles[template.rarity]?.text || 'text-gray-300';
-                                                    const fullName = getGrammaticallyCorrectFullName(itemInstance, template, affixes);
                                                     return (
-                                                        <div 
-                                                            key={itemInstance.uniqueId}
-                                                            onMouseEnter={() => handleItemMouseEnter(itemInstance)}
-                                                            onMouseLeave={handleItemMouseLeave}
-                                                        >
-                                                            <span className={`bg-slate-800/60 px-2 py-1 rounded text-sm font-semibold cursor-help ${colorClass}`}>
-                                                                {fullName}
-                                                            </span>
-                                                        </div>
+                                                        <ItemListItem key={index} item={item} template={template} affixes={affixes} isSelected={false} onClick={() => {}} />
                                                     );
                                                 })}
                                             </div>
-                                        </div>
-                                    )}
-                                    {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                        <p className="text-sm italic text-red-400 mt-2">
-                                            {t('expedition.itemsLost', { count: reward.itemsLostCount })}
-                                        </p>
-                                    )}
-                                    {Object.keys(reward.essencesFound).length > 0 && (
-                                        <div className="border-t border-slate-700 my-3 pt-3">
-                                            <h4 className="font-bold text-md text-white mb-2">{t('expedition.essencesFound')}:</h4>
-                                            <div className="flex flex-wrap justify-center gap-2">
-                                                {Object.entries(reward.essencesFound).map(([essenceType, amount]) => (
-                                                    <span key={essenceType} className="bg-slate-800/60 px-2 py-1 rounded text-sm font-semibold">
-                                                    {amount}x {t(`resources.${essenceType}`)}
-                                                    </span>
-                                                ))}
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.essencesFound')}</h5>
+                                        {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
+                                            <div className="space-y-1">
+                                                {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                                    if (!amount || amount === 0) return null;
+                                                    const rarity = essenceToRarityMap[essence as EssenceType];
+                                                    return (
+                                                        <p key={essence} className="flex justify-between text-sm">
+                                                            <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
+                                                            <span className="font-mono font-bold text-white">+{amount}</span>
+                                                        </p>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+                                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                    <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                )}
+                            </div>
+                        )}
+                        <div className="mt-6 flex justify-center gap-4">
+                            <button onClick={onClose} className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors">
+                                {t('expedition.returnToCamp')}
+                            </button>
+                            {messageId && (
+                                <button onClick={handleCopyLink} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg">
+                                    Kopiuj Link do Raportu
+                                </button>
                             )}
                         </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-4 mt-4 flex-shrink-0">
-                    <button
-                        onClick={async () => {
-                            onClose();
-                        }}
-                        disabled={!isAnimationComplete}
-                        className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg text-lg hover:bg-indigo-700 transition-colors duration-200 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
-                    >
-                        {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
-                    </button>
-                     {isAnimationComplete && messageId && (
-                        // FIX: Corrected function call to not pass an argument as the function definition expects none.
-                        <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
-                            {copyStatus || 'Kopiuj Link'}
-                        </button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
-            
-            {hoveredMember && hoveredMember.data && (
-                <div 
-                    className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
-                    style={{
-                        top: Math.max(10, hoveredMember.rect.top),
-                        left: hoveredMember.rect.right + 10
-                    }}
-                >
-                     <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-white text-center">{hoveredMember.data.characterName}</p>
-                     <div className="space-y-1 text-xs text-gray-300">
-                        <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentHealth?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxHealth || 1}</span></p>
-                        <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredMember.data.stats?.currentMana?.toFixed(0) || 0} / {hoveredMember.data.stats?.maxMana || 0}</span></p>
-                        <div className="border-t border-slate-700/50 my-1"></div>
-                        <p className="flex justify-between"><span>{t('statistics.strength')}:</span> <span>{hoveredMember.data.stats?.strength || 0}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.agility')}:</span> <span>{hoveredMember.data.stats?.agility || 0}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.accuracy')}:</span> <span>{hoveredMember.data.stats?.accuracy || 0}</span></p>
-                         <p className="flex justify-between"><span>{t('statistics.stamina')}:</span> <span>{hoveredMember.data.stats?.stamina || 0}</span></p>
-                        <p className="flex justify-between"><span>{t('statistics.intelligence')}:</span> <span>{hoveredMember.data.stats?.intelligence || 0}</span></p>
-                        <div className="border-t border-slate-700/50 my-1"></div>
-                        <p className="flex justify-between"><span>Fiz. DMG:</span> <span className="font-mono">{hoveredMember.data.stats?.minDamage || 0}-{hoveredMember.data.stats?.maxDamage || 0}</span></p>
-                        {((hoveredMember.data.stats?.magicDamageMin || 0) > 0 || (hoveredMember.data.stats?.magicDamageMax || 0) > 0) && (
-                             <p className="flex justify-between text-purple-300"><span>Mag. DMG:</span> <span className="font-mono">{hoveredMember.data.stats?.magicDamageMin || 0}-{hoveredMember.data.stats?.magicDamageMax || 0}</span></p>
-                        )}
-                        <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredMember.data.stats?.armor || 0}</span></p>
-                        <p className="flex justify-between"><span>Kryt:</span> <span>{(hoveredMember.data.stats?.critChance || 0).toFixed(1)}% (x{hoveredMember.data.stats?.critDamageModifier || 200}%)</span></p>
-                         <p className="flex justify-between"><span>Unik:</span> <span>{(hoveredMember.data.stats?.dodgeChance || 0).toFixed(1)}%</span></p>
-                        <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredMember.data.stats?.attacksPerRound || 1}</span></p>
-                        {(hoveredMember.data.stats?.lifeStealPercent || 0) > 0 && <p className="flex justify-between text-green-400"><span>Kradzież Życia:</span> <span>{hoveredMember.data.stats?.lifeStealPercent}%</span></p>}
-                        {(hoveredMember.data.stats?.manaStealPercent || 0) > 0 && <p className="flex justify-between text-cyan-400"><span>Kradzież Many:</span> <span>{hoveredMember.data.stats?.manaStealPercent}%</span></p>}
-                    </div>
-                </div>
-            )}
-            
-            {hoveredEnemy && hoveredEnemy.data && (
-                <div 
-                    className="fixed z-[70] p-3 bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none animate-fade-in w-64"
-                    style={{
-                        top: Math.max(10, hoveredEnemy.rect.top),
-                        left: hoveredEnemy.rect.left - 266 // width + padding
-                    }}
-                >
-                     <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-red-400 text-center">{hoveredEnemy.data.name}</p>
-                     <div className="space-y-1 text-xs text-gray-300">
-                        <p className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{hoveredEnemy.data.stats.maxHealth}</span></p>
-                        {hoveredEnemy.data.stats.maxMana && hoveredEnemy.data.stats.maxMana > 0 && <p className="flex justify-between"><span>Mana:</span> <span className="font-mono text-white">{hoveredEnemy.data.stats.maxMana}</span></p>}
-                        <div className="border-t border-slate-700/50 my-1"></div>
-                        <p className="flex justify-between"><span>Obrażenia:</span> <span className="font-mono">{hoveredEnemy.data.stats.minDamage}-{hoveredEnemy.data.stats.maxDamage}</span></p>
-                        {((hoveredEnemy.data.stats.magicDamageMin || 0) > 0 || (hoveredEnemy.data.stats.magicDamageMax || 0) > 0) && (
-                            <p className="flex justify-between text-purple-300">
-                                <span>Mag. DMG:</span> 
-                                <span className="font-mono">{hoveredEnemy.data.stats.magicDamageMin || 0}-{hoveredEnemy.data.stats.magicDamageMax || 0}</span>
-                            </p>
-                        )}
-                        <p className="flex justify-between"><span>Pancerz:</span> <span>{hoveredEnemy.data.stats.armor}</span></p>
-                        <p className="flex justify-between"><span>Kryt:</span> <span>{hoveredEnemy.data.stats.critChance}%</span></p>
-                        <p className="flex justify-between"><span>Ataki/tura:</span> <span>{hoveredEnemy.data.stats.attacksPerTurn || 1}</span></p>
-                    </div>
-                </div>
-            )}
-
-            {tooltipData && (
-                <div
-                    className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
-                    onMouseEnter={() => { if (tooltipTimeoutRef.current) window.clearTimeout(tooltipTimeoutRef.current); }}
-                    onMouseLeave={handleItemMouseLeave}
-                >
-                    <div className="w-72 bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in pointer-events-auto">
-                        <ItemDetailsPanel 
-                            item={tooltipData.item} 
-                            template={tooltipData.template} 
-                            affixes={affixes} 
-                            size="small" 
-                        />
-                    </div>
-                </div>
-            )}
         </div>
-    )
+    );
 };
+
 
 export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ character, expeditions, enemies, currentLocation, onStartExpedition, itemTemplates, affixes, onCompletion, onCancelExpedition }) => {
     const { t } = useTranslation();
-    const [timeLeft, setTimeLeft] = useState(0);
+    const [selectedExpedition, setSelectedExpedition] = useState<ExpeditionType | null>(null);
 
-    const activeExpedition = character.activeExpedition;
-    const currentExpeditionDetails = activeExpedition ? expeditions.find(e => e.id === activeExpedition.expeditionId) : null;
+    const availableExpeditions = useMemo(() => 
+        (expeditions || []).filter(exp => (exp.locationIds || []).includes(character.currentLocationId)),
+        [expeditions, character.currentLocationId]
+    );
 
     useEffect(() => {
-        if (!activeExpedition) return;
+        if (!selectedExpedition && availableExpeditions.length > 0) {
+            setSelectedExpedition(availableExpeditions[0]);
+        }
+    }, [availableExpeditions, selectedExpedition]);
 
-        const updateTimer = () => {
-            // Use api.getServerTime() for sync
-            const remaining = Math.max(0, Math.floor((activeExpedition.finishTime - api.getServerTime()) / 1000));
-            setTimeLeft(remaining);
-            if (remaining <= 0) {
-                // Check if already completing to prevent double submission
-                onCompletion();
+    const handleEmbark = (expId: string) => {
+        if (character.stats.currentHealth < character.stats.maxHealth * 0.15) {
+            if (window.confirm(t('expedition.lowHealthWarning'))) {
+                onStartExpedition(expId);
             }
-        };
+        } else {
+            onStartExpedition(expId);
+        }
+    };
+    
+    // Active Expedition Countdown
+    const [timeLeft, setTimeLeft] = useState(0);
+    useEffect(() => {
+        if (character.activeExpedition) {
+            const updateTimer = () => {
+                const remaining = Math.max(0, Math.floor((character.activeExpedition!.finishTime - api.getServerTime()) / 1000));
+                setTimeLeft(remaining);
+                if (remaining <= 0) {
+                    onCompletion();
+                }
+            };
 
-        updateTimer();
-        const intervalId = setInterval(updateTimer, 1000);
+            updateTimer();
+            const intervalId = setInterval(updateTimer, 1000);
+            return () => clearInterval(intervalId);
+        }
+    }, [character.activeExpedition, onCompletion]);
 
-        return () => clearInterval(intervalId);
-    }, [activeExpedition, onCompletion]);
-
-    // Group expeditions by potential drop rarity for better UI (optional, here just listing all)
-    // Filter by current location
-    const availableExpeditions = expeditions.filter(e => e.locationIds.includes(currentLocation.id));
-
-    if (activeExpedition && currentExpeditionDetails) {
+    if (character.activeExpedition) {
+        const expedition = expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
         return (
             <ContentPanel title={t('expedition.inProgressTitle')}>
-                <div className="flex flex-col items-center justify-center space-y-6 py-12">
-                    <h3 className="text-3xl font-bold text-amber-400 animate-pulse">
-                        {currentExpeditionDetails.name}
-                    </h3>
-                    {currentExpeditionDetails.image && <img src={currentExpeditionDetails.image} alt={currentExpeditionDetails.name} className="w-64 h-64 object-cover rounded-full border-4 border-slate-700 shadow-2xl" />}
-                    <p className="text-lg text-gray-300 italic max-w-md text-center">
-                        {currentExpeditionDetails.description}
-                    </p>
-                    <div className="bg-slate-800/80 p-6 rounded-xl text-center shadow-lg border border-slate-700/50">
-                        <p className="text-gray-400 mb-2 uppercase tracking-widest text-xs">{t('expedition.endsIn')}</p>
-                        <div className="text-5xl font-mono font-bold text-white tabular-nums">
-                            {formatTimeLeft(timeLeft)}
-                        </div>
+                <div className="bg-slate-900/40 p-8 rounded-xl text-center">
+                    <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
+                    <p className="text-4xl font-extrabold text-white mb-4">{expedition?.name}</p>
+                    {expedition?.image && <img src={expedition.image} alt={expedition.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+                    <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
+                    <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
+                    <div className="flex justify-center gap-4">
+                        <button 
+                            onClick={onCompletion} 
+                            disabled={timeLeft > 0} 
+                            className="px-8 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed shadow-lg"
+                        >
+                            {timeLeft > 0 ? t('expedition.inProgress') : t('expedition.finish')}
+                        </button>
+                        <button
+                            onClick={onCancelExpedition}
+                            className="px-6 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white font-semibold transition-colors duration-200"
+                        >
+                            Anuluj Wyprawę
+                        </button>
                     </div>
-                     <button
-                        onClick={() => onCancelExpedition()}
-                        className="px-6 py-2 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
-                    >
-                        Anuluj Wyprawę
-                    </button>
-                    {timeLeft <= 0 && (
-                        <div className="text-green-400 font-bold text-xl animate-bounce">
-                            {t('expedition.finalizing')}
-                        </div>
-                    )}
                 </div>
             </ContentPanel>
         );
     }
 
-    const potentialEnemies = (expedition: ExpeditionType) => {
-        // Map enemy IDs to Enemy objects
-        const enemyList = (expedition.enemies || []).map(e => enemies.find(en => en.id === e.enemyId)).filter(e => e);
-        // Deduplicate
-        return Array.from(new Set(enemyList));
-    };
-
-    const handleEmbark = (expeditionId: string) => {
-        if (character.stats.currentHealth < character.stats.maxHealth * 0.15) {
-            if (!window.confirm(t('expedition.lowHealthWarning'))) {
-                return;
-            }
-        }
-        onStartExpedition(expeditionId);
-    };
-
     return (
         <ContentPanel title={t('expedition.availableTitle')}>
-            {availableExpeditions.length === 0 ? (
-                <p className="text-gray-500 italic text-center py-12">{t('expedition.noExpeditions')}</p>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {availableExpeditions.map(expedition => (
-                        <div key={expedition.id} className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 flex flex-col group">
-                            <div className="h-32 bg-slate-900 relative overflow-hidden">
-                                 {expedition.image ? (
-                                     <img src={expedition.image} alt={expedition.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
-                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-slate-700">
-                                        <MapIcon className="w-16 h-16 opacity-20" />
-                                    </div>
-                                 )}
-                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
-                                    <h3 className="text-xl font-bold text-white truncate shadow-black drop-shadow-md">{expedition.name}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 bg-slate-900/40 p-4 rounded-xl">
+                    {availableExpeditions.length === 0 ? (
+                        <p className="text-gray-500">{t('expedition.noExpeditions')}</p>
+                    ) : (
+                        <ul className="space-y-2">
+                            {availableExpeditions.map(exp => (
+                                <li key={exp.id}>
+                                    <button 
+                                        onClick={() => setSelectedExpedition(exp)}
+                                        className={`w-full text-left p-3 rounded-lg transition-colors duration-200 ${selectedExpedition?.id === exp.id ? 'bg-indigo-600/50' : 'hover:bg-slate-700/50'}`}
+                                    >
+                                        <p className="font-semibold text-white">{exp.name}</p>
+                                        <p className="text-xs text-gray-400">{exp.description}</p>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                {selectedExpedition && (
+                    <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl">
+                        <h3 className="text-2xl font-bold text-indigo-400 mb-2">{selectedExpedition.name}</h3>
+                        {selectedExpedition.image && <img src={selectedExpedition.image} alt={selectedExpedition.name} className="w-full h-40 object-cover rounded-lg my-4 border border-slate-700/50" />}
+                        <p className="text-gray-400 mb-6 italic">{selectedExpedition.description}</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* ... Rest of the details ... */}
+                            <div>
+                                <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.potentialEnemies')}</h4>
+                                 <div className="bg-slate-800/50 p-3 rounded-lg text-sm space-y-2">
+                                    {selectedExpedition.enemies.length === 0 && <p className="text-gray-500">{t('expedition.noEnemies')}</p>}
+                                    {selectedExpedition.enemies.map(e => {
+                                        const enemy = enemies.find(en => en.id === e.enemyId);
+                                        return <p key={e.enemyId}>{enemy?.name} ({e.spawnChance}%)</p>;
+                                    })}
+                                     {selectedExpedition.maxEnemies && <p className="text-xs text-gray-500 mt-2">{t('expedition.maxEnemiesNote', { count: selectedExpedition.maxEnemies })}</p>}
                                 </div>
                             </div>
-                            
-                            <div className="p-4 flex-grow flex flex-col">
-                                <p className="text-sm text-gray-400 mb-4 line-clamp-2 min-h-[2.5em]">{expedition.description}</p>
-                                
-                                <div className="space-y-2 mb-4 text-sm">
-                                    <div className="flex justify-between items-center text-amber-400">
-                                        <span className="flex items-center"><CoinsIcon className="w-4 h-4 mr-1.5"/> {t('expedition.cost')}:</span>
-                                        <span className="font-mono font-bold">{expedition.goldCost}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sky-400">
-                                        <span className="flex items-center"><BoltIcon className="w-4 h-4 mr-1.5"/> {t('expedition.cost')}:</span>
-                                        <span className="font-mono font-bold">{expedition.energyCost}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-gray-300">
-                                        <span className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5"/> {t('expedition.duration')}:</span>
-                                        <span className="font-mono">{formatDuration(expedition.duration)}</span>
-                                    </div>
-                                </div>
 
-                                <div className="mt-auto pt-4 border-t border-slate-700/50">
-                                    <div className="mb-3">
-                                        <div className="flex justify-between items-baseline mb-1">
-                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('expedition.potentialEnemies')}</p>
-                                            <p className="text-[10px] text-gray-400">Ilość: 1-{expedition.maxEnemies || (expedition.enemies || []).length}</p>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1">
-                                            {(expedition.enemies || []).length > 0 ? (expedition.enemies || []).slice(0, 3).map((expEnemy, index) => {
-                                                const enemyTemplate = enemies.find(e => e.id === expEnemy.enemyId);
-                                                if (!enemyTemplate) return null;
-                                                return (
-                                                    <span key={`${expedition.id}-${index}`} className="text-xs bg-slate-900/50 px-2 py-0.5 rounded text-red-300 border border-red-900/30">
-                                                        {enemyTemplate.name} ({expEnemy.spawnChance}%)
-                                                    </span>
-                                                );
-                                            }) : <span className="text-xs text-gray-600">{t('expedition.noEnemies')}</span>}
-                                            {(expedition.enemies || []).length > 3 && <span className="text-xs text-gray-500">...</span>}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">{t('expedition.reward')}</p>
-                                         <div className="flex gap-3 text-xs font-mono">
-                                             <span className="text-amber-300">{expedition.minBaseGoldReward}-{expedition.maxBaseGoldReward} <CoinsIcon className="inline w-3 h-3"/></span>
-                                             <span className="text-sky-300">{expedition.minBaseExperienceReward}-{expedition.maxBaseExperienceReward} XP</span>
-                                         </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => handleEmbark(expedition.id)}
-                                        disabled={character.resources.gold < expedition.goldCost || character.stats.currentEnergy < expedition.energyCost}
-                                        className={`w-full py-2.5 rounded-lg font-bold text-sm shadow-lg transition-all duration-200 flex items-center justify-center space-x-2
-                                            ${character.resources.gold >= expedition.goldCost && character.stats.currentEnergy >= expedition.energyCost
-                                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/20' 
-                                                : 'bg-slate-700 text-gray-500 cursor-not-allowed'
-                                            }`}
-                                    >
-                                        <span>{t('expedition.embark')}</span>
-                                    </button>
+                            <div>
+                                <h4 className="font-semibold text-gray-300 mb-2">{t('expedition.reqsAndRewards')}</h4>
+                                <div className="bg-slate-800/50 p-3 rounded-lg text-sm space-y-2">
+                                    <p className="flex justify-between"><span>{t('expedition.cost')}:</span> <span className="font-mono flex items-center">{selectedExpedition.goldCost} <CoinsIcon className="h-4 w-4 ml-1 text-amber-400"/> / {selectedExpedition.energyCost} <BoltIcon className="h-4 w-4 ml-1 text-sky-400"/></span></p>
+                                    <p className="flex justify-between"><span>{t('expedition.duration')}:</span> <span className="font-mono">{formatDuration(selectedExpedition.duration)}</span></p>
+                                    <p className="flex justify-between"><span>{t('expedition.reward')} (Złoto):</span> <span className="font-mono">{selectedExpedition.minBaseGoldReward} - {selectedExpedition.maxBaseGoldReward}</span></p>
+                                    <p className="flex justify-between"><span>{t('expedition.reward')} (XP):</span> <span className="font-mono">{selectedExpedition.minBaseExperienceReward} - {selectedExpedition.maxBaseExperienceReward}</span></p>
                                 </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
+
+                        <button 
+                            onClick={() => handleEmbark(selectedExpedition.id)} 
+                            disabled={character.resources.gold < selectedExpedition.goldCost || character.stats.currentEnergy < selectedExpedition.energyCost}
+                            className="w-full mt-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-colors duration-200 disabled:bg-slate-600"
+                        >
+                            {t('expedition.embark')}
+                        </button>
+                    </div>
+                )}
+            </div>
         </ContentPanel>
     );
 };
