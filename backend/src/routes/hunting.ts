@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -77,21 +78,11 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                     await client.query("UPDATE hunting_parties SET status = 'FINISHED', victory = false WHERE id = $1", [party.id]);
                 }
                 
-                const finalDataRes = await client.query('SELECT combat_log, rewards, victory FROM hunting_parties WHERE id = $1', [party.id]);
-                if (finalDataRes.rows.length > 0) {
-                    const finalData = finalDataRes.rows[0];
-                    party.status = PartyStatus.Finished;
-                    party.combatLog = finalData.combat_log;
-                    party.victory = finalData.victory;
-
-                    const rewardsRaw = finalData.rewards;
-                    if (rewardsRaw) {
-                        const myName = party.members.find(m => m.userId === req.user.id)?.characterName;
-                        if (myName) {
-                            party.myRewards = rewardsRaw[myName];
-                        }
-                        party.allRewards = rewardsRaw;
-                    }
+                // After processing, the party state has changed significantly. Re-fetch the entire row to ensure consistency.
+                const finalPartyRes = await client.query('SELECT * FROM hunting_parties WHERE id = $1', [party.id]);
+                if (finalPartyRes.rows.length > 0) {
+                    // Overwrite the stale 'party' object with the fresh one from the database.
+                    party = camelizeParty(finalPartyRes.rows[0]);
                 }
             }
         }
@@ -110,7 +101,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
              }
 
              // 2. Find the message ID associated with this report for the "Copy Link" button
-             // We search for the most recent report for this user about this boss
              const msgRes = await client.query(
                 `SELECT id FROM messages 
                  WHERE recipient_id = $1 
@@ -149,11 +139,14 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         const minMembers = hasLoneWolf ? 1 : 2;
 
         if (maxMembers < minMembers || maxMembers > 5) {
-            return res.status(400).json({ message: `Party size must be between ${minMembers} and 5.` });
+            const errorMessage = minMembers > 1 
+                ? 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".'
+                : `Rozmiar grupy musi być pomiędzy ${minMembers} a 5.`;
+            return res.status(400).json({ message: errorMessage });
         }
 
         const existingParty = await getPartyByMember(req.user.id);
-        if (existingParty) return res.status(400).json({ message: 'You are already in a party.' });
+        if (existingParty) return res.status(400).json({ message: 'Jesteś już w grupie.' });
 
         const initialMembers = [{
             userId: req.user.id,
@@ -171,7 +164,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 
         res.sendStatus(201);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to create party' });
+        res.status(500).json({ message: 'Nie udało się stworzyć grupy' });
     }
 });
 
@@ -180,16 +173,16 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
     const partyId = req.params.partyId;
     try {
         const existingParty = await getPartyByMember(req.user.id);
-        if (existingParty) return res.status(400).json({ message: 'You are already in a party.' });
+        if (existingParty) return res.status(400).json({ message: 'Jesteś już w grupie.' });
 
         const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE id = $1 FOR UPDATE', [partyId]);
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Party not found.' });
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Grupa nie znaleziona.' });
         
         const party = partyRes.rows[0];
-        if (party.status !== 'FORMING') return res.status(400).json({ message: 'Party is no longer accepting members.' });
+        if (party.status !== 'FORMING') return res.status(400).json({ message: 'Grupa nie przyjmuje już członków.' });
         
         const members = party.members;
-        if (members.length >= party.max_members) return res.status(400).json({ message: 'Party is full.' });
+        if (members.length >= party.max_members) return res.status(400).json({ message: 'Grupa jest pełna.' });
 
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
@@ -206,7 +199,7 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
         await pool.query('UPDATE hunting_parties SET members = $1 WHERE id = $2', [JSON.stringify(members), partyId]);
         res.sendStatus(200);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to join party' });
+        res.status(500).json({ message: 'Nie udało się dołączyć do grupy' });
     }
 });
 
@@ -215,7 +208,7 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
     const { userId, action } = req.body; // action: 'accept' | 'reject' | 'kick'
     try {
         const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'You are not a leader of any party.' });
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej grupy.' });
         
         const party = partyRes.rows[0];
         let members = party.members as any[];
@@ -247,7 +240,7 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
 
         res.sendStatus(200);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to update member status' });
+        res.status(500).json({ message: 'Nie udało się zaktualizować statusu członka' });
     }
 });
 
@@ -255,18 +248,17 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
 router.post('/start', authenticateToken, async (req: any, res: any) => {
     try {
         const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'You are not a leader of any party.' });
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej grupy.' });
         
         const party = partyRes.rows[0];
         
-        // Validation: Must be FORMING and Full
-        if (party.status !== 'FORMING') return res.status(400).json({ message: 'Party is not in forming state.' });
+        if (party.status !== 'FORMING') return res.status(400).json({ message: 'Grupa nie jest w stanie formowania.' });
         
         const members = party.members as any[];
         const acceptedCount = members.filter(m => m.status !== PartyMemberStatus.Pending).length;
         
         if (acceptedCount < party.max_members) {
-            return res.status(400).json({ message: 'Party is not full yet.' });
+            return res.status(400).json({ message: 'Grupa nie jest jeszcze pełna.' });
         }
 
         const newStatus = 'PREPARING';
@@ -278,7 +270,7 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         res.sendStatus(200);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Failed to start party' });
+        res.status(500).json({ message: 'Nie udało się rozpocząć polowania' });
     }
 });
 
@@ -292,7 +284,7 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
             FOR UPDATE
         `, [req.user.id]);
 
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Not in a party.' });
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś w grupie.' });
         const party = partyRes.rows[0];
         const isLeader = party.leader_id === req.user.id;
         const isFinished = party.status === 'FINISHED';
@@ -319,7 +311,7 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
 
         res.sendStatus(200);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to leave party' });
+        res.status(500).json({ message: 'Nie udało się opuścić grupy' });
     }
 });
 
