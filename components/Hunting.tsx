@@ -8,6 +8,8 @@ import { ExpeditionSummaryModal } from './Expedition';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { UsersIcon } from './icons/UsersIcon';
+import { CoinsIcon } from './icons/CoinsIcon';
+import { StarIcon } from './icons/StarIcon';
 
 interface HuntingProps {
     character: PlayerCharacter;
@@ -19,16 +21,19 @@ interface HuntingProps {
 
 export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTemplates, affixes, gameData }) => {
     const { t } = useTranslation();
-    const [view, setView] = useState<'LIST' | 'CREATE' | 'LOBBY' | 'COMBAT'>('LIST');
+    const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT'>('DASHBOARD');
     const [parties, setParties] = useState<any[]>([]);
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
+    
+    // Form State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
     const [createMembers, setCreateMembers] = useState(3);
+    
     const [loading, setLoading] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
-    const lobbyPollInterval = useRef<NodeJS.Timeout | null>(null);
+    const lobbyPollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Filter for bosses only
     const bosses = useMemo(() => enemies.filter(e => e.isBoss), [enemies]);
@@ -69,7 +74,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 }
             } else {
                 setMyParty(null);
-                if (view !== 'CREATE') setView('LIST');
+                setView('DASHBOARD');
             }
         } catch (e) { console.error(e); }
     };
@@ -81,13 +86,13 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         // Poll for party status updates
         lobbyPollInterval.current = setInterval(() => {
             fetchMyParty();
-            if(view === 'LIST') fetchParties();
+            if(view === 'DASHBOARD') fetchParties();
         }, 2000);
 
         return () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
         };
-    }, []);
+    }, [view]);
 
     const handleCreate = async () => {
         try {
@@ -108,7 +113,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         try {
             await api.leaveParty();
             await fetchMyParty();
-            setView('LIST');
+            setView('DASHBOARD');
         } catch (e: any) { alert(e.message); }
     };
 
@@ -131,7 +136,6 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
     const estimatedRewards = useMemo(() => {
         if (!selectedBoss) return null;
         // Dynamic bonus multiplier based on party size (matches backend logic)
-        // 1 Player: 1.3x, 5 Players: 2.5x
         const bonusMult = 1.0 + (createMembers * 0.3);
 
         return {
@@ -142,8 +146,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         }
     }, [selectedBoss, createMembers]);
 
-    // Use the "frozen" report data if it exists; otherwise, fall back to the live party state.
-    // This makes the report modal immutable once the hunt finishes.
+    // Report data preparation
     const reportData = useMemo(() => {
         if (!myParty) return null;
         return {
@@ -160,8 +163,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         };
     }, [myParty, selectedBoss]);
 
-    // Render Logic
-    
+    // --- RENDER: Combat View ---
     if (view === 'COMBAT' && myParty) {
         return (
             <div className="fixed inset-0 bg-gray-900 z-50 overflow-auto">
@@ -169,13 +171,11 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     reward={reportData!}
                     onClose={() => {
                         if (myParty.status === PartyStatus.Finished) {
-                            // Leave party on close
                             api.leaveParty().then(() => {
                                 setMyParty(null);
-                                setView('LIST');
+                                setView('DASHBOARD');
                             });
                         } else {
-                            // Just close modal if inspecting history, but usually this is full screen
                             setReportModalOpen(false);
                         }
                     }}
@@ -192,7 +192,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         );
     }
 
-    // Lobby View
+    // --- RENDER: Lobby View (Inside a party) ---
     if (view === 'LOBBY' && myParty) {
         const isLeader = myParty.leaderId === character.id;
         const boss = gameData.enemies.find(e => e.id === myParty.bossId);
@@ -223,7 +223,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     {/* Left: Boss Info */}
                     <div className="bg-slate-900/40 p-4 rounded-xl border border-red-900/30">
                         <h3 className="text-xl font-bold text-red-400 mb-2">{boss?.name}</h3>
-                        <div className="h-40 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                        <div className="h-40 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
                              {boss?.image ? <img src={boss.image} className="w-full h-full object-cover" /> : <CrossedSwordsIcon className="h-16 w-16 text-red-700 opacity-50" />}
                         </div>
                         <p className="text-sm text-gray-400 italic mb-4">{boss?.description}</p>
@@ -247,7 +247,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                             {acceptedMembers.map((m, i) => (
                                 <div key={i} className="flex justify-between items-center bg-slate-800 p-3 rounded border border-slate-700">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center font-bold">
+                                        <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center font-bold text-white border border-slate-600">
                                             {m.characterName.charAt(0)}
                                         </div>
                                         <div>
@@ -256,7 +256,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                         </div>
                                     </div>
                                     {isLeader && m.userId !== character.id && (
-                                        <button onClick={() => handleAction(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs">Wyrzuć</button>
+                                        <button onClick={() => handleAction(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs font-bold px-2 py-1">Wyrzuć</button>
                                     )}
                                 </div>
                             ))}
@@ -273,10 +273,10 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                 <div className="space-y-2">
                                     {pendingMembers.map(m => (
                                         <div key={m.userId} className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
-                                            <span className="text-sm">{m.characterName} (Lvl {m.level})</span>
+                                            <span className="text-sm text-gray-300">{m.characterName} (Lvl {m.level})</span>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleAction(m.userId, 'accept')} className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs">Akceptuj</button>
-                                                <button onClick={() => handleAction(m.userId, 'reject')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs">Odrzuć</button>
+                                                <button onClick={() => handleAction(m.userId, 'accept')} className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs text-white">Akceptuj</button>
+                                                <button onClick={() => handleAction(m.userId, 'reject')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs text-white">Odrzuć</button>
                                             </div>
                                         </div>
                                     ))}
@@ -300,113 +300,158 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
         );
     }
 
-    // List/Create View
+    // --- RENDER: Dashboard View (Main) ---
     return (
         <ContentPanel title={t('hunting.title')}>
-            {view === 'LIST' ? (
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
+                
+                {/* Column 1: Controls (Create Party) */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
+                            <select 
+                                value={selectedBossId} 
+                                onChange={(e) => setSelectedBossId(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            >
+                                {bosses.map(boss => (
+                                    <option key={boss.id} value={boss.id}>{boss.name} (Lvl {boss.stats.maxHealth > 1000 ? 'Boss' : 'Mini'})</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.partySize')}</label>
+                            <select
+                                value={createMembers}
+                                onChange={(e) => setCreateMembers(parseInt(e.target.value))}
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            >
+                                <option value={1}>1 Gracz (Solo)</option>
+                                <option value={2}>2 Graczy</option>
+                                <option value={3}>3 Graczy</option>
+                                <option value={4}>4 Graczy</option>
+                                <option value={5}>5 Graczy (Pełna)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-2">Większa drużyna = większe nagrody, ale boss jest silniejszy.</p>
+                        </div>
+
+                        <div className="pt-4">
+                            <button 
+                                onClick={handleCreate} 
+                                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                            >
+                                <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Column 2: Boss Info & Rewards */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <h3 className="text-xl font-bold text-red-400 mb-4 text-center">Cel Polowania</h3>
+                    {selectedBoss ? (
+                        <div className="flex flex-col h-full">
+                            <div className="text-center mb-4">
+                                <h4 className="text-lg font-bold text-white mb-2">{selectedBoss.name}</h4>
+                                <div className="h-48 w-48 mx-auto bg-slate-800 rounded-full flex items-center justify-center overflow-hidden border-4 border-slate-700 shadow-xl mb-4">
+                                    {selectedBoss.image ? (
+                                        <img src={selectedBoss.image} className="w-full h-full object-cover" alt={selectedBoss.name} />
+                                    ) : (
+                                        <CrossedSwordsIcon className="h-20 w-20 text-red-700 opacity-50" />
+                                    )}
+                                </div>
+                                <div className="flex justify-center gap-4 text-sm font-mono text-gray-300 bg-slate-800/50 py-2 rounded-lg mx-4">
+                                    <span className="flex items-center gap-1">HP: <span className="text-white">{selectedBoss.stats.maxHealth}</span></span>
+                                    <span className="text-gray-600">|</span>
+                                    <span className="flex items-center gap-1">DMG: <span className="text-white">{selectedBoss.stats.minDamage}-{selectedBoss.stats.maxDamage}</span></span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2 px-4 italic">{selectedBoss.description}</p>
+                            </div>
+
+                            {estimatedRewards && (
+                                <div className="mt-auto bg-slate-800/80 p-4 rounded-lg border border-slate-700">
+                                    <p className="text-gray-400 text-xs uppercase tracking-widest text-center mb-3">Szacowane Nagrody (Na Osobę)</p>
+                                    <div className="grid grid-cols-2 gap-4 divide-x divide-slate-700">
+                                        <div className="text-center">
+                                            <div className="flex items-center justify-center gap-1 text-amber-400 font-mono font-bold text-lg">
+                                                <CoinsIcon className="h-4 w-4" />
+                                                <span>{estimatedRewards.minGold}-{estimatedRewards.maxGold}</span>
+                                            </div>
+                                            <span className="text-xs text-gray-500">Złota</span>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="flex items-center justify-center gap-1 text-sky-400 font-mono font-bold text-lg">
+                                                <StarIcon className="h-4 w-4" />
+                                                <span>{estimatedRewards.minExp}-{estimatedRewards.maxExp}</span>
+                                            </div>
+                                            <span className="text-xs text-gray-500">XP</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 italic">
+                            Wybierz bossa z menu po lewej stronie.
+                        </div>
+                    )}
+                </div>
+
+                {/* Column 3: Party List */}
+                <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
+                    <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('hunting.availableParties')}</h3>
-                        <button 
-                            onClick={() => setView('CREATE')} 
-                            className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white font-bold flex items-center gap-2"
-                        >
-                            <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
-                        </button>
+                        <span className="text-xs text-gray-500 bg-slate-800 px-2 py-1 rounded">{parties.length}</span>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {parties.length === 0 && <p className="text-gray-500 col-span-2 text-center py-8">{t('hunting.noParties')}</p>}
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-3">
+                        {parties.length === 0 && (
+                            <div className="text-center py-12 text-gray-500 italic">
+                                <p>{t('hunting.noParties')}</p>
+                                <p className="text-xs mt-2">Bądź pierwszy i utwórz grupę!</p>
+                            </div>
+                        )}
                         {parties.map(party => {
                             const boss = gameData.enemies.find(e => e.id === party.bossId);
                             return (
-                                <div key={party.id} className="bg-slate-800 p-4 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
+                                <div key={party.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-white">{boss?.name || 'Unknown Boss'}</h4>
-                                        <span className="text-xs bg-indigo-900 px-2 py-1 rounded text-indigo-200">Lider: {party.leaderName}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-4">
-                                        <div className="text-sm text-gray-400">
-                                            Członkowie: <span className="text-white font-mono">{party.currentMembersCount}/{party.maxMembers}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center overflow-hidden">
+                                                {boss?.image ? <img src={boss.image} className="w-full h-full object-cover"/> : <CrossedSwordsIcon className="h-4 w-4 text-gray-500"/>}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
+                                                <p className="text-xs text-gray-400">Lider: {party.leaderName}</p>
+                                            </div>
                                         </div>
                                         <button 
                                             onClick={() => handleJoin(party.id)} 
-                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-bold"
+                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors"
                                         >
                                             {t('hunting.join')}
                                         </button>
+                                    </div>
+                                    <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
+                                        <div 
+                                            className="bg-green-500 h-full transition-all" 
+                                            style={{ width: `${(party.currentMembersCount / party.maxMembers) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Gracze</span>
+                                        <span>{party.currentMembersCount} / {party.maxMembers}</span>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-            ) : (
-                <div className="max-w-2xl mx-auto bg-slate-900/40 p-6 rounded-xl">
-                    <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
-                    
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
-                                {bosses.map(boss => (
-                                    <div 
-                                        key={boss.id} 
-                                        onClick={() => setSelectedBossId(boss.id)}
-                                        className={`p-3 rounded border cursor-pointer flex items-center gap-3 transition-all ${selectedBossId === boss.id ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
-                                    >
-                                        <div className="w-10 h-10 bg-slate-900 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                            {boss.image ? <img src={boss.image} className="w-full h-full object-cover"/> : <CrossedSwordsIcon className="h-6 w-6 text-gray-500"/>}
-                                        </div>
-                                        <div className="overflow-hidden">
-                                            <p className="font-bold text-sm truncate">{boss.name}</p>
-                                            <p className="text-xs text-gray-400 truncate">HP: {boss.stats.maxHealth}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.partySize')}: {createMembers}</label>
-                            <input 
-                                type="range" 
-                                min="1" // Lone Wolf allows 1, else 2. Backend validates.
-                                max="5" 
-                                value={createMembers} 
-                                onChange={e => setCreateMembers(parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                <span>1 (Solo)</span>
-                                <span>5 (Full)</span>
-                            </div>
-                        </div>
-
-                        {estimatedRewards && (
-                            <div className="bg-slate-800/50 p-4 rounded text-sm border border-slate-700">
-                                <p className="text-gray-400 mb-2 font-semibold">Szacowane nagrody na osobę:</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex items-center text-amber-400">
-                                        <span className="font-mono">{estimatedRewards.minGold}-{estimatedRewards.maxGold}</span>
-                                        <span className="ml-1 text-xs">Złota</span>
-                                    </div>
-                                    <div className="flex items-center text-sky-400">
-                                        <span className="font-mono">{estimatedRewards.minExp}-{estimatedRewards.maxExp}</span>
-                                        <span className="ml-1 text-xs">XP</span>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2 italic">* Nagrody skalują się z wielkością grupy.</p>
-                            </div>
-                        )}
-
-                        <div className="flex gap-4 pt-4">
-                            <button onClick={() => setView('LIST')} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold">Anuluj</button>
-                            <button onClick={handleCreate} className="flex-1 py-2 bg-green-600 hover:bg-green-500 rounded text-white font-bold">Utwórz</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </div>
         </ContentPanel>
     );
 };
