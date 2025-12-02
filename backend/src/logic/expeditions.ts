@@ -1,5 +1,5 @@
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
-import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations.js';
+import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations/index.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';

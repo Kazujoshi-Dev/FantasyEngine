@@ -1,10 +1,9 @@
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
-import { simulate1v1Combat } from '../logic/combat/simulations.js';
+import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
 
 const router = express.Router();
 

@@ -1,8 +1,7 @@
-
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
-import { simulateTeamVsBossCombat } from './combat/simulations.js';
+import { simulateTeamVsBossCombat } from './combat/simulations/index.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 
