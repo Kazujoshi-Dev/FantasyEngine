@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType, EssenceType } from '../types';
+import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType, EssenceType, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { StarIcon } from './icons/StarIcon';
@@ -8,7 +8,7 @@ import { ClockIcon } from './icons/ClockIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { MapIcon } from './icons/MapIcon';
 import { useTranslation } from '../contexts/LanguageContext';
-import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
+import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName, ItemListItem } from './shared/ItemSlot';
 import { api } from '../api';
 
 export interface ExpeditionProps {
@@ -603,6 +603,14 @@ export interface ExpeditionSummaryModalProps {
     backgroundImage?: string;
 }
 
+const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+    [EssenceType.Common]: ItemRarity.Common,
+    [EssenceType.Uncommon]: ItemRarity.Uncommon,
+    [EssenceType.Rare]: ItemRarity.Rare,
+    [EssenceType.Epic]: ItemRarity.Epic,
+    [EssenceType.Legendary]: ItemRarity.Legendary,
+};
+
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (props) => {
     const { 
         reward, onClose, characterName, itemTemplates, affixes, 
@@ -612,7 +620,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     } = props;
     const { t } = useTranslation();
 
-    // @FIX: Add a default CharacterStats object to prevent type errors when mapping over huntingMembers.
     const defaultDummyStats: CharacterStats = {
         strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0,
         statPoints: 0, currentHealth: 0, maxHealth: 1, currentEnergy: 0, maxEnergy: 0,
@@ -625,6 +632,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const [animatedLog, setAnimatedLog] = useState<CombatLogEntry[]>([]);
     const [animationSpeed, setAnimationSpeed] = useState(200);
     const animationTimerRef = useRef<number | null>(null);
+    const animationIndexRef = useRef<number>(0);
+    const frameRef = useRef(0);
 
     const initialPlayerStats = useMemo(() => {
         if (isPvp) return isDefenderView ? pvpData!.defender.stats : pvpData!.attacker.stats;
@@ -663,78 +672,97 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     }, [isHunting, huntingMembers, reward.combatLog]);
 
     const [partyHealth, setPartyHealth] = useState(initialPartyState);
-
     const [currentEnemyHealth, setCurrentEnemyHealth] = useState(() => initialEnemyForDisplay?.stats?.maxHealth || 0);
     const [currentPlayerHealth, setCurrentPlayerHealth] = useState(() => initialPlayerStats?.currentHealth || 0);
     const [currentTurn, setCurrentTurn] = useState(0);
-
     const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
 
+    const resetAnimation = useCallback(() => {
+        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+        animationIndexRef.current = 0;
+        setAnimatedLog([]);
+        setCurrentTurn(0);
+        setPartyHealth(initialPartyState);
+        setCurrentPlayerHealth(initialPlayerStats?.currentHealth || 0);
+        setCurrentEnemyHealth(initialEnemyForDisplay?.stats?.maxHealth || 0);
+    }, [initialPartyState, initialPlayerStats, initialEnemyForDisplay]);
+    
     useEffect(() => {
-        if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current);
-        }
+        resetAnimation();
+    }, [reward.combatLog, resetAnimation]);
 
-        const animate = (index: number) => {
-            if (index < reward.combatLog.length) {
-                animationTimerRef.current = window.setTimeout(() => {
-                    setAnimatedLog(prev => [...prev, reward.combatLog[index]]);
-                    
-                    const currentLog = reward.combatLog[index];
-                    setCurrentTurn(currentLog.turn);
-                    
-                    if (currentLog.allPlayersHealth && isHunting) {
-                        setPartyHealth(prev => {
-                            const newState = { ...prev };
-                            currentLog.allPlayersHealth!.forEach(p => {
-                                newState[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
-                            });
-                            return newState;
-                        });
-                    } else if (!isHunting) {
-                        setCurrentPlayerHealth(currentLog.playerHealth);
-                    }
-                    
-                    if (currentLog.allEnemiesHealth && currentLog.allEnemiesHealth.length > 0) {
-                        // Handled by EnemyListPanel
-                    } else {
-                        setCurrentEnemyHealth(currentLog.enemyHealth);
-                    }
-                    
-                    animate(index + 1);
-                }, animationSpeed);
+    useEffect(() => {
+        if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+
+        const animate = () => {
+            const index = animationIndexRef.current;
+            if (index >= reward.combatLog.length) {
+                return;
             }
+
+            animationTimerRef.current = window.setTimeout(() => {
+                const currentLog = reward.combatLog[index];
+                setAnimatedLog(prev => [...prev, currentLog]);
+                setCurrentTurn(currentLog.turn);
+                
+                if (currentLog.allPlayersHealth && isHunting) {
+                    setPartyHealth(prev => {
+                        const newState = { ...prev };
+                        currentLog.allPlayersHealth!.forEach(p => {
+                            newState[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
+                        });
+                        return newState;
+                    });
+                } else if (!isHunting) {
+                    setCurrentPlayerHealth(currentLog.playerHealth);
+                }
+                
+                if (!currentLog.allEnemiesHealth) {
+                    setCurrentEnemyHealth(currentLog.enemyHealth);
+                }
+
+                animationIndexRef.current += 1;
+                animate();
+            }, animationSpeed);
         };
 
-        animate(0);
+        animate();
 
         return () => {
-            if (animationTimerRef.current) {
-                clearTimeout(animationTimerRef.current);
-            }
+            if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
         };
-    }, [reward.combatLog, animationSpeed, isHunting]);
+    }, [reward.combatLog, animationSpeed, isHunting, resetAnimation]);
+
+    const changeSpeed = (speed: number) => {
+        frameRef.current = animationIndexRef.current; // Save current frame
+        setAnimationSpeed(speed);
+        // We don't reset, useEffect will pick up speed change and restart timer
+    };
 
     const skipAnimation = () => {
         if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+        
+        animationIndexRef.current = reward.combatLog.length;
         setAnimatedLog(reward.combatLog);
-        setAnimationSpeed(0); // Make subsequent plays instant if user interacts
+        
         const lastLog = reward.combatLog[reward.combatLog.length - 1];
         if (lastLog) {
+            setCurrentTurn(lastLog.turn);
             if (lastLog.allPlayersHealth && isHunting) {
                 const newState: Record<string, { currentHealth: number; maxHealth: number; }> = {};
                 lastLog.allPlayersHealth.forEach(p => {
                     newState[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
                 });
                 setPartyHealth(newState);
-            } else {
+            } else if (!isHunting) {
                 setCurrentPlayerHealth(lastLog.playerHealth);
             }
-            setCurrentEnemyHealth(lastLog.enemyHealth);
+            if (!lastLog.allEnemiesHealth) {
+                 setCurrentEnemyHealth(lastLog.enemyHealth);
+            }
         }
     };
     
-    // ... rest of the modal logic
     const handleCopyLink = useCallback(() => {
         if (!messageId) return;
         const url = `${window.location.origin}/report/${messageId}`;
@@ -747,7 +775,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     }, [messageId]);
 
     const backgroundStyle = props.backgroundImage ? { backgroundImage: `url(${props.backgroundImage})` } : {};
-
+    const isAnimationFinished = animatedLog.length === reward.combatLog.length;
 
     return (
         <div 
@@ -758,7 +786,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh]"
                 style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
             >
-                {/* ... Modal content ... */}
                 <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
                 <div className="grid grid-cols-12 gap-6 flex-grow min-h-0">
                     <div className="col-span-3">
@@ -787,11 +814,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                          <div className="pt-2 mt-2 border-t border-slate-700/50 flex justify-between items-center">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">Szybkość:</span>
-                                <button onClick={() => setAnimationSpeed(400)} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 400 ? 'bg-indigo-600' : 'bg-slate-700'}`}>x0.5</button>
-                                <button onClick={() => setAnimationSpeed(200)} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 200 ? 'bg-indigo-600' : 'bg-slate-700'}`}>x1</button>
-                                <button onClick={() => setAnimationSpeed(100)} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 100 ? 'bg-indigo-600' : 'bg-slate-700'}`}>x2</button>
+                                <button onClick={() => changeSpeed(400)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 400 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x0.5</button>
+                                <button onClick={() => changeSpeed(200)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 200 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x1</button>
+                                <button onClick={() => changeSpeed(100)} disabled={isAnimationFinished} className={`text-xs px-2 py-0.5 rounded ${animationSpeed === 100 ? 'bg-indigo-600' : 'bg-slate-700'} disabled:opacity-50`}>x2</button>
                             </div>
-                             <button onClick={skipAnimation} className="text-xs px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded">{t('expedition.skipAnimation')}</button>
+                             <button onClick={skipAnimation} disabled={isAnimationFinished} className="text-xs px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded disabled:opacity-50">{t('expedition.skipAnimation')}</button>
                          </div>
                     </div>
 
@@ -811,16 +838,72 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
 
-                {/* Victory/Defeat Banner & Rewards */}
-                {animatedLog.length === reward.combatLog.length && (
+                {isAnimationFinished && (
                     <div className="mt-4 text-center animate-fade-in">
                         <h3 className={`text-4xl font-extrabold mb-4 ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
                             {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
                         </h3>
-                        {/* ... Rest of the rewards summary ... */}
-                        <div className="flex justify-center items-start gap-6">
-                            {/* ... Rewards Breakdown ... */}
-                        </div>
+                        {reward.isVictory && (
+                            <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-4">
+                                <h4 className="font-bold text-lg text-amber-400 mb-3 text-center">Podsumowanie Nagród</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center">
+                                        <p className="flex items-center justify-between text-lg">
+                                            <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
+                                            <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
+                                        </p>
+                                        <p className="flex items-center justify-between text-lg mt-2">
+                                            <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
+                                            <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
+                                        </p>
+                                    </div>
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
+                                        {reward.itemsFound.length > 0 ? (
+                                            <div className="max-h-24 overflow-y-auto space-y-1 pr-2">
+                                                {reward.itemsFound.map((item, index) => {
+                                                    const template = itemTemplates.find(t => t.id === item.templateId);
+                                                    if (!template) return null;
+                                                    return (
+                                                        <ItemListItem key={index} item={item} template={template} affixes={affixes} isSelected={false} onClick={() => {}} />
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
+                                            </div>
+                                        )}
+                                    </div>
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.essencesFound')}</h5>
+                                        {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
+                                            <div className="space-y-1">
+                                                {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                                    if (!amount || amount === 0) return null;
+                                                    const rarity = essenceToRarityMap[essence as EssenceType];
+                                                    return (
+                                                        <p key={essence} className="flex justify-between text-sm">
+                                                            <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
+                                                            <span className="font-mono font-bold text-white">+{amount}</span>
+                                                        </p>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                    <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                )}
+                            </div>
+                        )}
                         <div className="mt-6 flex justify-center gap-4">
                             <button onClick={onClose} className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors">
                                 {t('expedition.returnToCamp')}
