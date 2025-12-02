@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType } from '../types';
@@ -560,16 +559,17 @@ const PartyMemberList: React.FC<{
                     const currentHP = member.stats?.currentHealth ?? 0;
                     const maxHP = member.stats?.maxHealth ?? 1;
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
+                    const isDead = currentHP <= 0;
 
                     return (
                         <div 
                             key={idx} 
-                            className={`p-2 rounded bg-slate-800 relative group ${isActive ? 'ring-2 ring-sky-500' : ''}`}
+                            className={`p-2 rounded bg-slate-800 relative group ${isActive ? 'ring-2 ring-sky-500' : ''} ${isDead ? 'opacity-50' : ''}`}
                             onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onMemberLeave}
                         >
                             <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-sm">{member.characterName}</span>
+                                <span className={`font-bold text-sm ${isDead ? 'line-through text-red-500' : 'text-white'}`}>{member.characterName}</span>
                                 <span className="text-xs text-gray-400">Lvl {member.level}</span>
                             </div>
                             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
@@ -651,7 +651,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
     useEffect(() => {
         if (isHunting && huntingMembers.length > 0) {
-            // 1. Try getting explicit snapshot from start log
             const startLog = reward.combatLog?.find(l => l.action === 'starts a fight with');
             
             if (startLog && startLog.partyMemberStats) {
@@ -660,8 +659,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                     stats: startLog.partyMemberStats![member.characterName] || member.stats
                 })));
             } else {
-                // 2. Fallback: Scrape logs if stats are missing (legacy support)
-                if (!huntingMembers[0].stats) {
+                 if (!huntingMembers[0].stats) {
                     const statsMap = new Map<string, CharacterStats>();
                     for (const log of reward.combatLog) {
                         if (log.playerStats && log.attacker && !statsMap.has(log.attacker)) {
@@ -681,6 +679,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         }
     }, [isHunting, huntingMembers, reward.combatLog]);
 
+    // FIX: Changed timer refs to use 'number' type for browser compatibility and ensure window scope for timer functions.
     const animationTimerRef = useRef<number | null>(null);
     const [tooltipData, setTooltipData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const tooltipTimeoutRef = useRef<number | null>(null);
@@ -693,16 +692,16 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         const url = `${window.location.origin}/report/${messageId}`;
         navigator.clipboard.writeText(url).then(() => {
             setCopyStatus('Skopiowano link!');
-            setTimeout(() => setCopyStatus(''), 2000);
+            window.setTimeout(() => setCopyStatus(''), 2000);
         }, (err) => {
             setCopyStatus('Błąd kopiowania');
             console.error('Could not copy text: ', err);
-            setTimeout(() => setCopyStatus(''), 2000);
+            window.setTimeout(() => setCopyStatus(''), 2000);
         });
     };
 
     const handleItemMouseEnter = (itemInstance: ItemInstance) => {
-        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+        if (tooltipTimeoutRef.current) window.clearTimeout(tooltipTimeoutRef.current);
         const template = itemTemplates.find(t => t.id === itemInstance.templateId);
         if (template) {
             setTooltipData({ item: itemInstance, template });
@@ -718,29 +717,23 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const finalVictoryStatus = isDefenderView ? !reward.isVictory : reward.isVictory;
 
     const updateCombatantState = (log: CombatLogEntry) => {
-         if (isHunting) {
-             setPartyMembersState(prev => prev.map(m => {
-                 // Use allPlayersHealth snapshot from log if available for accurate team state at this turn
-                 if (log.allPlayersHealth) {
-                     const snapshot = log.allPlayersHealth.find(p => p.name === m.characterName);
-                     if (snapshot && m.stats) {
-                         return { ...m, stats: { ...m.stats, currentHealth: snapshot.currentHealth } };
-                     }
-                 }
-                 
-                 // Fallback to direct log values (less reliable for multi-actor turns)
-                 if (m.stats && (m.characterName === log.attacker || m.characterName === log.defender)) {
-                      return { ...m, stats: { ...m.stats, currentHealth: log.playerHealth, currentMana: log.playerMana } };
-                 }
-                 return m;
-             }));
-             
-             // Update Boss State from log
-             if (currentEnemy) {
-                 setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
-             }
-
-         } else {
+        if (isHunting) {
+            setPartyMembersState(prev => {
+                if (log.allPlayersHealth) {
+                    return prev.map(member => {
+                        const snapshot = log.allPlayersHealth!.find(p => p.name === member.characterName);
+                        if (snapshot && member.stats) {
+                            return { ...member, stats: { ...member.stats, currentHealth: snapshot.currentHealth } };
+                        }
+                        return member;
+                    });
+                }
+                return prev;
+            });
+            if (currentEnemy) {
+                setCurrentEnemy(prev => prev ? { ...prev, currentHealth: log.enemyHealth, currentMana: log.enemyMana } : null);
+            }
+        } else {
              if (isPvp && pvpData) {
                  setCurrentPlayerStats({ ...pvpData.attacker.stats, currentHealth: log.playerHealth, currentMana: log.playerMana });
                  setCurrentEnemy({ name: pvpData.defender.name, stats: pvpData.defender.stats, currentHealth: log.enemyHealth, currentMana: log.enemyMana });
@@ -772,7 +765,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
     const handleSkipAnimation = () => {
         if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current);
+            window.clearTimeout(animationTimerRef.current);
         }
         setDisplayedLogs(reward.combatLog);
         const lastLog = reward.combatLog[reward.combatLog.length - 1];
@@ -804,7 +797,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
         return () => {
             if(animationTimerRef.current) {
-                clearTimeout(animationTimerRef.current);
+                window.clearTimeout(animationTimerRef.current);
                 animationTimerRef.current = null;
             }
         };
@@ -817,34 +810,22 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         }
     }, [displayedLogs]);
 
-    // Calculate Damage Stats when logs are fully loaded or during animation (if needed incrementally, but simpler to compute once)
     const damageStats = useMemo(() => {
         if (!reward.combatLog) return [];
 
         const damageMap: Record<string, number> = {};
         let totalPartyDamage = 0;
 
-        // Determine which names belong to the "party" (players)
-        // In Hunting: use huntingMembers list.
-        // In Solo/PVP: use attacker name (for PvP assume current player view or attacker view)
         const playerNames = new Set<string>();
         if (isHunting && huntingMembers) {
             huntingMembers.forEach(m => playerNames.add(m.characterName));
         } else {
-            // For solo expeditions or PVP attacker view
             playerNames.add(characterName);
         }
 
         reward.combatLog.forEach(log => {
-            // Count damage if attacker is a player.
-            // Also include 'specialAttackLog' if players can trigger them (not usually, but future proof)
-            // 'shaman_power' is also player damage.
             if (playerNames.has(log.attacker) && (log.damage || 0) > 0) {
                 const dmg = log.damage || 0;
-                // Note: bonusDamage is usually included in total damage in the log generation, 
-                // but if structure implies separation, check core.ts. 
-                // In core.ts: totalDamage = damage + bonusDamage. So log.damage is the Total.
-                
                 damageMap[log.attacker] = (damageMap[log.attacker] || 0) + dmg;
                 totalPartyDamage += dmg;
             }
@@ -897,7 +878,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 <div className="flex-grow overflow-y-auto min-h-0">
                     {reward.combatLog && reward.combatLog.length > 0 ? (
                         <div className="grid grid-cols-[288px_1fr_288px] gap-6 mb-6 min-h-[300px]">
-                            <div>
+                            <div className="w-72">
                                 {isHunting ? (
                                     <PartyMemberList 
                                         members={partyMembersState} 
@@ -935,7 +916,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                 </div>
                             </div>
                             
-                            <div>
+                            <div className="w-72">
                                 {encounteredEnemies.length > 1 && !isHunting ? (
                                      <EnemyListPanel 
                                         enemies={encounteredEnemies} 
@@ -982,7 +963,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
 
                             {!isPvp && reward.isVictory && (
                                 <div className="bg-slate-900/50 p-4 rounded-lg mb-6">
-                                    {/* Damage Table */}
                                     {isHunting && damageStats.length > 0 && (
                                         <div className="mb-6">
                                             <h4 className="font-bold text-white mb-2 flex items-center justify-center gap-2">
@@ -1122,6 +1102,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         {isAnimationComplete ? (finalVictoryStatus ? t('expedition.excellent') : t('expedition.returnToCamp')) : t('expedition.combatInProgress')}
                     </button>
                      {isAnimationComplete && messageId && (
+                        // FIX: Corrected function call to not pass an argument as the function definition expects none.
                         <button onClick={handleCopyLink} className="flex-shrink-0 px-4 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
@@ -1192,7 +1173,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             {tooltipData && (
                 <div
                     className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
-                    onMouseEnter={() => { if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current); }}
+                    onMouseEnter={() => { if (tooltipTimeoutRef.current) window.clearTimeout(tooltipTimeoutRef.current); }}
                     onMouseLeave={handleItemMouseLeave}
                 >
                     <div className="w-72 bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-2xl p-3 animate-fade-in pointer-events-auto">

@@ -933,8 +933,7 @@ export const simulateTeamVsBossCombat = (
                     playersState[targetIndex].currentHealth = defenderState.currentHealth;
                     playersState[targetIndex].currentMana = defenderState.currentMana;
                     playersState[targetIndex].statusEffects = defenderState.statusEffects;
-                    if (playersState[targetIndex].currentHealth <= 0) playersState[targetIndex].isDead = true;
-
+                    
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 
                     if (aoeData) {
@@ -996,17 +995,19 @@ export const simulateTeamVsBossCombat = (
         }
 
         // --- 3.4. End of Turn Phase ---
-        if (bossState.currentHealth <= 0) {
-            log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
-            break;
-        }
-
+        // First, check for player deaths this turn
         playersState.forEach(p => {
             if (!p.isDead && p.currentHealth <= 0) {
                 p.isDead = true;
                 log.push({ turn, attacker: bossState.name, defender: p.data.name, action: 'death', ...getHealthStateForLog() });
             }
         });
+
+        // Then, check for boss death and break if necessary
+        if (bossState.currentHealth <= 0) {
+            log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
+            break;
+        }
     }
 
     return { combatLog: log, finalPlayers: playersState };
