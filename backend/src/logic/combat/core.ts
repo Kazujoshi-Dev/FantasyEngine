@@ -213,6 +213,15 @@ export const performAttack = <
         const reduction = Math.floor(damage * 0.20);
         damage -= reduction;
         damageReduced += reduction;
+        
+        logs.push({
+            turn,
+            attacker: attacker.name,
+            defender: defender.name,
+            action: 'dwarf_defense',
+            damageReduced: reduction,
+            ...getHealthState(attacker, defender)
+        });
     }
 
     // --- Passive Skill: Hard Skin (Twarda skóra) ---

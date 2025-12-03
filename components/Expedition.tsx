@@ -126,7 +126,7 @@ const CombatLogRow: React.FC<{
         return (
             <div className="text-center my-2 py-2 bg-purple-900/20 rounded border border-purple-500/30">
                 <p className="font-bold text-sm text-purple-300">
-                    <span className="font-mono text-gray-500 mr-2 text-xs">Tura {log.turn}:</span>
+                    <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
                     {messageContent}
                 </p>
                 {/* Render AoE damage details if present */}
@@ -305,6 +305,16 @@ const CombatLogRow: React.FC<{
         const text = t('expedition.hardSkinLog').replace('{defender}', '');
         return (
             <p className="text-sm text-slate-400 font-bold italic border-l-2 border-slate-500 pl-2 my-1">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.defender)} {text}
+            </p>
+        );
+    }
+    
+    if (log.action === 'dwarf_defense') {
+        const text = t('expedition.dwarfDefenseLog').replace('{defender}', '');
+        return (
+            <p className="text-sm text-amber-600 font-bold italic border-l-2 border-amber-700 pl-2 my-1 bg-slate-900/30">
                 <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
                 {renderName(log.defender)} {text}
             </p>
