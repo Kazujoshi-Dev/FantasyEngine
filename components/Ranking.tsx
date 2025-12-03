@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry } from '../types';
@@ -98,8 +97,8 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
           />
       )}
       
-      <div className="bg-slate-900/40 p-6 rounded-xl">
-         <div className="flex justify-between items-center mb-6">
+      <div className="bg-slate-900/40 p-6 rounded-xl h-[75vh] flex flex-col">
+         <div className="flex justify-between items-center mb-6 flex-shrink-0">
              <div className="flex gap-4">
                  <button 
                     onClick={() => setActiveTab('PLAYERS')}
@@ -118,19 +117,19 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
         </div>
 
         {activeTab === 'PLAYERS' && (
-            <div className="overflow-x-auto">
+            <div className="overflow-auto flex-grow">
             <table className="w-full text-left">
-                <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider">
+                <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
-                    <th scope="col" className="p-4 w-16 text-center">{t('ranking.rank')}</th>
-                    <th scope="col" className="p-4">{t('ranking.player')}</th>
-                    <th scope="col" className="p-4">{t('ranking.race')}</th>
-                    <th scope="col" className="p-4">{t('ranking.class')}</th>
-                    <th scope="col" className="p-4 text-center">{t('ranking.level')}</th>
-                    <th scope="col" className="p-4 text-center">{t('ranking.wins')}</th>
-                    <th scope="col" className="p-4 text-center">{t('ranking.losses')}</th>
-                    <th scope="col" className="p-4 text-right">{t('ranking.experience')}</th>
-                    <th scope="col" className="p-4 text-center">{t('ranking.action')}</th>
+                    <th scope="col" className="p-4 w-16 text-center bg-slate-900/90">{t('ranking.rank')}</th>
+                    <th scope="col" className="p-4 bg-slate-900/90">{t('ranking.player')}</th>
+                    <th scope="col" className="p-4 bg-slate-900/90">{t('ranking.race')}</th>
+                    <th scope="col" className="p-4 bg-slate-900/90">{t('ranking.class')}</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.level')}</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.wins')}</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.losses')}</th>
+                    <th scope="col" className="p-4 text-right bg-slate-900/90">{t('ranking.experience')}</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.action')}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -220,14 +219,14 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, currentPlayer, isLoad
         )}
 
         {activeTab === 'GUILDS' && (
-            <div className="overflow-x-auto">
+            <div className="overflow-auto flex-grow">
             <table className="w-full text-left">
-                <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider">
+                <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
-                    <th scope="col" className="p-4 w-16 text-center">{t('ranking.rank')}</th>
-                    <th scope="col" className="p-4">Gildia</th>
-                    <th scope="col" className="p-4 text-center">Członków</th>
-                    <th scope="col" className="p-4 text-right">Suma Poziomów (Punkty)</th>
+                    <th scope="col" className="p-4 w-16 text-center bg-slate-900/90">{t('ranking.rank')}</th>
+                    <th scope="col" className="p-4 bg-slate-900/90">Gildia</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">Członków</th>
+                    <th scope="col" className="p-4 text-right bg-slate-900/90">Suma Poziomów (Punkty)</th>
                 </tr>
                 </thead>
                 <tbody>

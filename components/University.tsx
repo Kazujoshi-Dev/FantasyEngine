@@ -119,46 +119,48 @@ export const University: React.FC<UniversityProps> = ({ character, gameData, onL
                 </button>
             </div>
 
-            <div className="bg-slate-900/40 p-6 rounded-xl mb-6">
-                <p className="text-gray-400 italic whitespace-pre-line text-center">{t('university.description')}</p>
-            </div>
-
-            {mainTab === 'universal' && (
-                <div className="flex border-b border-slate-800 mb-6">
-                    <button
-                        onClick={() => setUniversalSubTab('passive')}
-                        className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'passive' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        {t('university.passive')}
-                    </button>
-                    <button
-                        onClick={() => setUniversalSubTab('active')}
-                        className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'active' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        {t('university.active')}
-                    </button>
+            <div className="h-[72vh] overflow-y-auto pr-2">
+                <div className="bg-slate-900/40 p-6 rounded-xl mb-6">
+                    <p className="text-gray-400 italic whitespace-pre-line text-center">{t('university.description')}</p>
                 </div>
-            )}
 
-            {mainTab === 'racial' && (
-                <div className="flex border-b border-slate-800 mb-6">
-                    <button
-                        onClick={() => setRacialSubTab('races')}
-                        className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'races' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        {t('university.races')}
-                    </button>
-                    <button
-                        onClick={() => setRacialSubTab('classes')}
-                        className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'classes' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        {t('university.classes')}
-                    </button>
+                {mainTab === 'universal' && (
+                    <div className="flex border-b border-slate-800 mb-6">
+                        <button
+                            onClick={() => setUniversalSubTab('passive')}
+                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'passive' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {t('university.passive')}
+                        </button>
+                        <button
+                            onClick={() => setUniversalSubTab('active')}
+                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'active' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {t('university.active')}
+                        </button>
+                    </div>
+                )}
+
+                {mainTab === 'racial' && (
+                    <div className="flex border-b border-slate-800 mb-6">
+                        <button
+                            onClick={() => setRacialSubTab('races')}
+                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'races' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {t('university.races')}
+                        </button>
+                        <button
+                            onClick={() => setRacialSubTab('classes')}
+                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'classes' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {t('university.classes')}
+                        </button>
+                    </div>
+                )}
+                
+                <div className="bg-slate-900/40 p-6 rounded-xl">
+                    {renderContent()}
                 </div>
-            )}
-            
-            <div className="bg-slate-900/40 p-6 rounded-xl">
-                {renderContent()}
             </div>
         </ContentPanel>
     );

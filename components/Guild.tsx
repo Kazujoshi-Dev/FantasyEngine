@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -104,9 +103,9 @@ export const Guild: React.FC = () => {
     if (!guild) {
         return (
             <ContentPanel title={t('guild.title')}>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[72vh] overflow-y-auto pr-2">
                     {/* Create Guild */}
-                    <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
+                    <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 h-fit">
                         <h3 className="text-xl font-bold text-amber-400 mb-4">Załóż Gildię</h3>
                         <p className="text-sm text-gray-400 mb-4">Koszt założenia gildii: <span className="text-amber-400 font-bold">1000 Złota</span></p>
                         <form onSubmit={handleCreate} className="space-y-4">
@@ -118,7 +117,7 @@ export const Guild: React.FC = () => {
                     </div>
 
                     {/* Join Guild */}
-                    <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
+                    <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 h-fit">
                         <h3 className="text-xl font-bold text-indigo-400 mb-4">Dołącz do Gildii</h3>
                         <div className="space-y-2 max-h-[400px] overflow-y-auto">
                             {availableGuilds.length === 0 && <p className="text-gray-500">Brak otwartych gildii.</p>}
@@ -157,49 +156,66 @@ export const Guild: React.FC = () => {
             </div>
 
             {tab === 'OVERVIEW' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/40 p-6 rounded-xl">
-                        <h3 className="text-xl font-bold text-gray-200 mb-4">Informacje</h3>
-                        <FormattedText text={guild.description || 'Brak opisu.'} />
-                        <div className="space-y-2 text-sm mt-4 pt-4 border-t border-slate-700">
-                            <p className="flex justify-between"><span className="text-gray-500">Lider:</span> <span className="text-white">{(guild.members || []).find(m => m.role === GuildRole.LEADER)?.name}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500">Członków:</span> <span className="text-white">{guild.memberCount}/{guild.maxMembers}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500">Założona:</span> <span className="text-white">{new Date(guild.createdAt).toLocaleDateString()}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500">Rekrutacja:</span> <span className={guild.isPublic ? "text-green-400" : "text-red-400"}>{guild.isPublic ? "Otwarta" : "Zamknięta"}</span></p>
-                            {guild.isPublic && <p className="flex justify-between"><span className="text-gray-500">Min. Poziom:</span> <span className="text-white">{guild.minLevel}</span></p>}
+                <div className="h-[70vh] overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-slate-900/40 p-6 rounded-xl">
+                            <h3 className="text-xl font-bold text-gray-200 mb-4">Informacje</h3>
+                            <FormattedText text={guild.description || 'Brak opisu.'} />
+                            <div className="space-y-2 text-sm mt-4 pt-4 border-t border-slate-700">
+                                <p className="flex justify-between"><span className="text-gray-500">Lider:</span> <span className="text-white">{(guild.members || []).find(m => m.role === GuildRole.LEADER)?.name}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Członków:</span> <span className="text-white">{guild.memberCount}/{guild.maxMembers}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Założona:</span> <span className="text-white">{new Date(guild.createdAt).toLocaleDateString()}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Rekrutacja:</span> <span className={guild.isPublic ? "text-green-400" : "text-red-400"}>{guild.isPublic ? "Otwarta" : "Zamknięta"}</span></p>
+                                {guild.isPublic && <p className="flex justify-between"><span className="text-gray-500">Min. Poziom:</span> <span className="text-white">{guild.minLevel}</span></p>}
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-slate-700">
+                                {!isLeader && (
+                                    <button onClick={handleLeave} className="w-full py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-200 rounded">
+                                        Opuść Gildię
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div className="mt-6 pt-6 border-t border-slate-700">
-                            {!isLeader && (
-                                <button onClick={handleLeave} className="w-full py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-200 rounded">
-                                    Opuść Gildię
-                                </button>
+                        <div className="flex flex-col items-center justify-center bg-slate-900/20 p-6 rounded-xl border border-slate-700/30 h-fit">
+                            {guild.crestUrl ? (
+                                <img src={guild.crestUrl} alt="Guild Crest" className="max-w-full max-h-64 object-contain drop-shadow-xl" />
+                            ) : (
+                                <div className="flex flex-col items-center text-gray-500">
+                                    <ShieldIcon className="h-32 w-32 mb-2 opacity-20" />
+                                    <p className="text-sm">Brak herbu gildii</p>
+                                </div>
                             )}
                         </div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center bg-slate-900/20 p-6 rounded-xl border border-slate-700/30">
-                        {guild.crestUrl ? (
-                            <img src={guild.crestUrl} alt="Guild Crest" className="max-w-full max-h-64 object-contain drop-shadow-xl" />
-                        ) : (
-                            <div className="flex flex-col items-center text-gray-500">
-                                <ShieldIcon className="h-32 w-32 mb-2 opacity-20" />
-                                <p className="text-sm">Brak herbu gildii</p>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
 
-            {tab === 'MEMBERS' && <GuildMembers guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
+            {tab === 'MEMBERS' && (
+                <div className="h-[70vh] overflow-y-auto pr-2">
+                    <GuildMembers guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />
+                </div>
+            )}
             
-            {tab === 'BUILDINGS' && <GuildBuildings guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />}
+            {tab === 'BUILDINGS' && (
+                <div className="h-[70vh] overflow-y-auto pr-2">
+                    <GuildBuildings guild={guild} myRole={guild.myRole} onUpdate={fetchGuild} />
+                </div>
+            )}
 
+            {/* GuildArmory handles its own scrolling layout */}
             {tab === 'ARMORY' && <GuildArmory guild={guild} character={character} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
 
+            {/* GuildBank handles its own scrolling layout */}
             {tab === 'BANK' && <GuildBank guild={guild} character={character} onTransaction={fetchGuild} />}
 
+            {/* GuildChat handles its own scrolling layout */}
             {tab === 'CHAT' && <GuildChat guildId={guild.id} messages={guild.chatHistory || []} onMessageReceived={handleNewChatMessage} />}
 
-            {tab === 'SETTINGS' && isLeader && <GuildSettings guild={guild} onUpdate={fetchGuild} />}
+            {tab === 'SETTINGS' && isLeader && (
+                <div className="h-[70vh] overflow-y-auto pr-2">
+                    <GuildSettings guild={guild} onUpdate={fetchGuild} />
+                </div>
+            )}
 
         </ContentPanel>
     );

@@ -297,293 +297,295 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
         ))}
       </div>
 
-      {activeTab === 'stats' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-          {/* Column 1: Base Attributes & Actions */}
-          <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.baseAttributes')}</h3>
-              {baseCharacter.stats.statPoints > 0 && (
-                <p className="text-amber-400 font-semibold mb-4 text-center bg-slate-800/50 p-2 rounded-lg text-sm">
-                  {t('statistics.pointsToSpend')}: {availablePoints}
-                </p>
-              )}
-              <div className="space-y-1">
-                {baseStatKeys.map(key => {
-                  const pendingValue = Number(pendingStats[key]) || 0;
-                  const baseValue = Number(baseCharacter.stats[key]) || 0;
-                  const derivedValue = Number(character.stats[key]) || 0;
-                  const itemBonus = derivedValue - baseValue;
-
-                  return (
-                      <StatRow
-                      key={key}
-                      label={t(`statistics.${key}`)}
-                      value={
-                          <div className="flex items-baseline justify-end">
-                              <span className="font-mono text-lg font-bold text-white">{pendingValue}</span>
-                              {itemBonus > 0 && (
-                                  <>
-                                      <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>
-                                      <span className="font-mono text-base text-sky-400 ml-2">({pendingValue + itemBonus})</span>
-                                  </>
-                              )}
-                          </div>
-                      }
-                      onIncrease={() => handleStatChange(key, 1)}
-                      canIncrease={availablePoints > 0}
-                      onDecrease={() => handleStatChange(key, -1)}
-                      canDecrease={pendingValue > baseValue}
-                      description={t(`statistics.${key}Desc`)}
-                      />
-                  )
-                })}
-              </div>
-               <p className="text-xs text-gray-500 italic mt-4 px-3">{t('statistics.itemBonusNote')}</p>
-            </div>
-            <div className="flex flex-col gap-4 mt-6">
-              {spentPoints > 0 && (
-                  <div className="flex gap-4">
-                  <button
-                      onClick={handleResetChanges}
-                      className="w-full py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-bold transition-colors text-sm"
-                  >
-                      {t('statistics.cancelChanges')}
-                  </button>
-                  <button
-                      onClick={handleSaveChanges}
-                      className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors text-sm"
-                  >
-                      {t('statistics.save')}
-                  </button>
-                  </div>
-              )}
-              <div className="text-center">
-                  <button
-                      onClick={handleResetAttributes}
-                      disabled={spentPoints > 0 || !canAffordReset}
-                      className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold transition-colors text-sm disabled:bg-slate-600 disabled:cursor-not-allowed"
-                      title={spentPoints > 0 ? t('statistics.reset.applyChangesFirst') : !canAffordReset ? t('statistics.reset.notEnoughGold', { cost: resetCost }) : ''}
-                  >
-                      {t('statistics.reset.button')} ({isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost })})
-                  </button>
-                  {isFreeReset && <p className="text-xs text-gray-500 mt-2">{t('statistics.reset.freeResetNote')}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* Column 2: Vitals */}
-          <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col gap-4">
-              <div className="bg-slate-800/50 p-3 rounded-lg">
-                  <div className="flex justify-between items-center mb-1 text-xs">
-                      <span className="font-bold text-white">{t('statistics.level')} {character.level}</span>
-                      <span className="font-mono text-sky-300">{character.experience} / {character.experienceToNextLevel} XP</span>
-                  </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div className="bg-sky-500 h-2 rounded-full" style={{ width: `${experiencePercentage}%` }}></div>
-                  </div>
-              </div>
-               <div>
-                  <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.vitals')}</h3>
+      <div className="h-[72vh] overflow-y-auto pr-2">
+          {activeTab === 'stats' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+              {/* Column 1: Base Attributes & Actions */}
+              <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.baseAttributes')}</h3>
+                  {baseCharacter.stats.statPoints > 0 && (
+                    <p className="text-amber-400 font-semibold mb-4 text-center bg-slate-800/50 p-2 rounded-lg text-sm">
+                      {t('statistics.pointsToSpend')}: {availablePoints}
+                    </p>
+                  )}
                   <div className="space-y-1">
-                      <StatRow label={t('statistics.health')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentHealth.toFixed(0)} / {previewCharacter.stats.maxHealth}</span>} description={t('statistics.healthDesc')} />
-                      <StatRow label={t('statistics.mana')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentMana.toFixed(0)} / {previewCharacter.stats.maxMana}</span>} description={t('statistics.manaDesc')} />
-                      <StatRow 
-                        label={t('statistics.energyLabel')} 
-                        value={
-                          <div className="flex items-baseline justify-end">
-                            <span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentEnergy} / {previewCharacter.stats.maxEnergy}</span>
-                            {nextEnergyCountdown && <span className="text-xs text-gray-400 ml-2 font-mono">{nextEnergyCountdown}</span>}
-                          </div>
-                        } 
-                        description={t('statistics.energyDesc')} 
-                      />
+                    {baseStatKeys.map(key => {
+                      const pendingValue = Number(pendingStats[key]) || 0;
+                      const baseValue = Number(baseCharacter.stats[key]) || 0;
+                      const derivedValue = Number(character.stats[key]) || 0;
+                      const itemBonus = derivedValue - baseValue;
+
+                      return (
+                          <StatRow
+                          key={key}
+                          label={t(`statistics.${key}`)}
+                          value={
+                              <div className="flex items-baseline justify-end">
+                                  <span className="font-mono text-lg font-bold text-white">{pendingValue}</span>
+                                  {itemBonus > 0 && (
+                                      <>
+                                          <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>
+                                          <span className="font-mono text-base text-sky-400 ml-2">({pendingValue + itemBonus})</span>
+                                      </>
+                                  )}
+                              </div>
+                          }
+                          onIncrease={() => handleStatChange(key, 1)}
+                          canIncrease={availablePoints > 0}
+                          onDecrease={() => handleStatChange(key, -1)}
+                          canDecrease={pendingValue > baseValue}
+                          description={t(`statistics.${key}Desc`)}
+                          />
+                      )
+                    })}
+                  </div>
+                   <p className="text-xs text-gray-500 italic mt-4 px-3">{t('statistics.itemBonusNote')}</p>
+                </div>
+                <div className="flex flex-col gap-4 mt-6">
+                  {spentPoints > 0 && (
+                      <div className="flex gap-4">
+                      <button
+                          onClick={handleResetChanges}
+                          className="w-full py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-bold transition-colors text-sm"
+                      >
+                          {t('statistics.cancelChanges')}
+                      </button>
+                      <button
+                          onClick={handleSaveChanges}
+                          className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors text-sm"
+                      >
+                          {t('statistics.save')}
+                      </button>
+                      </div>
+                  )}
+                  <div className="text-center">
+                      <button
+                          onClick={handleResetAttributes}
+                          disabled={spentPoints > 0 || !canAffordReset}
+                          className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold transition-colors text-sm disabled:bg-slate-600 disabled:cursor-not-allowed"
+                          title={spentPoints > 0 ? t('statistics.reset.applyChangesFirst') : !canAffordReset ? t('statistics.reset.notEnoughGold', { cost: resetCost }) : ''}
+                      >
+                          {t('statistics.reset.button')} ({isFreeReset ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: resetCost })})
+                      </button>
+                      {isFreeReset && <p className="text-xs text-gray-500 mt-2">{t('statistics.reset.freeResetNote')}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 2: Vitals */}
+              <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col gap-4">
+                  <div className="bg-slate-800/50 p-3 rounded-lg">
+                      <div className="flex justify-between items-center mb-1 text-xs">
+                          <span className="font-bold text-white">{t('statistics.level')} {character.level}</span>
+                          <span className="font-mono text-sky-300">{character.experience} / {character.experienceToNextLevel} XP</span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="bg-sky-500 h-2 rounded-full" style={{ width: `${experiencePercentage}%` }}></div>
+                      </div>
+                  </div>
+                   <div>
+                      <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.vitals')}</h3>
+                      <div className="space-y-1">
+                          <StatRow label={t('statistics.health')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentHealth.toFixed(0)} / {previewCharacter.stats.maxHealth}</span>} description={t('statistics.healthDesc')} />
+                          <StatRow label={t('statistics.mana')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentMana.toFixed(0)} / {previewCharacter.stats.maxMana}</span>} description={t('statistics.manaDesc')} />
+                          <StatRow 
+                            label={t('statistics.energyLabel')} 
+                            value={
+                              <div className="flex items-baseline justify-end">
+                                <span className="font-mono text-base font-bold text-white">{previewCharacter.stats.currentEnergy} / {previewCharacter.stats.maxEnergy}</span>
+                                {nextEnergyCountdown && <span className="text-xs text-gray-400 ml-2 font-mono">{nextEnergyCountdown}</span>}
+                              </div>
+                            } 
+                            description={t('statistics.energyDesc')} 
+                          />
+                      </div>
                   </div>
               </div>
-          </div>
-          
-          {/* Column 3: Combat Stats */}
-           <div className="bg-slate-900/40 p-4 rounded-xl">
-            <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.combatStats')}</h3>
-            <div className="space-y-1">
-              <StatRow label={t('statistics.physicalDamage')} value={renderDamageWithBonus(previewCharacter.stats.minDamage, previewCharacter.stats.maxDamage, false)} description={t('statistics.physicalDamageDesc')} />
-              <StatRow label={t('statistics.magicDamage')} value={renderDamageWithBonus(previewCharacter.stats.magicDamageMin, previewCharacter.stats.magicDamageMax, true)} description={t('statistics.magicDamageDesc')} />
-              <StatRow label={t('statistics.armor')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.armor}</span>} description={t('statistics.armorDesc')} />
-              <StatRow label={t('statistics.critChance')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critChance.toFixed(1)}%</span>} description={t('statistics.critChanceDesc')} />
-              <StatRow label={t('statistics.critDamageModifier')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critDamageModifier}%</span>} description={t('statistics.critDamageModifierDesc')} />
-              <StatRow label={t('statistics.attacksPerTurn')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.attacksPerRound}</span>} description={t('statistics.attacksPerTurnDesc')} />
-              <StatRow label={t('statistics.dodgeChance')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.dodgeChance.toFixed(1)}%</span>} description={t('statistics.dodgeChanceDesc')} />
-              <StatRow label={t('statistics.manaRegen')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.manaRegen}</span>} description={t('statistics.manaRegenDesc')} />
-              <StatRow label={t('statistics.armorPenetration')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.armorPenetrationPercent}% / {previewCharacter.stats.armorPenetrationFlat}</span>} description={t('statistics.armorPenetrationDesc')} />
-              <StatRow label={t('statistics.lifeSteal')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.lifeStealPercent}% / {previewCharacter.stats.lifeStealFlat}</span>} description={t('statistics.lifeStealDesc')} />
-              <StatRow label={t('statistics.manaSteal')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.manaStealPercent}% / {previewCharacter.stats.manaStealFlat}</span>} description={t('statistics.manaStealDesc')} />
+              
+              {/* Column 3: Combat Stats */}
+               <div className="bg-slate-900/40 p-4 rounded-xl">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.combatStats')}</h3>
+                <div className="space-y-1">
+                  <StatRow label={t('statistics.physicalDamage')} value={renderDamageWithBonus(previewCharacter.stats.minDamage, previewCharacter.stats.maxDamage, false)} description={t('statistics.physicalDamageDesc')} />
+                  <StatRow label={t('statistics.magicDamage')} value={renderDamageWithBonus(previewCharacter.stats.magicDamageMin, previewCharacter.stats.magicDamageMax, true)} description={t('statistics.magicDamageDesc')} />
+                  <StatRow label={t('statistics.armor')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.armor}</span>} description={t('statistics.armorDesc')} />
+                  <StatRow label={t('statistics.critChance')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critChance.toFixed(1)}%</span>} description={t('statistics.critChanceDesc')} />
+                  <StatRow label={t('statistics.critDamageModifier')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.critDamageModifier}%</span>} description={t('statistics.critDamageModifierDesc')} />
+                  <StatRow label={t('statistics.attacksPerTurn')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.attacksPerRound}</span>} description={t('statistics.attacksPerTurnDesc')} />
+                  <StatRow label={t('statistics.dodgeChance')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.dodgeChance.toFixed(1)}%</span>} description={t('statistics.dodgeChanceDesc')} />
+                  <StatRow label={t('statistics.manaRegen')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.manaRegen}</span>} description={t('statistics.manaRegenDesc')} />
+                  <StatRow label={t('statistics.armorPenetration')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.armorPenetrationPercent}% / {previewCharacter.stats.armorPenetrationFlat}</span>} description={t('statistics.armorPenetrationDesc')} />
+                  <StatRow label={t('statistics.lifeSteal')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.lifeStealPercent}% / {previewCharacter.stats.lifeStealFlat}</span>} description={t('statistics.lifeStealDesc')} />
+                  <StatRow label={t('statistics.manaSteal')} value={<span className="font-mono text-base font-bold text-white">{previewCharacter.stats.manaStealPercent}% / {previewCharacter.stats.manaStealFlat}</span>} description={t('statistics.manaStealDesc')} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {activeTab === 'development' && (
-        <div className="animate-fade-in space-y-8">
-          <div className="bg-slate-900/40 p-6 rounded-xl">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('statistics.racialBonusTitle')}</h3>
-            <p className="text-lg"><span className="font-semibold text-gray-300">{t(`race.${character.race}`)}:</span></p>
-            <p className="mt-2 text-gray-400 italic" style={{ whiteSpace: 'pre-line' }}>{t(`raceBonuses.${character.race}`)}</p>
-          </div>
+          {activeTab === 'development' && (
+            <div className="animate-fade-in space-y-8">
+              <div className="bg-slate-900/40 p-6 rounded-xl">
+                <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('statistics.racialBonusTitle')}</h3>
+                <p className="text-lg"><span className="font-semibold text-gray-300">{t(`race.${character.race}`)}:</span></p>
+                <p className="mt-2 text-gray-400 italic" style={{ whiteSpace: 'pre-line' }}>{t(`raceBonuses.${character.race}`)}</p>
+              </div>
 
-           <div className="bg-slate-900/40 p-6 rounded-xl">
-                {character.characterClass ? (
-                     <div>
-                        <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('class.currentClass')}</h3>
-                        <p className="text-xl font-semibold text-amber-400">{t(`class.${character.characterClass}`)}</p>
-                        <p className="mt-2 text-gray-400 italic" style={{ whiteSpace: 'pre-line' }}>{t(`class.${character.characterClass}Description`)}</p>
-                    </div>
-                ) : character.level >= 10 ? (
-                    <div>
-                        <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('class.title')}</h3>
-                        <p className="text-gray-400 italic mb-6">{t('class.description')}</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {availableClasses.map(charClass => (
-                                <div key={charClass} className="bg-slate-800/50 p-4 rounded-lg flex flex-col justify-between text-center border border-slate-700 hover:border-indigo-500 transition-colors">
-                                    <div>
-                                        <h4 className="text-xl font-bold text-amber-400 mb-2">{t(`class.${charClass}`)}</h4>
-                                        <p className="text-sm text-gray-300 mb-4">{t(`class.${charClass}Description`)}</p>
+               <div className="bg-slate-900/40 p-6 rounded-xl">
+                    {character.characterClass ? (
+                         <div>
+                            <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('class.currentClass')}</h3>
+                            <p className="text-xl font-semibold text-amber-400">{t(`class.${character.characterClass}`)}</p>
+                            <p className="mt-2 text-gray-400 italic" style={{ whiteSpace: 'pre-line' }}>{t(`class.${character.characterClass}Description`)}</p>
+                        </div>
+                    ) : character.level >= 10 ? (
+                        <div>
+                            <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('class.title')}</h3>
+                            <p className="text-gray-400 italic mb-6">{t('class.description')}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {availableClasses.map(charClass => (
+                                    <div key={charClass} className="bg-slate-800/50 p-4 rounded-lg flex flex-col justify-between text-center border border-slate-700 hover:border-indigo-500 transition-colors">
+                                        <div>
+                                            <h4 className="text-xl font-bold text-amber-400 mb-2">{t(`class.${charClass}`)}</h4>
+                                            <p className="text-sm text-gray-300 mb-4">{t(`class.${charClass}Description`)}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleClassSelect(charClass)}
+                                            className="mt-4 w-full bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                                        >
+                                            {t('class.select')}
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleClassSelect(charClass)}
-                                        className="mt-4 w-full bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                                    >
-                                        {t('class.select')}
-                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+          )}
+
+          {activeTab === 'skills' && (
+            <div className="animate-fade-in space-y-8">
+                {(() => {
+                    const learnedSkillIds = character.learnedSkills || [];
+                    if (learnedSkillIds.length === 0) {
+                        return <p className="text-gray-500 text-center py-8">{t('skills.noSkills')}</p>;
+                    }
+                    
+                    const learnedSkills = (gameData?.skills || []).filter(s => learnedSkillIds.includes(s.id));
+                    const passiveSkills = learnedSkills.filter(s => s.category === 'Passive');
+                    const activeSkills = learnedSkills.filter(s => s.category === 'Active');
+
+                    return (
+                        <>
+                            {passiveSkills.length > 0 && (
+                                <div className="bg-slate-900/40 p-6 rounded-xl">
+                                    <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('skills.passive')}</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {passiveSkills.map(skill => (
+                                            <div key={skill.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                                <h4 className="font-bold text-amber-400">{skill.name}</h4>
+                                                <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {activeSkills.length > 0 && (
+                                <div className="bg-slate-900/40 p-6 rounded-xl">
+                                    <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('skills.active')}</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {activeSkills.map(skill => {
+                                            const isActive = (character.activeSkills || []).includes(skill.id);
+                                            return (
+                                                <div key={skill.id} className={`bg-slate-800/50 p-4 rounded-lg border ${isActive ? 'border-green-500' : 'border-slate-700'}`}>
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <h4 className="font-bold text-amber-400">{skill.name}</h4>
+                                                        <div className="flex items-center gap-2">
+                                                            {skill.manaMaintenanceCost && skill.manaMaintenanceCost > 0 && (
+                                                                <span className="text-xs text-cyan-400 font-mono">
+                                                                    {skill.manaMaintenanceCost} max many
+                                                                </span>
+                                                            )}
+                                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="sr-only peer" 
+                                                                    checked={isActive} 
+                                                                    onChange={(e) => handleToggleSkill(skill.id, e.target.checked)}
+                                                                />
+                                                                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    );
+                })()}
+            </div>
+          )}
+
+            {activeTab === 'knowledge' && (
+                <div className="animate-fade-in">
+                    <div className="flex border-b border-slate-800 mb-6">
+                        <button
+                            onClick={() => setKnowledgeTab('magicAttacks')}
+                            className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'magicAttacks' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            Ataki Magiczne
+                        </button>
+                        <button
+                            onClick={() => setKnowledgeTab('racesClasses')}
+                            className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'racesClasses' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            Rasy i Klasy
+                        </button>
+                    </div>
+                    {knowledgeTab === 'magicAttacks' && (
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {Object.values(MagicAttackType).map(attack => (
+                                <div key={attack} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                    <h4 className="font-bold text-lg text-purple-400 mb-2">{t(`item.magic.${attack}`)}</h4>
+                                    <p className="text-sm text-gray-300">{t(`item.magicDescriptions.${attack}`)}</p>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                ) : null}
-            </div>
-        </div>
-      )}
-
-      {activeTab === 'skills' && (
-        <div className="animate-fade-in space-y-8">
-            {(() => {
-                const learnedSkillIds = character.learnedSkills || [];
-                if (learnedSkillIds.length === 0) {
-                    return <p className="text-gray-500 text-center py-8">{t('skills.noSkills')}</p>;
-                }
-                
-                const learnedSkills = (gameData?.skills || []).filter(s => learnedSkillIds.includes(s.id));
-                const passiveSkills = learnedSkills.filter(s => s.category === 'Passive');
-                const activeSkills = learnedSkills.filter(s => s.category === 'Active');
-
-                return (
-                    <>
-                        {passiveSkills.length > 0 && (
-                            <div className="bg-slate-900/40 p-6 rounded-xl">
-                                <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('skills.passive')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {passiveSkills.map(skill => (
-                                        <div key={skill.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                                            <h4 className="font-bold text-amber-400">{skill.name}</h4>
-                                            <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
+                    )}
+                    {knowledgeTab === 'racesClasses' && (
+                        <div className="space-y-8">
+                            <div>
+                                <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Rasowe</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {Object.values(Race).map(race => (
+                                        <div key={race} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                            <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`race.${race}`)}</h4>
+                                            <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`raceBonuses.${race}`)}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                        )}
-                        {activeSkills.length > 0 && (
-                            <div className="bg-slate-900/40 p-6 rounded-xl">
-                                <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('skills.active')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {activeSkills.map(skill => {
-                                        const isActive = (character.activeSkills || []).includes(skill.id);
-                                        return (
-                                            <div key={skill.id} className={`bg-slate-800/50 p-4 rounded-lg border ${isActive ? 'border-green-500' : 'border-slate-700'}`}>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-amber-400">{skill.name}</h4>
-                                                    <div className="flex items-center gap-2">
-                                                        {skill.manaMaintenanceCost && skill.manaMaintenanceCost > 0 && (
-                                                            <span className="text-xs text-cyan-400 font-mono">
-                                                                {skill.manaMaintenanceCost} max many
-                                                            </span>
-                                                        )}
-                                                        <label className="relative inline-flex items-center cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                className="sr-only peer" 
-                                                                checked={isActive} 
-                                                                onChange={(e) => handleToggleSkill(skill.id, e.target.checked)}
-                                                            />
-                                                            <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
-                                            </div>
-                                        );
-                                    })}
+                            <div>
+                                <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Klasowe</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {Object.values(CharacterClass).map(charClass => (
+                                        <div key={charClass} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                                            <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`class.${charClass}`)}</h4>
+                                            <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`class.${charClass}Description`)}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        )}
-                    </>
-                );
-            })()}
-        </div>
-      )}
-
-        {activeTab === 'knowledge' && (
-            <div className="animate-fade-in">
-                <div className="flex border-b border-slate-800 mb-6">
-                    <button
-                        onClick={() => setKnowledgeTab('magicAttacks')}
-                        className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'magicAttacks' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        Ataki Magiczne
-                    </button>
-                    <button
-                        onClick={() => setKnowledgeTab('racesClasses')}
-                        className={`px-4 py-2 text-xs font-medium ${knowledgeTab === 'racesClasses' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        Rasy i Klasy
-                    </button>
+                        </div>
+                    )}
                 </div>
-                {knowledgeTab === 'magicAttacks' && (
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.values(MagicAttackType).map(attack => (
-                            <div key={attack} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                                <h4 className="font-bold text-lg text-purple-400 mb-2">{t(`item.magic.${attack}`)}</h4>
-                                <p className="text-sm text-gray-300">{t(`item.magicDescriptions.${attack}`)}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {knowledgeTab === 'racesClasses' && (
-                    <div className="space-y-8">
-                        <div>
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Rasowe</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {Object.values(Race).map(race => (
-                                    <div key={race} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                                        <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`race.${race}`)}</h4>
-                                        <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`raceBonuses.${race}`)}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Bonusy Klasowe</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {Object.values(CharacterClass).map(charClass => (
-                                    <div key={charClass} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                                        <h4 className="font-bold text-lg text-amber-400 mb-2">{t(`class.${charClass}`)}</h4>
-                                        <p className="text-sm text-gray-300" style={{ whiteSpace: 'pre-line' }}>{t(`class.${charClass}Description`)}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        )}
+            )}
+        </div>
     </ContentPanel>
   );
 };
