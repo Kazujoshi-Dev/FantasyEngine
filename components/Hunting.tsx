@@ -141,6 +141,23 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
     const selectedBoss = useMemo(() => bosses.find(b => b.id === selectedBossId), [bosses, selectedBossId]);
 
+    // Calculate Scaled Stats for Display
+    const scaledBossStats = useMemo(() => {
+        if (!selectedBoss) return null;
+        
+        // Scaling Logic (Must match backend logic in hunting.ts)
+        // 1-2 Players: Base Stats (1.0x)
+        // 3+ Players: +70% HP per player > 2, +10% DMG per player > 2
+        const healthMult = 1 + Math.max(0, createMembers - 2) * 0.7;
+        const damageMult = 1 + Math.max(0, createMembers - 2) * 0.1;
+
+        return {
+            maxHealth: Math.floor(selectedBoss.stats.maxHealth * healthMult),
+            minDamage: Math.floor(selectedBoss.stats.minDamage * damageMult),
+            maxDamage: Math.floor(selectedBoss.stats.maxDamage * damageMult)
+        };
+    }, [selectedBoss, createMembers]);
+
     const estimatedRewards = useMemo(() => {
         if (!selectedBoss) return null;
         // Dynamic bonus multiplier based on party size (matches backend logic)
@@ -224,6 +241,13 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 timerText = '0s';
             }
         }
+        
+        // Calculate scaled stats for lobby view based on maxMembers of the party
+        const lobbyHealthMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.7;
+        const lobbyDamageMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.1;
+        const lobbyMaxHealth = boss ? Math.floor(boss.stats.maxHealth * lobbyHealthMult) : 0;
+        const lobbyMinDamage = boss ? Math.floor(boss.stats.minDamage * lobbyDamageMult) : 0;
+        const lobbyMaxDamage = boss ? Math.floor(boss.stats.maxDamage * lobbyDamageMult) : 0;
 
         return (
             <ContentPanel title={t('hunting.title')}>
@@ -236,8 +260,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                         </div>
                         <p className="text-sm text-gray-400 italic mb-4">{boss?.description}</p>
                         <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{boss?.stats.maxHealth}</span></div>
-                            <div className="flex justify-between"><span>DMG:</span> <span className="font-mono text-white">{boss?.stats.minDamage}-{boss?.stats.maxDamage}</span></div>
+                            <div className="flex justify-between"><span>HP:</span> <span className="font-mono text-white">{lobbyMaxHealth}</span></div>
+                            <div className="flex justify-between"><span>DMG:</span> <span className="font-mono text-white">{lobbyMinDamage}-{lobbyMaxDamage}</span></div>
                         </div>
                     </div>
 
@@ -370,7 +394,7 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                 {/* Column 2: Boss Info & Rewards */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
                     <h3 className="text-xl font-bold text-red-400 mb-4 text-center">Cel Polowania</h3>
-                    {selectedBoss ? (
+                    {selectedBoss && scaledBossStats ? (
                         <div className="flex flex-col h-full">
                             <div className="text-center mb-4">
                                 <h4 className="text-lg font-bold text-white mb-2">{selectedBoss.name}</h4>
@@ -382,9 +406,9 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                                     )}
                                 </div>
                                 <div className="flex justify-center gap-4 text-sm font-mono text-gray-300 bg-slate-800/50 py-2 rounded-lg mx-4">
-                                    <span className="flex items-center gap-1">HP: <span className="text-white">{selectedBoss.stats.maxHealth}</span></span>
+                                    <span className="flex items-center gap-1">HP: <span className="text-white">{scaledBossStats.maxHealth}</span></span>
                                     <span className="text-gray-600">|</span>
-                                    <span className="flex items-center gap-1">DMG: <span className="text-white">{selectedBoss.stats.minDamage}-{selectedBoss.stats.maxDamage}</span></span>
+                                    <span className="flex items-center gap-1">DMG: <span className="text-white">{scaledBossStats.minDamage}-{scaledBossStats.maxDamage}</span></span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2 px-4 italic">{selectedBoss.description}</p>
                             </div>

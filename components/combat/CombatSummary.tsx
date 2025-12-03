@@ -424,7 +424,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                         </h3>
                         {reward.isVictory && (
                             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex-shrink-0 overflow-x-auto">
-                                <div className="flex flex-row gap-4">
+                                <div className="flex flex-row gap-4 justify-center">
                                     <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
                                         <p className="flex items-center justify-between text-lg">
                                             <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
