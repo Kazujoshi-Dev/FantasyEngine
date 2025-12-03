@@ -107,6 +107,12 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             attacker.experience = (Number(attacker.experience) || 0) + expGained;
             attacker.pvpWins = (attacker.pvpWins || 0) + 1;
 
+            // Druid Bonus: Heal 50% max HP on win
+            if (attacker.characterClass === CharacterClass.Druid) {
+                const maxHealth = attackerWithStats.stats.maxHealth;
+                attacker.stats.currentHealth = Math.min(maxHealth, attacker.stats.currentHealth + maxHealth * 0.5);
+            }
+
             defender.resources.gold = (Number(defender.resources.gold) || 0) - goldStolen;
             defender.pvpLosses = (defender.pvpLosses || 0) + 1;
         } else {

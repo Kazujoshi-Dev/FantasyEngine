@@ -63,6 +63,7 @@ export default {
         forMana: '(za {amount} many)',
         orcFuryLog: '{attacker} czuje zapach krwi i wpada w furię! (Obrażenia +25%)',
         berserkerFrenzyLog: '{attacker} ignoruje ból i wyprowadza dodatkowy cios!',
+        hunterBonusLog: '{attacker} wykorzystuje moment zaskoczenia i oddaje szybki strzał!',
         hardSkinLog: '{defender} aktywuje Twardą Skórę, neutralizując impet uderzenia!',
         dwarfDefenseLog: '{defender} napina mięśnie, a jego kamienna skóra odbija część obrażeń! (-20%)',
         damageMeter: {

@@ -332,6 +332,17 @@ export const CombatLogRow: React.FC<{
         );
     }
     
+    // NEW: Hunter Bonus Shot Log
+    if (log.action === 'hunter_bonus_shot') {
+        const text = t('expedition.hunterBonusLog').replace('{attacker}', '');
+        return (
+             <p className="text-sm text-emerald-500 font-bold italic">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.attacker)} {text} <span className="text-xs text-gray-400 ml-1">({log.damage} dmg)</span>
+            </p>
+        );
+    }
+    
     if (log.action === 'notEnoughMana') {
          return (
              <p className="text-sm text-amber-400 italic">

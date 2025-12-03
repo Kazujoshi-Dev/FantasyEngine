@@ -132,7 +132,7 @@ export const simulate1vManyCombat = (
                     
                     enemiesState[targetIndex] = hunterDefender as typeof target;
                  }
-                 log.push(...hunterLogs.map(l => ({...l, ...getHealthState()})));
+                 log.push(...hunterLogs.map(l => ({ ...l, ...getHealthState(), action: 'hunter_bonus_shot' })));
 
                  if (hunterDefender.currentHealth <= 0) {
                     log.push({ turn, attacker: playerState.name, defender: hunterDefender.name, action: 'enemy_death', ...getHealthState() });

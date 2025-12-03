@@ -119,7 +119,7 @@ export const simulateTeamVsBossCombat = (
                     lastLog.enemyHealth = hunterBossState.currentHealth;
                     bossState.currentHealth = hunterBossState.currentHealth;
                  }
-                 log.push(...hunterLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                 log.push(...hunterLogs.map(l => ({ ...l, ...getHealthStateForLog(), action: 'hunter_bonus_shot' })));
              }
         }
     }
@@ -370,7 +370,7 @@ export const simulateTeamVsBossCombat = (
                     playersState[targetIndex].currentHealth = defenderState.currentHealth;
                     playersState[targetIndex].currentMana = defenderState.currentMana;
                     playersState[targetIndex].statusEffects = defenderState.statusEffects;
-                    playersState[targetIndex].hardSkinTriggered = defenderState.hardSkinTriggered; // Sync back Hard Skin state!
+                    playersState[targetIndex].hardSkinTriggered = defenderState.hardSkinTriggered; // Sync back hardSkin state
                     
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 

@@ -395,9 +395,15 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
 
                     <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col h-full overflow-hidden">
                         <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
-                            {reward.combatLog.map((log, index) => (
-                                <CombatLogRow key={index} log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
-                            ))}
+                            {reward.combatLog.map((log, index) => {
+                                const isNewTurn = index > 0 && reward.combatLog[index - 1].turn !== log.turn;
+                                return (
+                                    <React.Fragment key={index}>
+                                        {isNewTurn && <div className="border-t border-slate-600/30 my-2"></div>}
+                                        <CombatLogRow log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
+                                    </React.Fragment>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -423,72 +429,78 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                             {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
                         </h3>
                         {reward.isVictory && (
-                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex-shrink-0 overflow-x-auto">
-                                <div className="flex flex-row gap-4 justify-center">
-                                    <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
-                                        <p className="flex items-center justify-between text-lg">
-                                            <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
-                                            <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
-                                        </p>
-                                        <p className="flex items-center justify-between text-lg mt-2">
-                                            <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
-                                            <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
-                                        </p>
-                                    </div>
-                        
-                                    <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
-                                        <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
-                                        {reward.itemsFound.length > 0 ? (
-                                            <div className="flex flex-wrap gap-2 justify-center">
-                                                {reward.itemsFound.map((item, index) => {
-                                                    const template = itemTemplates.find(t => t.id === item.templateId);
-                                                    if (!template) return null;
-                                                    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-                                                    return (
-                                                        <div 
-                                                            key={index}
-                                                            onClick={() => setInspectingItem({ item, template })}
-                                                            onMouseEnter={() => setHoveredReward({ item, template })}
-                                                            onMouseLeave={() => setHoveredReward(null)}
-                                                            className={`text-xs py-1 px-2 rounded cursor-pointer hover:bg-slate-700 border border-slate-600 bg-slate-900/80 whitespace-nowrap ${rarityStyles[template.rarity].text}`}
-                                                        >
-                                                            {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                            <div className="flex justify-center gap-4">
+                                <div className="flex flex-col justify-center items-center">
+                                    <div className="flex justify-center gap-4">
+                                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex-shrink-0 overflow-x-auto">
+                                            <div className="flex flex-row gap-4 justify-center">
+                                                <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
+                                                    <p className="flex items-center justify-between text-lg">
+                                                        <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
+                                                        <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
+                                                    </p>
+                                                    <p className="flex items-center justify-between text-lg mt-2">
+                                                        <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
+                                                        <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
+                                                    </p>
+                                                </div>
+                                    
+                                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px] justify-center flex flex-col">
+                                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
+                                                    {reward.itemsFound.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2 justify-center">
+                                                            {reward.itemsFound.map((item, index) => {
+                                                                const template = itemTemplates.find(t => t.id === item.templateId);
+                                                                if (!template) return null;
+                                                                const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+                                                                return (
+                                                                    <div 
+                                                                        key={index}
+                                                                        onClick={() => setInspectingItem({ item, template })}
+                                                                        onMouseEnter={() => setHoveredReward({ item, template })}
+                                                                        onMouseLeave={() => setHoveredReward(null)}
+                                                                        className={`text-xs py-1 px-2 rounded cursor-pointer hover:bg-slate-700 border border-slate-600 bg-slate-900/80 whitespace-nowrap ${rarityStyles[template.rarity].text}`}
+                                                                    >
+                                                                        {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
-                                                    );
-                                                })}
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full">
+                                                            <p className="text-sm text-gray-500">Brak</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                    
+                                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px] justify-center flex flex-col">
+                                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
+                                                    {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
+                                                        <div className="space-y-1">
+                                                            {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                                                if (!amount || amount === 0) return null;
+                                                                const rarity = essenceToRarityMap[essence as EssenceType];
+                                                                return (
+                                                                    <p key={essence} className="flex justify-between text-sm">
+                                                                        <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
+                                                                        <span className="font-mono font-bold text-white">+{amount}</span>
+                                                                    </p>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full">
+                                                            <p className="text-sm text-gray-500">Brak</p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full">
-                                                <p className="text-sm text-gray-500">Brak</p>
-                                            </div>
-                                        )}
-                                    </div>
-                        
-                                    <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
-                                        <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
-                                        {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
-                                            <div className="space-y-1">
-                                                {Object.entries(reward.essencesFound).map(([essence, amount]) => {
-                                                    if (!amount || amount === 0) return null;
-                                                    const rarity = essenceToRarityMap[essence as EssenceType];
-                                                    return (
-                                                        <p key={essence} className="flex justify-between text-sm">
-                                                            <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
-                                                            <span className="font-mono font-bold text-white">+{amount}</span>
-                                                        </p>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full">
-                                                <p className="text-sm text-gray-500">Brak</p>
-                                            </div>
-                                        )}
+                                            {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                                <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                    <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
-                                )}
                             </div>
                         )}
                         <div className="mt-6 flex justify-center gap-4 pb-4">
