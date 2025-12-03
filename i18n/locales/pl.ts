@@ -1,4 +1,5 @@
 
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -327,7 +328,12 @@ export default {
         forMana: '(za {amount} many)',
         orcFuryLog: '{attacker} czuje zapach krwi i wpada w furię! (Obrażenia +25%)',
         berserkerFrenzyLog: '{attacker} ignoruje ból i wyprowadza dodatkowy cios!',
-        hardSkinLog: '{defender} aktywuje Twardą Skórę, neutralizując impet uderzenia krytycznego!',
+        hardSkinLog: '{defender} aktywuje Twardą Skórę, neutralizując impet uderzenia!',
+        damageMeter: {
+            title: 'Tabela Obrażeń',
+            dpt: 'DPT',
+            total: 'Suma'
+        },
         combatLog: {
             effect: {
                 applied: '{defender} zostaje {effect}!',

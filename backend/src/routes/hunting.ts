@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -231,8 +232,9 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
 router.post('/respond', authenticateToken, async (req: any, res: any) => {
     const { userId, action } = req.body; // action: 'accept' | 'reject' | 'kick'
     try {
-        const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej grupy.' });
+        // Fix: Filter out FINISHED parties to prevent leader ID conflict if they left a previous finished party without disbanding
+        const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
         
         const party = partyRes.rows[0];
         let members = party.members as any[];
@@ -271,8 +273,9 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
 // POST /api/hunting/start - Leader manually starts if full (e.g. for solo)
 router.post('/start', authenticateToken, async (req: any, res: any) => {
     try {
-        const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
-        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej grupy.' });
+        // Fix: Filter out FINISHED parties
+        const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
+        if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
         
         const party = partyRes.rows[0];
         
@@ -301,9 +304,10 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
 // POST /api/hunting/cancel - Leader cancels a preparing hunt
 router.post('/cancel', authenticateToken, async (req: any, res: any) => {
     try {
-        const partyRes = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1 FOR UPDATE', [req.user.id]);
+        // Fix: Filter out FINISHED parties
+        const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
         if (partyRes.rows.length === 0) {
-            return res.status(403).json({ message: 'Nie jesteś liderem żadnej grupy.' });
+            return res.status(403).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
         }
         
         const party = partyRes.rows[0];

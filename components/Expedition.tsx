@@ -707,6 +707,30 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             enemiesHealth: lastLog.allEnemiesHealth || []
         };
     }, [reward.combatLog, initialPlayerStats, initialEnemyForDisplay, initialPartyState, encounteredEnemies]);
+    
+    const damageData = useMemo(() => {
+        if (!isHunting || !huntingMembers) return null;
+        const stats: Record<string, number> = {};
+        let totalDamage = 0;
+        const turns = reward.combatLog[reward.combatLog.length - 1]?.turn || 1;
+
+        reward.combatLog.forEach(log => {
+            // Look for logs where attacker is a party member and damage was dealt
+            // Actions like 'attacks', 'magicAttack', 'shaman_power' etc result in damage.
+            const isMember = huntingMembers.some(m => m.characterName === log.attacker);
+            if (isMember && log.damage) {
+                stats[log.attacker] = (stats[log.attacker] || 0) + log.damage;
+                totalDamage += log.damage;
+            }
+        });
+        
+        // Sort members by damage
+        const sortedMembers = Object.entries(stats)
+            .map(([name, dmg]) => ({ name, dmg }))
+            .sort((a, b) => b.dmg - a.dmg);
+
+        return { stats, totalDamage, turns, sortedMembers };
+    }, [reward.combatLog, isHunting, huntingMembers]);
 
     const handleCopyLink = useCallback(() => {
         if (!messageId) return;
@@ -750,17 +774,50 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400 flex-shrink-0">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
                 
                 <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
-                    <div className="col-span-3 h-full overflow-y-auto">
+                    <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
                          {isHunting && huntingMembers ? (
-                             <PartyMemberList 
-                                members={huntingMembers} 
-                                finalPartyHealth={finalState.partyHealth}
-                                onMemberHover={(member, rect) => {
-                                    const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
-                                    if(stats) setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats }, rect });
-                                }}
-                                onMemberLeave={() => setHoveredCombatant(null)}
-                            />
+                             <>
+                                 <PartyMemberList 
+                                    members={huntingMembers} 
+                                    finalPartyHealth={finalState.partyHealth}
+                                    onMemberHover={(member, rect) => {
+                                        const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+                                        if(stats) setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats }, rect });
+                                    }}
+                                    onMemberLeave={() => setHoveredCombatant(null)}
+                                />
+                                {damageData && damageData.totalDamage > 0 && (
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex-shrink-0 overflow-y-auto max-h-[300px]">
+                                        <h4 className="font-bold text-center border-b border-slate-700 pb-2 mb-2 text-amber-400">
+                                            {t('expedition.damageMeter.title')}
+                                        </h4>
+                                        <div className="space-y-3 text-xs">
+                                            {damageData.sortedMembers.map(({name, dmg}) => {
+                                                const percent = (dmg / damageData.totalDamage) * 100;
+                                                const dpt = dmg / damageData.turns;
+                                                return (
+                                                    <div key={name} className="relative">
+                                                        <div className="flex justify-between items-center z-10 relative mb-1">
+                                                            <span className="font-bold text-white">{name}</span>
+                                                            <span className="text-gray-300">{dmg.toLocaleString()} ({percent.toFixed(1)}%)</span>
+                                                        </div>
+                                                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                                            <div className="bg-amber-600 h-full" style={{ width: `${percent}%` }}></div>
+                                                        </div>
+                                                        <div className="text-right text-[10px] text-gray-500 mt-0.5">
+                                                            {t('expedition.damageMeter.dpt')}: {dpt.toFixed(0)}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                            <div className="border-t border-slate-700 pt-2 mt-2 text-center">
+                                                <span className="text-gray-400">{t('expedition.damageMeter.total')}: </span>
+                                                <span className="font-mono text-white font-bold">{damageData.totalDamage.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                             </>
                          ) : isPvp ? (
                             <CombatantStatsPanel name={isDefenderView ? pvpData!.defender.name : pvpData!.attacker.name} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
                          ) : (
@@ -792,89 +849,93 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
 
-                <div className="mt-2 flex-shrink-0 overflow-y-auto max-h-[40%]">
-                    <h3 className={`text-4xl font-extrabold mb-2 text-center ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
-                        {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
-                    </h3>
-                    {reward.isVictory && (
-                        <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-2">
-                            <div className="flex-1 min-h-0 flex flex-row gap-4 overflow-x-auto">
-                                <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
-                                    <p className="flex items-center justify-between text-lg">
-                                        <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
-                                        <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
-                                    </p>
-                                    <p className="flex items-center justify-between text-lg mt-2">
-                                        <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
-                                        <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
-                                    </p>
+                <div className="mt-2 flex-shrink-0 overflow-y-auto max-h-[40%] flex flex-row gap-4">
+                    <div className="flex-1 min-h-0 flex flex-col">
+                        <h3 className={`text-4xl font-extrabold mb-2 text-center ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
+                            {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
+                        </h3>
+                        {reward.isVictory && (
+                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex-shrink-0 overflow-x-auto">
+                                <div className="flex flex-row gap-4">
+                                    <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
+                                        <p className="flex items-center justify-between text-lg">
+                                            <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
+                                            <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
+                                        </p>
+                                        <p className="flex items-center justify-between text-lg mt-2">
+                                            <span className="flex items-center gap-2 text-gray-300"><StarIcon className="h-5 w-5 text-sky-400"/> XP</span>
+                                            <span className="font-mono font-bold text-sky-400">+{reward.totalExperience.toLocaleString()}</span>
+                                        </p>
+                                    </div>
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
+                                        {reward.itemsFound.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                {reward.itemsFound.map((item, index) => {
+                                                    const template = itemTemplates.find(t => t.id === item.templateId);
+                                                    if (!template) return null;
+                                                    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+                                                    return (
+                                                        <div 
+                                                            key={index}
+                                                            onClick={() => setInspectingItem({ item, template })}
+                                                            onMouseEnter={() => setHoveredReward({ item, template })}
+                                                            onMouseLeave={() => setHoveredReward(null)}
+                                                            className={`text-xs py-1 px-2 rounded cursor-pointer hover:bg-slate-700 border border-slate-600 bg-slate-900/80 whitespace-nowrap ${rarityStyles[template.rarity].text}`}
+                                                        >
+                                                            {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
+                                            </div>
+                                        )}
+                                    </div>
+                        
+                                    <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
+                                        <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
+                                        {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
+                                            <div className="space-y-1">
+                                                {Object.entries(reward.essencesFound).map(([essence, amount]) => {
+                                                    if (!amount || amount === 0) return null;
+                                                    const rarity = essenceToRarityMap[essence as EssenceType];
+                                                    return (
+                                                        <p key={essence} className="flex justify-between text-sm">
+                                                            <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
+                                                            <span className="font-mono font-bold text-white">+{amount}</span>
+                                                        </p>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-sm text-gray-500">Brak</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                    
-                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
-                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
-                                    {reward.itemsFound.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {reward.itemsFound.map((item, index) => {
-                                                const template = itemTemplates.find(t => t.id === item.templateId);
-                                                if (!template) return null;
-                                                const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-                                                return (
-                                                    <div 
-                                                        key={index}
-                                                        onClick={() => setInspectingItem({ item, template })}
-                                                        onMouseEnter={() => setHoveredReward({ item, template })}
-                                                        onMouseLeave={() => setHoveredReward(null)}
-                                                        className={`text-xs py-1 px-2 rounded cursor-pointer hover:bg-slate-700 border border-slate-600 bg-slate-900/80 whitespace-nowrap ${rarityStyles[template.rarity].text}`}
-                                                    >
-                                                        {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full">
-                                            <p className="text-sm text-gray-500">Brak</p>
-                                        </div>
-                                    )}
-                                </div>
-                    
-                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
-                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
-                                    {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
-                                        <div className="space-y-1">
-                                            {Object.entries(reward.essencesFound).map(([essence, amount]) => {
-                                                if (!amount || amount === 0) return null;
-                                                const rarity = essenceToRarityMap[essence as EssenceType];
-                                                return (
-                                                    <p key={essence} className="flex justify-between text-sm">
-                                                        <span className={rarityStyles[rarity].text}>{t(`resources.${essence}`)}</span>
-                                                        <span className="font-mono font-bold text-white">+{amount}</span>
-                                                    </p>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full">
-                                            <p className="text-sm text-gray-500">Brak</p>
-                                        </div>
-                                    )}
-                                </div>
+                                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                                    <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                                )}
                             </div>
-                            {reward.itemsLostCount && reward.itemsLostCount > 0 && (
-                                <p className="text-center text-red-400 text-sm mt-3">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                        )}
+                        <div className="mt-6 flex justify-center gap-4 pb-4">
+                            <button onClick={onClose} className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors">
+                                {t('expedition.returnToCamp')}
+                            </button>
+                            {messageId && (
+                                <button onClick={handleCopyLink} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg">
+                                    Kopiuj Link do Raportu
+                                </button>
                             )}
                         </div>
-                    )}
-                    <div className="mt-6 flex justify-center gap-4 pb-4">
-                        <button onClick={onClose} className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors">
-                            {t('expedition.returnToCamp')}
-                        </button>
-                        {messageId && (
-                            <button onClick={handleCopyLink} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg">
-                                Kopiuj Link do Raportu
-                            </button>
-                        )}
                     </div>
+                    {/* Empty div to balance flex layout if needed, or future expansion */}
+                    <div className="w-0 lg:w-0"></div>
                 </div>
             </div>
         </div>

@@ -258,6 +258,15 @@ export const simulateTeamVsBossCombat = (
 
         // Sort by Agility Descending. Players win ties.
         actionQueue.sort((a, b) => {
+            // Elf Bonus: Always acts first in turn 1
+            if (turn === 1) {
+                const isAElf = a.type === 'player' && playersState[a.index].data.race === Race.Elf;
+                const isBElf = b.type === 'player' && playersState[b.index].data.race === Race.Elf;
+
+                if (isAElf && !isBElf) return -1; // a comes first
+                if (!isAElf && isBElf) return 1;  // b comes first
+            }
+
             if (b.agility !== a.agility) {
                 return b.agility - a.agility;
             }
