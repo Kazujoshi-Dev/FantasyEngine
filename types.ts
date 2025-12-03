@@ -3,6 +3,8 @@
 
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -804,6 +806,7 @@ export interface AdminCharacterInfo {
     race: Race;
     level: number;
     gold: number;
+    characterClass?: CharacterClass; // Added characterClass
 }
 
 export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite';

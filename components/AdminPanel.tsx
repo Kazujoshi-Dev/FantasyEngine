@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language, ItemRarity } from '../types';
@@ -115,7 +117,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onSendGlobalMessage={props.onSendGlobalMessage}
                 />;
       case 'trivia':
-        return <TriviaTab gameData={safeGameData} />;
+        return <TriviaTab gameData={safeGameData} allCharacters={props.allCharacters} />;
       case 'hunting':
         return <HuntingTab
                   settings={settings}

@@ -1,3 +1,5 @@
+
+
 import express from 'express';
 import { pool } from '../db.js';
 import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language } from '../types.js';
@@ -76,6 +78,7 @@ router.get('/characters/all', async (req, res) => {
                 u.username,
                 c.data->>'name' as name,
                 c.data->>'race' as race,
+                c.data->>'characterClass' as "characterClass",
                 (c.data->>'level')::int as level,
                 (c.data->'resources'->>'gold')::bigint as gold
             FROM characters c
