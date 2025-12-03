@@ -21,6 +21,7 @@ import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { UniversityTab } from './admin/tabs/UniversityTab';
 import { HuntingTab } from './admin/tabs/HuntingTab';
 import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
+import { TriviaTab } from './admin/tabs/TriviaTab';
 
 interface AdminPanelProps {
   gameData: GameData;
@@ -44,7 +45,7 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'databaseEditor';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'databaseEditor' | 'trivia';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
@@ -83,6 +84,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
 
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
+    { id: 'trivia', label: 'Ciekawostki' },
     { id: 'hunting', label: 'Polowania' },
     { id: 'users', label: 'Użytkownicy i Postacie' },
     { id: 'locations', label: 'Lokacje' },
@@ -112,6 +114,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   onForceTraderRefresh={props.onForceTraderRefresh}
                   onSendGlobalMessage={props.onSendGlobalMessage}
                 />;
+      case 'trivia':
+        return <TriviaTab gameData={safeGameData} />;
       case 'hunting':
         return <HuntingTab
                   settings={settings}
