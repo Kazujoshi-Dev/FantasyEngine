@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, Expedition as ExpeditionType, Location, Enemy, ExpeditionRewardSummary, CombatLogEntry, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, MagicAttackType, EssenceType, ItemRarity } from '../types';
@@ -621,6 +622,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const { t } = useTranslation();
 
     const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [hoveredReward, setHoveredReward] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
 
 
     const defaultDummyStats: CharacterStats = {
@@ -722,13 +724,23 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
             )}
+
+            {hoveredReward && (
+                 <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+                    <div className="bg-slate-900/95 border border-slate-700 rounded-xl p-4 max-w-md w-full shadow-2xl backdrop-blur-md pointer-events-auto">
+                        <ItemDetailsPanel item={hoveredReward.item} template={hoveredReward.template} affixes={affixes} hideAffixes={false} size='small' />
+                    </div>
+                </div>
+            )}
+
             <div 
-                className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh]"
+                className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh] overflow-hidden"
                 style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
             >
-                <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
-                <div className="grid grid-cols-12 gap-6 flex-grow min-h-0">
-                    <div className="col-span-3">
+                <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400 flex-shrink-0">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
+                
+                <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
+                    <div className="col-span-3 h-full overflow-y-auto">
                          {isHunting && huntingMembers ? (
                              <PartyMemberList 
                                 members={huntingMembers} 
@@ -746,7 +758,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                          )}
                     </div>
 
-                    <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col">
+                    <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col h-full overflow-hidden">
                         <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
                             {reward.combatLog.map((log, index) => (
                                 <CombatLogRow key={index} log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
@@ -754,7 +766,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                         </div>
                     </div>
 
-                    <div className="col-span-3">
+                    <div className="col-span-3 h-full overflow-y-auto">
                         {isPvp ? (
                              <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={finalState.enemyHealth} />
                         ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
@@ -770,12 +782,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
 
-                <div className="mt-4 text-center">
-                    <h3 className={`text-4xl font-extrabold mb-4 ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
+                <div className="mt-2 flex-shrink-0 overflow-y-auto max-h-[40%]">
+                    <h3 className={`text-4xl font-extrabold mb-2 text-center ${reward.isVictory ? 'text-green-400' : 'text-red-500'}`}>
                         {reward.isVictory ? t('expedition.victory') : t('expedition.defeat')}
                     </h3>
                     {reward.isVictory && (
-                        <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-4">
+                        <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-2">
                             <h4 className="font-bold text-lg text-amber-400 mb-3 text-center">Podsumowanie Nagród</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center">
@@ -790,9 +802,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                 </div>
                     
                                 <div className="bg-slate-800/50 p-3 rounded-lg">
-                                    <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
+                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
                                     {reward.itemsFound.length > 0 ? (
-                                        <div className="max-h-24 overflow-y-auto space-y-1 pr-2">
+                                        <div className="flex flex-wrap gap-2 justify-center">
                                             {reward.itemsFound.map((item, index) => {
                                                 const template = itemTemplates.find(t => t.id === item.templateId);
                                                 if (!template) return null;
@@ -801,7 +813,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                                     <div 
                                                         key={index}
                                                         onClick={() => setInspectingItem({ item, template })}
-                                                        className={`text-sm py-1 px-2 rounded cursor-pointer hover:bg-slate-700 ${rarityStyles[template.rarity].text}`}
+                                                        onMouseEnter={() => setHoveredReward({ item, template })}
+                                                        onMouseLeave={() => setHoveredReward(null)}
+                                                        className={`text-xs py-1 px-2 rounded cursor-pointer hover:bg-slate-700 border border-slate-600 bg-slate-900/80 whitespace-nowrap ${rarityStyles[template.rarity].text}`}
                                                     >
                                                         {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
                                                     </div>
@@ -816,7 +830,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                 </div>
                     
                                 <div className="bg-slate-800/50 p-3 rounded-lg">
-                                    <h5 className="text-gray-400 text-sm font-semibold mb-2">{t('expedition.essencesFound')}</h5>
+                                    <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
                                     {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
                                         <div className="space-y-1">
                                             {Object.entries(reward.essencesFound).map(([essence, amount]) => {
@@ -842,7 +856,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                             )}
                         </div>
                     )}
-                    <div className="mt-6 flex justify-center gap-4">
+                    <div className="mt-6 flex justify-center gap-4 pb-4">
                         <button onClick={onClose} className="px-8 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors">
                             {t('expedition.returnToCamp')}
                         </button>
