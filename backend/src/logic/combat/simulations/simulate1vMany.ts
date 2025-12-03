@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 import { randomUUID } from 'crypto';
@@ -162,13 +163,20 @@ export const simulate1vManyCombat = (
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
                 log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState() });
                 
-                if (combatant.currentHealth <= 0 && combatant !== playerState) {
-                    log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'enemy_death', ...getHealthState() });
+                if (combatant.currentHealth <= 0) {
+                    if (combatant !== playerState) {
+                        log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'enemy_death', ...getHealthState() });
+                    } else {
+                        log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'death', ...getHealthState() });
+                    }
                 }
             }
             // Tick statuses
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
         }
+        
+        // Check if player died from DoTs before starting turn
+        if (playerState.currentHealth <= 0) break;
 
         // --- Player Turn ---
         if (playerState.currentHealth > 0) {
@@ -203,15 +211,21 @@ export const simulate1vManyCombat = (
                     if (targetIndex === -1) break; 
                     const target = enemiesState[targetIndex];
 
-                    const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+                    const attackerForThisHit = { ...playerState };
+                    const attackOptions = {};
                     if (playerData.characterClass === CharacterClass.Warrior && i === 0) {
-                        attackOptions.critChanceOverride = 100;
-                        attackOptions.ignoreDodge = true;
+                        attackerForThisHit.stats = { ...attackerForThisHit.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
                     }
 
-                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState, false, attackOptions);
-                    
-                    Object.assign(playerState, attackerState);
+                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(attackerForThisHit, target, turn, gameData, enemiesState, false, attackOptions);
+
+                    playerState.currentHealth = attackerState.currentHealth;
+                    playerState.currentMana = attackerState.currentMana;
+                    playerState.statusEffects = attackerState.statusEffects;
+                    playerState.manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playerState.shadowBoltStacks = attackerState.shadowBoltStacks;
+
                     enemiesState[targetIndex] = defenderState as typeof target;
 
                     log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
@@ -353,12 +367,19 @@ export const simulate1vManyCombat = (
                 Object.assign(playerState, defenderState);
 
                 log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
+
+                // CHECK DEATH HERE INSIDE THE LOOP to capture the specific killer
+                if (playerState.currentHealth <= 0) {
+                    log.push({ turn, attacker: enemy.name, defender: playerState.name, action: 'death', ...getHealthState() });
+                    break; // Player died, stop this enemy's attacks
+                }
             }
         }
     }
     
     // Post-combat cleanup logs
-    if (playerState.currentHealth <= 0) {
+    // We check if 'death' was already logged inside the loop to avoid duplication
+    if (playerState.currentHealth <= 0 && !log.some(l => l.action === 'death')) {
          log.push({ turn, attacker: 'Enemies', defender: playerState.name, action: 'death', ...getHealthState() });
     } else if (enemiesState.every(e => e.currentHealth <= 0)) {
          // Changed action from 'enemy_death' to 'all_enemies_defeated' to avoid singular "X został pokonany!" for a group victory summary
