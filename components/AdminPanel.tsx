@@ -214,7 +214,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
           </button>
         ))}
       </div>
-      <div className="bg-slate-900/40 p-6 rounded-xl">
+      <div className="bg-slate-900/40 p-6 rounded-xl overflow-y-auto h-[72vh]">
         {renderActiveTab()}
       </div>
     </ContentPanel>
