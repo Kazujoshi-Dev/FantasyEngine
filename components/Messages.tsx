@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy, GuildInviteBody } from '../types';
@@ -228,11 +229,13 @@ interface MessagesProps {
     enemies: Enemy[];
     currentPlayer: PlayerCharacter;
     onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
+    initialRecipient?: string | null;
+    onClearInitialRecipient?: () => void;
 }
 
 const MESSAGES_PER_PAGE = 5;
 
-export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enemies, currentPlayer, onCharacterUpdate }) => {
+export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enemies, currentPlayer, onCharacterUpdate, initialRecipient, onClearInitialRecipient }) => {
     const { t } = useTranslation();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -251,6 +254,22 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
     const [allCharNames, setAllCharNames] = useState<string[]>([]);
     const [composeRecipient, setComposeRecipient] = useState<string | undefined>(undefined);
     const [composeSubject, setComposeSubject] = useState<string | undefined>(undefined);
+
+    const handleOpenCompose = (recipient?: string, subject?: string) => {
+        setComposeRecipient(recipient);
+        setComposeSubject(subject);
+        api.getCharacterNames().then(setAllCharNames).catch(console.error);
+        setIsComposing(true);
+    };
+
+    useEffect(() => {
+        if (initialRecipient) {
+            handleOpenCompose(initialRecipient);
+            if (onClearInitialRecipient) {
+                onClearInitialRecipient();
+            }
+        }
+    }, [initialRecipient, onClearInitialRecipient]);
 
     const fetchMessages = useCallback(async () => {
         setIsLoading(true);
@@ -322,13 +341,6 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         }
     };
     
-    const handleOpenCompose = (recipient?: string, subject?: string) => {
-        setComposeRecipient(recipient);
-        setComposeSubject(subject);
-        api.getCharacterNames().then(setAllCharNames).catch(console.error);
-        setIsComposing(true);
-    };
-
     const handleDelete = async (id: number) => {
         const oldMessages = [...messages];
         setMessages(prev => prev.filter(m => m.id !== id)); // Optimistic delete

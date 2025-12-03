@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -59,6 +57,9 @@ const MainApp: React.FC = () => {
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [showForceLogout, setShowForceLogout] = useState(false);
     const [loadingTime, setLoadingTime] = useState(0);
+
+    // Messaging State (Cross-tab communication)
+    const [pendingComposeRecipient, setPendingComposeRecipient] = useState<string | null>(null);
 
     // Refs
     const isCompletingExpeditionRef = useRef(false);
@@ -870,7 +871,10 @@ const MainApp: React.FC = () => {
                             alert(e.message || t('error.title'));
                         }
                     }}
-                    onComposeMessage={() => {}}
+                    onComposeMessage={(recipient) => {
+                        setPendingComposeRecipient(recipient);
+                        setActiveTab(Tab.Messages);
+                    }}
                 />;
             case Tab.Messages:
                 return <Messages 
@@ -879,6 +883,8 @@ const MainApp: React.FC = () => {
                     enemies={gameData.enemies}
                     currentPlayer={character} 
                     onCharacterUpdate={handleCharacterUpdate}
+                    initialRecipient={pendingComposeRecipient}
+                    onClearInitialRecipient={() => setPendingComposeRecipient(null)}
                 />;
             case Tab.Quests:
                 return <Quests 
