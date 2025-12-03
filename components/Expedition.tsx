@@ -300,6 +300,16 @@ const CombatLogRow: React.FC<{
             </div>
         );
     }
+    
+    if (log.action === 'hardSkinProc') {
+        const text = t('expedition.hardSkinLog').replace('{defender}', '');
+        return (
+            <p className="text-sm text-slate-400 font-bold italic border-l-2 border-slate-500 pl-2 my-1">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {renderName(log.defender)} {text}
+            </p>
+        );
+    }
 
     if (log.action === 'shaman_power') {
         return (
@@ -788,9 +798,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </h3>
                     {reward.isVictory && (
                         <div className="max-w-4xl mx-auto bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-2">
-                            <h4 className="font-bold text-lg text-amber-400 mb-3 text-center">Podsumowanie Nagród</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center">
+                            <div className="flex-1 min-h-0 flex flex-row gap-4 overflow-x-auto">
+                                <div className="bg-slate-800/50 p-3 rounded-lg flex flex-col justify-center flex-shrink-0 w-48">
                                     <p className="flex items-center justify-between text-lg">
                                         <span className="flex items-center gap-2 text-gray-300"><CoinsIcon className="h-5 w-5 text-amber-400"/> {t('resources.gold')}</span>
                                         <span className="font-mono font-bold text-amber-400">+{reward.totalGold.toLocaleString()}</span>
@@ -801,7 +810,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                     </p>
                                 </div>
                     
-                                <div className="bg-slate-800/50 p-3 rounded-lg">
+                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
                                     <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.itemsFound')} ({reward.itemsFound.length})</h5>
                                     {reward.itemsFound.length > 0 ? (
                                         <div className="flex flex-wrap gap-2 justify-center">
@@ -829,7 +838,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                     )}
                                 </div>
                     
-                                <div className="bg-slate-800/50 p-3 rounded-lg">
+                                <div className="bg-slate-800/50 p-3 rounded-lg flex-shrink-0 min-w-[200px]">
                                     <h5 className="text-gray-400 text-sm font-semibold mb-2 text-center">{t('expedition.essencesFound')}</h5>
                                     {Object.keys(reward.essencesFound).length > 0 && Object.values(reward.essencesFound).some(v => v > 0) ? (
                                         <div className="space-y-1">

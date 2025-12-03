@@ -44,6 +44,7 @@ export const simulateTeamVsBossCombat = (
         isDead: p.stats.currentHealth <= 0,
         statusEffects: [],
         manaSurgeUsed: false,
+        hardSkinTriggered: false,
         shadowBoltStacks: 0
     }));
 
@@ -289,19 +290,23 @@ export const simulateTeamVsBossCombat = (
                 for (let i = 0; i < attacks; i++) {
                     if (bossState.currentHealth <= 0) break;
 
-                    const playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
-                    const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+                    let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
+                    const attackOptions = {};
 
                     if (player.data.characterClass === CharacterClass.Warrior && i === 0) {
-                        attackOptions.critChanceOverride = 100;
-                        attackOptions.ignoreDodge = true;
+                        playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
+                        Object.assign(attackOptions, { ignoreDodge: true });
                     }
 
                     const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
                     
-                    Object.assign(playersState[playerIndex], attackerState);
+                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
+                    playersState[playerIndex].currentMana = attackerState.currentMana;
+                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
+                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
+                    
                     Object.assign(bossState, defenderState);
-
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
                 
@@ -312,10 +317,14 @@ export const simulateTeamVsBossCombat = (
                      });
                      const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
                      
-                    Object.assign(playersState[playerIndex], attackerState);
-                    Object.assign(bossState, defenderState);
-
-                    log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
+                    playersState[playerIndex].currentMana = attackerState.currentMana;
+                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
+                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
+                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
+                     
+                     Object.assign(bossState, defenderState);
+                     log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
 
             } else {
@@ -347,8 +356,12 @@ export const simulateTeamVsBossCombat = (
                         { ...bossState }, targetAsDefender, turn, gameData, otherPlayersAsTargets, true
                     );
                     
-                    Object.assign(bossState, attackerState);
-                    Object.assign(playersState[targetIndex], defenderState);
+                    bossState = { ...bossState, ...attackerState };
+                    
+                    playersState[targetIndex].currentHealth = defenderState.currentHealth;
+                    playersState[targetIndex].currentMana = defenderState.currentMana;
+                    playersState[targetIndex].statusEffects = defenderState.statusEffects;
+                    playersState[targetIndex].hardSkinTriggered = defenderState.hardSkinTriggered; // Sync back Hard Skin state!
                     
                     log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
 

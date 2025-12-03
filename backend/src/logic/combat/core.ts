@@ -214,6 +214,26 @@ export const performAttack = <
         damageReduced += reduction;
     }
 
+    // --- Passive Skill: Hard Skin (Twarda skóra) ---
+    // Effect: Reduces first critical hit received in combat by 50%
+    if (isCrit && defenderIsPlayer && !defender.hardSkinTriggered) {
+        const defenderChar = defender.data as PlayerCharacter;
+        if (defenderChar.learnedSkills && defenderChar.learnedSkills.includes('twarda-skora-1')) {
+            const reduction = Math.floor(damage * 0.5);
+            damage -= reduction;
+            damageReduced += reduction;
+            defender.hardSkinTriggered = true;
+            
+            logs.push({
+                turn,
+                attacker: attacker.name,
+                defender: defender.name,
+                action: 'hardSkinProc',
+                ...getHealthState(attacker, defender)
+            });
+        }
+    }
+
     // --- Apply Magic Effects via Registry ---
     let aoeData;
     let chainData;

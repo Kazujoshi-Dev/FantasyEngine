@@ -1,3 +1,4 @@
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -87,14 +88,12 @@ export default {
         stamina: 'Wytrzymałość',
         intelligence: 'Inteligencja',
         energy: 'Energia',
-        luck: 'Szczęście',
         strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Nie wpływa na obrażenia broni dystansowej ani magicznej.',
         agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku w walce oraz szansę na unik.',
         accuracyDesc: 'Zwiększa szansę na trafienie krytyczne.',
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
         intelligenceDesc: 'Zwiększa maksymalną manę (+10 na punkt) i regenerację many w walce (+2 na turę na punkt). Zwiększa również obrażenia magiczne.',
         energyDesc: 'Zwiększa maksymalną energię. Używana do akcji takich jak wyprawy i podróże. Regeneruje się o 1 punkt na godzinę.',
-        luckDesc: 'Zwiększa szansę na znalezienie lepszych przedmiotów: wyższe statystyki, dodatkowe afiksy, lepsza rzadkość, a nawet ulepszenie do +3.',
         cancelChanges: 'Anuluj',
         save: 'Zapisz Zmiany',
         reset: {
@@ -328,6 +327,7 @@ export default {
         forMana: '(za {amount} many)',
         orcFuryLog: '{attacker} czuje zapach krwi i wpada w furię! (Obrażenia +25%)',
         berserkerFrenzyLog: '{attacker} ignoruje ból i wyprowadza dodatkowy cios!',
+        hardSkinLog: '{defender} aktywuje Twardą Skórę, neutralizując impet uderzenia krytycznego!',
         combatLog: {
             effect: {
                 applied: '{defender} zostaje {effect}!',
