@@ -1,14 +1,9 @@
 
-
-
-
-
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy, GuildInviteBody } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
-import { ExpeditionSummaryModal } from './Expedition';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { MailIcon } from './icons/MailIcon';
 import { api } from '../api';
 import { rarityStyles } from './shared/ItemSlot';

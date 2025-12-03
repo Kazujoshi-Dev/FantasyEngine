@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType } from '../types';
-import { ExpeditionSummaryModal } from './Expedition';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { LanguageContext } from '../contexts/LanguageContext';
 import { getT } from '../i18n';
 import { Language } from '../types';

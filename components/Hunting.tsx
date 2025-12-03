@@ -1,11 +1,11 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { PlayerCharacter, Enemy, HuntingParty, PartyMember, PartyStatus, PartyMemberStatus, ItemTemplate, Affix, GameData } from '../types';
-import { ExpeditionSummaryModal } from './Expedition';
+import { PlayerCharacter, Enemy, HuntingParty, PartyMemberStatus, PartyStatus, ItemTemplate, Affix, GameData } from '../types';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
-import { ClockIcon } from './icons/ClockIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
