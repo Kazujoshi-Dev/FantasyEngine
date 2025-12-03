@@ -1,8 +1,4 @@
 
-
-
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -977,8 +973,8 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
             return res.status(400).json({ message: 'Building is at maximum level.' });
         }
 
-        // Calculate Cost
-        const { gold, essenceType, essenceAmount } = getBuildingCost(buildingType, currentLevel);
+        // Calculate Cost (Updated to return array of costs)
+        const { gold, costs } = getBuildingCost(buildingType, currentLevel);
 
         // Check resources
         const currentGold = guild.resources.gold || 0;
@@ -988,34 +984,20 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
             return res.status(400).json({ message: 'Not enough gold in guild bank' });
         }
 
-        // Special handling for 'shrine' which costs 1 of EACH essence per level + 1 base
-        if (buildingType === 'shrine') {
-            const requiredEssenceAmount = 1 + currentLevel;
-            const allEssences = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-            
-            for (const et of allEssences) {
-                if ((guild.resources[et] || 0) < requiredEssenceAmount) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({ message: `Not enough ${et} in guild bank (Required: ${requiredEssenceAmount})` });
-                }
-            }
-            
-            // Deduct all essences
-            for (const et of allEssences) {
-                guild.resources[et] -= requiredEssenceAmount;
-            }
-        } else {
-            // Standard building logic
-            const currentEssence = guild.resources[essenceType] || 0;
-            if (currentEssence < essenceAmount) {
+        // Check all required essences
+        for (const costItem of costs) {
+            const currentEssence = guild.resources[costItem.type] || 0;
+            if (currentEssence < costItem.amount) {
                 await client.query('ROLLBACK');
-                return res.status(400).json({ message: 'Not enough essence in guild bank' });
+                return res.status(400).json({ message: `Not enough ${costItem.type} in guild bank` });
             }
-            guild.resources[essenceType] -= essenceAmount;
         }
 
-        // Deduct Gold
+        // Deduct Resources
         guild.resources.gold -= gold;
+        for (const costItem of costs) {
+            guild.resources[costItem.type] -= costItem.amount;
+        }
 
         // Level Up
         buildings[buildingType] = currentLevel + 1;
