@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { GameSettings, User, AdminCharacterInfo, GameData, PlayerCharacter, Language, ItemRarity } from '../types';
@@ -24,6 +26,7 @@ import { UniversityTab } from './admin/tabs/UniversityTab';
 import { HuntingTab } from './admin/tabs/HuntingTab';
 import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 import { TriviaTab } from './admin/tabs/TriviaTab';
+import { ItemCreatorTab } from './admin/tabs/ItemCreatorTab'; // New Import
 
 interface AdminPanelProps {
   gameData: GameData;
@@ -47,7 +50,7 @@ interface AdminPanelProps {
   onDeleteCharacterItem: (userId: number, itemUniqueId: string) => Promise<PlayerCharacter>;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'databaseEditor' | 'trivia';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'databaseEditor' | 'trivia';
 
 export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const { t } = useTranslation();
@@ -94,6 +97,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     { id: 'enemies', label: 'Wrogowie' },
     { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },
+    { id: 'itemCreator', label: 'Kreator Przedmiotów' },
     { id: 'affixes', label: 'Afiksy' },
     { id: 'quests', label: 'Zadania' },
     { id: 'university', label: 'Uniwersytet' },
@@ -167,6 +171,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                   itemTemplates={safeGameData.itemTemplates}
                   onGameDataUpdate={props.onGameDataUpdate}
                 />;
+      case 'itemCreator':
+          return <ItemCreatorTab 
+                  users={props.allCharacters} 
+                  itemTemplates={safeGameData.itemTemplates}
+                  affixes={safeGameData.affixes}
+                  />;
       case 'affixes':
         return <AffixesTab
                   affixes={safeGameData.affixes}

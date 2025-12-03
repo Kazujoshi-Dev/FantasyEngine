@@ -392,6 +392,13 @@ export const api = {
             body: JSON.stringify({ gold }) 
         });
     },
+
+    async adminGiveItem(userId: number, data: { templateId: string, prefixId?: string, suffixId?: string, upgradeLevel: number }): Promise<void> {
+        return fetchApi('/admin/give-item', {
+            method: 'POST',
+            body: JSON.stringify({ userId, ...data })
+        });
+    },
     
     // --- Game Data ---
     async getGameData(): Promise<GameData> {

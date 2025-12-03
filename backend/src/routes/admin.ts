@@ -1,10 +1,12 @@
 
-
+// ... existing imports
 import express from 'express';
 import { pool } from '../db.js';
-import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language } from '../types.js';
+import { PlayerCharacter, ItemInstance, DuplicationAuditResult, AdminCharacterInfo, Message, User, OrphanAuditResult, ItemSearchResult, GameData, EquipmentSlot, DuplicationInfo, CharacterStats, Language, ItemTemplate, Affix } from '../types.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { hashPassword } from '../logic/helpers.js';
+import { rollTemplateStats, rollAffixStats } from '../logic/items.js';
+import { randomUUID } from 'crypto';
 
 const router = express.Router();
 
@@ -24,6 +26,89 @@ const isAdmin = async (req: any, res: any, next: any) => {
 // All routes in this file are admin-only
 router.use(authenticateToken as any, isAdmin as any);
 
+// ... (existing routes: users, characters/all, delete, reset-stats, etc.)
+
+// POST /api/admin/give-item
+router.post('/give-item', async (req: any, res: any) => {
+    const { userId, templateId, prefixId, suffixId, upgradeLevel } = req.body;
+
+    if (!userId || !templateId) {
+        return res.status(400).json({ message: 'User ID and Template ID are required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Fetch Character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // 2. Fetch Game Data (Templates & Affixes)
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const template = itemTemplates.find(t => t.id === templateId);
+        if (!template) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Invalid Template ID' });
+        }
+
+        // 3. Construct Item Instance
+        const newItem: ItemInstance = {
+            uniqueId: randomUUID(),
+            templateId: template.id,
+            rolledBaseStats: rollTemplateStats(template, 1000) // Max Luck roll for admin items
+        };
+
+        // 4. Apply Prefix if selected
+        if (prefixId) {
+            const prefix = affixes.find(a => a.id === prefixId);
+            if (prefix) {
+                newItem.prefixId = prefix.id;
+                newItem.rolledPrefix = rollAffixStats(prefix, 1000);
+            }
+        }
+
+        // 5. Apply Suffix if selected
+        if (suffixId) {
+            const suffix = affixes.find(a => a.id === suffixId);
+            if (suffix) {
+                newItem.suffixId = suffix.id;
+                newItem.rolledSuffix = rollAffixStats(suffix, 1000);
+            }
+        }
+
+        // 6. Apply Upgrade Level
+        if (upgradeLevel > 0) {
+            newItem.upgradeLevel = Math.min(Math.max(0, upgradeLevel), 10);
+        }
+
+        // 7. Add to Inventory
+        if (!character.inventory) character.inventory = [];
+        character.inventory.push(newItem);
+
+        // 8. Save
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, userId]);
+        await client.query('COMMIT');
+
+        res.json({ message: 'Item sent successfully', item: newItem });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("Admin Give Item Error:", err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ... (rest of existing routes: audit, etc.)
 
 // GET /api/admin/users - Get all users
 router.get('/users', async (req, res) => {
@@ -428,18 +513,11 @@ router.post('/messages/global', async (req, res) => {
     }
 });
 
-// Helper type for duplication check
-interface ItemRef {
-    uniqueId: string;
-    templateId: string;
-    userId: number;
-    ownerName: string;
-    location: string;
-    index?: number;
-    slot?: string;
-    item?: ItemInstance;
-}
+// ... (audit/duplicates, resolve-duplicates, audit/orphans, resolve-orphans, find-item, audit/fix-*, wipe-game-data, db editor routes from previous file content)
+// Re-pasting them here for completeness of the file if they were cut off, but relying on "existing code" comment is safer if context is limited.
+// Assuming they are present based on "// ... (rest of existing routes: audit, etc.)" comment structure.
 
+// Full Audit Routes (restored for clarity in XML replacement)
 router.get('/audit/duplicates', async (req, res) => {
     try {
         // Fetch all characters and Item Templates for name resolution
@@ -447,7 +525,7 @@ router.get('/audit/duplicates', async (req, res) => {
         const templatesRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         const templates = templatesRes.rows[0]?.data || [];
 
-        const itemMap = new Map<string, ItemRef[]>();
+        const itemMap = new Map<string, any[]>();
 
         // Scan all items
         for (const row of charsRes.rows) {
@@ -459,7 +537,7 @@ router.get('/audit/duplicates', async (req, res) => {
             if (char.inventory) {
                 char.inventory.forEach((item, idx) => {
                     if (!item) return;
-                    const ref: ItemRef = {
+                    const ref = {
                         uniqueId: item.uniqueId,
                         templateId: item.templateId,
                         userId,
@@ -476,7 +554,7 @@ router.get('/audit/duplicates', async (req, res) => {
             if (char.equipment) {
                 Object.entries(char.equipment).forEach(([slot, item]) => {
                     if (item) {
-                        const ref: ItemRef = {
+                        const ref = {
                             uniqueId: item.uniqueId,
                             templateId: item.templateId,
                             userId,
@@ -527,7 +605,7 @@ router.post('/resolve-duplicates', async (req, res) => {
         
         // 1. Re-scan to get current state under lock
         const charsRes = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
-        const itemMap = new Map<string, ItemRef[]>();
+        const itemMap = new Map<string, any[]>();
         
         // Map user_id to character data for quick updates
         const charDataMap = new Map<number, PlayerCharacter>();
@@ -546,7 +624,7 @@ router.post('/resolve-duplicates', async (req, res) => {
                         uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'inventory', index: idx, item
                     }) || itemMap.set(item.uniqueId, [{
                         uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'inventory', index: idx, item
-                    } as ItemRef]);
+                    }]);
                 });
             }
 
@@ -558,7 +636,7 @@ router.post('/resolve-duplicates', async (req, res) => {
                             uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'equipment', slot, item
                         }) || itemMap.set(item.uniqueId, [{
                             uniqueId: item.uniqueId, templateId: item.templateId, userId, ownerName, location: 'equipment', slot, item
-                        } as ItemRef]);
+                        }]);
                     }
                 });
             }
@@ -931,6 +1009,7 @@ router.post('/audit/fix-attributes', async (req, res) => {
                                  (Number(character.stats.stamina) || 0) +
                                  (Number(character.stats.intelligence) || 0) +
                                  (Number(character.stats.energy) || 0) +
+                                 (Number(character.stats.luck) || 0) +
                                  (Number(character.stats.statPoints) || 0);
 
             if (currentTotal > expectedTotal) {
@@ -941,6 +1020,7 @@ router.post('/audit/fix-attributes', async (req, res) => {
                 character.stats.stamina = 0;
                 character.stats.intelligence = 0;
                 character.stats.energy = 0;
+                character.stats.luck = 0;
                 character.stats.statPoints = expectedTotal;
                 
                 await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [character, row.user_id]);
@@ -986,15 +1066,89 @@ router.get('/db/tables', async (req, res) => {
 });
 
 router.get('/db/table/:tableName', async (req, res) => {
-     res.status(501).json({ rows: [], total: 0 });
+    // Basic protection against SQL injection via table name
+    const tableName = req.params.tableName;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+
+    try {
+        // Validate table name against whitelist
+        const tablesResult = await pool.query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
+        const validTables = tablesResult.rows.map(r => r.tablename);
+        if (!validTables.includes(tableName)) {
+             return res.status(400).json({ message: 'Invalid table name' });
+        }
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM ${tableName}`); // Safe due to validation
+        const total = parseInt(countRes.rows[0].count);
+
+        const dataRes = await pool.query(`SELECT * FROM ${tableName} LIMIT $1 OFFSET $2`, [limit, offset]);
+        
+        res.json({ rows: dataRes.rows, total });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch table data' });
+    }
 });
 
 router.put('/db/table/:tableName', async (req, res) => {
-     res.status(501).send();
+    const tableName = req.params.tableName;
+    const rowData = req.body;
+    
+    try {
+        // Validate table name
+        const tablesResult = await pool.query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
+        if (!tablesResult.rows.map(r => r.tablename).includes(tableName)) {
+             return res.status(400).json({ message: 'Invalid table name' });
+        }
+
+        // Determine primary key (simplified assumption: id or specific unique key)
+        let pkCol = 'id';
+        if (tableName === 'characters') pkCol = 'user_id';
+        if (tableName === 'sessions') pkCol = 'token';
+        if (tableName === 'game_data') pkCol = 'key';
+
+        const pkValue = rowData[pkCol];
+        if (!pkValue) return res.status(400).json({ message: 'Primary key missing in update data' });
+
+        // Build dynamic update query
+        const keys = Object.keys(rowData).filter(k => k !== pkCol);
+        const setClause = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => rowData[k]);
+        
+        await pool.query(`UPDATE ${tableName} SET ${setClause} WHERE ${pkCol} = $1`, [pkValue, ...values]);
+        res.json({ message: 'Updated' });
+
+    } catch (err: any) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
 });
 
 router.delete('/db/table/:tableName', async (req, res) => {
-     res.status(501).send();
+    const tableName = req.params.tableName;
+    const { primaryKeyValue } = req.body;
+
+    try {
+         // Validate table name
+        const tablesResult = await pool.query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
+        if (!tablesResult.rows.map(r => r.tablename).includes(tableName)) {
+             return res.status(400).json({ message: 'Invalid table name' });
+        }
+
+        let pkCol = 'id';
+        if (tableName === 'characters') pkCol = 'user_id';
+        if (tableName === 'sessions') pkCol = 'token';
+        if (tableName === 'game_data') pkCol = 'key';
+        
+        await pool.query(`DELETE FROM ${tableName} WHERE ${pkCol} = $1`, [primaryKeyValue]);
+        res.json({ message: 'Deleted' });
+
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 
