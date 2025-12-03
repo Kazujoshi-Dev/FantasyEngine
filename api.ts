@@ -1,5 +1,6 @@
 
 
+
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile, Language } from './types';
 
 // Variable to store the time difference between client and server
@@ -488,6 +489,12 @@ export const api = {
     async deleteMessage(messageId: number): Promise<void> {
         return fetchApi(`/messages/${messageId}`, {
             method: 'DELETE',
+        });
+    },
+    
+    async toggleMessageSaved(messageId: number): Promise<void> {
+        return fetchApi(`/messages/${messageId}/save`, {
+            method: 'PUT',
         });
     },
     

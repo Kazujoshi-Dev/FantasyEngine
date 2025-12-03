@@ -76,6 +76,53 @@ router.put('/:id', authenticateToken, async (req: any, res: any) => {
     }
 });
 
+// PUT to toggle saved state
+router.put('/:id/save', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const msgRes = await client.query(
+            "SELECT is_saved FROM messages WHERE id = $1 AND recipient_id = $2 FOR UPDATE",
+            [req.params.id, req.user!.id]
+        );
+
+        if (msgRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        const isSaved = msgRes.rows[0].is_saved;
+
+        // If attempting to save (currently false), check limit
+        if (!isSaved) {
+             const countRes = await client.query(
+                 "SELECT COUNT(*) FROM messages WHERE recipient_id = $1 AND is_saved = TRUE",
+                 [req.user!.id]
+             );
+             const savedCount = parseInt(countRes.rows[0].count);
+             if (savedCount >= 50) {
+                 await client.query('ROLLBACK');
+                 return res.status(400).json({ message: 'Max 50 saved messages limit reached.' });
+             }
+        }
+
+        await client.query(
+            "UPDATE messages SET is_saved = $1 WHERE id = $2",
+            [!isSaved, req.params.id]
+        );
+
+        await client.query('COMMIT');
+        res.sendStatus(204);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to toggle save state' });
+    } finally {
+        client.release();
+    }
+});
+
 // DELETE a message
 router.delete('/:id', authenticateToken, async (req: any, res: any) => {
     try {
@@ -130,15 +177,17 @@ router.post('/bulk-delete', authenticateToken, async (req: any, res: any) => {
     let query;
     const params = [userId];
 
+    // IMPORTANT: Do NOT delete saved messages in bulk actions unless explicitly requested (future feature).
+    // Safeguard applied to all bulk deletes.
     switch (type) {
         case 'read':
-            query = 'DELETE FROM messages WHERE recipient_id = $1 AND is_read = TRUE';
+            query = 'DELETE FROM messages WHERE recipient_id = $1 AND is_read = TRUE AND is_saved = FALSE';
             break;
         case 'all':
-            query = 'DELETE FROM messages WHERE recipient_id = $1';
+            query = 'DELETE FROM messages WHERE recipient_id = $1 AND is_saved = FALSE';
             break;
         case 'expedition_reports':
-            query = "DELETE FROM messages WHERE recipient_id = $1 AND message_type = 'expedition_report'";
+            query = "DELETE FROM messages WHERE recipient_id = $1 AND message_type = 'expedition_report' AND is_saved = FALSE";
             break;
         default:
             return res.status(400).json({ message: 'Invalid bulk delete type.' });

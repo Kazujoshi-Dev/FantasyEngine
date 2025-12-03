@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy, GuildInviteBody } from '../types';
@@ -242,6 +243,9 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
     const [currentPage, setCurrentPage] = useState(1);
     const [copyStatus, setCopyStatus] = useState('');
     
+    // State for tabs and filters
+    const [activeFolder, setActiveFolder] = useState<'inbox' | 'saved'>('inbox');
+    
     // State for compose modal
     const [isComposing, setIsComposing] = useState(false);
     const [allCharNames, setAllCharNames] = useState<string[]>([]);
@@ -263,8 +267,15 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
     useEffect(() => {
         fetchMessages();
     }, [fetchMessages]);
+    
+    const filteredMessages = useMemo(() => {
+        if (activeFolder === 'saved') {
+            return messages.filter(m => m.is_saved);
+        }
+        return messages.filter(m => !m.is_saved);
+    }, [messages, activeFolder]);
 
-    const totalPages = Math.ceil(messages.length / MESSAGES_PER_PAGE);
+    const totalPages = Math.ceil(filteredMessages.length / MESSAGES_PER_PAGE);
 
     // Adjust current page if it exceeds total pages (e.g., after deletion)
     useEffect(() => {
@@ -274,13 +285,13 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         if (totalPages === 0 && currentPage !== 1) {
             setCurrentPage(1);
         }
-    }, [messages.length, totalPages, currentPage]);
+    }, [filteredMessages.length, totalPages, currentPage]);
 
     const paginatedMessages = useMemo(() => {
         const startIndex = (currentPage - 1) * MESSAGES_PER_PAGE;
         const endIndex = startIndex + MESSAGES_PER_PAGE;
-        return messages.slice(startIndex, endIndex);
-    }, [messages, currentPage]);
+        return filteredMessages.slice(startIndex, endIndex);
+    }, [filteredMessages, currentPage]);
 
     const selectedMessage = useMemo(() => {
         if (selectedMessageId) {
@@ -290,14 +301,18 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
     }, [selectedMessageId, messages, paginatedMessages]);
 
     useEffect(() => {
-        if (!selectedMessageId && paginatedMessages.length > 0) {
-            const firstMsg = paginatedMessages[0];
-            handleMessageSelect(firstMsg.id, firstMsg.is_read);
-        } else if (messages.length === 0) {
-            setSelectedMessageId(null);
+        // Reset selected message when switching tabs to avoid showing message from other tab unless it's the same ID (unlikely to be first)
+        // Actually, we want to select the first message of the new list if possible
+        if (paginatedMessages.length > 0) {
+             if (!selectedMessageId || !paginatedMessages.some(m => m.id === selectedMessageId)) {
+                 const firstMsg = paginatedMessages[0];
+                 handleMessageSelect(firstMsg.id, firstMsg.is_read);
+             }
+        } else {
+             setSelectedMessageId(null);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paginatedMessages, selectedMessageId, messages.length]);
+    }, [activeFolder, paginatedMessages]); // Depend on activeFolder change
 
     const handleMessageSelect = (id: number, isRead: boolean) => {
         setSelectedMessageId(id);
@@ -318,8 +333,9 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         const oldMessages = [...messages];
         setMessages(prev => prev.filter(m => m.id !== id)); // Optimistic delete
         if (selectedMessageId === id) {
-            const currentIndex = oldMessages.findIndex(m => m.id === id);
-            const nextMessage = oldMessages[currentIndex + 1] || oldMessages[currentIndex - 1] || null;
+            // Try to find adjacent in CURRENT filtered list
+            const currentIndex = filteredMessages.findIndex(m => m.id === id);
+            const nextMessage = filteredMessages[currentIndex + 1] || filteredMessages[currentIndex - 1] || null;
             setSelectedMessageId(nextMessage ? nextMessage.id : null);
         }
         try {
@@ -327,6 +343,23 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         } catch (err) {
             setMessages(oldMessages); // Revert on error
             alert((err as Error).message);
+        }
+    };
+    
+    const handleToggleSave = async (id: number) => {
+        const msg = messages.find(m => m.id === id);
+        if (!msg) return;
+        
+        // Optimistic update
+        const originalSavedState = msg.is_saved;
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, is_saved: !originalSavedState } : m));
+        
+        try {
+            await api.toggleMessageSaved(id);
+        } catch (err: any) {
+             // Revert
+             setMessages(prev => prev.map(m => m.id === id ? { ...m, is_saved: originalSavedState } : m));
+             alert(err.message);
         }
     };
     
@@ -430,6 +463,8 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         } : undefined
     );
     const bossNameForModal = selectedBoss?.name || initialEnemyForModal?.name;
+    
+    const savedCount = messages.filter(m => m.is_saved).length;
 
     return (
         <ContentPanel title={t('messages.title')}>
@@ -481,38 +516,66 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[75vh]">
                 <div className="md:col-span-1 bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-indigo-400">{t('messages.inbox')}</h3>
-                        <button onClick={() => handleOpenCompose()} className="px-3 py-1.5 text-sm rounded bg-indigo-600 hover:bg-indigo-700 font-semibold">
+                         <button onClick={() => handleOpenCompose()} className="w-full px-3 py-2 text-sm rounded bg-indigo-600 hover:bg-indigo-700 font-semibold flex items-center justify-center gap-2 shadow-md">
+                            <MailIcon className="h-4 w-4" />
                             {t('messages.compose.title')}
                         </button>
                     </div>
-                    <div className="pb-3 mb-3 border-b border-slate-700/50">
-                        <details className="text-sm">
-                            <summary className="cursor-pointer text-gray-400 hover:text-white">{t('messages.bulkDelete.title') || 'Bulk Actions'}</summary>
-                            <div className="flex flex-col gap-2 mt-2">
-                                <button onClick={() => handleBulkDelete('read')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteRead')}</button>
-                                <button onClick={() => handleBulkDelete('expedition_reports')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteReports')}</button>
-                                <button onClick={() => handleBulkDelete('all')} className="w-full text-left px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800 text-red-300">{t('messages.bulkDelete.deleteAll')}</button>
-                            </div>
-                        </details>
+                    
+                    {/* Tabs */}
+                    <div className="flex mb-2 border-b border-slate-700">
+                        <button 
+                            onClick={() => { setActiveFolder('inbox'); setCurrentPage(1); }}
+                            className={`flex-1 py-2 text-sm font-medium transition-colors ${activeFolder === 'inbox' ? 'text-white border-b-2 border-indigo-500' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            {t('messages.inbox')}
+                        </button>
+                        <button 
+                            onClick={() => { setActiveFolder('saved'); setCurrentPage(1); }}
+                            className={`flex-1 py-2 text-sm font-medium transition-colors ${activeFolder === 'saved' ? 'text-white border-b-2 border-indigo-500' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            {t('messages.saved')} ({savedCount}/50)
+                        </button>
                     </div>
                     
+                    {activeFolder === 'inbox' && (
+                        <div className="pb-3 mb-3 border-b border-slate-700/50">
+                            <details className="text-sm">
+                                <summary className="cursor-pointer text-gray-400 hover:text-white">{t('messages.bulkDelete.title') || 'Bulk Actions'}</summary>
+                                <div className="flex flex-col gap-2 mt-2">
+                                    <button onClick={() => handleBulkDelete('read')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteRead')}</button>
+                                    <button onClick={() => handleBulkDelete('expedition_reports')} className="w-full text-left px-3 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700">{t('messages.bulkDelete.deleteReports')}</button>
+                                    <button onClick={() => handleBulkDelete('all')} className="w-full text-left px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800 text-red-300">{t('messages.bulkDelete.deleteAll')}</button>
+                                </div>
+                            </details>
+                        </div>
+                    )}
+                    
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                        {isLoading && <p className="text-gray-500">{t('loading')}</p>}
+                        {isLoading && <p className="text-gray-500 text-center mt-4">{t('loading')}</p>}
                         {!isLoading && paginatedMessages.map(msg => (
                             <div key={msg.id} onClick={() => handleMessageSelect(msg.id, msg.is_read)}
-                                className={`p-3 rounded-lg cursor-pointer border-l-4 ${selectedMessage?.id === msg.id ? 'bg-slate-700/50 border-indigo-500' : 'bg-slate-800/50 border-transparent hover:bg-slate-700/30'}`}>
+                                className={`p-3 rounded-lg cursor-pointer border-l-4 relative group ${selectedMessage?.id === msg.id ? 'bg-slate-700/50 border-indigo-500' : 'bg-slate-800/50 border-transparent hover:bg-slate-700/30'}`}>
                                 <div className="flex justify-between items-start">
-                                    <p className={`font-semibold truncate ${!msg.is_read ? 'text-white' : 'text-gray-300'}`}>{msg.subject}</p>
-                                    {!msg.is_read && <span className="h-2.5 w-2.5 bg-sky-400 rounded-full flex-shrink-0 mt-1.5 ml-2"></span>}
+                                    <p className={`font-semibold truncate pr-6 ${!msg.is_read ? 'text-white' : 'text-gray-300'}`}>{msg.subject}</p>
+                                    {!msg.is_read && <span className="h-2.5 w-2.5 bg-sky-400 rounded-full flex-shrink-0 mt-1.5"></span>}
                                 </div>
                                 <p className="text-sm text-gray-400">
                                     {t('messages.from')}: {msg.sender_name || t('messages.system')}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-1">{new Date(msg.created_at).toLocaleString()}</p>
+                                <div className="flex justify-between items-center mt-1">
+                                    <p className="text-xs text-gray-500">{new Date(msg.created_at).toLocaleDateString()}</p>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleToggleSave(msg.id); }}
+                                        className={`p-1 rounded hover:bg-slate-600 transition-colors ${msg.is_saved ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-200'}`}
+                                        title={msg.is_saved ? t('messages.unsave') : t('messages.save')}
+                                    >
+                                        <StarIcon className="h-4 w-4 fill-current" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
-                        {!isLoading && messages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
+                        {!isLoading && filteredMessages.length === 0 && <p className="text-gray-500 text-center py-8">{t('messages.noMessages')}</p>}
                     </div>
                     
                     {totalPages > 1 && (
@@ -539,25 +602,36 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                 <div className="md:col-span-2 bg-slate-900/40 p-6 rounded-xl overflow-y-auto">
                     {selectedMessage ? (
                         <div>
-                            <h2 className="text-2xl font-bold text-white mb-2">{selectedMessage.subject}</h2>
-                            <div className="flex justify-between items-center text-sm text-gray-400 mb-4 pb-4 border-b border-slate-700/50">
+                            <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-700/50">
                                 <div>
-                                    <p>{t('messages.from')}: <span className="font-semibold text-gray-300">{selectedMessage.sender_name || t('messages.system')}</span></p>
-                                    <p>{new Date(selectedMessage.created_at).toLocaleString()}</p>
+                                    <h2 className="text-2xl font-bold text-white mb-1">{selectedMessage.subject}</h2>
+                                    <div className="text-sm text-gray-400">
+                                        <p>{t('messages.from')}: <span className="font-semibold text-gray-300">{selectedMessage.sender_name || t('messages.system')}</span></p>
+                                        <p>{new Date(selectedMessage.created_at).toLocaleString()}</p>
+                                    </div>
                                 </div>
                                 <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleToggleSave(selectedMessage.id)} 
+                                        className={`px-3 py-1.5 text-xs rounded font-bold flex items-center gap-1 border ${selectedMessage.is_saved ? 'bg-yellow-900/30 border-yellow-600 text-yellow-400' : 'bg-slate-700 border-slate-600 text-gray-300 hover:bg-slate-600'}`}
+                                    >
+                                        <StarIcon className={`h-3 w-3 ${selectedMessage.is_saved ? 'fill-current' : ''}`} />
+                                        {selectedMessage.is_saved ? t('messages.saved') : t('messages.save')}
+                                    </button>
                                     {selectedMessage.message_type === 'player_message' && selectedMessage.sender_id && (
-                                        <button onClick={() => handleReply(selectedMessage)} className="px-3 py-1 text-xs rounded bg-slate-600 hover:bg-slate-500">{t('messages.reply')}</button>
+                                        <button onClick={() => handleReply(selectedMessage)} className="px-3 py-1.5 text-xs rounded bg-slate-600 hover:bg-slate-500 font-bold">{t('messages.reply')}</button>
                                     )}
-                                    <button onClick={() => handleDelete(selectedMessage.id)} className="px-3 py-1 text-xs rounded bg-red-800 hover:bg-red-700">{t('messages.delete')}</button>
+                                    <button onClick={() => handleDelete(selectedMessage.id)} className="px-3 py-1.5 text-xs rounded bg-red-800 hover:bg-red-700 font-bold">{t('messages.delete')}</button>
                                 </div>
                             </div>
-                            {renderMessageBody(selectedMessage)}
+                            <div className="prose prose-invert max-w-none text-gray-300">
+                                {renderMessageBody(selectedMessage)}
+                            </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                            <MailIcon className="h-12 w-12 mb-4" />
-                            <p>{isLoading ? t('loading') : t('messages.noMessages')}</p>
+                            <MailIcon className="h-16 w-16 mb-4 opacity-50" />
+                            <p className="text-lg font-medium">{isLoading ? t('loading') : t('messages.noMessages')}</p>
                         </div>
                     )}
                 </div>

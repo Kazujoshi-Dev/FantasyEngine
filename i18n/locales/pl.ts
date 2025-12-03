@@ -1,5 +1,7 @@
 
 
+
+
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -481,8 +483,11 @@ export default {
     messages: {
         title: 'Wiadomości',
         inbox: 'Skrzynka Odbiorcza',
+        saved: 'Zapisane',
         noMessages: 'Nie masz żadnych wiadomości.',
         delete: 'Usuń',
+        save: 'Zapisz',
+        unsave: 'Usuń z zapisanych',
         view: 'Zobacz',
         reply: 'Odpowiedz',
         viewReport: 'Zobacz Raport',
@@ -523,9 +528,9 @@ export default {
             deleteRead: 'Usuń przeczytane',
             deleteAll: 'Usuń wszystkie',
             deleteReports: 'Usuń raporty z wypraw',
-            confirmRead: 'Czy na pewno chcesz usunąć wszystkie przeczytane wiadomości?',
-            confirmAll: 'Czy na pewno chcesz usunąć WSZYSTKIE wiadomości? Ta akcja jest nieodwracalna.',
-            confirmReports: 'Czy na pewno chcesz usunąć wszystkie raporty z wypraw?',
+            confirmRead: 'Czy na pewno chcesz usunąć wszystkie przeczytane wiadomości (z pominięciem zapisanych)?',
+            confirmAll: 'Czy na pewno chcesz usunąć WSZYSTKIE wiadomości (z pominięciem zapisanych)? Ta akcja jest nieodwracalna.',
+            confirmReports: 'Czy na pewno chcesz usunąć wszystkie raporty z wypraw (z pominięciem zapisanych)?',
         },
     },
     trader: {

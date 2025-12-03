@@ -1,13 +1,3 @@
-
-
-
-
-
-
-
-
-
-
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -143,6 +133,13 @@ export const initializeDatabase = async () => {
             console.log("MIGRATING SCHEMA: Adding 'message_type' column to 'messages' table...");
             await client.query("ALTER TABLE messages ADD COLUMN message_type VARCHAR(50) NOT NULL DEFAULT 'pvp_report';");
             await client.query("UPDATE messages SET message_type = 'pvp_report';");
+        }
+
+        // --- Add is_saved column to messages ---
+        const msgIsSavedCol = await client.query(`SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_saved';`);
+        if (!msgIsSavedCol.rowCount) {
+            console.log("MIGRATING SCHEMA: Adding 'is_saved' column to 'messages' table...");
+            await client.query("ALTER TABLE messages ADD COLUMN is_saved BOOLEAN DEFAULT FALSE;");
         }
 
         await client.query(`

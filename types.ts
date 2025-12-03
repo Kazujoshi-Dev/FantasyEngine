@@ -2,6 +2,7 @@
 
 
 
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -830,6 +831,7 @@ export interface Message {
     subject: string;
     body: MessageBody;
     is_read: boolean;
+    is_saved: boolean;
     created_at: string;
 }
 
