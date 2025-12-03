@@ -1,4 +1,6 @@
 
+
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -67,12 +69,13 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         let needsDbUpdate = false;
 
         // Fetch necessary GameData to calculate Max Health/Energy correctly (including item bonuses)
-        const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const gameDataRes = await pool.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
 
         // Calculate true max stats based on current equipment, attributes AND guild bonus
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
         const trueMaxEnergy = derivedChar.stats.maxEnergy;
         const trueMaxHealth = derivedChar.stats.maxHealth;
 
@@ -285,10 +288,11 @@ router.post('/character/cancel-expedition', authenticateToken, async (req: any, 
             character.stats.currentEnergy += expedition.energyCost;
 
             // Cap energy at max energy
-            const gameDataForStatsRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+            const gameDataForStatsRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
             const itemTemplates = gameDataForStatsRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
             const affixes = gameDataForStatsRes.rows.find(r => r.key === 'affixes')?.data || [];
-            const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+            const skills = gameDataForStatsRes.rows.find(r => r.key === 'skills')?.data || [];
+            const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, 0, 0, skills);
             character.stats.currentEnergy = Math.min(character.stats.currentEnergy, derivedChar.stats.maxEnergy);
 
             // Nullify expedition
@@ -589,9 +593,10 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
         const character: PlayerCharacter = charRes.rows[0].data;
         
         // Fetch Metadata
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
         
         // Find Item
         const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
@@ -614,7 +619,7 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
         }
         
         // Calculate stats to verify requirements
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, 0, 0, skills);
         for (const stat in (template.requiredStats || {})) {
              // @ts-ignore
              if ((derivedChar.stats[stat] || 0) < template.requiredStats[stat]) {
@@ -782,7 +787,7 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             return res.status(404).json({ message: 'Skill not found.' });
         }
 
-        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
+        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
         const derivedStats = characterWithDerivedStats.stats;
 
         for (const key of Object.keys(skill.requirements) as (keyof SkillRequirements)[]) {
@@ -812,6 +817,84 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
         await client.query('ROLLBACK');
         console.error('Error learning skill:', err);
         res.status(500).json({ message: 'Failed to learn skill.' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/toggle-skill', authenticateToken, async (req: any, res: any) => {
+    const { skillId, isActive } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+        
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+
+        let character: PlayerCharacter = charRes.rows[0].data;
+        
+        // Initialize if missing
+        if (!character.activeSkills) character.activeSkills = [];
+
+        // Check if learned
+        if (!character.learnedSkills?.includes(skillId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Skill not learned.' });
+        }
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('skills', 'itemTemplates', 'affixes')");
+        const skills: Skill[] = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        
+        const skill = skills.find(s => s.id === skillId);
+        if (!skill) {
+             await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Skill definition not found.' });
+        }
+
+        if (isActive) {
+            // Check if activating
+            if (!character.activeSkills.includes(skillId)) {
+                // Validate mana requirement
+                if (skill.manaMaintenanceCost && skill.manaMaintenanceCost > 0) {
+                    // Calculate current max mana WITHOUT this new skill active yet
+                    const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
+                    const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
+                    const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
+                    
+                    if (derivedChar.stats.maxMana < skill.manaMaintenanceCost) {
+                        await client.query('ROLLBACK');
+                         return res.status(400).json({ message: 'Zbyt mało many, aby utrzymać tę umiejętność.' });
+                    }
+                }
+                character.activeSkills.push(skillId);
+            }
+        } else {
+            // Deactivating
+            character.activeSkills = character.activeSkills.filter(id => id !== skillId);
+        }
+
+        // Save
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('Error toggling skill:', err);
+        res.status(500).json({ message: err.message });
     } finally {
         client.release();
     }
@@ -960,11 +1043,12 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
         const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
         const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
 
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
 
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
         character.stats.currentHealth = derivedChar.stats.maxHealth;
         character.stats.currentMana = derivedChar.stats.maxMana;
 

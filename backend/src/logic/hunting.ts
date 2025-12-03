@@ -1,5 +1,6 @@
 
 
+
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -65,7 +66,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             const barracksLevel = res.rows[0].buildings?.barracks || 0;
             
             // Pass barracks level to calculation
-            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || [], barracksLevel);
+            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || [], barracksLevel, 0, gameData.skills || []);
             playerCombatants.push(combatChar);
         }
     }

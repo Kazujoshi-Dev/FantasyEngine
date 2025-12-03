@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -28,7 +27,7 @@ import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTem
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
-const MainApp: React.FC = () => {
+export const App: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
@@ -428,6 +427,7 @@ const MainApp: React.FC = () => {
          // FIX: Default to empty arrays to prevent crash if DB is empty/corrupted
          const itemTemplates = data.itemTemplates || [];
          const affixes = data.affixes || [];
+         const skills = data.skills || [];
 
         const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
             if (value === undefined || value === null) return 0;
@@ -490,14 +490,8 @@ const MainApp: React.FC = () => {
             const itemInstance = char.equipment[slot as EquipmentSlot];
             if (itemInstance && typeof itemInstance === 'object') {
                 const template = itemTemplates.find(t => t.id === itemInstance.templateId);
-
-                // Definitive guard clause: if an item instance exists but its template doesn't,
-                // skip it entirely to prevent crashes from corrupted data.
-                if (!template) {
-                    console.warn(`Could not find template for item ${itemInstance.uniqueId} (templateId: ${itemInstance.templateId}). Skipping for stat calculation.`);
-                    continue;
-                }
-
+                if (!template) continue;
+    
                 const upgradeLevel = itemInstance.upgradeLevel || 0;
                 const upgradeBonusFactor = upgradeLevel * 0.1;
     
@@ -525,12 +519,13 @@ const MainApp: React.FC = () => {
                     bonusArmorPenetrationFlat += applyUpgrade(baseStats.armorPenetrationFlat);
                     bonusLifeStealFlat += applyUpgrade(baseStats.lifeStealFlat);
                     bonusManaStealFlat += applyUpgrade(baseStats.manaStealFlat);
-
+    
                     bonusArmorPenetrationPercent += Number(baseStats.armorPenetrationPercent) || 0;
                     bonusLifeStealPercent += Number(baseStats.lifeStealPercent) || 0;
                     bonusManaStealPercent += Number(baseStats.manaStealPercent) || 0;
     
                 } else if (template) {
+                     // Fallback
                      if (template.statsBonus) {
                         for (const stat in template.statsBonus) {
                             const key = stat as keyof typeof template.statsBonus;
@@ -539,33 +534,23 @@ const MainApp: React.FC = () => {
                             (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                         }
                     }
-    
-                    const baseDamageMin = getMaxValue(template.damageMin as any);
-                    const baseDamageMax = getMaxValue(template.damageMax as any);
-                    const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);
-                    const baseMagicDamageMax = getMaxValue(template.magicDamageMax as any);
-                    const baseArmor = getMaxValue(template.armorBonus as any);
-                    const baseCritChance = getMaxValue(template.critChanceBonus as any);
-                    const baseMaxHealth = getMaxValue(template.maxHealthBonus as any);
-                    
-                    bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
-                    bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
-                    bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
-                    bonusMagicDamageMax += baseMagicDamageMax + Math.round(baseMagicDamageMax * upgradeBonusFactor);
-                    bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
-                    bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
-                    bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
-                    
                     const getBaseAndUpgrade = (prop: any) => {
                         const base = getMaxValue(prop);
                         return base + Math.round(base * upgradeBonusFactor);
                     }
-
+                    bonusDamageMin += getBaseAndUpgrade(template.damageMin);
+                    bonusDamageMax += getBaseAndUpgrade(template.damageMax);
+                    bonusMagicDamageMin += getBaseAndUpgrade(template.magicDamageMin);
+                    bonusMagicDamageMax += getBaseAndUpgrade(template.magicDamageMax);
+                    bonusArmor += getBaseAndUpgrade(template.armorBonus);
+                    bonusMaxHealth += getBaseAndUpgrade(template.maxHealthBonus);
+                    bonusCritChance += getMaxValue(template.critChanceBonus as any) + (getMaxValue(template.critChanceBonus as any) * upgradeBonusFactor);
+                    
                     bonusCritDamageModifier += getBaseAndUpgrade(template.critDamageModifierBonus);
                     bonusArmorPenetrationFlat += getBaseAndUpgrade(template.armorPenetrationFlat);
                     bonusLifeStealFlat += getBaseAndUpgrade(template.lifeStealFlat);
                     bonusManaStealFlat += getBaseAndUpgrade(template.manaStealFlat);
-
+                    
                     bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
                     bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
                     bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
@@ -579,39 +564,43 @@ const MainApp: React.FC = () => {
         const mainHandItem = char.equipment[EquipmentSlot.MainHand] || char.equipment[EquipmentSlot.TwoHand];
         const mainHandTemplate = mainHandItem ? itemTemplates.find(t => t.id === mainHandItem.templateId) : null;
         
-        // Force numeric type to prevent string concatenation which causes .toFixed() error on strings
         const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
-        
-        const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound).toFixed(2));
+        const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound;
+        const attacksPerRound = !isNaN(calculatedAPR) ? parseFloat(calculatedAPR.toFixed(2)) : 1;
     
         const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
     
-        const maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+        let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+        if (isNaN(maxHealth) || maxHealth < 1) maxHealth = 50;
+    
         const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
-        const maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+        let maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+
+        // Apply Mana Maintenance Costs from Active Skills (Client Side Calc)
+        if (char.activeSkills && char.activeSkills.length > 0) {
+            char.activeSkills.forEach(skillId => {
+                const skill = skills.find(s => s.id === skillId);
+                if (skill && skill.manaMaintenanceCost) {
+                    maxMana -= skill.manaMaintenanceCost;
+                }
+            });
+        }
+        maxMana = Math.max(0, maxMana);
         
         let minDamage, maxDamage;
         if (mainHandTemplate?.isMagical) {
             minDamage = baseMinDamage + bonusDamageMin;
             maxDamage = baseMaxDamage + bonusDamageMax;
         } else if (mainHandTemplate?.isRanged) {
-            // Ranged weapons scale with Agility
             minDamage = baseMinDamage + (totalPrimaryStats.agility * 1) + bonusDamageMin;
             maxDamage = baseMaxDamage + (totalPrimaryStats.agility * 2) + bonusDamageMax;
         } else {
-            // Melee weapons scale with Strength
             minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
             maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
         }
         
         const critChance = totalPrimaryStats.accuracy * 0.5 + bonusCritChance;
         const critDamageModifier = 200 + bonusCritDamageModifier;
-        const armorPenetrationPercent = bonusArmorPenetrationPercent;
-        const armorPenetrationFlat = bonusArmorPenetrationFlat;
-        const lifeStealPercent = bonusLifeStealPercent;
-        const lifeStealFlat = bonusLifeStealFlat;
-        const manaStealPercent = bonusManaStealPercent;
-        const manaStealFlat = bonusManaStealFlat;
         let dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
     
         let armor = bonusArmor;
@@ -625,456 +614,482 @@ const MainApp: React.FC = () => {
         const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
         const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
 
-        // Apply Guild Barracks Bonus (5% per level) to Physical and Magic Damage
-        const barracksLevel = char.guildBarracksLevel || 0;
-        let finalMinDamage = minDamage;
-        let finalMaxDamage = maxDamage;
+        // Client-side Guild Barracks Bonus
+        const guildBarracksLevel = char.guildBarracksLevel || 0;
         let finalMagicDamageMin = magicDamageMin;
         let finalMagicDamageMax = magicDamageMax;
 
-        if (barracksLevel > 0) {
-            const damageMultiplier = 1 + (barracksLevel * 0.05);
-            finalMinDamage = Math.floor(minDamage * damageMultiplier);
-            finalMaxDamage = Math.floor(maxDamage * damageMultiplier);
+        if (guildBarracksLevel > 0) {
+            const damageMultiplier = 1 + (guildBarracksLevel * 0.05);
+            minDamage = Math.floor(minDamage * damageMultiplier);
+            maxDamage = Math.floor(maxDamage * damageMultiplier);
+            
             finalMagicDamageMin = Math.floor(magicDamageMin * damageMultiplier);
             finalMagicDamageMax = Math.floor(magicDamageMax * damageMultiplier);
         }
+        
+        const valOrMax = (val: any, max: number) => {
+            const num = Number(val);
+            if (val === undefined || val === null || isNaN(num)) return max;
+            return num;
+        }
     
-        const currentHealth = Math.min(char.stats.currentHealth, maxHealth);
-        const currentMana = Math.min(char.stats.currentMana, maxMana);
-        const currentEnergy = Math.min(char.stats.currentEnergy, maxEnergy);
+        const currentHealth = Math.min(valOrMax(char.stats.currentHealth, maxHealth), maxHealth);
+        const currentMana = Math.min(valOrMax(char.stats.currentMana, maxMana), maxMana);
+        const currentEnergy = Math.min(valOrMax(char.stats.currentEnergy, maxEnergy), maxEnergy);
     
         return {
             ...char,
             stats: {
                 ...char.stats, ...totalPrimaryStats,
                 maxHealth, maxEnergy, maxMana, 
-                minDamage: finalMinDamage, 
-                maxDamage: finalMaxDamage, 
+                minDamage, maxDamage, 
                 critChance, armor,
                 magicDamageMin: finalMagicDamageMin, 
                 magicDamageMax: finalMagicDamageMax, 
                 attacksPerRound, manaRegen,
                 currentHealth, currentMana, currentEnergy,
-                critDamageModifier, armorPenetrationPercent, armorPenetrationFlat,
-                lifeStealPercent, lifeStealFlat, manaStealPercent, manaStealFlat,
-                dodgeChance,
+                critDamageModifier,
+                armorPenetrationPercent: bonusArmorPenetrationPercent,
+                armorPenetrationFlat: bonusArmorPenetrationFlat,
+                lifeStealPercent: bonusLifeStealPercent,
+                lifeStealFlat: bonusLifeStealFlat,
+                manaStealPercent: bonusManaStealPercent,
+                manaStealFlat: bonusManaStealFlat,
+                dodgeChance
             }
         };
     };
 
-    const derivedCharacter = useMemo(() => character ? calculateDerivedStats(character, gameData) : null, [character, gameData]);
-
-    // New handlers to trigger re-fetch after actions
-    const handleEquipItem = async (item: ItemInstance) => {
-        // Logic handled in Equipment.tsx calling api.equipItem which returns new char.
-        // Here we just re-fetch to be safe and sync state.
-        fetchCharacter();
+    const handleCharacterCreate = async (newCharData: { name: string, race: Race }) => {
+        try {
+            // Create via API
+            const startLocationId = gameData?.locations.find(l => l.isStartLocation)?.id || gameData?.locations[0]?.id || 'start';
+            const createdChar = await api.createCharacter(newCharData.name, newCharData.race, startLocationId);
+            setCharacter(createdChar);
+        } catch (err: any) {
+            console.error(err);
+            alert(err.message || t('error.title'));
+        }
     };
-
-    const handleUnequipItem = async (item: ItemInstance, slot: EquipmentSlot) => {
-         // Logic handled in Equipment.tsx calling api.unequipItem which returns new char.
-        fetchCharacter();
-    };
-
-
-    // --- Render Logic ---
-
-    // 1. Not Logged In
-    if (!token) {
-        return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
-            <Auth onLoginSuccess={handleLoginSuccess} />
-        </LanguageContext.Provider>;
-    }
-
-    // 2. Initial Loading OR Error during Initial Load
-    if (isInitialLoading) {
-         return (
-             <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
-                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-                 <p>{loadingMessage || t('loading')}</p>
-                 <p className="text-xs text-gray-500">Czas: {loadingTime}s</p>
-                 {showForceLogout && (
-                     <div className="mt-6 flex flex-col items-center gap-2 animate-fade-in">
-                         <p className="text-sm text-gray-400">Ładowanie trwa zbyt długo?</p>
-                         <button 
-                            onClick={handleForceLogout} 
-                            className="px-6 py-2 bg-red-700 rounded-lg hover:bg-red-600 font-semibold text-white shadow-lg transition-colors"
-                         >
-                            Wyloguj się (Napraw błąd)
-                         </button>
-                         <p className="text-xs text-gray-500 mt-1">Kliknij, jeśli Twój "bilet" wygasł lub gra się zacięła.</p>
-                     </div>
-                 )}
-             </div>
-         );
-    }
     
-    // 2b. Error State (Loading finished, but has error)
-    if (loadingError) {
+    const handleSelectClass = async (characterClass: CharacterClass) => {
+        try {
+            const updatedChar = await api.selectClass(characterClass);
+            setCharacter(updatedChar);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+    
+    const handleLearnSkill = async (skillId: string) => {
+        try {
+            const updatedChar = await api.learnSkill(skillId);
+            setCharacter(updatedChar);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleAcceptQuest = async (questId: string) => {
+        try {
+            const updatedChar = await api.acceptQuest(questId);
+            setCharacter(updatedChar);
+        } catch (err: any) {
+            alert(err.message);
+        }
+    };
+
+    const handleCompleteQuest = async (questId: string) => {
+        try {
+            const updatedChar = await api.completeQuest(questId);
+            setCharacter(updatedChar);
+        } catch (err: any) {
+            alert(err.message);
+        }
+    };
+
+    const handleAttack = async (defenderId: number) => {
+        setIsRankingLoading(true);
+        try {
+            const result = await api.attackPlayer(defenderId);
+            setPvpReport(result.summary);
+            setCharacter(result.updatedAttacker);
+            // Refresh ranking to show updated wins/losses
+            fetchRanking();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setIsRankingLoading(false);
+        }
+    };
+
+    const handleResetAllPvpCooldowns = async () => {
+        try {
+            await api.resetAllPvpCooldowns();
+            alert('Cooldowny zresetowane.');
+            fetchRanking();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleSendGlobalMessage = async (data: { subject: string; content: string }) => {
+        await api.sendGlobalMessage(data);
+    };
+    
+    const handleComposeMessage = (recipientName: string) => {
+        setActiveTab(Tab.Messages);
+        setPendingComposeRecipient(recipientName);
+    };
+
+    const handleClearInitialRecipient = () => {
+        setPendingComposeRecipient(null);
+    };
+    
+    const onOpenNews = () => {
+        setIsNewsOpen(true);
+        if (hasNewNews) {
+            setHasNewNews(false);
+            if (character) {
+                api.updateCharacter({ lastReadNewsTimestamp: Date.now() });
+            }
+        }
+    };
+
+    // Check URL for report ID (Public View)
+    if (window.location.pathname.startsWith('/report/')) {
+        const reportId = window.location.pathname.split('/')[2];
+        return <PublicReportViewer reportId={reportId} />;
+    }
+
+    if (isInitialLoading) {
         return (
-             <div className="flex flex-col items-center justify-center h-screen text-white gap-4 bg-gray-900">
-                 <div className="text-center">
-                     <p className="text-red-400 mb-4 text-lg font-bold">{t('error.title')}: {loadingError}</p>
-                     <div className="flex gap-4 justify-center">
-                        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 rounded hover:bg-indigo-700 font-semibold">
-                            {t('error.refresh')}
-                        </button>
-                        <button onClick={handleForceLogout} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 font-semibold">
-                            {t('error.logout')}
-                        </button>
-                     </div>
-                 </div>
-             </div>
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white space-y-4">
+                <div className="text-xl font-semibold animate-pulse">{loadingMessage || t('loading')}</div>
+                {showForceLogout && (
+                    <button
+                        onClick={handleForceLogout}
+                        className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-sm font-bold transition-colors"
+                    >
+                        {t('error.logout')} (Wymuś reset)
+                    </button>
+                )}
+            </div>
         );
     }
-
-    // 3. Missing Critical Data (GameData)
-    if (!gameData) {
+    
+    if (loadingError) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen text-white text-center bg-gray-900">
-                <p className="text-lg font-bold mb-2">{t('error.title')}</p>
-                <p className="text-sm text-gray-400 mb-4">Nie udało się załadować danych gry.</p>
-                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">
-                     {t('error.refresh')}
-                </button>
+             <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white space-y-4 p-6 text-center">
+                <h2 className="text-2xl font-bold text-red-500">{t('error.title')}</h2>
+                <p className="text-gray-300">{loadingError}</p>
+                <div className="flex gap-4 mt-4">
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold"
+                    >
+                        {t('error.refresh')}
+                    </button>
+                    <button
+                        onClick={handleForceLogout}
+                        className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg font-bold"
+                    >
+                         {t('error.logout')}
+                    </button>
+                </div>
             </div>
         );
     }
 
-    // 4. New User (Character creation)
-    // If token exists, initial loading is done, but character is null => New User
+    if (!token) {
+        return <Auth onLoginSuccess={handleLoginSuccess} />;
+    }
+
     if (!character) {
-        return <LanguageContext.Provider value={{ lang: Language.PL, t: getT(Language.PL) }}>
-            <CharacterCreation onCharacterCreate={async (data) => {
-                const newChar = await api.createCharacter(data.name, data.race, gameData.locations.find(l => l.isStartLocation)?.id || '');
-                setCharacter(newChar);
-            }} />
-        </LanguageContext.Provider>;
+        return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
+    }
+    
+    if (!gameData) {
+        // Should be caught by loading state, but just in case
+        return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Błąd danych gry.</div>;
     }
 
-    // 5. Calculation Fallback (Should technically not happen if character exists, but safe to keep)
-    if (!derivedCharacter) {
-        return <div className="flex items-center justify-center h-screen text-white bg-gray-900">{t('loading')}... (Obliczanie statystyk)</div>;
-    }
-
-    const currentLocation = gameData.locations.find(l => l.id === character.currentLocationId);
-
-    const renderContent = () => {
-        switch (activeTab) {
-            case Tab.Statistics:
-                return <Statistics 
-                    character={derivedCharacter} 
-                    baseCharacter={character} 
-                    onCharacterUpdate={handleCharacterUpdate} 
-                    calculateDerivedStats={calculateDerivedStats}
-                    gameData={gameData}
-                    onResetAttributes={handleResetAttributes}
-                    onSelectClass={async (cls) => {
-                        const updated = await api.selectClass(cls);
-                        setCharacter(updated);
-                    }}
-                />;
-            case Tab.Equipment:
-                return <Equipment 
-                    character={derivedCharacter} 
-                    baseCharacter={character} 
-                    gameData={gameData} 
-                    onEquipItem={handleEquipItem}
-                    onUnequipItem={handleUnequipItem}
-                />;
-            case Tab.Expedition:
-                return <ExpeditionComponent 
-                    character={derivedCharacter} 
-                    expeditions={gameData.expeditions} 
-                    enemies={gameData.enemies} 
-                    currentLocation={currentLocation!} 
-                    onStartExpedition={async (expId) => {
-                        try {
-                            // Call the new safe API endpoint
-                            const updatedChar = await api.startExpedition(expId);
-                            setCharacter(updatedChar);
-                        } catch(e: any) {
-                            alert(e.message || t('error.title'));
-                        }
-                    }}
-                    itemTemplates={gameData.itemTemplates || []}
-                    affixes={gameData.affixes || []}
-                    onCompletion={handleExpeditionCompletion}
-                    onCancelExpedition={handleCancelExpedition}
-                />;
-            case Tab.Camp:
-                const getCampUpgradeCost = (level: number) => {
-                    const gold = Math.floor(150 * Math.pow(level, 1.5));
-                    const essences: { type: EssenceType, amount: number }[] = [];
-                    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
-                    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
-                    return { gold, essences };
-                };
-                const getChestUpgradeCost = (level: number) => {
-                    const gold = Math.floor(150 * Math.pow(level, 1.5));
-                    const essences: { type: EssenceType, amount: number }[] = [];
-                    if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
-                    return { gold, essences };
-                };
-                const getBackpackUpgradeCost = (level: number) => {
-                    const gold = Math.floor(150 * Math.pow(level, 1.5));
-                    const essences: { type: EssenceType, amount: number }[] = [];
-                    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
-                    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
-                    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
-                    return { gold, essences };
-                };
-                return <Camp 
-                    character={derivedCharacter} 
-                    baseCharacter={character} 
-                    onToggleResting={() => {
-                        const now = api.getServerTime(); // Use synced time
-                        handleCharacterUpdate({ 
-                            ...character, 
-                            isResting: !character.isResting, 
-                            restStartHealth: character.stats.currentHealth,
-                            lastRestTime: !character.isResting ? now : undefined // Set timestamp if starting rest
-                        }, true);
-                    }}
-                    onUpgradeCamp={() => {}}
-                    getCampUpgradeCost={getCampUpgradeCost}
-                    onCharacterUpdate={handleCharacterUpdate}
-                    onHealToFull={async () => { await api.healCharacter(); fetchCharacter(); }}
-                     onUpgradeChest={() => {}}
-                    onUpgradeBackpack={() => {}}
-                    getChestUpgradeCost={getChestUpgradeCost}
-                    getBackpackUpgradeCost={getBackpackUpgradeCost}
-                />;
-            case Tab.Location:
-                return <Location 
-                    playerCharacter={derivedCharacter} 
-                    baseCharacter={character}
-                    onCharacterUpdate={handleCharacterUpdate} 
-                    locations={gameData.locations} 
-                />;
-            case Tab.Resources:
-                return <Resources character={character} />;
-            case Tab.Ranking:
-                return <Ranking 
-                    ranking={ranking} 
-                    currentPlayer={character} 
-                    isLoading={isRankingLoading} 
-                    onAttack={async (id) => {
-                        try {
-                            const { summary, updatedAttacker } = await api.attackPlayer(id);
-                            setCharacter(updatedAttacker); // Optimistic update of attacker stats (energy etc.)
-                            setPvpReport(summary);
-                            // Update unread messages as we get a report
-                            checkUnreadMessages();
-                            fetchCharacter(); // Sync fully
-                        } catch(e: any) {
-                            alert(e.message || t('error.title'));
-                        }
-                    }}
-                    onComposeMessage={(recipient) => {
-                        setPendingComposeRecipient(recipient);
-                        setActiveTab(Tab.Messages);
-                    }}
-                />;
-            case Tab.Messages:
-                return <Messages 
-                    itemTemplates={gameData.itemTemplates || []} 
-                    affixes={gameData.affixes || []} 
-                    enemies={gameData.enemies}
-                    currentPlayer={character} 
-                    onCharacterUpdate={handleCharacterUpdate}
-                    initialRecipient={pendingComposeRecipient}
-                    onClearInitialRecipient={() => setPendingComposeRecipient(null)}
-                />;
-            case Tab.Quests:
-                return <Quests 
-                    character={character}
-                    quests={gameData.quests}
-                    enemies={gameData.enemies}
-                    itemTemplates={gameData.itemTemplates || []}
-                    affixes={gameData.affixes || []}
-                    onAcceptQuest={async (id) => { await api.acceptQuest(id); fetchCharacter(); }}
-                    onCompleteQuest={async (id) => { await api.completeQuest(id); fetchCharacter(); }}
-                />;
-            case Tab.Trader:
-                return <Trader 
-                    character={derivedCharacter}
-                    baseCharacter={character}
-                    itemTemplates={gameData.itemTemplates || []}
-                    affixes={gameData.affixes || []}
-                    settings={gameData.settings}
-                    traderInventory={traderInventory.regularItems}
-                    traderSpecialOfferItems={traderInventory.specialOfferItems}
-                    onBuyItem={async (item) => { 
-                        await api.buyItem(item.uniqueId); 
-                        fetchCharacter();
-                        fetchTraderInventory();
-                    }}
-                    onSellItems={async (items) => { 
-                        await api.sellItems(items.map(i => i.uniqueId)); 
-                        fetchCharacter();
-                    }}
-                />;
-             case Tab.Blacksmith:
-                return <Blacksmith 
-                    character={derivedCharacter}
-                    baseCharacter={character} 
-                    itemTemplates={gameData.itemTemplates || []}
-                    affixes={gameData.affixes || []}
-                    onDisenchantItem={async (item) => { 
-                        try {
-                            const { updatedCharacter, result } = await api.disenchantItem(item.uniqueId);
-                            setCharacter(updatedCharacter);
-                            return result;
-                        } catch (e) {
-                            alert(t('error.title') + ': ' + (e as Error).message);
-                            return { success: false };
-                        }
-                    }}
-                    onUpgradeItem={async (item) => { 
-                        try {
-                            const { updatedCharacter, result } = await api.upgradeItem(item.uniqueId);
-                            setCharacter(updatedCharacter);
-                            return result;
-                        } catch (e) {
-                            alert(t('error.title') + ': ' + (e as Error).message);
-                            return { success: false, messageKey: 'error.title' };
-                        }
-                    }}
-                />;
-            case Tab.Market:
-                return <Market 
-                    character={character} 
-                    gameData={gameData} 
-                    onCharacterUpdate={handleCharacterUpdate} 
-                />;
-            case Tab.Tavern:
-                return <Tavern 
-                    character={character}
-                    messages={tavernMessages}
-                    activeUsers={activeUsers}
-                    onSendMessage={async (content) => { 
-                        await api.sendTavernMessage(content); 
-                        fetchTavernData();
-                    }}
-                />;
-            case Tab.Options:
-                return <Options character={character} onCharacterUpdate={handleCharacterUpdate} />;
-            case Tab.University:
-                return <University 
-                    character={derivedCharacter}
-                    gameData={gameData}
-                    onLearnSkill={async (id) => { await api.learnSkill(id); fetchCharacter(); }}
-                />;
-            case Tab.Hunting:
-                return <Hunting 
-                    character={derivedCharacter}
-                    enemies={gameData.enemies}
-                    itemTemplates={gameData.itemTemplates || []}
-                    affixes={gameData.affixes || []}
-                    gameData={gameData}
-                />;
-            case Tab.Guild:
-                return <Guild />;
-            case Tab.Admin:
-                return <AdminPanel 
-                    gameData={gameData}
-                    onGameDataUpdate={async (key, data) => {
-                        try {
-                            await api.updateGameData(key, data);
-                            const refreshedData = await api.getGameData();
-                            setGameData(refreshedData);
-                        } catch (e) {
-                            console.error(`Failed to update ${key}:`, e);
-                            alert(t('error.title'));
-                        }
-                    }}
-                    onSettingsUpdate={async (s) => {
-                        try {
-                            await api.updateGameSettings(s);
-                            const refreshedData = await api.getGameData();
-                            setGameData(refreshedData);
-                        } catch (e) {
-                            console.error("Failed to update settings:", e);
-                            alert(t('error.title'));
-                        }
-                    }}
-                    users={users}
-                    onDeleteUser={async (id) => { await api.deleteUser(id); }}
-                    allCharacters={allCharacters}
-                    onDeleteCharacter={async (id) => { await api.deleteCharacter(id); }}
-                    onResetCharacterStats={async (id) => { await api.resetCharacterStats(id); }}
-                    onResetCharacterProgress={async (id) => { await api.resetCharacterProgress(id); }}
-                    onHealCharacter={async (id) => { await api.adminHealCharacter(id); }}
-                    onUpdateCharacterGold={async (id, gold) => { await api.updateCharacterGold(id, gold); }}
-                    onForceTraderRefresh={handleForceTraderRefresh}
-                    onResetAllPvpCooldowns={async () => { await api.resetAllPvpCooldowns(); }}
-                    onSendGlobalMessage={async (data) => { await api.sendGlobalMessage(data); }}
-                    onRegenerateCharacterEnergy={async (id) => { await api.regenerateCharacterEnergy(id); }}
-                    onChangeUserPassword={async (id, pw) => { await api.changeUserPassword(id, pw); }}
-                    onInspectCharacter={async (id) => { return await api.inspectCharacter(id); }}
-                    onDeleteCharacterItem={async (id, itemId) => { return await api.deleteCharacterItem(id, itemId); }}
-                />;
-            default:
-                return null;
-        }
-    };
-
-    const backgroundStyle = gameData?.settings?.gameBackground 
-        ? { backgroundImage: `url(${gameData.settings.gameBackground})` } 
-        : { backgroundImage: `url('/bg_pattern.png')` };
-
-    const windowBackground = gameData?.settings?.windowBackgroundUrl 
-        ? `url(${gameData.settings.windowBackgroundUrl})` 
+    const derivedCharacter = calculateDerivedStats(character, gameData);
+    
+    const windowBackground = character.windowBackgroundUrl || gameData.settings?.windowBackgroundUrl 
+        ? `url(${character.windowBackgroundUrl || gameData.settings?.windowBackgroundUrl})` 
         : undefined;
 
     return (
         <LanguageContext.Provider value={{ lang: character.settings?.language || Language.PL, t }}>
             <div 
-                className="flex h-screen bg-gray-900 text-white overflow-hidden font-sans"
+                className="flex h-screen bg-gray-900 text-white font-sans overflow-hidden"
                 style={{ "--window-bg": windowBackground } as React.CSSProperties}
             >
-                <Sidebar 
-                    activeTab={activeTab} 
-                    setActiveTab={setActiveTab} 
+                <Sidebar
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
                     playerCharacter={derivedCharacter}
-                    currentLocation={currentLocation}
+                    currentLocation={gameData.locations.find(l => l.id === derivedCharacter.currentLocationId)}
                     onLogout={handleLogout}
                     hasUnreadMessages={hasUnreadMessages}
                     hasNewTavernMessages={hasNewTavernMessages}
-                    onOpenNews={() => setIsNewsOpen(true)}
+                    onOpenNews={onOpenNews}
                     hasNewNews={hasNewNews}
                     settings={gameData.settings}
                 />
-                <main className="flex-1 overflow-y-auto p-6 bg-repeat bg-center" style={backgroundStyle}>
-                    <div className="max-w-7xl mx-auto">
-                        {renderContent()}
+                <main className="flex-1 p-6 overflow-hidden relative" 
+                     style={
+                        gameData.settings?.gameBackground 
+                        ? { backgroundImage: `url(${gameData.settings.gameBackground})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
+                        : undefined
+                     }
+                >
+                     {/* Dark overlay for game background to ensure text readability if bg is bright */}
+                     {gameData.settings?.gameBackground && (
+                        <div className="absolute inset-0 bg-gray-900/70 pointer-events-none"></div>
+                     )}
+                     
+                     <div className="relative z-10 h-full flex flex-col">
+                        {activeTab === Tab.Statistics && (
+                            <Statistics
+                                character={derivedCharacter}
+                                baseCharacter={character}
+                                onCharacterUpdate={handleCharacterUpdate}
+                                calculateDerivedStats={calculateDerivedStats}
+                                gameData={gameData}
+                                onResetAttributes={handleResetAttributes}
+                                onSelectClass={handleSelectClass}
+                            />
+                        )}
+                        {activeTab === Tab.Equipment && (
+                            <Equipment
+                                character={derivedCharacter}
+                                baseCharacter={character}
+                                gameData={gameData}
+                                onEquipItem={(item) => api.equipItem(item.uniqueId).then(updated => setCharacter(updated))}
+                                onUnequipItem={(item, slot) => api.unequipItem(slot).then(updated => setCharacter(updated))}
+                            />
+                        )}
+                        {activeTab === Tab.Expedition && (
+                            <ExpeditionComponent
+                                character={derivedCharacter}
+                                expeditions={gameData.expeditions}
+                                enemies={gameData.enemies}
+                                currentLocation={gameData.locations.find(l => l.id === derivedCharacter.currentLocationId)!}
+                                onStartExpedition={(expeditionId) => api.startExpedition(expeditionId).then(updated => setCharacter(updated))}
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                onCompletion={handleExpeditionCompletion}
+                                onCancelExpedition={async () => {
+                                    const updated = await api.cancelExpedition();
+                                    setCharacter(updated);
+                                }}
+                            />
+                        )}
+                        {activeTab === Tab.Camp && (
+                            <Camp
+                                character={derivedCharacter}
+                                baseCharacter={character}
+                                onToggleResting={() => {
+                                    const newRestingState = !character.isResting;
+                                    // Optimistic update for UI responsiveness
+                                    const optimisticChar = { ...character, isResting: newRestingState };
+                                    setCharacter(optimisticChar);
+                                    api.updateCharacter({ isResting: newRestingState }).then(updated => setCharacter(updated));
+                                }}
+                                onUpgradeCamp={() => api.upgradeCamp().then(updated => setCharacter(updated))}
+                                getCampUpgradeCost={(level) => {
+                                    // Duplicate logic here for immediate display if needed, or fetch from API (better)
+                                    // Since API handles it, we can just display static cost or replicate logic.
+                                    // Replicating logic for UI display:
+                                     const gold = Math.floor(150 * Math.pow(level, 1.5));
+                                     const essences: { type: EssenceType, amount: number }[] = [];
+                                     if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
+                                     if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
+                                     return { gold, essences };
+                                }}
+                                onCharacterUpdate={handleCharacterUpdate}
+                                onHealToFull={() => api.healCharacter().then(updated => {
+                                    if (updated) setCharacter(updated);
+                                })}
+                                onUpgradeChest={() => api.upgradeChest().then(updated => setCharacter(updated))}
+                                onUpgradeBackpack={() => api.upgradeBackpack().then(updated => setCharacter(updated))}
+                                getChestUpgradeCost={(level) => {
+                                     const gold = Math.floor(150 * Math.pow(level, 1.5));
+                                     const essences: { type: EssenceType, amount: number }[] = [];
+                                     if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
+                                     return { gold, essences };
+                                }}
+                                getBackpackUpgradeCost={(level) => {
+                                    const gold = Math.floor(150 * Math.pow(level, 1.5));
+                                    const essences: { type: EssenceType, amount: number }[] = [];
+                                    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+                                    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+                                    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+                                    return { gold, essences };
+                                }}
+                            />
+                        )}
+                        {activeTab === Tab.Location && (
+                            <Location
+                                playerCharacter={derivedCharacter}
+                                baseCharacter={character}
+                                onCharacterUpdate={handleCharacterUpdate}
+                                locations={gameData.locations}
+                            />
+                        )}
+                        {activeTab === Tab.Resources && <Resources character={derivedCharacter} />}
+                        {activeTab === Tab.Ranking && (
+                            <Ranking
+                                ranking={ranking}
+                                currentPlayer={derivedCharacter}
+                                isLoading={isRankingLoading}
+                                onAttack={handleAttack}
+                                onComposeMessage={handleComposeMessage}
+                            />
+                        )}
+                        {activeTab === Tab.Messages && (
+                            <Messages
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                enemies={gameData.enemies}
+                                currentPlayer={derivedCharacter}
+                                onCharacterUpdate={handleCharacterUpdate}
+                                initialRecipient={pendingComposeRecipient}
+                                onClearInitialRecipient={handleClearInitialRecipient}
+                            />
+                        )}
+                        {activeTab === Tab.Quests && (
+                            <Quests
+                                character={derivedCharacter}
+                                quests={gameData.quests}
+                                enemies={gameData.enemies}
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                onAcceptQuest={(id) => api.acceptQuest(id).then(updated => setCharacter(updated))}
+                                onCompleteQuest={(id) => api.completeQuest(id).then(updated => setCharacter(updated))}
+                            />
+                        )}
+                        {activeTab === Tab.Trader && (
+                            <Trader
+                                character={derivedCharacter}
+                                baseCharacter={character}
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                settings={gameData.settings}
+                                traderInventory={traderInventory.regularItems}
+                                traderSpecialOfferItems={traderInventory.specialOfferItems}
+                                onBuyItem={(item) => api.buyItem(item.uniqueId).then(updated => {
+                                    setCharacter(updated);
+                                    fetchTraderInventory(); // Refresh to remove bought item
+                                })}
+                                onSellItems={(items) => api.sellItems(items.map(i => i.uniqueId)).then(updated => setCharacter(updated))}
+                            />
+                        )}
+                        {activeTab === Tab.Blacksmith && (
+                            <Blacksmith
+                                character={derivedCharacter}
+                                baseCharacter={character}
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                onDisenchantItem={(item) => api.disenchantItem(item.uniqueId).then(res => {
+                                    setCharacter(res.updatedCharacter);
+                                    return res.result;
+                                })}
+                                onUpgradeItem={(item) => api.upgradeItem(item.uniqueId).then(res => {
+                                    setCharacter(res.updatedCharacter);
+                                    return res.result;
+                                })}
+                            />
+                        )}
+                        {activeTab === Tab.Tavern && (
+                             <Tavern
+                                character={derivedCharacter}
+                                messages={tavernMessages}
+                                activeUsers={activeUsers}
+                                onSendMessage={(content) => api.sendTavernMessage(content).then(() => fetchTavernData())}
+                            />
+                        )}
+                        {activeTab === Tab.Market && (
+                             <Market
+                                character={derivedCharacter}
+                                gameData={gameData}
+                                onCharacterUpdate={handleCharacterUpdate}
+                             />
+                        )}
+                        {activeTab === Tab.Options && (
+                             <Options
+                                character={character}
+                                onCharacterUpdate={handleCharacterUpdate}
+                             />
+                        )}
+                        {activeTab === Tab.University && (
+                             <University
+                                character={derivedCharacter}
+                                gameData={gameData}
+                                onLearnSkill={handleLearnSkill}
+                             />
+                        )}
+                        {activeTab === Tab.Hunting && (
+                             <Hunting
+                                character={derivedCharacter}
+                                enemies={gameData.enemies}
+                                itemTemplates={gameData.itemTemplates}
+                                affixes={gameData.affixes}
+                                gameData={gameData}
+                             />
+                        )}
+                        {activeTab === Tab.Guild && (
+                             <Guild />
+                        )}
+                        {activeTab === Tab.Admin && character.username === 'Kazujoshi' && (
+                            <AdminPanel
+                                gameData={gameData}
+                                onGameDataUpdate={(key, data) => {
+                                    setGameData(prev => prev ? ({ ...prev, [key]: data }) : null);
+                                    api.updateGameData(key, data);
+                                }}
+                                onSettingsUpdate={(settings) => {
+                                    setGameData(prev => prev ? ({ ...prev, settings }) : null);
+                                    api.updateGameSettings(settings);
+                                }}
+                                users={users}
+                                onDeleteUser={(id) => api.deleteUser(id).then(() => {
+                                    setUsers(prev => prev.filter(u => u.id !== id));
+                                    api.getAllCharacters().then(setAllCharacters);
+                                })}
+                                allCharacters={allCharacters}
+                                onDeleteCharacter={(id) => api.deleteCharacter(id).then(() => setAllCharacters(prev => prev.filter(c => c.user_id !== id)))}
+                                onResetCharacterStats={(id) => api.resetCharacterStats(id)}
+                                onResetCharacterProgress={(id) => api.resetCharacterProgress(id)}
+                                onHealCharacter={(id) => api.adminHealCharacter(id)}
+                                onUpdateCharacterGold={(id, gold) => api.updateCharacterGold(id, gold)}
+                                onForceTraderRefresh={handleForceTraderRefresh}
+                                onResetAllPvpCooldowns={handleResetAllPvpCooldowns}
+                                onSendGlobalMessage={handleSendGlobalMessage}
+                                onRegenerateCharacterEnergy={(id) => api.regenerateCharacterEnergy(id)}
+                                onChangeUserPassword={(id, pass) => api.changeUserPassword(id, pass)}
+                                onInspectCharacter={(id) => api.inspectCharacter(id)}
+                                onDeleteCharacterItem={(id, itemId) => api.deleteCharacterItem(id, itemId)}
+                            />
+                        )}
                     </div>
                 </main>
-                <NewsModal 
-                    isOpen={isNewsOpen} 
-                    onClose={() => { 
-                        setIsNewsOpen(false); 
-                        handleCharacterUpdate({ ...character, lastReadNewsTimestamp: Date.now() }, true);
-                    }} 
-                    content={gameData.settings.newsContent || ''} 
-                />
-                {/* Global Expedition Report Modal Overlay */}
+
                 {expeditionReport && (
                     <ExpeditionSummaryModal
                         reward={expeditionReport.summary}
-                        messageId={expeditionReport.messageId}
                         onClose={() => setExpeditionReport(null)}
-                        characterName={character.name}
-                        itemTemplates={gameData.itemTemplates || []}
-                        affixes={gameData.affixes || []}
-                        encounteredEnemies={expeditionReport.summary.encounteredEnemies}
-                        bossName={expeditionReport.summary.combatLog.length > 0 && expeditionReport.summary.combatLog[0].enemyStats ? (expeditionReport.summary.combatLog[0].defender === character.name ? expeditionReport.summary.combatLog[0].attacker : expeditionReport.summary.combatLog[0].defender) : undefined}
-                        backgroundImage={gameData.settings.reportBackgroundUrl}
+                        characterName={derivedCharacter.name}
+                        itemTemplates={gameData.itemTemplates}
+                        affixes={gameData.affixes}
+                        messageId={expeditionReport.messageId}
+                        backgroundImage={gameData.settings?.reportBackgroundUrl}
                     />
                 )}
-                {/* PvP Report Modal Overlay */}
+                
                 {pvpReport && (
                     <ExpeditionSummaryModal
                         reward={{
@@ -1087,26 +1102,21 @@ const MainApp: React.FC = () => {
                             essencesFound: {}
                         }}
                         onClose={() => setPvpReport(null)}
-                        characterName={pvpReport.attacker.name}
-                        itemTemplates={gameData.itemTemplates || []}
-                        affixes={gameData.affixes || []}
+                        characterName={derivedCharacter.name}
+                        itemTemplates={gameData.itemTemplates}
+                        affixes={gameData.affixes}
                         isPvp={true}
                         pvpData={{ attacker: pvpReport.attacker, defender: pvpReport.defender }}
-                        backgroundImage={gameData.settings.reportBackgroundUrl}
+                        backgroundImage={gameData.settings?.reportBackgroundUrl}
                     />
                 )}
+
+                <NewsModal 
+                    isOpen={isNewsOpen} 
+                    onClose={() => setIsNewsOpen(false)} 
+                    content={gameData.settings?.newsContent || ''}
+                />
             </div>
         </LanguageContext.Provider>
     );
-};
-
-export const App: React.FC = () => {
-    const reportMatch = window.location.pathname.match(/^\/report\/(\d+)$/);
-
-    if (reportMatch) {
-        const reportId = reportMatch[1];
-        return <PublicReportViewer reportId={reportId} />;
-    }
-
-    return <MainApp />;
 };

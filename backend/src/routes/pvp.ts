@@ -57,8 +57,8 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         attacker.stats.currentEnergy -= 3;
 
         // Apply guild bonuses to stats
-        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks);
-        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks);
+        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks, 0, gameData.skills || []);
+        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks, 0, gameData.skills || []);
 
         const defenderAsEnemy: Enemy = {
             id: defenderId.toString(),

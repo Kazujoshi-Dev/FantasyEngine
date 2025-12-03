@@ -371,6 +371,16 @@ export const initializeDatabase = async () => {
                     category: 'Passive',
                     cost: { gold: 20000, legendaryEssence: 3 },
                     requirements: { strength: 30, agility: 15, stamina: 30, intelligence: 15 }
+                },
+                {
+                    id: 'dokladne-przeszukiwanie',
+                    name: 'Dokładne przeszukanie',
+                    description: 'Zwiększa maksymalną ilość znalezionych przedmiotów na wyprawie o 1. Zmniejsza maksymalną manę o 100, gdy aktywne.',
+                    type: 'Universal',
+                    category: 'Active',
+                    cost: { gold: 30000, legendaryEssence: 1 },
+                    requirements: { strength: 15, agility: 35, stamina: 10, intelligence: 15 },
+                    manaMaintenanceCost: 100
                 }
             ],
             settings: { language: 'pl' }
@@ -387,20 +397,27 @@ export const initializeDatabase = async () => {
             }
         }
 
-        // --- MIGRATION: Ensure 'lone-wolf' skill exists in existing DB ---
-        // This handles the case where 'skills' key existed but didn't have the new skill
+        // --- MIGRATION: Ensure 'lone-wolf' and 'dokladne-przeszukiwanie' skill exists in existing DB ---
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         if (skillsRes.rows.length > 0) {
             const currentSkills = skillsRes.rows[0].data || [];
-            const hasLoneWolf = currentSkills.some((s: any) => s.id === 'lone-wolf');
-            
-            if (!hasLoneWolf) {
-                const loneWolfSkill = defaultData.skills.find(s => s.id === 'lone-wolf');
-                if (loneWolfSkill) {
-                    console.log("MIGRATION: Adding missing 'lone-wolf' skill to existing game_data...");
-                    currentSkills.push(loneWolfSkill);
-                    await client.query("UPDATE game_data SET data = $1 WHERE key = 'skills'", [JSON.stringify(currentSkills)]);
+            let modified = false;
+
+            const skillsToCheck = ['lone-wolf', 'dokladne-przeszukiwanie'];
+            for (const skillId of skillsToCheck) {
+                const hasSkill = currentSkills.some((s: any) => s.id === skillId);
+                if (!hasSkill) {
+                    const skillToAdd = defaultData.skills.find(s => s.id === skillId);
+                    if (skillToAdd) {
+                        console.log(`MIGRATION: Adding missing '${skillId}' skill to existing game_data...`);
+                        currentSkills.push(skillToAdd);
+                        modified = true;
+                    }
                 }
+            }
+
+            if (modified) {
+                 await client.query("UPDATE game_data SET data = $1 WHERE key = 'skills'", [JSON.stringify(currentSkills)]);
             }
         }
 
@@ -408,6 +425,13 @@ export const initializeDatabase = async () => {
         if (hasLearnedSkills.rowCount === 0) {
             console.log("MIGRATING SCHEMA: Adding 'learnedSkills' array to all characters...");
             await client.query(`UPDATE characters SET data = data || '{"learnedSkills": []}'::jsonb WHERE NOT (data ? 'learnedSkills');`);
+            console.log("MIGRATION COMPLETE.");
+        }
+
+        const hasActiveSkills = await client.query(`SELECT 1 FROM characters WHERE data ? 'activeSkills' LIMIT 1;`);
+        if (hasActiveSkills.rowCount === 0) {
+            console.log("MIGRATING SCHEMA: Adding 'activeSkills' array to all characters...");
+            await client.query(`UPDATE characters SET data = data || '{"activeSkills": []}'::jsonb WHERE NOT (data ? 'activeSkills');`);
             console.log("MIGRATION COMPLETE.");
         }
 

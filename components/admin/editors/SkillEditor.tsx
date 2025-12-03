@@ -14,12 +14,14 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
     const [formData, setFormData] = useState<Partial<Skill>>({
         requirements: {},
         cost: {},
+        manaMaintenanceCost: 0,
         ...skill
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const isNumeric = name === 'manaMaintenanceCost';
+        setFormData(prev => ({ ...prev, [name]: isNumeric ? parseInt(value, 10) || 0 : value }));
     };
 
     const handleNumericChange = (category: 'requirements' | 'cost', key: string, value: string) => {
@@ -56,6 +58,11 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
                 <div><label>Nazwa:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>Typ:<select name="type" value={formData.type || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillType).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
                 <div><label>Kategoria:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillCategory).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
+                
+                {formData.category === 'Active' && (
+                    <div><label>Koszt utrzymania (Max Mana):<input name="manaMaintenanceCost" type="number" value={formData.manaMaintenanceCost || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                )}
+
                 <div className="md:col-span-3"><label>Opis:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </div>
 

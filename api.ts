@@ -1,6 +1,3 @@
-
-
-
 import { PlayerCharacter, Location, Expedition, Enemy, Race, CharacterStats, Tab, GameData, RankingPlayer, GameSettings, User, AdminCharacterInfo, EquipmentSlot, ItemTemplate, ItemInstance, Message, PvpRewardSummary, ExpeditionRewardSummary, TavernMessage, Affix, MarketListing, ListingType, CurrencyType, DuplicationAuditResult, CharacterClass, EssenceType, OrphanAuditResult, ItemSearchResult, TraderInventoryData, HuntingParty, Guild, GuildRole, GuildRankingEntry, GuildArmoryItem, PublicCharacterProfile, PublicGuildProfile, Language } from './types';
 
 // Variable to store the time difference between client and server
@@ -251,6 +248,7 @@ export const api = {
             pvpLosses: 0,
             pvpProtectionUntil: 0,
             learnedSkills: [],
+            activeSkills: [],
             questProgress: [],
             acceptedQuests: [],
             freeStatResetUsed: false,
@@ -329,6 +327,13 @@ export const api = {
         });
     },
 
+    async toggleSkill(skillId: string, isActive: boolean): Promise<PlayerCharacter> {
+        return fetchApi('/character/toggle-skill', {
+            method: 'POST',
+            body: JSON.stringify({ skillId, isActive }),
+        });
+    },
+
     async acceptQuest(questId: string): Promise<PlayerCharacter> {
         return fetchApi('/character/accept-quest', {
             method: 'POST',
@@ -371,7 +376,7 @@ export const api = {
     },
 
     // Use this for Player self-healing
-    async healCharacter(userId?: number): Promise<void> {
+    async healCharacter(userId?: number): Promise<PlayerCharacter | void> {
          if (userId) {
              // If userId is provided, it might be legacy code or admin panel usage.
              // For simplicity in this refactor, we route explicit ID calls to the admin endpoint.

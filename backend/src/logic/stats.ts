@@ -3,7 +3,8 @@
 
 
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
+
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     // The pg driver returns bigint as a string, so we must cast to Number
@@ -18,12 +19,13 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0, guildShrineLevel: number = 0): PlayerCharacter => {
+export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0, guildShrineLevel: number = 0, skills: Skill[] = []): PlayerCharacter => {
     
     // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
     const safeAffixes = affixes || [];
     const safeEquipment = character.equipment || {};
+    const safeSkills = skills || [];
 
     const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
         if (value === undefined || value === null) return 0;
@@ -193,7 +195,19 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     if (isNaN(maxHealth) || maxHealth < 1) maxHealth = 50;
 
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
-    const maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+    let maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+
+    // Apply Mana Maintenance Costs from Active Skills
+    if (character.activeSkills && character.activeSkills.length > 0) {
+        character.activeSkills.forEach(skillId => {
+            const skill = safeSkills.find(s => s.id === skillId);
+            if (skill && skill.manaMaintenanceCost) {
+                maxMana -= skill.manaMaintenanceCost;
+            }
+        });
+    }
+    // Ensure Max Mana doesn't drop below 0 (though usually toggle logic should prevent this, this is a safe guard)
+    maxMana = Math.max(0, maxMana);
     
     let minDamage, maxDamage;
     if (mainHandTemplate?.isMagical) {

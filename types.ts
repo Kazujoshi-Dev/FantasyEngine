@@ -558,6 +558,7 @@ export interface Skill {
     category: SkillCategory;
     cost: SkillCost;
     requirements: SkillRequirements;
+    manaMaintenanceCost?: number; // Amount of Max Mana reduced while active
 }
 // --- End University / Skill System Types ---
 
@@ -729,6 +730,7 @@ export interface PlayerCharacter {
     language?: Language;
   };
   learnedSkills?: string[];
+  activeSkills?: string[]; // IDs of currently active (toggled) skills
   guildId?: number; // Added guildId
   guildBarracksLevel?: number;
   guildShrineLevel?: number; // Added guildShrineLevel

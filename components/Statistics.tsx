@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType } from '../types';
+import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType, Skill } from '../types';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import { MinusCircleIcon } from './icons/MinusCircleIcon';
 import { InfoIcon } from './icons/InfoIcon';
@@ -204,6 +204,14 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
     }
   };
 
+  const handleToggleSkill = async (skillId: string, isActive: boolean) => {
+    try {
+        const updatedChar = await api.toggleSkill(skillId, isActive);
+        onCharacterUpdate(updatedChar);
+    } catch (e: any) {
+        alert(e.message);
+    }
+  };
   
   const tempCharacterForPreview = useMemo(() => ({
     ...baseCharacter,
@@ -486,12 +494,33 @@ export const Statistics: React.FC<StatisticsProps> = ({ character, baseCharacter
                             <div className="bg-slate-900/40 p-6 rounded-xl">
                                 <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('skills.active')}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {activeSkills.map(skill => (
-                                        <div key={skill.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                                            <h4 className="font-bold text-amber-400">{skill.name}</h4>
-                                            <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
-                                        </div>
-                                    ))}
+                                    {activeSkills.map(skill => {
+                                        const isActive = (character.activeSkills || []).includes(skill.id);
+                                        return (
+                                            <div key={skill.id} className={`bg-slate-800/50 p-4 rounded-lg border ${isActive ? 'border-green-500' : 'border-slate-700'}`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-amber-400">{skill.name}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        {skill.manaMaintenanceCost && skill.manaMaintenanceCost > 0 && (
+                                                            <span className="text-xs text-cyan-400 font-mono">
+                                                                {skill.manaMaintenanceCost} max many
+                                                            </span>
+                                                        )}
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="sr-only peer" 
+                                                                checked={isActive} 
+                                                                onChange={(e) => handleToggleSkill(skill.id, e.target.checked)}
+                                                            />
+                                                            <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-gray-300 mt-1">{skill.description}</p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
