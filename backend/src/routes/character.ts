@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -57,9 +58,10 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
             username: row.username,
         };
         
-        // Extract Guild Barracks Level
+        // Extract Guild Building Levels
         const guildBuildings = row.buildings || {};
         const barracksLevel = guildBuildings['barracks'] || 0;
+        const shrineLevel = guildBuildings['shrine'] || 0;
         
         const now = Date.now();
         let needsDbUpdate = false;
@@ -70,7 +72,7 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
 
         // Calculate true max stats based on current equipment, attributes AND guild bonus
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
         const trueMaxEnergy = derivedChar.stats.maxEnergy;
         const trueMaxHealth = derivedChar.stats.maxHealth;
 
@@ -127,6 +129,7 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
         }
 
         character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
 
         res.json(character);
 
@@ -329,6 +332,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         const guildBuildings = result.rows[0].buildings || {};
         const barracksLevel = guildBuildings['barracks'] || 0;
         const scoutHouseLevel = guildBuildings['scoutHouse'] || 0;
+        const shrineLevel = guildBuildings['shrine'] || 0;
 
         if (!character.activeExpedition || Date.now() < character.activeExpedition.finishTime) {
             await client.query('ROLLBACK');
@@ -346,7 +350,7 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         let expeditionName = 'Wyprawa';
 
         try {
-            const processingResult = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel);
+            const processingResult = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel, shrineLevel);
             updatedCharacter = processingResult.updatedCharacter;
             summary = processingResult.summary;
             expeditionName = processingResult.expeditionName;
@@ -755,6 +759,7 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
         
         let character: PlayerCharacter = charRes.rows[0].data;
         const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
+        const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
 
         if (!character.learnedSkills) {
             character.learnedSkills = [];
@@ -777,7 +782,7 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
             return res.status(404).json({ message: 'Skill not found.' });
         }
 
-        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
+        const characterWithDerivedStats = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
         const derivedStats = characterWithDerivedStats.stats;
 
         for (const key of Object.keys(skill.requirements) as (keyof SkillRequirements)[]) {
@@ -953,12 +958,13 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
         
         const character: PlayerCharacter = charRes.rows[0].data;
         const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
+        const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
 
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
 
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel);
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel);
         character.stats.currentHealth = derivedChar.stats.maxHealth;
         character.stats.currentMana = derivedChar.stats.maxMana;
 

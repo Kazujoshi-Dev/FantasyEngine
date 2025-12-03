@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -441,6 +443,12 @@ const MainApp: React.FC = () => {
             energy: Number(char.stats.energy) || 0,
             luck: Number(char.stats.luck) || 0
         };
+
+        // Client-side Application of Guild Bonuses
+        const guildShrineLevel = char.guildShrineLevel || 0;
+        if (guildShrineLevel > 0) {
+            totalPrimaryStats.luck += (guildShrineLevel * 5);
+        }
     
         let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
         let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;

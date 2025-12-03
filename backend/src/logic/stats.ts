@@ -1,5 +1,8 @@
 
 
+
+
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -15,7 +18,7 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0): PlayerCharacter => {
+export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0, guildShrineLevel: number = 0): PlayerCharacter => {
     
     // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
@@ -39,6 +42,11 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
         energy: Number(character.stats.energy) || 0,
         luck: Number(character.stats.luck) || 0,
     };
+    
+    // Apply Guild Shrine Bonus (+5 Luck per level)
+    if (guildShrineLevel > 0) {
+        totalPrimaryStats.luck += (guildShrineLevel * 5);
+    }
 
     let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
     let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
@@ -222,19 +230,18 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
     const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
 
-    // Apply Guild Barracks Bonus (5% per level)
+    // Apply Guild Barracks Bonus (5% per level) to Physical and Magic Damage
+    let finalMagicDamageMin = magicDamageMin;
+    let finalMagicDamageMax = magicDamageMax;
+
     if (guildBarracksLevel > 0) {
         const damageMultiplier = 1 + (guildBarracksLevel * 0.05);
         minDamage = Math.floor(minDamage * damageMultiplier);
         maxDamage = Math.floor(maxDamage * damageMultiplier);
-        // Apply to magic damage as well (base + intelligence bonus)
-        // Wait, intelligence bonus is part of base calculation? Yes. So we scale the final result.
-        // But we need to update the specific variables.
+        
+        finalMagicDamageMin = Math.floor(magicDamageMin * damageMultiplier);
+        finalMagicDamageMax = Math.floor(magicDamageMax * damageMultiplier);
     }
-    
-    // Recalculate Magic Damage with Guild Bonus
-    const finalMagicDamageMin = guildBarracksLevel > 0 ? Math.floor(magicDamageMin * (1 + (guildBarracksLevel * 0.05))) : magicDamageMin;
-    const finalMagicDamageMax = guildBarracksLevel > 0 ? Math.floor(magicDamageMax * (1 + (guildBarracksLevel * 0.05))) : magicDamageMax;
 
     // Ensure derived values are valid numbers and DO NOT default to max if 0 (fixes full heal bug)
     const valOrMax = (val: any, max: number) => {
@@ -253,7 +260,10 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
         ...character,
         stats: {
             ...character.stats, ...totalPrimaryStats,
-            maxHealth, maxEnergy, maxMana, minDamage, maxDamage, critChance, armor,
+            maxHealth, maxEnergy, maxMana, 
+            minDamage: minDamage, 
+            maxDamage: maxDamage, 
+            critChance, armor,
             magicDamageMin: finalMagicDamageMin, 
             magicDamageMax: finalMagicDamageMax, 
             attacksPerRound, manaRegen,

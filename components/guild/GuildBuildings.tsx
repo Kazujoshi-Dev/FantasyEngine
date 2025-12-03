@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -7,6 +9,7 @@ import { HomeIcon } from '../icons/HomeIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { MapIcon } from '../icons/MapIcon';
+import { SparklesIcon } from '../icons/SparklesIcon';
 import { rarityStyles } from '../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, any> = {
@@ -46,6 +49,13 @@ const getBuildingCost = (type: string, level: number) => {
         const essenceAmount = 5 + (level * 5);
         return { gold, essenceType, essenceAmount };
     }
+    // Frontend approximation for Shrine: display base info, but actual check is handled server-side for multiple essences.
+    // We return Common here just to render UI structure, but note that Shrine requires ALL essences.
+    if (type === 'shrine') {
+        const gold = Math.floor(15000 * Math.pow(1.5, level));
+        // Return dummy values here to satisfy type, but special rendering logic below handles "all essences"
+        return { gold, essenceType: EssenceType.Common, essenceAmount: 1 + level }; 
+    }
     return { gold: Infinity, essenceType: EssenceType.Common, essenceAmount: Infinity };
 }
 
@@ -55,6 +65,7 @@ const BUILDING_DEFINITIONS = [
     { id: 'armory', icon: ShieldIcon, color: 'text-indigo-400', maxLevel: 999 },
     { id: 'barracks', icon: SwordsIcon, color: 'text-red-500', maxLevel: 5 },
     { id: 'scoutHouse', icon: MapIcon, color: 'text-green-500', maxLevel: 3 },
+    { id: 'shrine', icon: SparklesIcon, color: 'text-purple-400', maxLevel: 5 },
 ];
 
 export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
@@ -71,10 +82,18 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 const isMaxLevel = level >= def.maxLevel;
                 const cost = isMaxLevel ? { gold: 0, essenceType: EssenceType.Common, essenceAmount: 0 } : getBuildingCost(def.id, level);
                 const currentGuildGold = guild.resources.gold || 0;
-                const currentGuildEssence = guild.resources[cost.essenceType] || 0;
                 
+                // Standard check for single essence type buildings
+                let hasEssence = false;
+                if (def.id !== 'shrine') {
+                     hasEssence = (guild.resources[cost.essenceType] || 0) >= cost.essenceAmount;
+                } else {
+                    // Special check for Shrine: requires cost.essenceAmount of ALL types
+                    const allEssences = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+                    hasEssence = allEssences.every(et => (guild.resources[et] || 0) >= cost.essenceAmount);
+                }
+
                 const hasGold = currentGuildGold >= cost.gold;
-                const hasEssence = currentGuildEssence >= cost.essenceAmount;
                 
                 const handleUpgrade = async () => {
                     try {
@@ -95,6 +114,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'armory') effect = `Pojemność: ${10 + level}`;
                 else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
                 else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
+                else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
@@ -122,13 +142,23 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                                             <span className={`text-xs ml-1 ${hasGold ? 'text-green-500' : 'text-red-500'}`}>({currentGuildGold.toLocaleString()})</span>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className={`${essenceToRarityMap[cost.essenceType].text}`}>{t(`resources.${cost.essenceType}`)}</span>
-                                        <div>
-                                            <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
-                                            <span className={`text-xs ml-1 ${hasEssence ? 'text-green-500' : 'text-red-500'}`}>({currentGuildEssence})</span>
+                                    
+                                    {def.id === 'shrine' ? (
+                                         <div className="flex justify-between items-center text-sm">
+                                            <span className="text-purple-300">Wszystkie Esencje</span>
+                                            <div>
+                                                <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className={`${essenceToRarityMap[cost.essenceType].text}`}>{t(`resources.${cost.essenceType}`)}</span>
+                                            <div>
+                                                <span className={`font-mono font-bold ${hasEssence ? 'text-sky-400' : 'text-red-400'}`}>{cost.essenceAmount}</span>
+                                                <span className={`text-xs ml-1 ${hasEssence ? 'text-green-500' : 'text-red-500'}`}>({guild.resources[cost.essenceType] || 0})</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="border-t border-slate-700 pt-4">

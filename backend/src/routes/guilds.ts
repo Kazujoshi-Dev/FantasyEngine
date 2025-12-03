@@ -1,4 +1,8 @@
 
+
+
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -89,8 +93,8 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             timestamp: row.created_at
         }));
 
-        // Robust merging of buildings to ensure new types (like scoutHouse) are present even if DB JSON is old
-        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 };
+        // Robust merging of buildings to ensure new types (like scoutHouse, shrine) are present even if DB JSON is old
+        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0 };
         const mergedBuildings = { ...defaultBuildings, ...(guildData.buildings || {}) };
 
         const guild: Guild & { members: GuildMember[], transactions: GuildTransaction[], myRole: GuildRole, chatHistory: any[] } = {
@@ -537,10 +541,11 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         char.resources.gold -= COST;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
-        // Create Guild with full default buildings, explicitly including scoutHouse
+        // Create Guild with full default buildings, explicitly including scoutHouse and shrine
+        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0 };
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [name, tag, userId, description || '', JSON.stringify({ headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0 })]
+            [name, tag, userId, description || '', JSON.stringify(defaultBuildings)]
         );
         const guildId = createRes.rows[0].id;
 
@@ -929,10 +934,10 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse'
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse', 'shrine'
     const userId = req.user.id;
 
-    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse') return res.status(400).json({ message: 'Invalid building type' });
+    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse' && buildingType !== 'shrine') return res.status(400).json({ message: 'Invalid building type' });
 
     const client = await pool.connect();
     try {
@@ -949,8 +954,8 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
         const guild = guildRes.rows[0];
         
-        // Robustly initialize default buildings including new ones like scoutHouse
-        let buildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, ...(guild.buildings || {}) };
+        // Robustly initialize default buildings including new ones like scoutHouse and shrine
+        let buildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0, ...(guild.buildings || {}) };
         
         const currentLevel = buildings[buildingType] || 0;
 
@@ -965,26 +970,52 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Building is at maximum level.' });
         }
+        
+        // Max Level Check for Shrine
+        if (buildingType === 'shrine' && currentLevel >= 5) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Building is at maximum level.' });
+        }
 
         // Calculate Cost
         const { gold, essenceType, essenceAmount } = getBuildingCost(buildingType, currentLevel);
 
         // Check resources
         const currentGold = guild.resources.gold || 0;
-        const currentEssence = guild.resources[essenceType] || 0;
-
+        
         if (currentGold < gold) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Not enough gold in guild bank' });
         }
-        if (currentEssence < essenceAmount) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Not enough essence in guild bank' });
+
+        // Special handling for 'shrine' which costs 1 of EACH essence per level + 1 base
+        if (buildingType === 'shrine') {
+            const requiredEssenceAmount = 1 + currentLevel;
+            const allEssences = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
+            
+            for (const et of allEssences) {
+                if ((guild.resources[et] || 0) < requiredEssenceAmount) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ message: `Not enough ${et} in guild bank (Required: ${requiredEssenceAmount})` });
+                }
+            }
+            
+            // Deduct all essences
+            for (const et of allEssences) {
+                guild.resources[et] -= requiredEssenceAmount;
+            }
+        } else {
+            // Standard building logic
+            const currentEssence = guild.resources[essenceType] || 0;
+            if (currentEssence < essenceAmount) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: 'Not enough essence in guild bank' });
+            }
+            guild.resources[essenceType] -= essenceAmount;
         }
 
-        // Deduct Resources
+        // Deduct Gold
         guild.resources.gold -= gold;
-        guild.resources[essenceType] -= essenceAmount;
 
         // Level Up
         buildings[buildingType] = currentLevel + 1;

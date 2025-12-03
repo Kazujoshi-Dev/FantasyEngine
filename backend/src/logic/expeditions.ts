@@ -1,10 +1,11 @@
+
 import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
 import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations/index.js';
 import { createItemInstance } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 
-export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData, guildBarracksLevel: number = 0, scoutHouseLevel: number = 0): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
+export const processCompletedExpedition = (character: PlayerCharacter, gameData: GameData, guildBarracksLevel: number = 0, scoutHouseLevel: number = 0, shrineLevel: number = 0): { updatedCharacter: PlayerCharacter, summary: ExpeditionRewardSummary, expeditionName: string } => {
     const expedition = gameData.expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
     if (!expedition) {
         character.activeExpedition = null;
@@ -35,8 +36,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     }
 
     // 2. Simulate combat and gather logs/results
-    // Pass guild barracks level to stat calculation
-    const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || [], guildBarracksLevel);
+    // Pass guild barracks level and shrine level to stat calculation
+    const characterWithStats = calculateDerivedStatsOnServer(character, gameData.itemTemplates || [], gameData.affixes || [], guildBarracksLevel, shrineLevel);
     
     // Create a combat-ready version of the character with full mana for the simulation.
     // Health carries over from the character's state before the expedition.

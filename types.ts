@@ -1,5 +1,7 @@
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -728,6 +730,7 @@ export interface PlayerCharacter {
   learnedSkills?: string[];
   guildId?: number; // Added guildId
   guildBarracksLevel?: number;
+  guildShrineLevel?: number; // Added guildShrineLevel
   description?: string;
   avatarUrl?: string;
   rentalTax?: number;
