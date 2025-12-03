@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Auth } from './components/Auth';
 import { CharacterCreation } from './components/CharacterCreation';
@@ -868,8 +869,8 @@ export const App: React.FC = () => {
                                 character={derivedCharacter}
                                 baseCharacter={character}
                                 gameData={gameData}
-                                onEquipItem={(item) => api.equipItem(item.uniqueId).then(updated => setCharacter(updated))}
-                                onUnequipItem={(item, slot) => api.unequipItem(slot).then(updated => setCharacter(updated))}
+                                onEquipItem={(updated) => setCharacter(updated)}
+                                onUnequipItem={(updated) => setCharacter(updated)}
                             />
                         )}
                         {activeTab === Tab.Expedition && (

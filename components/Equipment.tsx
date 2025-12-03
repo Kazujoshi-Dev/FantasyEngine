@@ -11,8 +11,8 @@ interface EquipmentProps {
   character: PlayerCharacter;
   baseCharacter: PlayerCharacter;
   gameData: GameData;
-  onEquipItem: (item: ItemInstance) => void;
-  onUnequipItem: (item: ItemInstance, fromSlot: EquipmentSlot) => void;
+  onEquipItem: (updatedCharacter: PlayerCharacter) => void;
+  onUnequipItem: (updatedCharacter: PlayerCharacter) => void;
 }
 
 const slotOrder: EquipmentSlot[] = [
@@ -130,7 +130,6 @@ const ItemComparisonTooltip: React.FC<{
              const slotToCompare = hoveredTemplate.slot;
              equippedItemsToCompare.push({ item: character.equipment[slotToCompare], slotName: t(`equipment.slot.${slotToCompare}`) });
         }
-    // FIX: Removed redundant check for `hoveredTemplate.slot !== 'ring'` which is always true here due to prior type narrowing, resolving a linter error.
     } else if (hoveredTemplate.slot !== 'consumable') {
         const slot = hoveredTemplate.slot as EquipmentSlot;
         equippedItemsToCompare.push({ item: character.equipment[slot], slotName: t(`equipment.slot.${slot}`) });
@@ -162,12 +161,36 @@ const ItemComparisonTooltip: React.FC<{
     );
 };
 
+const EquippedItemTooltip: React.FC<{
+    item: ItemInstance;
+    gameData: GameData;
+    character: PlayerCharacter;
+}> = ({ item, gameData, character }) => {
+    const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
+    if (!template) return null;
+
+    return (
+        <div className="fixed inset-0 z-30 flex justify-center items-center pointer-events-none animate-fade-in">
+            <div className="w-72 flex-shrink-0 p-4 bg-slate-900/95 border border-slate-700 rounded-lg shadow-2xl pointer-events-auto backdrop-blur-sm">
+                <ItemDetailsPanel 
+                    item={item} 
+                    template={template} 
+                    affixes={gameData.affixes || []} 
+                    character={character}
+                    size="small" 
+                />
+            </div>
+        </div>
+    );
+};
+
 
 export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, gameData, onEquipItem, onUnequipItem }) => {
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance; source: 'equipment' | 'inventory'; fromSlot?: EquipmentSlot } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [hoveredInventoryItem, setHoveredInventoryItem] = useState<ItemInstance | null>(null);
+    const [hoveredEquippedItem, setHoveredEquippedItem] = useState<ItemInstance | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     const [hideUnusable, setHideUnusable] = useState(false);
@@ -244,19 +267,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const handleEquip = async (item: ItemInstance) => {
         try {
             const updatedChar = await api.equipItem(item.uniqueId);
-            onEquipItem(item); // Call parent callback just in case it does local state update or re-fetches
-            // Or better, have onEquipItem accept the updated char, but existing App.tsx structure suggests fetching or local update. 
-            // Since App.tsx passes `handleEquipItem` which calls `handleCharacterUpdate`, we need to change App.tsx too OR 
-            // make `onEquipItem` prop simpler in `Equipment.tsx`.
-            // Given the prop `onEquipItem: (item: ItemInstance) => void`, we can't pass the updated char back up easily without refactoring App.tsx.
-            // However, we can't modify App.tsx easily in this context as it was not requested to be refactored heavily, but to fix security.
-            // The best way is to call api directly here, and assume parent will re-fetch or handle sync via `onEquipItem` if it does a refetch.
-            // Looking at App.tsx provided: `handleEquipItem` calls `handleCharacterUpdate`.
-            // So we should actually invoke the passed prop `onEquipItem`, BUT change App.tsx to call the secure API instead of local logic.
-            // WAIT, I can change App.tsx! 
-            // Let's change App.tsx logic to use the secure API. 
-            // But here in component, we just trigger the prop.
-            onEquipItem(item);
+            onEquipItem(updatedChar);
         } catch (e: any) {
             alert(e.message || t('error.title'));
         }
@@ -265,7 +276,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     const handleUnequip = async (item: ItemInstance, slot: EquipmentSlot) => {
         try {
             const updatedChar = await api.unequipItem(slot);
-            onUnequipItem(item, slot);
+            onUnequipItem(updatedChar);
         } catch (e: any) {
             alert(e.message || t('error.title'));
         }
@@ -298,6 +309,8 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
     
     const handleDrop = (e: React.DragEvent, target: 'inventory' | { slot: EquipmentSlot }) => {
         e.preventDefault();
+        e.stopPropagation();
+
         const itemUniqueId = e.dataTransfer.getData('itemUniqueId');
         const source = e.dataTransfer.getData('source') as 'equipment' | 'inventory';
         const fromSlot = e.dataTransfer.getData('fromSlot') as EquipmentSlot;
@@ -334,7 +347,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                 {/* Equipped Items */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('equipment.equipped')}</h3>
-                    <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-1" onMouseLeave={() => setHoveredEquippedItem(null)}>
                         {slotOrder.map(slot => {
                             const item = character.equipment ? character.equipment[slot] : null;
                             const template = (item && typeof item === 'object') ? (gameData.itemTemplates || []).find(t => t.id === item.templateId) : null;
@@ -352,6 +365,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                         className="relative group"
                                         onDrop={(e) => handleDrop(e, { slot })}
                                         onDragOver={handleDragOver}
+                                        onMouseEnter={() => setHoveredEquippedItem(item)}
                                     >
                                         <ItemListItem
                                             item={item}
@@ -367,7 +381,6 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
                                         />
-                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes || []} />
                                     </div>
                                 ) : (
                                     <div key={slot} onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
@@ -471,6 +484,7 @@ export const Equipment: React.FC<EquipmentProps> = ({ character, baseCharacter, 
 
             {contextMenu && <ContextMenu {...contextMenu} options={contextMenuOptions} onClose={() => setContextMenu(null)} />}
             {hoveredInventoryItem && <ItemComparisonTooltip hoveredItem={hoveredInventoryItem} character={character} gameData={gameData} />}
+            {hoveredEquippedItem && <EquippedItemTooltip item={hoveredEquippedItem} gameData={gameData} character={character} />}
 
         </ContentPanel>
     );
