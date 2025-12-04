@@ -1,3 +1,4 @@
+
 import { pool } from '../db.js';
 import { GuildRaid, RaidStatus, RaidType, RaidParticipant, GuildRole, PlayerCharacter, GameData, EssenceType, CombatLogEntry } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -8,7 +9,20 @@ const PREP_TIME_MINUTES = 15;
 
 export const getActiveRaids = async (guildId: number): Promise<{ incoming: GuildRaid[], outgoing: GuildRaid[] }> => {
     const incomingRes = await pool.query(
-        `SELECT gr.*, ag.name as "attackerGuildName", dg.name as "defenderGuildName" 
+        `SELECT 
+            gr.id,
+            gr.attacker_guild_id as "attackerGuildId",
+            gr.defender_guild_id as "defenderGuildId",
+            gr.status,
+            gr.raid_type as "type",
+            gr.start_time as "startTime",
+            gr.created_at as "createdAt",
+            gr.attacker_participants as "attackerParticipants",
+            gr.defender_participants as "defenderParticipants",
+            gr.winner_guild_id as "winnerGuildId",
+            gr.loot,
+            ag.name as "attackerGuildName", 
+            dg.name as "defenderGuildName" 
          FROM guild_raids gr
          JOIN guilds ag ON gr.attacker_guild_id = ag.id
          JOIN guilds dg ON gr.defender_guild_id = dg.id
@@ -18,7 +32,20 @@ export const getActiveRaids = async (guildId: number): Promise<{ incoming: Guild
     );
 
     const outgoingRes = await pool.query(
-        `SELECT gr.*, ag.name as "attackerGuildName", dg.name as "defenderGuildName" 
+        `SELECT 
+            gr.id,
+            gr.attacker_guild_id as "attackerGuildId",
+            gr.defender_guild_id as "defenderGuildId",
+            gr.status,
+            gr.raid_type as "type",
+            gr.start_time as "startTime",
+            gr.created_at as "createdAt",
+            gr.attacker_participants as "attackerParticipants",
+            gr.defender_participants as "defenderParticipants",
+            gr.winner_guild_id as "winnerGuildId",
+            gr.loot,
+            ag.name as "attackerGuildName", 
+            dg.name as "defenderGuildName" 
          FROM guild_raids gr
          JOIN guilds ag ON gr.attacker_guild_id = ag.id
          JOIN guilds dg ON gr.defender_guild_id = dg.id
@@ -27,7 +54,6 @@ export const getActiveRaids = async (guildId: number): Promise<{ incoming: Guild
         [guildId]
     );
     
-    // Map JSONB arrays to TS objects if needed (pg does this automatically usually)
     return {
         incoming: incomingRes.rows,
         outgoing: outgoingRes.rows
@@ -63,12 +89,12 @@ export const createRaid = async (attackerGuildId: number, attackerUserId: number
         
         // 3. Setup Participants (Auto-add Leaders)
         const attackerLeaderRes = await client.query(
-            `SELECT c.user_id, c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass"
+            `SELECT c.user_id as "userId", c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass"
              FROM guilds g JOIN characters c ON g.leader_id = c.user_id WHERE g.id = $1`,
             [attackerGuildId]
         );
         const defenderLeaderRes = await client.query(
-            `SELECT c.user_id, c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass"
+            `SELECT c.user_id as "userId", c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass"
              FROM guilds g JOIN characters c ON g.leader_id = c.user_id WHERE g.id = $1`,
             [defenderGuildId]
         );
@@ -94,14 +120,9 @@ export const createRaid = async (attackerGuildId: number, attackerUserId: number
         const defenderMembersRes = await client.query('SELECT user_id FROM guild_members WHERE guild_id = $1', [defenderGuildId]);
         
         const attackerName = attackerGuildNameRes.rows[0].name;
-        const notificationBody = JSON.stringify({ content: `Gildia ${attackerName} wypowiedziała nam wojnę! Przygotuj się do obrony! (Start za ${PREP_TIME_MINUTES} min)` });
+        const notificationBody = JSON.stringify({ content: `Gildia ${attackerName} wypowiedziała nam wojnę! Przygotuj się do obrony! (Start za ${PREP_TIME_MINUTES} min). Przejdź do zakładki Gildia -> Rajdy, aby dołączyć.` });
         
         for (const row of defenderMembersRes.rows) {
-            await client.query(
-                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'guild_invite', 'WOJNA GILDII!', $2)`,
-                [row.user_id, notificationBody] // Reusing guild_invite type for generic system msg structure or change to system
-            );
-             // Actually better to use 'system' type
              await client.query(
                 `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'system', 'WOJNA GILDII!', $2)`,
                 [row.user_id, notificationBody]
@@ -207,7 +228,8 @@ export const processPendingRaids = async (): Promise<void> => {
                     return res.rows.map(r => {
                          const barracks = r.buildings?.barracks || 0;
                          const shrine = r.buildings?.shrine || 0;
-                         return calculateDerivedStatsOnServer(r.data, gameData.itemTemplates, gameData.affixes, barracks, shrine, gameData.skills);
+                         // Add user_id back to data for ID matching
+                         return calculateDerivedStatsOnServer({...r.data, id: r.data.id || r.user_id}, gameData.itemTemplates, gameData.affixes, barracks, shrine, gameData.skills);
                     });
                 };
 
@@ -270,14 +292,10 @@ export const processPendingRaids = async (): Promise<void> => {
                     [JSON.stringify(combatLog), winnerGuildId, JSON.stringify(loot), raid.id]
                 );
                 
-                // Send Reports (To leaders only for now to reduce spam, or all participants?)
-                // Let's send to all participants
+                // Send Reports
                 const allParticipants = [...attackerIds, ...defenderIds];
-                const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`; // Simplified
+                const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`;
                 
-                // For simplicity in this context, we don't construct the full body here, 
-                // the user can view the full log in the Guild Raid tab history.
-                // But let's send a notification.
                  for (const uid of allParticipants) {
                     await client.query(
                         `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'system', $2, $3)`,
