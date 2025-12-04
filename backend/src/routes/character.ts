@@ -1,6 +1,4 @@
 
-
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -263,12 +261,22 @@ router.post('/character/cancel-expedition', authenticateToken, async (req: any, 
     try {
         await client.query('BEGIN');
 
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found.' });
         }
         let character: PlayerCharacter = charRes.rows[0].data;
+        const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
+        const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
 
         if (!character.activeExpedition) {
             await client.query('ROLLBACK');
@@ -292,7 +300,7 @@ router.post('/character/cancel-expedition', authenticateToken, async (req: any, 
             const itemTemplates = gameDataForStatsRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
             const affixes = gameDataForStatsRes.rows.find(r => r.key === 'affixes')?.data || [];
             const skills = gameDataForStatsRes.rows.find(r => r.key === 'skills')?.data || [];
-            const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, 0, 0, skills);
+            const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
             character.stats.currentEnergy = Math.min(character.stats.currentEnergy, derivedChar.stats.maxEnergy);
 
             // Nullify expedition
@@ -302,6 +310,9 @@ router.post('/character/cancel-expedition', authenticateToken, async (req: any, 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
 
+        // Attach guild levels before responding
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
         res.json(character);
 
     } catch (err: any) {
@@ -391,6 +402,11 @@ router.post('/character/complete-expedition', authenticateToken, async (req: any
         const messageId = messageRes.rows[0].id;
 
         await client.query('COMMIT');
+        
+        // Attach guild levels before responding
+        updatedCharacter.guildBarracksLevel = barracksLevel;
+        updatedCharacter.guildShrineLevel = shrineLevel;
+        
         res.json({ updatedCharacter, summary, messageId });
 
     } catch (err: any) {
@@ -589,8 +605,21 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        // UPDATED QUERY: Fetch guild buildings to include Shrine Luck bonus in calculation
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+
         const character: PlayerCharacter = charRes.rows[0].data;
+        // Get guild building levels
+        const guildBuildings = charRes.rows[0].buildings || {};
+        const barracksLevel = guildBuildings['barracks'] || 0;
+        const shrineLevel = guildBuildings['shrine'] || 0;
         
         // Fetch Metadata
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
@@ -619,7 +648,8 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
         }
         
         // Calculate stats to verify requirements
-        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, 0, 0, skills);
+        // PASS shrineLevel AND barracksLevel correctly
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
         for (const stat in (template.requiredStats || {})) {
              // @ts-ignore
              if ((derivedChar.stats[stat] || 0) < template.requiredStats[stat]) {
@@ -673,6 +703,11 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
+
+        // Attach guild levels before responding to ensure frontend calculations remain correct
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
+
         res.json(character);
 
     } catch(err) {
@@ -689,8 +724,21 @@ router.post('/character/unequip', authenticateToken, async (req: any, res: any) 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        
+        // Updated query to fetch guild buildings
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 
+            FOR UPDATE OF c
+        `, [req.user!.id]);
+
         const character: PlayerCharacter = charRes.rows[0].data;
+        const guildBuildings = charRes.rows[0].buildings || {};
+        const barracksLevel = guildBuildings['barracks'] || 0;
+        const shrineLevel = guildBuildings['shrine'] || 0;
         
         const item = character.equipment[slot as EquipmentSlot];
         if (!item) {
@@ -709,6 +757,11 @@ router.post('/character/unequip', authenticateToken, async (req: any, res: any) 
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
+
+        // Attach guild levels before responding
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
+
         res.json(character);
     } catch(err) {
         await client.query('ROLLBACK');
@@ -812,6 +865,10 @@ router.post('/character/learn-skill', authenticateToken, async (req: any, res: a
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
+        
+        // Return with guild levels
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
@@ -843,6 +900,8 @@ router.post('/character/toggle-skill', authenticateToken, async (req: any, res: 
         }
 
         let character: PlayerCharacter = charRes.rows[0].data;
+        const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
+        const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
         
         // Initialize if missing
         if (!character.activeSkills) character.activeSkills = [];
@@ -870,8 +929,6 @@ router.post('/character/toggle-skill', authenticateToken, async (req: any, res: 
                 // Validate mana requirement
                 if (skill.manaMaintenanceCost && skill.manaMaintenanceCost > 0) {
                     // Calculate current max mana WITHOUT this new skill active yet
-                    const barracksLevel = charRes.rows[0].buildings?.barracks || 0;
-                    const shrineLevel = charRes.rows[0].buildings?.shrine || 0;
                     const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes, barracksLevel, shrineLevel, skills);
                     
                     if (derivedChar.stats.maxMana < skill.manaMaintenanceCost) {
@@ -889,6 +946,10 @@ router.post('/character/toggle-skill', authenticateToken, async (req: any, res: 
         // Save
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
+
+        // Attach guild levels
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
         res.json(character);
 
     } catch (err: any) {
@@ -1055,6 +1116,9 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
         await client.query('COMMIT');
         
+        // Return with guild levels
+        character.guildBarracksLevel = barracksLevel;
+        character.guildShrineLevel = shrineLevel;
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
@@ -1239,18 +1303,6 @@ router.post('/character/complete-quest', authenticateToken, async (req: any, res
         res.status(500).json({ message: 'Failed to complete quest.' });
     } finally {
         client.release();
-    }
-});
-
-
-// GET /api/characters/names - Get all character names
-router.get('/characters/names', authenticateToken, async (req: any, res: any) => {
-    try {
-        const result = await pool.query("SELECT data->>'name' as name FROM characters");
-        res.json(result.rows.map(r => r.name));
-    } catch (err) {
-        console.error('Error fetching character names:', err);
-        res.status(500).json({ message: 'Failed to fetch character names.' });
     }
 });
 
