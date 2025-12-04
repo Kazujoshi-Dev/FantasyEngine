@@ -7,7 +7,7 @@ import { SwordsIcon } from '../icons/SwordsIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 
-export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole }> = ({ myGuildId, myRole }) => {
+export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUserId?: number }> = ({ myGuildId, myRole, myUserId }) => {
     const { t } = useTranslation();
     const [incomingRaids, setIncomingRaids] = useState<GuildRaid[]>([]);
     const [outgoingRaids, setOutgoingRaids] = useState<GuildRaid[]>([]);
@@ -79,6 +79,8 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole }> = (
         
         const participants = isIncoming ? raid.defenderParticipants : raid.attackerParticipants;
         const opponentsCount = isIncoming ? raid.attackerParticipants.length : raid.defenderParticipants.length;
+        
+        const isJoined = participants.some(p => p.userId === myUserId);
 
         return (
             <div className={`p-4 rounded-lg border ${isIncoming ? 'bg-red-900/30 border-red-600' : 'bg-green-900/30 border-green-600'} mb-4`}>
@@ -105,8 +107,12 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole }> = (
                 </div>
 
                 {raid.status === RaidStatus.PREPARING && (
-                    <button onClick={() => handleJoin(raid.id)} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold text-white">
-                        Dołącz do {isIncoming ? 'Obrony' : 'Ataku'}
+                    <button 
+                        onClick={() => handleJoin(raid.id)} 
+                        disabled={isJoined}
+                        className={`w-full py-2 rounded font-bold text-white ${isJoined ? 'bg-slate-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+                    >
+                        {isJoined ? 'Dołączono' : `Dołącz do ${isIncoming ? 'Obrony' : 'Ataku'}`}
                     </button>
                 )}
                 
@@ -115,7 +121,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole }> = (
                     <p className="text-xs text-gray-500 mb-2">Zapisani gracze:</p>
                     <div className="flex flex-wrap gap-2">
                         {participants.map(p => (
-                            <span key={p.userId} className="text-xs bg-slate-800 px-2 py-1 rounded text-gray-300 border border-slate-600">
+                            <span key={p.userId} className={`text-xs px-2 py-1 rounded border border-slate-600 ${p.userId === myUserId ? 'bg-indigo-900/50 text-indigo-200' : 'bg-slate-800 text-gray-300'}`}>
                                 {p.name} (Lvl {p.level})
                             </span>
                         ))}

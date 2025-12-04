@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -218,7 +219,7 @@ export const Guild: React.FC = () => {
             
             {tab === 'RAIDS' && (
                  <div className="h-[70vh] overflow-y-auto pr-2">
-                    <GuildRaids myGuildId={guild.id} myRole={guild.myRole} />
+                    <GuildRaids myGuildId={guild.id} myRole={guild.myRole} myUserId={character?.id} />
                 </div>
             )}
 

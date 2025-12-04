@@ -169,7 +169,10 @@ export const joinRaid = async (raidId: number, userId: number, guildId: number):
         const column = isAttacker ? 'attacker_participants' : 'defender_participants';
         const currentList = raid[column] as RaidParticipant[];
         
-        if (currentList.some(p => p.userId === userId)) throw new Error('Już dołączyłeś do tej bitwy.');
+        // Strict Number comparison to avoid ID mismatch
+        if (currentList.some(p => Number(p.userId) === Number(userId))) {
+            throw new Error('Już dołączyłeś do tej bitwy.');
+        }
         
         currentList.push(participant);
         
@@ -218,6 +221,7 @@ export const processPendingRaids = async (): Promise<void> => {
                 const defenderIds = (raid.defender_participants as RaidParticipant[]).map(p => p.userId);
                 
                 const getFullChars = async (ids: number[]) => {
+                    if (ids.length === 0) return [];
                     const res = await client.query(`
                         SELECT c.data, g.buildings 
                         FROM characters c
@@ -247,40 +251,42 @@ export const processPendingRaids = async (): Promise<void> => {
                 // Process Loot (Resources Mode)
                 if (raid.raid_type === RaidType.RESOURCES && isAttackerWinner) {
                     const defenderGuildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [raid.defender_guild_id]);
-                    const defenderResources = defenderGuildRes.rows[0].resources;
-                    
-                    // Calculate 25%
-                    loot.gold = Math.floor(defenderResources.gold * 0.25);
-                    
-                    // Object.keys iteration for essences
-                    for (const key of Object.keys(defenderResources)) {
-                        if (key !== 'gold') {
-                             const amount = Math.floor((defenderResources[key] || 0) * 0.25);
-                             if (amount > 0) {
-                                 loot.essences[key] = amount;
-                                 defenderResources[key] -= amount;
-                             }
+                    if (defenderGuildRes.rows.length > 0) {
+                        const defenderResources = defenderGuildRes.rows[0].resources || { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+                        
+                        // Calculate 25%
+                        loot.gold = Math.floor((defenderResources.gold || 0) * 0.25);
+                        
+                        // Object.keys iteration for essences
+                        for (const key of Object.keys(defenderResources)) {
+                            if (key !== 'gold') {
+                                 const amount = Math.floor((defenderResources[key] || 0) * 0.25);
+                                 if (amount > 0) {
+                                     loot.essences[key] = amount;
+                                     defenderResources[key] = (defenderResources[key] || 0) - amount;
+                                 }
+                            }
                         }
-                    }
-                    defenderResources.gold -= loot.gold;
-                    
-                    // Update Defender Bank
-                    await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(defenderResources), raid.defender_guild_id]);
-                    
-                    // Update Attacker Bank
-                    const attackerGuildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [raid.attacker_guild_id]);
-                    const attackerResources = attackerGuildRes.rows[0].resources;
-                    
-                    attackerResources.gold += loot.gold;
-                    for (const [key, val] of Object.entries(loot.essences)) {
-                        attackerResources[key] = (attackerResources[key] || 0) + val;
-                    }
-                    
-                    await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(attackerResources), raid.attacker_guild_id]);
-                    
-                    // Log Bank History
-                    if (loot.gold > 0) {
-                        await client.query(`INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'LOOT', 'gold', $2)`, [raid.attacker_guild_id, loot.gold]);
+                        defenderResources.gold = (defenderResources.gold || 0) - loot.gold;
+                        
+                        // Update Defender Bank
+                        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(defenderResources), raid.defender_guild_id]);
+                        
+                        // Update Attacker Bank
+                        const attackerGuildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [raid.attacker_guild_id]);
+                        const attackerResources = attackerGuildRes.rows[0].resources || { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+                        
+                        attackerResources.gold = (attackerResources.gold || 0) + loot.gold;
+                        for (const [key, val] of Object.entries(loot.essences)) {
+                            attackerResources[key] = (attackerResources[key] || 0) + val;
+                        }
+                        
+                        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(attackerResources), raid.attacker_guild_id]);
+                        
+                        // Log Bank History
+                        if (loot.gold > 0) {
+                            await client.query(`INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'LOOT', 'gold', $2)`, [raid.attacker_guild_id, loot.gold]);
+                        }
                     }
                 }
 
@@ -294,12 +300,16 @@ export const processPendingRaids = async (): Promise<void> => {
                 
                 // Send Reports
                 const allParticipants = [...attackerIds, ...defenderIds];
+                // Deduplicate participants
+                const uniqueParticipants = Array.from(new Set(allParticipants));
+
                 const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`;
+                const winnerName = winner === 'attacker' ? 'Atakujący' : 'Obrońcy';
                 
-                 for (const uid of allParticipants) {
+                 for (const uid of uniqueParticipants) {
                     await client.query(
                         `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'system', $2, $3)`,
-                        [uid, subject, JSON.stringify({ content: `Bitwa zakończona! Zwycięzca: ${winner === 'attacker' ? 'Atakujący' : 'Obrońcy'}. Sprawdź zakładkę Rajdy w gildii po szczegóły.` })]
+                        [uid, subject, JSON.stringify({ content: `Bitwa zakończona! Zwycięzca: ${winnerName}. Sprawdź zakładkę Rajdy w gildii po szczegóły.` })]
                     );
                 }
 
