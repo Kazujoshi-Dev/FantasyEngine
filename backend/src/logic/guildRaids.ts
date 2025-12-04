@@ -7,7 +7,22 @@ import { simulateTeamVsTeamCombat } from './combat/simulations/index.js';
 // Constants
 const PREP_TIME_MINUTES = 15;
 
+// Helper to safely parse JSONB columns which might be double-stringified or raw objects
+const safeParseParticipants = (data: any): RaidParticipant[] => {
+    if (Array.isArray(data)) return data;
+    if (typeof data === 'string') {
+        try {
+            const parsed = JSON.parse(data);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            console.error("Error parsing participants JSON:", e);
+        }
+    }
+    return [];
+};
+
 export const getActiveRaids = async (guildId: number): Promise<{ incoming: GuildRaid[], outgoing: GuildRaid[] }> => {
+    // Using explicit aliasing to match frontend types (camelCase)
     const incomingRes = await pool.query(
         `SELECT 
             gr.id,
@@ -107,6 +122,7 @@ export const createRaid = async (attackerGuildId: number, attackerUserId: number
 
         // 4. Create Raid
         const startTime = new Date(Date.now() + PREP_TIME_MINUTES * 60 * 1000);
+        // IMPORTANT: Pass objects directly for JSONB columns, pg handles stringification
         const insertRes = await client.query(
             `INSERT INTO guild_raids 
              (attacker_guild_id, defender_guild_id, status, raid_type, start_time, attacker_participants, defender_participants)
@@ -130,7 +146,7 @@ export const createRaid = async (attackerGuildId: number, attackerUserId: number
         }
 
         await client.query('COMMIT');
-        return { id: insertRes.rows[0].id } as any; // Simplified return
+        return { id: insertRes.rows[0].id } as any;
 
     } catch (e) {
         await client.query('ROLLBACK');
@@ -167,7 +183,8 @@ export const joinRaid = async (raidId: number, userId: number, guildId: number):
         };
         
         const column = isAttacker ? 'attacker_participants' : 'defender_participants';
-        const currentList = raid[column] as RaidParticipant[];
+        const rawList = raid[isAttacker ? 'attacker_participants' : 'defender_participants'];
+        const currentList = safeParseParticipants(rawList);
         
         // Strict Number comparison to avoid ID mismatch
         if (currentList.some(p => Number(p.userId) === Number(userId))) {
@@ -191,11 +208,12 @@ export const joinRaid = async (raidId: number, userId: number, guildId: number):
 export const processPendingRaids = async (): Promise<void> => {
     const client = await pool.connect();
     try {
+        const now = new Date();
         // Fetch raids ready to start
         const raidsRes = await client.query(`
             SELECT * FROM guild_raids 
-            WHERE status = 'PREPARING' AND start_time <= NOW()
-        `);
+            WHERE status = 'PREPARING' AND start_time <= $1
+        `, [now]);
         
         if (raidsRes.rows.length === 0) return;
 
@@ -207,18 +225,22 @@ export const processPendingRaids = async (): Promise<void> => {
             try {
                 await client.query('BEGIN');
                 
-                // Lock raid row
+                // Lock raid row to prevent double processing
                 const raidLock = await client.query('SELECT status FROM guild_raids WHERE id = $1 FOR UPDATE', [raid.id]);
                 if (raidLock.rows[0].status !== 'PREPARING') {
                     await client.query('ROLLBACK');
                     continue;
                 }
 
+                // Mark as fighting (though we resolve it immediately, this prevents re-selection if logic is slow)
                 await client.query("UPDATE guild_raids SET status = 'FIGHTING' WHERE id = $1", [raid.id]);
 
-                // Fetch participants full data
-                const attackerIds = (raid.attacker_participants as RaidParticipant[]).map(p => p.userId);
-                const defenderIds = (raid.defender_participants as RaidParticipant[]).map(p => p.userId);
+                // Parse participants safely
+                const attackerList = safeParseParticipants(raid.attacker_participants);
+                const defenderList = safeParseParticipants(raid.defender_participants);
+
+                const attackerIds = attackerList.map(p => p.userId);
+                const defenderIds = defenderList.map(p => p.userId);
                 
                 const getFullChars = async (ids: number[]) => {
                     if (ids.length === 0) return [];
@@ -232,7 +254,6 @@ export const processPendingRaids = async (): Promise<void> => {
                     return res.rows.map(r => {
                          const barracks = r.buildings?.barracks || 0;
                          const shrine = r.buildings?.shrine || 0;
-                         // Add user_id back to data for ID matching
                          return calculateDerivedStatsOnServer({...r.data, id: r.data.id || r.user_id}, gameData.itemTemplates, gameData.affixes, barracks, shrine, gameData.skills);
                     });
                 };
@@ -257,7 +278,6 @@ export const processPendingRaids = async (): Promise<void> => {
                         // Calculate 25%
                         loot.gold = Math.floor((defenderResources.gold || 0) * 0.25);
                         
-                        // Object.keys iteration for essences
                         for (const key of Object.keys(defenderResources)) {
                             if (key !== 'gold') {
                                  const amount = Math.floor((defenderResources[key] || 0) * 0.25);
@@ -290,7 +310,7 @@ export const processPendingRaids = async (): Promise<void> => {
                     }
                 }
 
-                // Update Raid Status
+                // Update Raid Status to FINISHED
                 await client.query(
                     `UPDATE guild_raids 
                      SET status = 'FINISHED', combat_log = $1, winner_guild_id = $2, loot = $3 
@@ -300,7 +320,6 @@ export const processPendingRaids = async (): Promise<void> => {
                 
                 // Send Reports
                 const allParticipants = [...attackerIds, ...defenderIds];
-                // Deduplicate participants
                 const uniqueParticipants = Array.from(new Set(allParticipants));
 
                 const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`;
@@ -315,12 +334,34 @@ export const processPendingRaids = async (): Promise<void> => {
 
                 await client.query('COMMIT');
             } catch (raidErr) {
+                // CRITICAL ERROR HANDLING:
+                // If raid processing crashes, perform ROLLBACK to revert DB changes (like locked gold)
+                // THEN start a NEW transaction to mark the raid as FINISHED (Failed) so it doesn't loop infinitely.
                 await client.query('ROLLBACK');
-                console.error(`Error processing raid ${raid.id}:`, raidErr);
+                console.error(`CRITICAL: Error processing raid ${raid.id}. Marking as FINISHED to prevent loop.`, raidErr);
+                
+                try {
+                    await client.query('BEGIN');
+                    const errorLog = [{
+                        turn: 0,
+                        attacker: 'System',
+                        defender: 'System',
+                        action: 'Błąd krytyczny. Bitwa anulowana technicznie.',
+                        playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0
+                    }];
+                    await client.query(
+                        "UPDATE guild_raids SET status = 'FINISHED', combat_log = $1 WHERE id = $2",
+                        [JSON.stringify(errorLog), raid.id]
+                    );
+                    await client.query('COMMIT');
+                } catch (e) {
+                    await client.query('ROLLBACK');
+                    console.error("Double fault while trying to close raid:", e);
+                }
             }
         }
     } catch (err) {
-        console.error('Error in processPendingRaids:', err);
+        console.error('Error in processPendingRaids loop:', err);
     } finally {
         client.release();
     }
