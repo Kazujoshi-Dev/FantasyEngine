@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, CombatLogEntry, CharacterStats, CharacterClass, GameData, Race } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
@@ -20,6 +21,26 @@ export const simulateTeamVsTeamCombat = (
     defendersData: PlayerCharacter[],
     gameData: GameData
 ): { combatLog: CombatLogEntry[], winner: 'attacker' | 'defender' } => {
+
+    // Check for immediate empty teams (should be handled by Walkower logic in guildRaids, but safe guard here)
+    if (attackersData.length === 0) {
+        return {
+            combatLog: [{
+                turn: 0, attacker: 'System', defender: 'System', action: 'walkover', 
+                playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0 
+            }],
+            winner: 'defender'
+        };
+    }
+    if (defendersData.length === 0) {
+        return {
+            combatLog: [{
+                turn: 0, attacker: 'System', defender: 'System', action: 'walkover', 
+                playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0 
+            }],
+            winner: 'attacker'
+        };
+    }
 
     // 1. Initialize Combatants
     const combatants: TeamCombatant[] = [];
@@ -288,9 +309,8 @@ export const simulateTeamVsTeamCombat = (
                  if (targets.length > 0) {
                      const target = targets[Math.floor(Math.random() * targets.length)];
                      log.push({ turn, attacker: actor.data.name, defender: target.data.name, action: 'berserker_frenzy', ...getHealthState() });
-                     // Quick attack simulation (simplified for brevity - ideally reuse performAttack)
-                     // For now, just one hit logic or call performAttack again
-                     // Let's call performAttack properly to maintain consistency
+                     
+                     // Reconstruct detailed Attacker/Defender states for performAttack
                      const attackerState: AttackerState & { data: PlayerCharacter } = {
                         stats: actor.data.stats,
                         currentHealth: actor.currentHealth,
@@ -311,6 +331,8 @@ export const simulateTeamVsTeamCombat = (
                         statusEffects: target.statusEffects,
                         data: target.data
                     };
+
+                    // Pass empty enemy list as AoE is not typically triggered on bonus attacks (simplification)
                     const { logs } = performAttack(attackerState, defenderState, turn, gameData, []);
                     
                     actor.currentHealth = attackerState.currentHealth;

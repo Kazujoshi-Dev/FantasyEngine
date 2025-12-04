@@ -1,10 +1,12 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
-import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary } from '../../types';
+import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary, PartyMember } from '../../types';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { ClockIcon } from '../icons/ClockIcon';
@@ -21,6 +23,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
     const [selectedTarget, setSelectedTarget] = useState<number | ''>('');
     const [raidType, setRaidType] = useState<RaidType>(RaidType.RESOURCES);
     const [selectedRaid, setSelectedRaid] = useState<GuildRaid | null>(null);
+    const [modalData, setModalData] = useState<{ summary: ExpeditionRewardSummary, opponents: PartyMember[] } | null>(null);
     
     const canDeclare = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
 
@@ -76,45 +79,40 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
         } catch(e: any) { alert(e.message); }
     };
     
-    // Map GuildRaid structure to ExpeditionRewardSummary for the modal
-    const mapRaidToSummary = (raid: GuildRaid): ExpeditionRewardSummary => {
+    const prepareRaidSummary = (raid: GuildRaid) => {
         const isAttacker = raid.attackerGuildId === myGuildId;
         const didWin = raid.winnerGuildId === myGuildId;
         
-        // Attacker perspective: "enemy" is defender
-        // Defender perspective: "enemy" is attacker
-        const opponents = isAttacker ? raid.defenderParticipants : raid.attackerParticipants;
+        const friendlyTeam = isAttacker ? raid.attackerParticipants : raid.defenderParticipants;
+        const opposingTeam = isAttacker ? raid.defenderParticipants : raid.attackerParticipants;
         
-        // Construct fake "enemies" for visual list in modal
-        const encounteredEnemies = opponents.map(p => ({
-            id: String(p.userId),
-            uniqueId: String(p.userId),
-            name: p.name,
-            description: `Lvl ${p.level} ${p.race} ${p.characterClass || ''}`,
-            stats: { maxHealth: 1, minDamage: 1, maxDamage: 1, armor: 0, critChance: 0, agility: 1 } as any, // Dummy stats, combat log has real ones
-            lootTable: [],
-            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 }
-        }));
+        // Map participants to PartyMember format
+        const mapToPartyMember = (p: any): PartyMember => ({
+             userId: p.userId,
+             characterName: p.name,
+             level: p.level,
+             race: p.race,
+             characterClass: p.characterClass,
+             status: undefined as any // not needed for display
+        });
 
-        return {
+        const summary: ExpeditionRewardSummary = {
             isVictory: didWin,
             totalGold: (raid.loot?.gold && didWin) ? raid.loot.gold : 0,
-            totalExperience: 0, // Raids don't give direct XP yet in summary, managed server side
+            totalExperience: 0, 
             itemsFound: [],
             essencesFound: (raid.loot?.essences && didWin) ? raid.loot.essences : {},
             combatLog: raid.combatLog || [],
             rewardBreakdown: [],
-            encounteredEnemies: encounteredEnemies,
-            // Map friendly participants
-            huntingMembers: (isAttacker ? raid.attackerParticipants : raid.defenderParticipants).map(p => ({
-                userId: p.userId,
-                characterName: p.name,
-                level: p.level,
-                race: p.race,
-                characterClass: p.characterClass,
-                status: undefined as any
-            }))
+            encounteredEnemies: [], // Use opponents prop instead
+            huntingMembers: friendlyTeam.map(mapToPartyMember)
         };
+        
+        setModalData({
+            summary,
+            opponents: opposingTeam.map(mapToPartyMember)
+        });
+        setSelectedRaid(raid);
     };
     
     const RaidCard: React.FC<{ raid: GuildRaid, type: 'INCOMING' | 'OUTGOING' | 'HISTORY' }> = ({ raid, type }) => {
@@ -186,7 +184,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                                  <span className="flex items-center text-purple-400"><StarIcon className="h-3 w-3 mr-1"/> Esencje</span>
                              )}
                          </div>
-                        <button onClick={() => setSelectedRaid(raid)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600 text-white">
+                        <button onClick={() => prepareRaidSummary(raid)} className="px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600 text-white">
                             Zobacz Raport
                         </button>
                     </div>
@@ -211,15 +209,16 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
 
     return (
         <>
-            {selectedRaid && (
+            {selectedRaid && modalData && (
                  <ExpeditionSummaryModal 
-                    reward={mapRaidToSummary(selectedRaid)}
-                    onClose={() => setSelectedRaid(null)}
-                    characterName="" // Not used much in team view
+                    reward={modalData.summary}
+                    onClose={() => { setSelectedRaid(null); setModalData(null); }}
+                    characterName="" 
                     itemTemplates={itemTemplates}
                     affixes={affixes}
-                    isHunting={true} // Re-use hunting layout for team vs team
-                    huntingMembers={mapRaidToSummary(selectedRaid).huntingMembers}
+                    isHunting={true} 
+                    huntingMembers={modalData.summary.huntingMembers}
+                    opponents={modalData.opponents}
                 />
             )}
 

@@ -19,7 +19,7 @@ export const CombatLogRow: React.FC<{
     }, [isHunting, huntingMembers, characterName]);
 
     const getCombatantColor = (name: string) => {
-        if (friendlyNames.includes(name) || name === 'Team') {
+        if (friendlyNames.includes(name) || name === 'Team' || name === 'Drużyna') {
             return 'text-sky-400';
         }
         return 'text-red-400';
@@ -43,7 +43,8 @@ export const CombatLogRow: React.FC<{
 
     const renderName = (name: string) => {
         const color = getCombatantColor(name);
-        if(name === 'Team') return <span className={`font-semibold ${color}`}>{name}</span>;
+        if(name === 'Team' || name === 'Drużyna') return <span className={`font-semibold ${color}`}>{name}</span>;
+        if(name === 'System') return <span className="font-bold text-gray-500">System</span>;
         
         const hp = Math.max(0, Math.ceil(getHpForEntity(name, log)));
         
@@ -54,6 +55,31 @@ export const CombatLogRow: React.FC<{
             </>
         );
     };
+    
+    // --- SYSTEM / ERROR LOGS ---
+    if (log.action === 'system_error') {
+         return (
+            <div className="text-center my-2 py-2 bg-red-900/40 rounded border border-red-600/50">
+                <p className="font-bold text-sm text-red-300">
+                    ⚠️ BŁĄD KRYTYCZNY: {log.action}
+                </p>
+                <p className="text-xs text-red-400/80">
+                    Symulacja została przerwana. Wynik może być niekompletny.
+                </p>
+            </div>
+        );
+    }
+
+    if (log.action === 'walkover') {
+         return (
+            <div className="text-center my-4 py-3 bg-slate-800 rounded border border-slate-600">
+                <h4 className="font-bold text-lg text-white mb-1">WALKOWER</h4>
+                <p className="text-sm text-gray-400">
+                    Jedna ze stron nie stawiła się do walki. Zwycięstwo zostało przyznane automatycznie.
+                </p>
+            </div>
+        );
+    }
     
     if (log.action === 'specialAttackLog' && log.specialAttackType) {
         const key = `expedition.${log.specialAttackType.charAt(0).toLowerCase() + log.specialAttackType.slice(1)}Log`;
@@ -362,6 +388,19 @@ export const CombatLogRow: React.FC<{
                 <span>!</span>
             </p>
         );
+    }
+    
+    // Identify if this is a standard attack/magic log
+    const isStandardAttack = log.action === 'attacks' || log.action === 'magicAttack';
+
+    // Fallback for any unrecognized action string - render as simple text message to avoid "System attacks System" confusion
+    if (!isStandardAttack) {
+         return (
+            <p className="text-sm text-gray-400 italic text-center my-1">
+                <span className="font-mono text-gray-500 mr-2">{t('expedition.turn')} {log.turn}:</span>
+                {log.action}
+            </p>
+         );
     }
 
     const critText = log.isCrit ? <span className="font-bold text-amber-400">{t('expedition.critical')}</span> : '';

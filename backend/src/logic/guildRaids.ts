@@ -5,7 +5,7 @@ import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamVsTeamCombat } from './combat/simulations/index.js';
 
 // Constants
-const PREP_TIME_MINUTES = 15;
+const PREP_TIME_MINUTES = 3;
 
 // Helper to safely parse JSONB columns which might be double-stringified or raw objects
 const safeParseParticipants = (data: any): RaidParticipant[] => {
@@ -263,13 +263,37 @@ export const processPendingRaids = async (): Promise<void> => {
                 // Mark as fighting (though we resolve it immediately, this prevents re-selection if logic is slow)
                 await client.query("UPDATE guild_raids SET status = 'FIGHTING' WHERE id = $1", [raid.id]);
 
-                // Parse participants safely
+                // Parse participants safely and force numbers for IDs
                 const attackerList = safeParseParticipants(raid.attacker_participants);
                 const defenderList = safeParseParticipants(raid.defender_participants);
 
-                const attackerIds = attackerList.map(p => p.userId);
-                const defenderIds = defenderList.map(p => p.userId);
+                const attackerIds = attackerList.map(p => Number(p.userId)).filter(id => !isNaN(id));
+                const defenderIds = defenderList.map(p => Number(p.userId)).filter(id => !isNaN(id));
                 
+                // Walkover Logic (if one side is empty)
+                if (attackerIds.length === 0 || defenderIds.length === 0) {
+                    const isAttackerWinner = attackerIds.length > 0;
+                    const winnerGuildId = isAttackerWinner ? raid.attacker_guild_id : raid.defender_guild_id;
+                    
+                    const walkoverLog = [{
+                        turn: 0,
+                        attacker: 'System',
+                        defender: 'System',
+                        action: 'walkover',
+                        playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0
+                    }];
+
+                    await client.query(
+                        `UPDATE guild_raids 
+                         SET status = 'FINISHED', combat_log = $1, winner_guild_id = $2, loot = '{}'::jsonb 
+                         WHERE id = $3`,
+                        [JSON.stringify(walkoverLog), winnerGuildId, raid.id]
+                    );
+                    
+                    await client.query('COMMIT');
+                    continue;
+                }
+
                 const getFullChars = async (ids: number[]) => {
                     if (ids.length === 0) return [];
                     const res = await client.query(`
@@ -374,7 +398,7 @@ export const processPendingRaids = async (): Promise<void> => {
                         turn: 0,
                         attacker: 'System',
                         defender: 'System',
-                        action: 'Błąd krytyczny. Bitwa anulowana technicznie.',
+                        action: 'system_error', // Changed to strict key for frontend recognition
                         playerHealth: 0, playerMana: 0, enemyHealth: 0, enemyMana: 0
                     }];
                     await client.query(

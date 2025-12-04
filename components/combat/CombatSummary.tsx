@@ -18,6 +18,7 @@ export interface ExpeditionSummaryModalProps {
     isDefenderView?: boolean;
     isHunting?: boolean;
     huntingMembers?: PartyMember[];
+    opponents?: PartyMember[]; // ADDED: New prop for raid opponents
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, any>> }>;
     initialEnemy?: Enemy;
     encounteredEnemies?: Enemy[];
@@ -165,13 +166,17 @@ export const PartyMemberList: React.FC<{
     finalPartyHealth: Record<string, { currentHealth: number, maxHealth: number }>;
     onMemberHover: (member: PartyMember, rect: DOMRect) => void;
     onMemberLeave: () => void;
-}> = ({ members, finalPartyHealth, onMemberHover, onMemberLeave }) => {
+    isEnemyTeam?: boolean;
+}> = ({ members, finalPartyHealth, onMemberHover, onMemberLeave, isEnemyTeam }) => {
     const { t } = useTranslation();
+    const titleColor = isEnemyTeam ? 'text-red-400' : 'text-sky-400';
+    const borderColor = isEnemyTeam ? 'border-red-500/50' : 'border-sky-500/50';
+    const barColor = isEnemyTeam ? 'bg-red-600' : 'bg-green-500';
     
     return (
-        <div className="bg-slate-900/50 p-4 rounded-lg border border-sky-500/50 h-full overflow-y-auto overflow-visible">
-             <h4 className="font-bold text-xl text-center border-b border-sky-500/50 pb-2 mb-2 text-sky-400">
-                {t('hunting.members')}
+        <div className={`bg-slate-900/50 p-4 rounded-lg border ${borderColor} h-full overflow-y-auto overflow-visible`}>
+             <h4 className={`font-bold text-xl text-center border-b ${borderColor} pb-2 mb-2 ${titleColor}`}>
+                {isEnemyTeam ? 'Przeciwnicy' : t('hunting.members')}
             </h4>
             <div className="space-y-2">
                 {members.map((member, idx) => {
@@ -192,11 +197,58 @@ export const PartyMemberList: React.FC<{
                                 {member.characterName}
                             </p>
                             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
-                                <div className="bg-red-500 h-1.5 transition-all" style={{width: `${hpPercent}%`}}></div>
+                                <div className={`${barColor} h-1.5 transition-all`} style={{width: `${hpPercent}%`}}></div>
                             </div>
                         </div>
                     );
                 })}
+            </div>
+        </div>
+    );
+}
+
+const DamageMeter: React.FC<{
+    damageData: {
+        stats: Record<string, number>;
+        totalDamage: number;
+        turns: number;
+        sortedMembers: { name: string, dmg: number }[];
+    } | null;
+    title: string;
+    barColor?: string;
+}> = ({ damageData, title, barColor = 'bg-amber-600' }) => {
+    const { t } = useTranslation();
+
+    if (!damageData || damageData.totalDamage === 0) return null;
+
+    return (
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex-shrink-0 overflow-y-auto max-h-[300px]">
+            <h4 className="font-bold text-center border-b border-slate-700 pb-2 mb-2 text-amber-400">
+                {title}
+            </h4>
+            <div className="space-y-3 text-xs">
+                {damageData.sortedMembers.map(({name, dmg}) => {
+                    const percent = (dmg / damageData.totalDamage) * 100;
+                    const dpt = dmg / damageData.turns;
+                    return (
+                        <div key={name} className="relative">
+                            <div className="flex justify-between items-center z-10 relative mb-1">
+                                <span className="font-bold text-white">{name}</span>
+                                <span className="text-gray-300">{dmg.toLocaleString()} ({percent.toFixed(1)}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className={`${barColor} h-full`} style={{ width: `${percent}%` }}></div>
+                            </div>
+                            <div className="text-right text-[10px] text-gray-500 mt-0.5">
+                                {t('expedition.damageMeter.dpt')}: {dpt.toFixed(0)}
+                            </div>
+                        </div>
+                    )
+                })}
+                <div className="border-t border-slate-700 pt-2 mt-2 text-center">
+                    <span className="text-gray-400">{t('expedition.damageMeter.total')}: </span>
+                    <span className="font-mono text-white font-bold">{damageData.totalDamage.toLocaleString()}</span>
+                </div>
             </div>
         </div>
     );
@@ -207,7 +259,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const { 
         reward, onClose, characterName, itemTemplates, affixes, 
         isPvp = false, pvpData, isDefenderView = false, 
-        isHunting = false, huntingMembers, allRewards,
+        isHunting = false, huntingMembers, opponents, allRewards,
         initialEnemy, encounteredEnemies, bossName, messageId
     } = props;
     const { t } = useTranslation();
@@ -239,17 +291,32 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     }, [isPvp, isDefenderView, pvpData, isHunting, bossName, reward.combatLog, encounteredEnemies, t]);
 
     const initialPartyState = useMemo(() => {
-        if (!isHunting || !huntingMembers) return {};
         const state: Record<string, { currentHealth: number, maxHealth: number }> = {};
-        for (const member of huntingMembers) {
-            const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
-            state[member.characterName] = {
-                currentHealth: stats?.currentHealth ?? 0,
-                maxHealth: stats?.maxHealth ?? 1
-            };
+        
+        // Friendly team
+        if (isHunting && huntingMembers) {
+            for (const member of huntingMembers) {
+                const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+                state[member.characterName] = {
+                    currentHealth: stats?.currentHealth ?? 0,
+                    maxHealth: stats?.maxHealth ?? 1
+                };
+            }
         }
+        
+        // Opponent team (for raids)
+        if (opponents) {
+            for (const member of opponents) {
+                const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+                state[member.characterName] = {
+                    currentHealth: stats?.currentHealth ?? 0,
+                    maxHealth: stats?.maxHealth ?? 1
+                };
+            }
+        }
+        
         return state;
-    }, [isHunting, huntingMembers, reward.combatLog]);
+    }, [isHunting, huntingMembers, opponents, reward.combatLog]);
 
     const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
     
@@ -279,14 +346,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         };
     }, [reward.combatLog, initialPlayerStats, initialEnemyForDisplay, initialPartyState, encounteredEnemies]);
     
-    const damageData = useMemo(() => {
-        if (!isHunting || !huntingMembers) return null;
+    const calculateDamageData = (membersList: PartyMember[] | undefined) => {
+        if (!isHunting || !membersList) return null;
         const stats: Record<string, number> = {};
         let totalDamage = 0;
         const turns = reward.combatLog[reward.combatLog.length - 1]?.turn || 1;
 
         reward.combatLog.forEach(log => {
-            const isMember = huntingMembers.some(m => m.characterName === log.attacker);
+            const isMember = membersList.some(m => m.characterName === log.attacker);
             if (isMember && log.damage) {
                 stats[log.attacker] = (stats[log.attacker] || 0) + log.damage;
                 totalDamage += log.damage;
@@ -298,7 +365,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             .sort((a, b) => b.dmg - a.dmg);
 
         return { stats, totalDamage, turns, sortedMembers };
-    }, [reward.combatLog, isHunting, huntingMembers]);
+    };
+
+    const friendlyDamageData = useMemo(() => calculateDamageData(huntingMembers), [huntingMembers, reward.combatLog, isHunting]);
+    const opponentDamageData = useMemo(() => calculateDamageData(opponents), [opponents, reward.combatLog, isHunting]);
 
     const handleCopyLink = useCallback(() => {
         if (!messageId) return;
@@ -354,36 +424,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                     }}
                                     onMemberLeave={() => setHoveredCombatant(null)}
                                 />
-                                {damageData && damageData.totalDamage > 0 && (
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 flex-shrink-0 overflow-y-auto max-h-[300px]">
-                                        <h4 className="font-bold text-center border-b border-slate-700 pb-2 mb-2 text-amber-400">
-                                            {t('expedition.damageMeter.title')}
-                                        </h4>
-                                        <div className="space-y-3 text-xs">
-                                            {damageData.sortedMembers.map(({name, dmg}) => {
-                                                const percent = (dmg / damageData.totalDamage) * 100;
-                                                const dpt = dmg / damageData.turns;
-                                                return (
-                                                    <div key={name} className="relative">
-                                                        <div className="flex justify-between items-center z-10 relative mb-1">
-                                                            <span className="font-bold text-white">{name}</span>
-                                                            <span className="text-gray-300">{dmg.toLocaleString()} ({percent.toFixed(1)}%)</span>
-                                                        </div>
-                                                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                            <div className="bg-amber-600 h-full" style={{ width: `${percent}%` }}></div>
-                                                        </div>
-                                                        <div className="text-right text-[10px] text-gray-500 mt-0.5">
-                                                            {t('expedition.damageMeter.dpt')}: {dpt.toFixed(0)}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                            <div className="border-t border-slate-700 pt-2 mt-2 text-center">
-                                                <span className="text-gray-400">{t('expedition.damageMeter.total')}: </span>
-                                                <span className="font-mono text-white font-bold">{damageData.totalDamage.toLocaleString()}</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                {friendlyDamageData && friendlyDamageData.totalDamage > 0 && (
+                                    <DamageMeter damageData={friendlyDamageData} title={t('expedition.damageMeter.title')} />
                                 )}
                              </>
                          ) : isPvp ? (
@@ -407,8 +449,28 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                         </div>
                     </div>
 
-                    <div className="col-span-3 h-full overflow-y-auto">
-                        {isPvp ? (
+                    <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
+                        {opponents && opponents.length > 0 ? (
+                            <>
+                                <PartyMemberList 
+                                    members={opponents} 
+                                    finalPartyHealth={finalState.partyHealth}
+                                    onMemberHover={(member, rect) => {
+                                        const stats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+                                        if(stats) setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats }, rect });
+                                    }}
+                                    onMemberLeave={() => setHoveredCombatant(null)}
+                                    isEnemyTeam={true}
+                                />
+                                {opponentDamageData && opponentDamageData.totalDamage > 0 && (
+                                    <DamageMeter 
+                                        damageData={opponentDamageData} 
+                                        title="Tabela Obrażeń (Wrogowie)" 
+                                        barColor="bg-red-600"
+                                    />
+                                )}
+                            </>
+                        ) : isPvp ? (
                              <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={finalState.enemyHealth} />
                         ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
                              <EnemyListPanel 
