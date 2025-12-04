@@ -1,8 +1,4 @@
 
-
-
-
-
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -139,7 +135,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         const rolledExp = Math.floor(Math.random() * ((originalBossTemplate.rewards.maxExperience || 0) - (originalBossTemplate.rewards.minExperience || 0) + 1)) + (originalBossTemplate.rewards.minExperience || 0);
         const totalPoolExp = rolledExp * bossBonusMultiplier;
         
-        const splitGold = Math.floor(totalPoolGold);
+        const splitGold = Math.floor(totalPoolGold); // Base gold PER player (simplified logic for game balance)
         const splitExp = Math.floor(totalPoolExp);
         
         let totalGuildTaxGold = 0;
@@ -159,11 +155,13 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             if (char.characterClass === 'Thief') finalGold = Math.floor(finalGold * 1.25);
             if (char.race === 'Human') finalExp = Math.floor(finalExp * 1.1);
             
-            // --- Apply Guild Tax (Only if not defeated? Usually applies to earnings) ---
-            if (party.guildId && guildTaxRate > 0) {
+            // --- Apply Guild Tax (Individually per player) ---
+            if (party.guildId && guildTaxRate > 0 && guildResources) {
                 const taxAmount = Math.floor(finalGold * (guildTaxRate / 100));
-                finalGold -= taxAmount;
-                totalGuildTaxGold += taxAmount;
+                if (taxAmount > 0) {
+                    finalGold -= taxAmount;
+                    totalGuildTaxGold += taxAmount;
+                }
             }
             
             const itemsFound: ItemInstance[] = [];
@@ -190,8 +188,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                         let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                         if(char.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
                         
-                        // Apply Guild Tax to Essences
-                        if (party.guildId && guildTaxRate > 0) {
+                        // Apply Guild Tax to Essences (Individually)
+                        if (party.guildId && guildTaxRate > 0 && guildResources) {
                             const taxAmount = Math.floor(amount * (guildTaxRate / 100));
                             if (taxAmount > 0) {
                                 amount -= taxAmount;
@@ -244,20 +242,21 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         }
         
         // Update Guild Bank with Tax
+        // IMPORTANT: Use party.leaderId for the log. The DB requires a user_id, and using the leader prevents crashes.
         if (party.guildId && guildResources) {
             if (totalGuildTaxGold > 0) {
                 guildResources.gold += totalGuildTaxGold;
                 await client.query(
-                    `INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'TAX', 'gold', $2)`,
-                    [party.guildId, totalGuildTaxGold]
+                    `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'TAX', 'gold', $3)`,
+                    [party.guildId, party.leaderId, totalGuildTaxGold]
                 );
             }
             for(const [essence, amount] of Object.entries(totalGuildTaxEssences)) {
                  if (amount > 0) {
                      guildResources[essence] += amount;
                      await client.query(
-                        `INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'TAX', $2, $3)`,
-                        [party.guildId, essence, amount]
+                        `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'TAX', $3, $4)`,
+                        [party.guildId, party.leaderId, essence, amount]
                     );
                  }
             }
