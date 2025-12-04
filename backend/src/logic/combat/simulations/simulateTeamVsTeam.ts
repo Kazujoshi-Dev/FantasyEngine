@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, CombatLogEntry, CharacterStats, CharacterClass, GameData, Race } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
@@ -352,4 +351,4 @@ export const simulateTeamVsTeamCombat = (
     const winner = combatants.some(c => c.team === 'attacker' && !c.isDead) ? 'attacker' : 'defender';
     
     return { combatLog: log, winner };
-}
+};

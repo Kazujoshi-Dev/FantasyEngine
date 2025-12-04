@@ -1,4 +1,3 @@
-
 import { pool } from '../db.js';
 import { GuildRaid, RaidStatus, RaidType, RaidParticipant, GuildRole, PlayerCharacter, GameData, EssenceType, CombatLogEntry } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -306,7 +305,7 @@ export const processPendingRaids = async (): Promise<void> => {
                     const isAttackerWinner = attackersFull.length > 0;
                     const winnerGuildId = isAttackerWinner ? raid.attacker_guild_id : raid.defender_guild_id;
                     
-                    const walkoverLog = [{
+                    const walkoverLog: CombatLogEntry[] = [{
                         turn: 0,
                         attacker: 'System',
                         defender: 'System',
@@ -406,7 +405,7 @@ export const processPendingRaids = async (): Promise<void> => {
                 
                 try {
                     await client.query('BEGIN');
-                    const errorLog = [{
+                    const errorLog: CombatLogEntry[] = [{
                         turn: 0,
                         attacker: 'System',
                         defender: 'System',

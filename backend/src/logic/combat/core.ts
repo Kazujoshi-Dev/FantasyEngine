@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 import { spellRegistry } from './spells/registry.js';
@@ -69,6 +68,7 @@ export const performAttack = <
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;
     
+    // This is now a placeholder; the caller (simulation) is responsible for the full health snapshot.
     const getHealthState = (currentAttacker: TAttacker, currentDefender: TDefender) => ({
         playerHealth: defenderIsPlayer ? currentDefender.currentHealth : currentAttacker.currentHealth,
         playerMana: defenderIsPlayer ? currentDefender.currentMana : currentAttacker.currentMana,
