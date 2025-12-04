@@ -17,7 +17,7 @@ export interface ExpeditionSummaryModalProps {
     pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
     isDefenderView?: boolean;
     isHunting?: boolean;
-    isRaid?: boolean; // NEW PROP
+    isRaid?: boolean;
     huntingMembers?: PartyMember[];
     opponents?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, any>> }>;
@@ -260,23 +260,23 @@ const DamageMeter: React.FC<{
 //                                  REWARD PANELS
 // ---------------------------------------------------------------------------------
 
-// 1. Raid Rewards Panel (List view, resources focused)
+// 1. Raid Rewards Panel (List view, resources focused, right side of log currently but requested separate)
 const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
     const { t } = useTranslation();
     
     if (totalGold <= 0 && Object.keys(essencesFound).length === 0) return null;
 
     return (
-        <div className="bg-slate-900/50 p-4 rounded-lg border border-amber-500/30 h-full overflow-y-auto">
-             <h4 className="font-bold text-xl text-center border-b border-amber-500/50 pb-2 mb-2 text-amber-400">
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-amber-500/30 mt-4">
+             <h4 className="font-bold text-xl text-center border-b border-amber-500/50 pb-2 mb-4 text-amber-400">
                 Łupy Wojenne
             </h4>
-            <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {totalGold > 0 && (
-                     <div className="flex justify-between items-center bg-slate-800 p-2 rounded">
+                     <div className="flex justify-between items-center bg-slate-800 p-3 rounded border border-slate-700">
                         <span className="text-gray-300">{t('resources.gold')}</span>
-                        <span className="font-mono font-bold text-amber-400 flex items-center">
-                            {totalGold.toLocaleString()} <CoinsIcon className="h-4 w-4 ml-1"/>
+                        <span className="font-mono font-bold text-amber-400 flex items-center text-lg">
+                            {totalGold.toLocaleString()} <CoinsIcon className="h-5 w-5 ml-2"/>
                         </span>
                      </div>
                 )}
@@ -284,9 +284,9 @@ const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Rec
                     const type = key as EssenceType;
                     const rarity = essenceToRarityMap[type];
                     return (
-                        <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded">
+                        <div key={key} className="flex justify-between items-center bg-slate-800 p-3 rounded border border-slate-700">
                              <span className={`${rarityStyles[rarity].text}`}>{t(`resources.${type}`)}</span>
-                             <span className="font-mono font-bold text-white">x{amount}</span>
+                             <span className="font-mono font-bold text-white text-lg">x{amount}</span>
                         </div>
                     )
                 })}
@@ -295,7 +295,7 @@ const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Rec
     );
 };
 
-// 2. Standard Rewards Panel (Grid view, includes items and XP)
+// 2. Standard Rewards Panel (3 Columns: Gold/XP | Items | Essences)
 const StandardRewardsPanel: React.FC<{ 
     reward: ExpeditionRewardSummary; 
     itemTemplates: ItemTemplate[]; 
@@ -307,71 +307,77 @@ const StandardRewardsPanel: React.FC<{
     if (totalGold <= 0 && totalExperience <= 0 && itemsFound.length === 0 && Object.keys(essencesFound).length === 0) return null;
 
     return (
-        <div className="bg-slate-900/50 p-4 rounded-lg border border-green-500/30 h-full overflow-y-auto">
-             <h4 className="font-bold text-xl text-center border-b border-green-500/50 pb-2 mb-2 text-green-400">
+        <div className="bg-slate-900/80 p-6 rounded-xl border border-green-500/30 mt-4 shadow-lg">
+             <h4 className="font-bold text-2xl text-center border-b border-green-500/50 pb-3 mb-6 text-green-400 tracking-wider">
                 {t('expedition.totalRewards')}
             </h4>
             
-            {/* Gold & XP */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-                {totalGold > 0 && (
-                    <div className="bg-slate-800 p-3 rounded text-center">
-                        <p className="text-gray-400 text-xs uppercase">{t('resources.gold')}</p>
-                        <p className="font-mono font-bold text-amber-400 flex justify-center items-center text-lg">
-                            {totalGold.toLocaleString()} <CoinsIcon className="h-5 w-5 ml-1"/>
-                        </p>
-                    </div>
-                )}
-                {totalExperience > 0 && (
-                     <div className="bg-slate-800 p-3 rounded text-center">
-                        <p className="text-gray-400 text-xs uppercase">{t('expedition.experience')}</p>
-                        <p className="font-mono font-bold text-sky-400 flex justify-center items-center text-lg">
-                            {totalExperience.toLocaleString()} <StarIcon className="h-5 w-5 ml-1"/>
-                        </p>
-                    </div>
-                )}
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                
+                {/* Column 1: Currencies (Gold & XP) */}
+                <div className="flex flex-col gap-6 justify-center">
+                    {totalGold > 0 && (
+                        <div className="bg-slate-800/60 p-4 rounded-lg text-center border border-amber-500/20">
+                            <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">{t('resources.gold')}</p>
+                            <p className="font-mono font-bold text-amber-400 flex justify-center items-center text-3xl">
+                                {totalGold.toLocaleString()} <CoinsIcon className="h-8 w-8 ml-2"/>
+                            </p>
+                        </div>
+                    )}
+                    {totalExperience > 0 && (
+                         <div className="bg-slate-800/60 p-4 rounded-lg text-center border border-sky-500/20">
+                            <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">{t('expedition.experience')}</p>
+                            <p className="font-mono font-bold text-sky-400 flex justify-center items-center text-3xl">
+                                {totalExperience.toLocaleString()} <StarIcon className="h-8 w-8 ml-2"/>
+                            </p>
+                        </div>
+                    )}
+                </div>
 
-            {/* Items Grid */}
-            {itemsFound.length > 0 && (
-                <div className="mb-4">
-                    <p className="text-sm font-bold text-gray-300 mb-2">{t('expedition.itemsFound')}:</p>
-                    <div className="grid grid-cols-4 gap-2">
+                {/* Column 2: Items (Detailed List) */}
+                <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700/50">
+                    <p className="text-center text-gray-400 text-xs uppercase tracking-widest mb-4">{t('expedition.itemsFound')} ({itemsFound.length})</p>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        {itemsFound.length === 0 && <p className="text-gray-600 italic text-sm py-4">Brak przedmiotów</p>}
                         {itemsFound.map((item, idx) => {
                             const template = itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
                             return (
-                                <div key={idx} className="relative group">
-                                    <div className={`w-12 h-12 rounded bg-slate-800 border ${rarityStyles[template.rarity].border} flex items-center justify-center cursor-help`}>
-                                        {template.icon ? <img src={template.icon} className="w-10 h-10 object-contain" /> : <span className="text-xs">{template.name[0]}</span>}
+                                <div key={idx} className="w-full max-w-[280px]">
+                                    <div className="bg-slate-900 border border-slate-600 rounded-lg p-3 shadow-md hover:border-gray-400 transition-colors">
+                                        <ItemDetailsPanel 
+                                            item={item} 
+                                            template={template} 
+                                            affixes={affixes} 
+                                            size="small"
+                                            hideAffixes={false} // Show affix details inline
+                                        />
                                     </div>
-                                    <ItemTooltip instance={item} template={template} affixes={affixes} />
                                 </div>
                             )
                         })}
                     </div>
-                    {reward.itemsLostCount && <p className="text-xs text-red-400 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>}
+                    {reward.itemsLostCount && <p className="text-xs text-red-400 mt-4 text-center font-bold">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>}
                 </div>
-            )}
 
-            {/* Essences List */}
-            {Object.keys(essencesFound).length > 0 && (
-                 <div>
-                    <p className="text-sm font-bold text-gray-300 mb-2">{t('expedition.essencesFound')}:</p>
-                    <div className="space-y-1">
+                {/* Column 3: Essences */}
+                <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700/50">
+                    <p className="text-center text-gray-400 text-xs uppercase tracking-widest mb-4">{t('expedition.essencesFound')}</p>
+                    {Object.keys(essencesFound).length === 0 && <p className="text-gray-600 italic text-sm text-center py-4">Brak esencji</p>}
+                    <div className="space-y-2">
                         {Object.entries(essencesFound).map(([key, amount]) => {
                              const type = key as EssenceType;
                              const rarity = essenceToRarityMap[type];
                              return (
-                                 <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded text-xs">
-                                      <span className={`${rarityStyles[rarity].text}`}>{t(`resources.${type}`)}</span>
-                                      <span className="font-mono font-bold text-white">x{amount}</span>
+                                 <div key={key} className="flex justify-between items-center bg-slate-900 p-3 rounded border border-slate-700">
+                                      <span className={`${rarityStyles[rarity].text} font-medium`}>{t(`resources.${type}`)}</span>
+                                      <span className="font-mono font-bold text-white text-lg">x{amount}</span>
                                  </div>
                              )
                         })}
                     </div>
-                 </div>
-            )}
+                </div>
+            </div>
         </div>
     );
 };
@@ -387,7 +393,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const { t } = useTranslation();
 
     const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
-    const [hoveredReward, setHoveredReward] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
 
     const initialPlayerStats = useMemo(() => {
         if (isPvp) return isDefenderView ? pvpData!.defender.stats : pvpData!.attacker.stats;
@@ -429,10 +435,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 };
             });
         }
-        
-        // Ensure we have valid HP data even for enemies that died earlier
-        // We need to reconstruct this from the log history if 'allEnemiesHealth' only shows living ones (implementation specific)
-        // Assuming allEnemiesHealth snapshots everyone.
     
         return {
             playerHealth: lastLog.playerHealth,
@@ -468,8 +470,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const friendlyDamageData = useMemo(() => calculateDamageData(huntingMembers), [huntingMembers, reward.combatLog]);
     const opponentDamageData = useMemo(() => calculateDamageData(opponents), [opponents, reward.combatLog]);
     
-    const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
-
     const onMemberHover = useCallback((member: PartyMember, rect: DOMRect) => {
         const initialStats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
         if (initialStats) {
@@ -485,11 +485,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         }
     }, [reward.combatLog, finalState.partyHealth]);
     
-    // Explicit Enemy Hover Handler to fetch stats from log if available
     const onEnemyHover = useCallback((enemy: Enemy, rect: DOMRect) => {
-        // Try to find enemy stats from log if possible, otherwise fallback to template stats
-        // Note: Enemy templates often have ranges, logs have instances.
-        // For dead enemies, currentHealth is 0.
         const healthData = finalState.enemiesHealth.find(e => e.uniqueId === enemy.uniqueId);
         const statsToDisplay = {
             ...enemy.stats,
@@ -501,8 +497,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             data: { 
                 name: healthData?.name || enemy.name, 
                 stats: statsToDisplay,
-                currentHealth: healthData?.currentHealth ?? (enemy.stats.maxHealth), // Fallback
-                currentMana: 0 // Enemies usually don't track mana in simple array unless expanded
+                currentHealth: healthData?.currentHealth ?? (enemy.stats.maxHealth), 
+                currentMana: 0 
             }, 
             rect 
         });
@@ -530,7 +526,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-40 p-4"
             style={backgroundStyle}
         >
-             {/* Tooltip & Inspection Modals */}
+             {/* Inspection Modals */}
              {inspectingItem && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setInspectingItem(null)}>
                     <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
@@ -539,11 +535,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
             )}
+            {/* Combatant Stats Popover */}
             {hoveredCombatant && hoveredCombatant.rect && (
                  <div
                     className="fixed z-[100] pointer-events-none shadow-2xl"
                     style={{
-                        // Simple positioning logic: stay within viewport
                         top: Math.min(window.innerHeight - 300, Math.max(10, hoveredCombatant.rect.top)), 
                         left: hoveredCombatant.rect.right + 20 > window.innerWidth ? hoveredCombatant.rect.left - 270 : hoveredCombatant.rect.right + 20,
                         width: '250px'
@@ -558,7 +554,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
             >
                 {/* Top Bar with Controls */}
-                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 flex-shrink-0">
                     <h2 className="text-2xl font-bold text-indigo-400">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
                     <div className="flex gap-3">
                         {messageId && (
@@ -572,82 +568,89 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
-                    <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
-                         {(isHunting && huntingMembers) || (isPvp && pvpData) ? (
-                             <>
-                                {huntingMembers && (
+                {/* Main Content: Grid + Rewards Footer */}
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                    
+                    {/* Upper Section: Combat Details (Scrollable independently if needed, or part of main flow) */}
+                    <div className="flex-1 min-h-0 grid grid-cols-12 gap-6 overflow-hidden">
+                        
+                        {/* Left Column: Friendly Team / Player Stats */}
+                        <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4 pr-2">
+                             {(isHunting && huntingMembers) || (isPvp && pvpData) ? (
+                                 <>
+                                    {huntingMembers && (
+                                        <PartyMemberList 
+                                            members={huntingMembers} 
+                                            finalPartyHealth={finalState.partyHealth}
+                                            onMemberHover={onMemberHover}
+                                            onMemberLeave={onMemberLeave}
+                                        />
+                                    )}
+                                    {isPvp && <CombatantStatsPanel name={isDefenderView ? pvpData!.defender.name : pvpData!.attacker.name} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />}
+                                    {friendlyDamageData && friendlyDamageData.totalDamage > 0 && (
+                                        <DamageMeter damageData={friendlyDamageData} title={t('expedition.damageMeter.title')} />
+                                    )}
+                                 </>
+                             ) : (
+                                <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
+                             )}
+                        </div>
+
+                        {/* Middle Column: Combat Log */}
+                        <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col h-full overflow-hidden">
+                            <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
+                                {reward.combatLog.map((log, index) => {
+                                    const isNewTurn = index > 0 && reward.combatLog[index - 1].turn !== log.turn;
+                                    return (
+                                        <React.Fragment key={index}>
+                                            {isNewTurn && <div className="border-t border-slate-600/30 my-2"></div>}
+                                            <CombatLogRow log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Right Column: Enemies / Opponents */}
+                        <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4 pl-2">
+                            {opponents && opponents.length > 0 ? (
+                                <>
                                     <PartyMemberList 
-                                        members={huntingMembers} 
+                                        members={opponents} 
                                         finalPartyHealth={finalState.partyHealth}
                                         onMemberHover={onMemberHover}
                                         onMemberLeave={onMemberLeave}
+                                        isEnemyTeam={true}
                                     />
-                                )}
-                                {isPvp && <CombatantStatsPanel name={isDefenderView ? pvpData!.defender.name : pvpData!.attacker.name} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />}
-                                {friendlyDamageData && friendlyDamageData.totalDamage > 0 && (
-                                    <DamageMeter damageData={friendlyDamageData} title={t('expedition.damageMeter.title')} />
-                                )}
-                                
-                                {/* Conditional Reward Panel */}
-                                {isRaid ? (
-                                    <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
-                                ) : (
-                                    <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
-                                )}
-                             </>
-                         ) : (
-                             <>
-                                <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
-                                {/* Standard Expedition/Solo */}
-                                <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
-                             </>
-                         )}
-                    </div>
-
-                    <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col h-full overflow-hidden">
-                        <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
-                            {reward.combatLog.map((log, index) => {
-                                const isNewTurn = index > 0 && reward.combatLog[index - 1].turn !== log.turn;
-                                return (
-                                    <React.Fragment key={index}>
-                                        {isNewTurn && <div className="border-t border-slate-600/30 my-2"></div>}
-                                        <CombatLogRow log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
-                                    </React.Fragment>
-                                );
-                            })}
+                                    {opponentDamageData && opponentDamageData.totalDamage > 0 && (
+                                        <DamageMeter 
+                                            damageData={opponentDamageData} 
+                                            title="Tabela Obrażeń (Wrogowie)" 
+                                            barColor="bg-red-600"
+                                        />
+                                    )}
+                                </>
+                            ) : isPvp ? (
+                                 <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={finalState.enemyHealth} />
+                            ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
+                                 <EnemyListPanel 
+                                    enemies={encounteredEnemies} 
+                                    finalEnemiesHealth={finalState.enemiesHealth}
+                                    onEnemyHover={onEnemyHover}
+                                    onEnemyLeave={onMemberLeave}
+                                />
+                            ) : (
+                                 <CombatantStatsPanel name={initialEnemyForDisplay?.name || ''} description={initialEnemyForDisplay?.description} stats={initialEnemyForDisplay?.stats || null} currentHealth={finalState.enemyHealth} />
+                            )}
                         </div>
                     </div>
 
-                    <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
-                        {opponents && opponents.length > 0 ? (
-                            <>
-                                <PartyMemberList 
-                                    members={opponents} 
-                                    finalPartyHealth={finalState.partyHealth}
-                                    onMemberHover={onMemberHover}
-                                    onMemberLeave={onMemberLeave}
-                                    isEnemyTeam={true}
-                                />
-                                {opponentDamageData && opponentDamageData.totalDamage > 0 && (
-                                    <DamageMeter 
-                                        damageData={opponentDamageData} 
-                                        title="Tabela Obrażeń (Wrogowie)" 
-                                        barColor="bg-red-600"
-                                    />
-                                )}
-                            </>
-                        ) : isPvp ? (
-                             <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={finalState.enemyHealth} />
-                        ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
-                             <EnemyListPanel 
-                                enemies={encounteredEnemies} 
-                                finalEnemiesHealth={finalState.enemiesHealth}
-                                onEnemyHover={onEnemyHover}
-                                onEnemyLeave={onMemberLeave}
-                            />
+                    {/* Bottom Section: Rewards */}
+                    <div className="mt-4 flex-shrink-0 max-h-[40%] overflow-y-auto">
+                        {isRaid ? (
+                             <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
                         ) : (
-                             <CombatantStatsPanel name={initialEnemyForDisplay?.name || ''} description={initialEnemyForDisplay?.description} stats={initialEnemyForDisplay?.stats || null} currentHealth={finalState.enemyHealth} />
+                             <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
                         )}
                     </div>
                 </div>
