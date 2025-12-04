@@ -1,7 +1,3 @@
-
-
-
-
 export default {
     guild: {
         title: 'Gildia',
@@ -38,7 +34,9 @@ export default {
         bank: {
             deposit: 'Wpłata',
             withdraw: 'Wypłata',
-            rentalFee: 'Opłata za wypożyczenie'
+            rentalFee: 'Opłata za wypożyczenie',
+            tax: 'Podatek',
+            loot: 'Grabież'
         },
         roles: {
             LEADER: 'Lider',

@@ -248,10 +248,16 @@ export const processPendingRaids = async (): Promise<void> => {
     const client = await pool.connect();
     try {
         const now = new Date();
-        // Fetch raids ready to start
+        // Fetch raids ready to start and guild names
         const raidsRes = await client.query(`
-            SELECT * FROM guild_raids 
-            WHERE status = 'PREPARING' AND start_time <= $1
+            SELECT 
+                gr.*,
+                ag.name as "attackerGuildName",
+                dg.name as "defenderGuildName"
+            FROM guild_raids gr
+            JOIN guilds ag ON gr.attacker_guild_id = ag.id
+            JOIN guilds dg ON gr.defender_guild_id = dg.id
+            WHERE gr.status = 'PREPARING' AND gr.start_time <= $1
         `, [now]);
         
         if (raidsRes.rows.length === 0) return;
@@ -327,6 +333,12 @@ export const processPendingRaids = async (): Promise<void> => {
                 // Simulate Combat
                 const { combatLog, winner } = simulateTeamVsTeamCombat(attackersFull, defendersFull, gameData);
                 
+                // Modify first log entry with guild names
+                if (combatLog.length > 0 && combatLog[0].action === 'starts a fight with') {
+                    combatLog[0].attacker = raid.attackerGuildName;
+                    combatLog[0].defender = raid.defenderGuildName;
+                }
+
                 const winnerGuildId = winner === 'attacker' ? raid.attacker_guild_id : raid.defender_guild_id;
                 const isAttackerWinner = winner === 'attacker';
                 
@@ -395,7 +407,7 @@ export const processPendingRaids = async (): Promise<void> => {
                 const uniqueParticipants = Array.from(new Set(allParticipants));
 
                 const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`;
-                const winnerName = winner === 'attacker' ? 'Atakujący' : 'Obrońcy';
+                const winnerName = winner === 'attacker' ? raid.attackerGuildName : raid.defenderGuildName;
                 
                  for (const uid of uniqueParticipants) {
                     await client.query(
@@ -405,10 +417,8 @@ export const processPendingRaids = async (): Promise<void> => {
                 }
 
                 await client.query('COMMIT');
-            } catch (raidErr) {
+            } catch (raidErr: any) {
                 // CRITICAL ERROR HANDLING:
-                // If raid processing crashes, perform ROLLBACK to revert DB changes (like locked gold)
-                // THEN start a NEW transaction to mark the raid as FINISHED (Failed) so it doesn't loop infinitely.
                 await client.query('ROLLBACK');
                 console.error(`CRITICAL: Error processing raid ${raid.id}. Marking as FINISHED to prevent loop.`, raidErr);
                 
@@ -437,4 +447,4 @@ export const processPendingRaids = async (): Promise<void> => {
     } finally {
         client.release();
     }
-}
+};

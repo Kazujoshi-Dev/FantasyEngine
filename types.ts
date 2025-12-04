@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -229,7 +221,7 @@ export interface CombatLogEntry {
   affectedPlayers?: string[];
   defenderUniqueId?: string;
   allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
-  allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number }[];
+  allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number, currentMana?: number, maxMana?: number }[];
   effectApplied?: string; // e.g., 'burning', 'frozen'
   aoeDamage?: { target: string, damage: number }[];
   chainTargets?: string[];
@@ -636,7 +628,7 @@ export interface GuildTransaction {
     id: number;
     userId: number;
     characterName: string;
-    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX';
+    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX' | 'LOOT';
     currency: 'gold' | EssenceType;
     amount: number;
     timestamp: string;

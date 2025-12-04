@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -636,7 +628,7 @@ export interface GuildTransaction {
     id: number;
     userId: number;
     characterName: string;
-    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX';
+    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX' | 'LOOT';
     currency: 'gold' | EssenceType;
     amount: number;
     timestamp: string;
@@ -880,6 +872,7 @@ export interface Message {
     subject: string;
     body: MessageBody;
     is_read: boolean;
+    is_saved: boolean;
     created_at: string;
 }
 

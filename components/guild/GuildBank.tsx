@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -36,6 +35,8 @@ export const GuildBank: React.FC<{ guild: GuildType, character: PlayerCharacter 
         if (type === 'DEPOSIT') return t('guild.bank.deposit');
         if (type === 'WITHDRAW') return t('guild.bank.withdraw');
         if (type === 'RENTAL') return t('guild.bank.rentalFee');
+        if (type === 'TAX') return t('guild.bank.tax');
+        if (type === 'LOOT') return t('guild.bank.loot');
         return type;
     };
 

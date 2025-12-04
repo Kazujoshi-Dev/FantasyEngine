@@ -80,7 +80,9 @@ export const simulateTeamVsTeamCombat = (
         allPlayersHealth: combatants.map(c => ({
             name: c.data.name,
             currentHealth: c.currentHealth,
-            maxHealth: c.data.stats.maxHealth
+            maxHealth: c.data.stats.maxHealth,
+            currentMana: c.currentMana,
+            maxMana: c.data.stats.maxMana
         }))
     });
     

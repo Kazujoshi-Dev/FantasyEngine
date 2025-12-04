@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { CombatLogEntry, PartyMember } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -251,6 +250,20 @@ export const CombatLogRow: React.FC<{
     }
 
     if (log.action === 'starts a fight with') {
+        // Special case for guild raids, where attacker/defender are guild names
+        // and playerStats/enemyStats are not present.
+        if (!log.playerStats && !log.enemyStats && log.partyMemberStats) {
+             return (
+                <div className="text-center my-3 py-2 border-y border-slate-700/50">
+                    <p className="font-bold text-lg text-gray-300">
+                        <span className="font-semibold text-sky-400">{log.attacker}</span>
+                        <span className="text-gray-400 mx-2">{t('expedition.versus')}</span>
+                        <span className="font-semibold text-red-400">{log.defender}</span>
+                    </p>
+                </div>
+            )
+        }
+        // Default rendering for 1v1 and 1vMany
         return (
             <div className="text-center my-3 py-2 border-y border-slate-700/50">
                 <p className="font-bold text-lg text-gray-300">
