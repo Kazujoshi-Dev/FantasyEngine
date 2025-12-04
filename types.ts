@@ -5,6 +5,7 @@
 
 
 
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -674,7 +675,7 @@ export interface Guild {
     isPublic: boolean;
     minLevel: number;
     rentalTax?: number; // 0-100 percentage
-    huntingTax?: number; // 0-100 percentage, New property
+    huntingTax?: number; // 0-100 percentage
     buildings?: Record<string, number>; // Map building type to level
     // Extended properties
     members?: GuildMember[];
@@ -697,6 +698,46 @@ export interface GuildChatMessage {
 export interface GuildInviteBody {
     guildId: number;
     guildName: string;
+}
+
+export enum RaidStatus {
+    PREPARING = 'PREPARING',
+    FIGHTING = 'FIGHTING',
+    FINISHED = 'FINISHED',
+    CANCELLED = 'CANCELLED'
+}
+
+export enum RaidType {
+    RESOURCES = 'RESOURCES',
+    SPARRING = 'SPARRING'
+}
+
+export interface RaidParticipant {
+    userId: number;
+    name: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+}
+
+export interface GuildRaid {
+    id: number;
+    attackerGuildId: number;
+    defenderGuildId: number;
+    attackerGuildName: string;
+    defenderGuildName: string;
+    status: RaidStatus;
+    type: RaidType;
+    startTime: string; // ISO string
+    createdAt: string;
+    attackerParticipants: RaidParticipant[];
+    defenderParticipants: RaidParticipant[];
+    winnerGuildId?: number;
+    loot?: {
+        gold: number;
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    combatLog?: CombatLogEntry[];
 }
 // --- End Guild System Types ---
 

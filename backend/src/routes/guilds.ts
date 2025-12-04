@@ -1,12 +1,15 @@
 
 
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix, PublicGuildProfile } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix, PublicGuildProfile, RaidType } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { canManage, getBuildingCost } from '../logic/guilds.js';
+import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 
 const router = express.Router();
 
@@ -1029,6 +1032,78 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         res.status(500).json({ message: 'Upgrade failed' });
     } finally {
         client.release();
+    }
+});
+
+// --- RAID ROUTES ---
+
+// GET /api/guilds/raids - Get active raids for my guild
+router.get('/raids', authenticateToken, async (req: any, res: any) => {
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const guildId = memberRes.rows[0].guild_id;
+        
+        const raids = await getActiveRaids(guildId);
+        res.json(raids);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch raids' });
+    }
+});
+
+// POST /api/guilds/raids/create - Declare war
+router.post('/raids/create', authenticateToken, async (req: any, res: any) => {
+    const { targetGuildId, raidType } = req.body;
+    const userId = req.user.id;
+    
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const myGuildId = memberRes.rows[0].guild_id;
+
+        const raid = await createRaid(myGuildId, userId, targetGuildId, raidType);
+        res.status(201).json(raid);
+    } catch (err: any) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// POST /api/guilds/raids/join
+router.post('/raids/join', authenticateToken, async (req: any, res: any) => {
+    const { raidId } = req.body;
+    const userId = req.user.id;
+    
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const myGuildId = memberRes.rows[0].guild_id;
+
+        await joinRaid(raidId, userId, myGuildId);
+        res.sendStatus(200);
+    } catch (err: any) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// GET /api/guilds/targets - Get valid targets for declaration
+router.get('/targets', authenticateToken, async (req: any, res: any) => {
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const myGuildId = memberRes.rows[0].guild_id;
+        
+        // Get all other guilds
+        const result = await pool.query(`
+            SELECT id, name, tag, 
+            (SELECT COUNT(*) FROM guild_members WHERE guild_id = guilds.id) as member_count
+            FROM guilds 
+            WHERE id != $1
+            LIMIT 50
+        `, [myGuildId]);
+        
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch targets' });
     }
 });
 

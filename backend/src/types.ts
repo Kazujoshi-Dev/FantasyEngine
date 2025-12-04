@@ -4,6 +4,8 @@
 
 
 
+
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -156,6 +158,7 @@ export interface Enemy {
   lootTable: LootDrop[];
   resourceLootTable?: ResourceDrop[];
   isBoss?: boolean;
+  isGuildBoss?: boolean; // New property
   image?: string; // Boss portrait
   specialAttacks?: BossSpecialAttack[];
   preparationTimeSeconds?: number;
@@ -696,6 +699,46 @@ export interface GuildInviteBody {
     guildId: number;
     guildName: string;
 }
+
+export enum RaidStatus {
+    PREPARING = 'PREPARING',
+    FIGHTING = 'FIGHTING',
+    FINISHED = 'FINISHED',
+    CANCELLED = 'CANCELLED'
+}
+
+export enum RaidType {
+    RESOURCES = 'RESOURCES',
+    SPARRING = 'SPARRING'
+}
+
+export interface RaidParticipant {
+    userId: number;
+    name: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+}
+
+export interface GuildRaid {
+    id: number;
+    attackerGuildId: number;
+    defenderGuildId: number;
+    attackerGuildName: string;
+    defenderGuildName: string;
+    status: RaidStatus;
+    type: RaidType;
+    startTime: string; // ISO string
+    createdAt: string;
+    attackerParticipants: RaidParticipant[];
+    defenderParticipants: RaidParticipant[];
+    winnerGuildId?: number;
+    loot?: {
+        gold: number;
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    combatLog?: CombatLogEntry[];
+}
 // --- End Guild System Types ---
 
 export interface PlayerCharacter {
@@ -807,6 +850,7 @@ export interface AdminCharacterInfo {
     race: Race;
     level: number;
     gold: number;
+    characterClass?: CharacterClass; // Added characterClass
 }
 
 export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite';

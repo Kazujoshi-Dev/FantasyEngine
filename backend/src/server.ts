@@ -13,6 +13,7 @@ import { pool, initializeDatabase } from './db.js';
 import { cleanupOldTavernMessages } from './logic/tasks.js';
 import { calculateDerivedStatsOnServer } from './logic/stats.js';
 import { PlayerCharacter, GuildRole } from './types.js';
+import { processPendingRaids } from './logic/guildRaids.js';
 
 // Import all route handlers
 import authRoutes from './routes/auth.js';
@@ -214,6 +215,11 @@ initializeDatabase().then(() => {
     });
     // Set up periodic cleanup for the tavern chat
     setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); // Run every hour
+    
+    // Process Guild Raids every minute
+    setInterval(() => {
+        processPendingRaids().catch(err => console.error("Error processing raids:", err));
+    }, 60000);
 
     // Set up hourly energy regeneration for all players
     cron.schedule('0 * * * *', async () => {

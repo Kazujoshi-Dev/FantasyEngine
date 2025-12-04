@@ -1,0 +1,198 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from '../../contexts/LanguageContext';
+import { api, getAuthToken } from '../../api';
+import { GuildRaid, RaidType, RaidStatus, GuildRole } from '../../types';
+import { SwordsIcon } from '../icons/SwordsIcon';
+import { ShieldIcon } from '../icons/ShieldIcon';
+import { ClockIcon } from '../icons/ClockIcon';
+
+export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole }> = ({ myGuildId, myRole }) => {
+    const { t } = useTranslation();
+    const [incomingRaids, setIncomingRaids] = useState<GuildRaid[]>([]);
+    const [outgoingRaids, setOutgoingRaids] = useState<GuildRaid[]>([]);
+    const [targets, setTargets] = useState<any[]>([]);
+    const [selectedTarget, setSelectedTarget] = useState<number | ''>('');
+    const [raidType, setRaidType] = useState<RaidType>(RaidType.RESOURCES);
+    
+    const canDeclare = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
+
+    const fetchData = async () => {
+        try {
+            const token = getAuthToken();
+            const raidsRes = await fetch('/api/guilds/raids', { headers: { 'Authorization': `Bearer ${token}` } });
+            if(raidsRes.ok) {
+                const data = await raidsRes.json();
+                setIncomingRaids(data.incoming);
+                setOutgoingRaids(data.outgoing);
+            }
+
+            if(canDeclare) {
+                 const targetsRes = await fetch('/api/guilds/targets', { headers: { 'Authorization': `Bearer ${token}` } });
+                 if(targetsRes.ok) setTargets(await targetsRes.json());
+            }
+        } catch(e) { console.error(e); }
+    };
+
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
+    }, [myGuildId]);
+
+    const handleDeclare = async () => {
+        if(!selectedTarget) return;
+        try {
+             const token = getAuthToken();
+             const res = await fetch('/api/guilds/raids/create', { 
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                 body: JSON.stringify({ targetGuildId: selectedTarget, raidType })
+             });
+             if(!res.ok) throw new Error((await res.json()).message);
+             alert('Wypowiedziano wojnę!');
+             fetchData();
+        } catch(e: any) { alert(e.message); }
+    };
+
+    const handleJoin = async (raidId: number) => {
+        try {
+             const token = getAuthToken();
+             const res = await fetch('/api/guilds/raids/join', { 
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                 body: JSON.stringify({ raidId })
+             });
+             if(!res.ok) throw new Error((await res.json()).message);
+             fetchData();
+        } catch(e: any) { alert(e.message); }
+    };
+    
+    const RaidCard: React.FC<{ raid: GuildRaid, type: 'INCOMING' | 'OUTGOING' }> = ({ raid, type }) => {
+        const isIncoming = type === 'INCOMING';
+        const opponentName = isIncoming ? raid.attackerGuildName : raid.defenderGuildName;
+        const startTime = new Date(raid.startTime).getTime();
+        const now = Date.now();
+        const timeLeft = Math.max(0, Math.floor((startTime - now) / 1000));
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        
+        const participants = isIncoming ? raid.defenderParticipants : raid.attackerParticipants;
+        const opponentsCount = isIncoming ? raid.attackerParticipants.length : raid.defenderParticipants.length;
+
+        return (
+            <div className={`p-4 rounded-lg border ${isIncoming ? 'bg-red-900/30 border-red-600' : 'bg-green-900/30 border-green-600'} mb-4`}>
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-bold text-white flex items-center gap-2">
+                        {isIncoming ? <ShieldIcon className="h-5 w-5 text-red-400"/> : <SwordsIcon className="h-5 w-5 text-green-400"/>}
+                        {isIncoming ? 'Obrona przed:' : 'Atak na:'} <span className="text-amber-400">{opponentName}</span>
+                    </h4>
+                    <div className="text-sm font-mono text-gray-300 flex items-center gap-1">
+                         <ClockIcon className="h-4 w-4"/> 
+                         {timeLeft > 0 ? `${minutes}m ${seconds}s` : 'WALKA!'}
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <div>
+                        <p className="text-gray-400">Typ: <span className="text-white font-bold">{raid.type}</span></p>
+                        <p className="text-gray-400">Status: <span className="text-white font-bold">{raid.status}</span></p>
+                    </div>
+                    <div className="text-right">
+                         <p className="text-gray-400">Nasze siły: <span className="text-white font-bold">{participants.length}</span></p>
+                         <p className="text-gray-400">Siły wroga: <span className="text-white font-bold">{opponentsCount}</span></p>
+                    </div>
+                </div>
+
+                {raid.status === RaidStatus.PREPARING && (
+                    <button onClick={() => handleJoin(raid.id)} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold text-white">
+                        Dołącz do {isIncoming ? 'Obrony' : 'Ataku'}
+                    </button>
+                )}
+                
+                {/* Participants List Preview */}
+                <div className="mt-4 pt-4 border-t border-slate-700/50">
+                    <p className="text-xs text-gray-500 mb-2">Zapisani gracze:</p>
+                    <div className="flex flex-wrap gap-2">
+                        {participants.map(p => (
+                            <span key={p.userId} className="text-xs bg-slate-800 px-2 py-1 rounded text-gray-300 border border-slate-600">
+                                {p.name} (Lvl {p.level})
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+             {/* Left: Incoming Attacks (Priority) */}
+             <div className="lg:col-span-1 bg-slate-900/40 p-4 rounded-xl border border-red-500/30 flex flex-col min-h-0">
+                <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
+                    <ShieldIcon className="h-6 w-6"/> Nadchodzące Ataki
+                </h3>
+                <div className="flex-grow overflow-y-auto pr-2">
+                    {incomingRaids.length === 0 && <p className="text-gray-500 text-center py-8">Brak zagrożeń.</p>}
+                    {incomingRaids.map(r => <RaidCard key={r.id} raid={r} type="INCOMING" />)}
+                </div>
+            </div>
+
+            {/* Middle: Outgoing Attacks */}
+             <div className="lg:col-span-1 bg-slate-900/40 p-4 rounded-xl border border-green-500/30 flex flex-col min-h-0">
+                <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
+                    <SwordsIcon className="h-6 w-6"/> Nasze Ataki
+                </h3>
+                <div className="flex-grow overflow-y-auto pr-2">
+                    {outgoingRaids.length === 0 && <p className="text-gray-500 text-center py-8">Brak aktywnych ataków.</p>}
+                    {outgoingRaids.map(r => <RaidCard key={r.id} raid={r} type="OUTGOING" />)}
+                </div>
+            </div>
+
+            {/* Right: Declare War */}
+             <div className="lg:col-span-1 bg-slate-900/40 p-4 rounded-xl border border-slate-700 flex flex-col h-fit">
+                <h3 className="text-xl font-bold text-white mb-4">Wypowiedz Wojnę</h3>
+                {canDeclare ? (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Cel Ataku</label>
+                            <select className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white" value={selectedTarget} onChange={e => setSelectedTarget(Number(e.target.value))}>
+                                <option value="">-- Wybierz Gildię --</option>
+                                {targets.map(t => (
+                                    <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Członków: {t.member_count})</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Typ Rajdu</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                    onClick={() => setRaidType(RaidType.RESOURCES)}
+                                    className={`py-2 rounded border ${raidType === RaidType.RESOURCES ? 'bg-amber-700 border-amber-500 text-white' : 'bg-slate-800 border-slate-600 text-gray-400'}`}
+                                >
+                                    Grabież (Zasoby)
+                                </button>
+                                <button 
+                                    onClick={() => setRaidType(RaidType.SPARRING)}
+                                    className={`py-2 rounded border ${raidType === RaidType.SPARRING ? 'bg-indigo-700 border-indigo-500 text-white' : 'bg-slate-800 border-slate-600 text-gray-400'}`}
+                                >
+                                    Sparing (Trening)
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                {raidType === RaidType.RESOURCES ? 'Zwycięstwo kradnie 25% złota i esencji z banku wroga.' : 'Walka bez nagród materialnych.'}
+                            </p>
+                        </div>
+
+                        <button onClick={handleDeclare} disabled={!selectedTarget} className="w-full py-3 bg-red-700 hover:bg-red-600 rounded font-bold text-white disabled:bg-slate-700 disabled:text-gray-500">
+                            WYPOWIEDZ WOJNĘ
+                        </button>
+                    </div>
+                ) : (
+                    <p className="text-gray-500 text-center py-4">Tylko Lider i Oficerowie mogą wypowiadać wojny.</p>
+                )}
+            </div>
+        </div>
+    );
+};

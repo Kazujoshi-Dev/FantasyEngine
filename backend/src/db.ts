@@ -340,6 +340,24 @@ export const initializeDatabase = async () => {
             );
         `);
 
+        // --- Guild Raids Table ---
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS guild_raids (
+                id SERIAL PRIMARY KEY,
+                attacker_guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                defender_guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                status VARCHAR(20) NOT NULL DEFAULT 'PREPARING',
+                raid_type VARCHAR(20) NOT NULL DEFAULT 'RESOURCES',
+                start_time TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                attacker_participants JSONB DEFAULT '[]',
+                defender_participants JSONB DEFAULT '[]',
+                combat_log JSONB,
+                winner_guild_id INT REFERENCES guilds(id),
+                loot JSONB
+            );
+        `);
+
         // --- Robust Seeding ---
         const defaultData = {
             locations: [{

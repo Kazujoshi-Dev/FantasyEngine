@@ -1,6 +1,7 @@
 
 
 
+
 export default {
     guild: {
         title: 'Gildia',
@@ -79,6 +80,23 @@ export default {
             depositConfirm: 'Czy na pewno chcesz oddać ten przedmiot do gildii? Tracisz go na zawsze.',
             itemBorrowed: 'Przedmiot wypożyczony',
             itemDeposited: 'Przedmiot zdeponowany'
+        },
+        raids: {
+            title: 'Rajdy Gildyjne',
+            declare: 'Wypowiedz Wojnę',
+            incoming: 'Nadchodzące Ataki',
+            outgoing: 'Nasze Ataki',
+            target: 'Cel Ataku',
+            type: 'Typ Starcia',
+            resources: 'Grabież (Zasoby)',
+            sparring: 'Sparing (Trening)',
+            status: {
+                PREPARING: 'Przygotowania',
+                FIGHTING: 'Walka Trwa',
+                FINISHED: 'Zakończone'
+            },
+            joinAttack: 'Dołącz do Ataku',
+            joinDefense: 'Dołącz do Obrony'
         }
     }
 };

@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -14,13 +16,14 @@ import { GuildBank } from './guild/GuildBank';
 import { GuildSettings } from './guild/GuildSettings';
 import { GuildHunting } from './guild/GuildHunting';
 import { FormattedText } from './guild/GuildSettings';
+import { GuildRaids } from './guild/GuildRaids';
 
 export const Guild: React.FC = () => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'HUNTING' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
+    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'HUNTING' | 'RAIDS' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
     
     // Game Data for Armory display
@@ -153,6 +156,7 @@ export const Guild: React.FC = () => {
                 <button onClick={() => setTab('MEMBERS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'MEMBERS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Członkowie</button>
                 <button onClick={() => setTab('BUILDINGS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BUILDINGS' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Budynki</button>
                 <button onClick={() => setTab('HUNTING')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'HUNTING' ? 'border-purple-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Polowania</button>
+                <button onClick={() => setTab('RAIDS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'RAIDS' ? 'border-red-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Rajdy</button>
                 <button onClick={() => setTab('ARMORY')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'ARMORY' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Zbrojownia</button>
                 <button onClick={() => setTab('BANK')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BANK' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Bank</button>
                 <button onClick={() => setTab('CHAT')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'CHAT' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Czat</button>
@@ -209,6 +213,12 @@ export const Guild: React.FC = () => {
             {tab === 'HUNTING' && (
                  <div className="h-[70vh] overflow-y-auto pr-2">
                     <GuildHunting />
+                </div>
+            )}
+            
+            {tab === 'RAIDS' && (
+                 <div className="h-[70vh] overflow-y-auto pr-2">
+                    <GuildRaids myGuildId={guild.id} myRole={guild.myRole} />
                 </div>
             )}
 
