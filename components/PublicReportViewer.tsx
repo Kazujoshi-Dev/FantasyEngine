@@ -107,6 +107,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
             reward: raidBody,
             characterName: '', // Not used in hunting/raid view
             isHunting: true, // Reuses hunting view logic for party display
+            isRaid: true, // Explicitly mark as raid
             huntingMembers: raidBody.huntingMembers,
             opponents: raidBody.opponents, // Ensure this field is handled in CombatSummary
             isPvp: false,

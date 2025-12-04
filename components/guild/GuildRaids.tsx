@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
@@ -149,7 +151,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                                 {timeLeft > 0 ? `${minutes}m ${seconds}s` : 'WALKA!'}
                              </>
                          )}
-                         {isHistory && <span className="text-xs text-gray-500">{new Date(raid.startTime).toLocaleDateString()}</span>}
+                         {isHistory && <span className="text-xs text-gray-500">{new Date(raid.startTime).toLocaleDateString()}</p>}
                     </div>
                 </div>
                 
@@ -216,7 +218,8 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                     characterName="" 
                     itemTemplates={itemTemplates}
                     affixes={affixes}
-                    isHunting={true} 
+                    isHunting={true}
+                    isRaid={true} // Set isRaid flag
                     huntingMembers={modalData.summary.huntingMembers}
                     opponents={modalData.opponents}
                 />

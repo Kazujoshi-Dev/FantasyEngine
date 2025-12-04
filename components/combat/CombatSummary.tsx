@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { ExpeditionRewardSummary, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, EssenceType, ItemRarity, Enemy, PlayerCharacter } from '../../types';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon';
 import { useTranslation } from '../../contexts/LanguageContext';
-import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from '../shared/ItemSlot';
+import { ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from '../shared/ItemSlot';
 import { CombatLogRow } from './CombatLog';
 
 export interface ExpeditionSummaryModalProps {
@@ -16,6 +17,7 @@ export interface ExpeditionSummaryModalProps {
     pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
     isDefenderView?: boolean;
     isHunting?: boolean;
+    isRaid?: boolean; // NEW PROP
     huntingMembers?: PartyMember[];
     opponents?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, any>> }>;
@@ -254,7 +256,12 @@ const DamageMeter: React.FC<{
     );
 }
 
-const RewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
+// ---------------------------------------------------------------------------------
+//                                  REWARD PANELS
+// ---------------------------------------------------------------------------------
+
+// 1. Raid Rewards Panel (List view, resources focused)
+const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
     const { t } = useTranslation();
     
     if (totalGold <= 0 && Object.keys(essencesFound).length === 0) return null;
@@ -288,12 +295,93 @@ const RewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<
     );
 };
 
+// 2. Standard Rewards Panel (Grid view, includes items and XP)
+const StandardRewardsPanel: React.FC<{ 
+    reward: ExpeditionRewardSummary; 
+    itemTemplates: ItemTemplate[]; 
+    affixes: Affix[];
+}> = ({ reward, itemTemplates, affixes }) => {
+    const { t } = useTranslation();
+    const { totalGold, totalExperience, itemsFound, essencesFound } = reward;
+
+    if (totalGold <= 0 && totalExperience <= 0 && itemsFound.length === 0 && Object.keys(essencesFound).length === 0) return null;
+
+    return (
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-green-500/30 h-full overflow-y-auto">
+             <h4 className="font-bold text-xl text-center border-b border-green-500/50 pb-2 mb-2 text-green-400">
+                {t('expedition.totalRewards')}
+            </h4>
+            
+            {/* Gold & XP */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+                {totalGold > 0 && (
+                    <div className="bg-slate-800 p-3 rounded text-center">
+                        <p className="text-gray-400 text-xs uppercase">{t('resources.gold')}</p>
+                        <p className="font-mono font-bold text-amber-400 flex justify-center items-center text-lg">
+                            {totalGold.toLocaleString()} <CoinsIcon className="h-5 w-5 ml-1"/>
+                        </p>
+                    </div>
+                )}
+                {totalExperience > 0 && (
+                     <div className="bg-slate-800 p-3 rounded text-center">
+                        <p className="text-gray-400 text-xs uppercase">{t('expedition.experience')}</p>
+                        <p className="font-mono font-bold text-sky-400 flex justify-center items-center text-lg">
+                            {totalExperience.toLocaleString()} <StarIcon className="h-5 w-5 ml-1"/>
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Items Grid */}
+            {itemsFound.length > 0 && (
+                <div className="mb-4">
+                    <p className="text-sm font-bold text-gray-300 mb-2">{t('expedition.itemsFound')}:</p>
+                    <div className="grid grid-cols-4 gap-2">
+                        {itemsFound.map((item, idx) => {
+                            const template = itemTemplates.find(t => t.id === item.templateId);
+                            if (!template) return null;
+                            return (
+                                <div key={idx} className="relative group">
+                                    <div className={`w-12 h-12 rounded bg-slate-800 border ${rarityStyles[template.rarity].border} flex items-center justify-center cursor-help`}>
+                                        {template.icon ? <img src={template.icon} className="w-10 h-10 object-contain" /> : <span className="text-xs">{template.name[0]}</span>}
+                                    </div>
+                                    <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                </div>
+                            )
+                        })}
+                    </div>
+                    {reward.itemsLostCount && <p className="text-xs text-red-400 mt-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>}
+                </div>
+            )}
+
+            {/* Essences List */}
+            {Object.keys(essencesFound).length > 0 && (
+                 <div>
+                    <p className="text-sm font-bold text-gray-300 mb-2">{t('expedition.essencesFound')}:</p>
+                    <div className="space-y-1">
+                        {Object.entries(essencesFound).map(([key, amount]) => {
+                             const type = key as EssenceType;
+                             const rarity = essenceToRarityMap[type];
+                             return (
+                                 <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded text-xs">
+                                      <span className={`${rarityStyles[rarity].text}`}>{t(`resources.${type}`)}</span>
+                                      <span className="font-mono font-bold text-white">x{amount}</span>
+                                 </div>
+                             )
+                        })}
+                    </div>
+                 </div>
+            )}
+        </div>
+    );
+};
+
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (props) => {
     const { 
         reward, onClose, characterName, itemTemplates, affixes, 
         isPvp = false, pvpData, isDefenderView = false, 
-        isHunting = false, huntingMembers, opponents, allRewards,
+        isHunting = false, isRaid = false, huntingMembers, opponents, allRewards,
         initialEnemy, encounteredEnemies, bossName, messageId
     } = props;
     const { t } = useTranslation();
@@ -500,12 +588,19 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                 {friendlyDamageData && friendlyDamageData.totalDamage > 0 && (
                                     <DamageMeter damageData={friendlyDamageData} title={t('expedition.damageMeter.title')} />
                                 )}
-                                <RewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
+                                
+                                {/* Conditional Reward Panel */}
+                                {isRaid ? (
+                                    <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
+                                ) : (
+                                    <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
+                                )}
                              </>
                          ) : (
                              <>
                                 <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
-                                <RewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
+                                {/* Standard Expedition/Solo */}
+                                <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
                              </>
                          )}
                     </div>
