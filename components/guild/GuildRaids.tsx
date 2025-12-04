@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
@@ -151,7 +144,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                                 {timeLeft > 0 ? `${minutes}m ${seconds}s` : 'WALKA!'}
                              </>
                          )}
-                         {isHistory && <span className="text-xs text-gray-500">{new Date(raid.startTime).toLocaleDateString()}</p>}
+                         {isHistory && <span className="text-xs text-gray-500">{new Date(raid.startTime).toLocaleDateString()}</span>}
                     </div>
                 </div>
                 
