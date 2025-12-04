@@ -21,7 +21,7 @@ const safeParseParticipants = (data: any): RaidParticipant[] => {
     return [];
 };
 
-export const getActiveRaids = async (guildId: number): Promise<{ incoming: GuildRaid[], outgoing: GuildRaid[] }> => {
+export const getActiveRaids = async (guildId: number): Promise<{ incoming: GuildRaid[], outgoing: GuildRaid[], history: GuildRaid[] }> => {
     // Using explicit aliasing to match frontend types (camelCase)
     const incomingRes = await pool.query(
         `SELECT 
@@ -68,10 +68,38 @@ export const getActiveRaids = async (guildId: number): Promise<{ incoming: Guild
          ORDER BY gr.start_time ASC`,
         [guildId]
     );
+
+    // Fetch History (Last 10)
+    const historyRes = await pool.query(
+        `SELECT 
+            gr.id,
+            gr.attacker_guild_id as "attackerGuildId",
+            gr.defender_guild_id as "defenderGuildId",
+            gr.status,
+            gr.raid_type as "type",
+            gr.start_time as "startTime",
+            gr.created_at as "createdAt",
+            gr.attacker_participants as "attackerParticipants",
+            gr.defender_participants as "defenderParticipants",
+            gr.winner_guild_id as "winnerGuildId",
+            gr.combat_log as "combatLog",
+            gr.loot,
+            ag.name as "attackerGuildName", 
+            dg.name as "defenderGuildName" 
+         FROM guild_raids gr
+         JOIN guilds ag ON gr.attacker_guild_id = ag.id
+         JOIN guilds dg ON gr.defender_guild_id = dg.id
+         WHERE (gr.attacker_guild_id = $1 OR gr.defender_guild_id = $1) 
+         AND gr.status IN ('FINISHED', 'CANCELLED')
+         ORDER BY gr.start_time DESC
+         LIMIT 10`,
+        [guildId]
+    );
     
     return {
         incoming: incomingRes.rows,
-        outgoing: outgoingRes.rows
+        outgoing: outgoingRes.rows,
+        history: historyRes.rows
     };
 };
 
@@ -328,7 +356,7 @@ export const processPendingRaids = async (): Promise<void> => {
                  for (const uid of uniqueParticipants) {
                     await client.query(
                         `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'system', $2, $3)`,
-                        [uid, subject, JSON.stringify({ content: `Bitwa zakończona! Zwycięzca: ${winnerName}. Sprawdź zakładkę Rajdy w gildii po szczegóły.` })]
+                        [uid, subject, JSON.stringify({ content: `Bitwa zakończona! Zwycięzca: ${winnerName}. Sprawdź zakładkę Rajdy w gildii po szczegóły (Sekcja: Historia Wojen).` })]
                     );
                 }
 
