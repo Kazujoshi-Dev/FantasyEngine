@@ -9,16 +9,28 @@ const PREP_TIME_MINUTES = 3;
 
 // Helper to safely parse JSONB columns which might be double-stringified or raw objects
 const safeParseParticipants = (data: any): RaidParticipant[] => {
-    if (Array.isArray(data)) return data;
-    if (typeof data === 'string') {
+    let list: any[] = [];
+    if (Array.isArray(data)) {
+        list = data;
+    } else if (typeof data === 'string') {
         try {
             const parsed = JSON.parse(data);
-            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed)) list = parsed;
         } catch (e) {
             console.error("Error parsing participants JSON:", e);
+            return [];
         }
     }
-    return [];
+
+    if (!Array.isArray(list)) return [];
+    
+    // Ensure userId is a number
+    return list.map(p => {
+        if (p && typeof p === 'object' && p.userId !== undefined) {
+            return { ...p, userId: Number(p.userId) };
+        }
+        return null;
+    }).filter((p): p is RaidParticipant => p !== null && !isNaN(p.userId));
 };
 
 export const getActiveRaids = async (guildId: number): Promise<{ incoming: GuildRaid[], outgoing: GuildRaid[], history: GuildRaid[] }> => {
@@ -267,12 +279,31 @@ export const processPendingRaids = async (): Promise<void> => {
                 const attackerList = safeParseParticipants(raid.attacker_participants);
                 const defenderList = safeParseParticipants(raid.defender_participants);
 
-                const attackerIds = attackerList.map(p => Number(p.userId)).filter(id => !isNaN(id));
-                const defenderIds = defenderList.map(p => Number(p.userId)).filter(id => !isNaN(id));
+                const attackerIds = attackerList.map(p => p.userId);
+                const defenderIds = defenderList.map(p => p.userId);
                 
-                // Walkover Logic (if one side is empty)
-                if (attackerIds.length === 0 || defenderIds.length === 0) {
-                    const isAttackerWinner = attackerIds.length > 0;
+                const getFullChars = async (ids: number[]) => {
+                    if (ids.length === 0) return [];
+                    const res = await client.query(`
+                        SELECT c.user_id, c.data, g.buildings 
+                        FROM characters c
+                        LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+                        LEFT JOIN guilds g ON gm.guild_id = g.id
+                        WHERE c.user_id = ANY($1)
+                    `, [ids]);
+                    return res.rows.map(r => {
+                         const barracks = r.buildings?.barracks || 0;
+                         const shrine = r.buildings?.shrine || 0;
+                         return calculateDerivedStatsOnServer({...r.data, id: r.user_id}, gameData.itemTemplates, gameData.affixes, barracks, shrine, gameData.skills);
+                    });
+                };
+
+                const attackersFull = await getFullChars(attackerIds);
+                const defendersFull = await getFullChars(defenderIds);
+                
+                // Walkover Logic (if one side has no valid characters after fetching)
+                if (attackersFull.length === 0 || defendersFull.length === 0) {
+                    const isAttackerWinner = attackersFull.length > 0;
                     const winnerGuildId = isAttackerWinner ? raid.attacker_guild_id : raid.defender_guild_id;
                     
                     const walkoverLog = [{
@@ -294,25 +325,6 @@ export const processPendingRaids = async (): Promise<void> => {
                     continue;
                 }
 
-                const getFullChars = async (ids: number[]) => {
-                    if (ids.length === 0) return [];
-                    const res = await client.query(`
-                        SELECT c.data, g.buildings 
-                        FROM characters c
-                        LEFT JOIN guild_members gm ON c.user_id = gm.user_id
-                        LEFT JOIN guilds g ON gm.guild_id = g.id
-                        WHERE c.user_id = ANY($1)
-                    `, [ids]);
-                    return res.rows.map(r => {
-                         const barracks = r.buildings?.barracks || 0;
-                         const shrine = r.buildings?.shrine || 0;
-                         return calculateDerivedStatsOnServer({...r.data, id: r.data.id || r.user_id}, gameData.itemTemplates, gameData.affixes, barracks, shrine, gameData.skills);
-                    });
-                };
-
-                const attackersFull = await getFullChars(attackerIds);
-                const defendersFull = await getFullChars(defenderIds);
-                
                 // Simulate Combat
                 const { combatLog, winner } = simulateTeamVsTeamCombat(attackersFull, defendersFull, gameData);
                 

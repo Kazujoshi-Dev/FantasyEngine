@@ -61,7 +61,7 @@ export const CombatLogRow: React.FC<{
          return (
             <div className="text-center my-2 py-2 bg-red-900/40 rounded border border-red-600/50">
                 <p className="font-bold text-sm text-red-300">
-                    ⚠️ BŁĄD KRYTYCZNY: {log.action}
+                    ⚠️ BŁĄD KRYTYCZNY: system_error
                 </p>
                 <p className="text-xs text-red-400/80">
                     Symulacja została przerwana. Wynik może być niekompletny.
