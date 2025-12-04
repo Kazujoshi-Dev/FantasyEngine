@@ -221,7 +221,7 @@ export interface CombatLogEntry {
   affectedPlayers?: string[];
   defenderUniqueId?: string;
   allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
-  allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number }[];
+  allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number, currentMana?: number, maxMana?: number }[];
   effectApplied?: string; // e.g., 'burning', 'frozen'
   aoeDamage?: { target: string, damage: number }[];
   chainTargets?: string[];
@@ -845,7 +845,7 @@ export interface AdminCharacterInfo {
     characterClass?: CharacterClass; // Added characterClass
 }
 
-export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite';
+export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite' | 'raid_report';
 
 export interface PlayerMessageBody {
     content: string;

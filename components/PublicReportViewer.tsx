@@ -23,7 +23,7 @@ const fetchPublicApi = async (endpoint: string): Promise<any> => {
 
 export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId }) => {
     const t = getT(Language.PL);
-    const [reportData, setReportData] = useState<{ type: MessageType; body: ExpeditionRewardSummary | PvpRewardSummary, subject: string, sender: string } | null>(null);
+    const [reportData, setReportData] = useState<{ type: MessageType; body: any, subject: string, sender: string } | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
     const [error, setError] = useState<string | null>(null);
     const isLoading = !reportData && !error;
@@ -98,6 +98,20 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
             encounteredEnemies: expBody.encounteredEnemies,
             bossName: boss?.name,
         };
+    } else if (type === 'raid_report') {
+        // Raid reports share ExpeditionRewardSummary structure but with extra 'opponents' field in body
+        const raidBody = body as ExpeditionRewardSummary & { opponents?: any[] };
+        
+        modalProps = {
+            ...modalProps,
+            reward: raidBody,
+            characterName: '', // Not used in hunting/raid view
+            isHunting: true, // Reuses hunting view logic for party display
+            huntingMembers: raidBody.huntingMembers,
+            opponents: raidBody.opponents, // Ensure this field is handled in CombatSummary
+            isPvp: false,
+        };
+
     } else if (type === 'pvp_report') {
         const pvpBody = body as PvpRewardSummary;
         modalProps = {

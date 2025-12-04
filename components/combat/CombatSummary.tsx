@@ -48,16 +48,16 @@ export const EnemyListPanel: React.FC<{
             <div className="space-y-3">
                 {enemies.map(enemy => {
                     const healthData = finalEnemiesHealth?.find(h => h.uniqueId === enemy.uniqueId);
-                    const currentHealth = healthData?.currentHealth ?? enemy.stats.maxHealth;
+                    const currentHealth = healthData ? healthData.currentHealth : 0; // Assume dead if not found in final log (rare but safe) or handle pre-fight state elsewhere
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
-                    const hpPercent = (currentHealth / maxHealth) * 100;
+                    const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
                     const enemyName = healthData?.name || enemy.name;
 
                     return (
                         <div 
                             key={enemy.uniqueId} 
-                            className={`p-2 rounded bg-slate-800 ${isDead ? 'opacity-50' : ''}`}
+                            className={`p-2 rounded bg-slate-800 ${isDead ? 'opacity-75 grayscale' : ''} cursor-help border border-transparent hover:border-slate-500`}
                             onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onEnemyLeave}
                         >
@@ -86,16 +86,17 @@ export const CombatantStatsPanel: React.FC<{
 }> = ({ name, description, stats, currentHealth, currentMana }) => {
   const { t } = useTranslation();
   if (!stats) {
-    return <div className="w-full bg-slate-900/50 p-4 rounded-lg border border-transparent h-full"></div>;
+    return <div className="w-full bg-slate-900 p-4 rounded-lg border border-slate-700 h-full text-gray-500 flex items-center justify-center">Brak danych</div>;
   }
 
   const isPlayer = 'strength' in stats;
-  const borderColor = isPlayer ? 'border-sky-500/50' : 'border-red-500/50';
+  const borderColor = isPlayer ? 'border-sky-500' : 'border-red-500';
   const textColor = isPlayer ? 'text-sky-400' : 'text-red-400';
 
-  const hpDisplay = currentHealth !== undefined ? `${currentHealth.toFixed(0)} / ${stats.maxHealth}` : stats.maxHealth;
+  // Ensure HP/Mana display 0 instead of negative or undefined
+  const hpDisplay = currentHealth !== undefined ? `${Math.max(0, currentHealth).toFixed(0)} / ${stats.maxHealth}` : stats.maxHealth;
   const manaDisplay = stats.maxMana !== undefined && stats.maxMana > 0
-    ? (currentMana !== undefined ? `${currentMana.toFixed(0)} / ${stats.maxMana}` : stats.maxMana)
+    ? (currentMana !== undefined ? `${Math.max(0, currentMana).toFixed(0)} / ${stats.maxMana}` : stats.maxMana)
     : null;
 
   const magicDamageDisplay = (stats.magicDamageMin !== undefined && stats.magicDamageMin > 0) || (stats.magicDamageMax !== undefined && stats.magicDamageMax > 0)
@@ -106,20 +107,20 @@ export const CombatantStatsPanel: React.FC<{
 
 
   return (
-    <div className={`bg-slate-900/50 p-4 rounded-lg border ${borderColor} h-full`}>
+    <div className={`bg-slate-900 p-4 rounded-lg border-2 ${borderColor} h-full shadow-2xl relative z-[100]`}>
       <h4 className={`font-bold text-xl text-center border-b pb-2 mb-2 ${borderColor} ${textColor}`}>
         {name}
       </h4>
       {description && <p className="text-xs italic text-gray-400 mb-2 text-center">{description}</p>}
-      <div className="text-left text-sm space-y-1 text-gray-300">
-        <p className="flex justify-between"><strong>HP:</strong> <span>{hpDisplay}</span></p>
+      <div className="text-left text-sm space-y-1 text-gray-200">
+        <p className="flex justify-between"><strong>HP:</strong> <span className="font-mono">{hpDisplay}</span></p>
         {manaDisplay && (
-            <p className="flex justify-between"><strong>{t('statistics.mana')}:</strong> <span>{manaDisplay}</span></p>
+            <p className="flex justify-between"><strong>{t('statistics.mana')}:</strong> <span className="font-mono">{manaDisplay}</span></p>
         )}
         {manaRegenDisplay && (
-            <p className="flex justify-between"><strong>{t('statistics.manaRegen')}:</strong> <span>{manaRegenDisplay}</span></p>
+            <p className="flex justify-between"><strong>{t('statistics.manaRegen')}:</strong> <span className="font-mono">{manaRegenDisplay}</span></p>
         )}
-        <div className="border-t border-slate-700/50 my-2"></div>
+        <div className="border-t border-slate-700 my-2"></div>
         
         {isPlayer && (
             <>
@@ -133,11 +134,11 @@ export const CombatantStatsPanel: React.FC<{
         
         <p className="flex justify-between"><strong>{t('statistics.agility')}:</strong> <span>{stats.agility}</span></p>
         
-        <div className="border-t border-slate-700/50 my-2"></div>
+        <div className="border-t border-slate-700 my-2"></div>
         
-        <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span>{stats.minDamage} - {stats.maxDamage}</span></p>
+        <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span className="font-mono">{stats.minDamage} - {stats.maxDamage}</span></p>
         {magicDamageDisplay && (
-            <p className="flex justify-between"><strong>{t('statistics.magicDamage')}:</strong> <span>{magicDamageDisplay}</span></p>
+            <p className="flex justify-between"><strong>{t('statistics.magicDamage')}:</strong> <span className="font-mono">{magicDamageDisplay}</span></p>
         )}
 
         <p className="flex justify-between">
@@ -180,7 +181,7 @@ export const PartyMemberList: React.FC<{
             <div className="space-y-2">
                 {members.map((member, idx) => {
                     const healthData = finalPartyHealth[member.characterName];
-                    const currentHP = healthData?.currentHealth ?? 0;
+                    const currentHP = healthData?.currentHealth ?? 0; // Assume 0 if unknown
                     const maxHP = healthData?.maxHealth ?? 1;
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
                     const isDead = currentHP <= 0;
@@ -188,7 +189,7 @@ export const PartyMemberList: React.FC<{
                     return (
                         <div 
                             key={idx} 
-                            className={`p-2 rounded bg-slate-800 relative group ${isDead ? 'opacity-50' : ''}`}
+                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 ${isDead ? 'opacity-75' : ''}`}
                             onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onMemberLeave}
                         >
@@ -253,6 +254,40 @@ const DamageMeter: React.FC<{
     );
 }
 
+const RewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
+    const { t } = useTranslation();
+    
+    if (totalGold <= 0 && Object.keys(essencesFound).length === 0) return null;
+
+    return (
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-amber-500/30 h-full overflow-y-auto">
+             <h4 className="font-bold text-xl text-center border-b border-amber-500/50 pb-2 mb-2 text-amber-400">
+                Łupy Wojenne
+            </h4>
+            <div className="space-y-2 text-sm">
+                {totalGold > 0 && (
+                     <div className="flex justify-between items-center bg-slate-800 p-2 rounded">
+                        <span className="text-gray-300">{t('resources.gold')}</span>
+                        <span className="font-mono font-bold text-amber-400 flex items-center">
+                            {totalGold.toLocaleString()} <CoinsIcon className="h-4 w-4 ml-1"/>
+                        </span>
+                     </div>
+                )}
+                {Object.entries(essencesFound).map(([key, amount]) => {
+                    const type = key as EssenceType;
+                    const rarity = essenceToRarityMap[type];
+                    return (
+                        <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded">
+                             <span className={`${rarityStyles[rarity].text}`}>{t(`resources.${type}`)}</span>
+                             <span className="font-mono font-bold text-white">x{amount}</span>
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    );
+};
+
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (props) => {
     const { 
@@ -306,6 +341,10 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 };
             });
         }
+        
+        // Ensure we have valid HP data even for enemies that died earlier
+        // We need to reconstruct this from the log history if 'allEnemiesHealth' only shows living ones (implementation specific)
+        // Assuming allEnemiesHealth snapshots everyone.
     
         return {
             playerHealth: lastLog.playerHealth,
@@ -357,6 +396,29 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats: mergedStats }, rect });
         }
     }, [reward.combatLog, finalState.partyHealth]);
+    
+    // Explicit Enemy Hover Handler to fetch stats from log if available
+    const onEnemyHover = useCallback((enemy: Enemy, rect: DOMRect) => {
+        // Try to find enemy stats from log if possible, otherwise fallback to template stats
+        // Note: Enemy templates often have ranges, logs have instances.
+        // For dead enemies, currentHealth is 0.
+        const healthData = finalState.enemiesHealth.find(e => e.uniqueId === enemy.uniqueId);
+        const statsToDisplay = {
+            ...enemy.stats,
+            maxHealth: healthData?.maxHealth ?? enemy.stats.maxHealth
+        };
+        
+        setHoveredCombatant({ 
+            type: 'enemy', 
+            data: { 
+                name: healthData?.name || enemy.name, 
+                stats: statsToDisplay,
+                currentHealth: healthData?.currentHealth ?? (enemy.stats.maxHealth), // Fallback
+                currentMana: 0 // Enemies usually don't track mana in simple array unless expanded
+            }, 
+            rect 
+        });
+    }, [finalState.enemiesHealth]);
 
     const onMemberLeave = useCallback(() => {
         setHoveredCombatant(null);
@@ -377,7 +439,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
 
     return (
         <div 
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-40 p-4"
+            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-40 p-4"
             style={backgroundStyle}
         >
              {/* Tooltip & Inspection Modals */}
@@ -391,24 +453,36 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
             )}
             {hoveredCombatant && hoveredCombatant.rect && (
                  <div
-                    className="fixed z-50 pointer-events-none"
+                    className="fixed z-[100] pointer-events-none shadow-2xl"
                     style={{
-                        top: hoveredCombatant.rect.top + (hoveredCombatant.rect.height / 2),
-                        left: hoveredCombatant.rect.right + 10,
-                        transform: 'translateY(-50%)'
+                        // Simple positioning logic: stay within viewport
+                        top: Math.min(window.innerHeight - 300, Math.max(10, hoveredCombatant.rect.top)), 
+                        left: hoveredCombatant.rect.right + 20 > window.innerWidth ? hoveredCombatant.rect.left - 270 : hoveredCombatant.rect.right + 20,
+                        width: '250px'
                     }}
                 >
-                    <div className="w-64">
-                         <CombatantStatsPanel {...hoveredCombatant.data} />
-                    </div>
+                     <CombatantStatsPanel {...hoveredCombatant.data} />
                 </div>
             )}
 
             <div 
-                className="w-full max-w-7xl bg-slate-800/80 border border-slate-700 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh] overflow-hidden"
+                className="w-full max-w-7xl bg-slate-800/95 border border-slate-700 rounded-2xl shadow-2xl p-4 flex flex-col h-[90vh] overflow-hidden relative"
                 style={{ "--window-bg": `url(${props.backgroundImage})` } as React.CSSProperties}
             >
-                <h2 className="text-3xl font-bold text-center mb-4 text-indigo-400 flex-shrink-0">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
+                {/* Top Bar with Controls */}
+                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 className="text-2xl font-bold text-indigo-400">{t(isPvp ? 'pvp.duelResult' : 'expedition.combatReport')}</h2>
+                    <div className="flex gap-3">
+                        {messageId && (
+                            <button onClick={handleCopyLink} className="px-4 py-1.5 bg-sky-700 hover:bg-sky-600 text-white rounded font-bold text-sm transition-colors shadow-lg border border-sky-500">
+                                Kopiuj Link
+                            </button>
+                        )}
+                        <button onClick={onClose} className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded font-bold text-sm transition-colors shadow-lg border border-red-500">
+                            Zamknij
+                        </button>
+                    </div>
+                </div>
                 
                 <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
                     <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
@@ -426,9 +500,13 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                 {friendlyDamageData && friendlyDamageData.totalDamage > 0 && (
                                     <DamageMeter damageData={friendlyDamageData} title={t('expedition.damageMeter.title')} />
                                 )}
+                                <RewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
                              </>
                          ) : (
-                             <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
+                             <>
+                                <CombatantStatsPanel name={characterName} stats={initialPlayerStats} currentHealth={finalState.playerHealth} />
+                                <RewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
+                             </>
                          )}
                     </div>
 
@@ -470,16 +548,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                              <EnemyListPanel 
                                 enemies={encounteredEnemies} 
                                 finalEnemiesHealth={finalState.enemiesHealth}
-                                onEnemyHover={(enemy, rect) => setHoveredCombatant({ type: 'enemy', data: enemy, rect })}
-                                onEnemyLeave={() => setHoveredCombatant(null)}
+                                onEnemyHover={onEnemyHover}
+                                onEnemyLeave={onMemberLeave}
                             />
                         ) : (
                              <CombatantStatsPanel name={initialEnemyForDisplay?.name || ''} description={initialEnemyForDisplay?.description} stats={initialEnemyForDisplay?.stats || null} currentHealth={finalState.enemyHealth} />
                         )}
                     </div>
                 </div>
-
-                {/* ... (rest of the component, results/rewards section) ... */}
             </div>
         </div>
     );

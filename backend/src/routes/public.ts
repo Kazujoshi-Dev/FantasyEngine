@@ -25,7 +25,7 @@ router.get('/report/:id', async (req, res) => {
         const message = result.rows[0];
 
         // Ensure it's a report type before returning
-        if (message.message_type !== 'expedition_report' && message.message_type !== 'pvp_report') {
+        if (message.message_type !== 'expedition_report' && message.message_type !== 'pvp_report' && message.message_type !== 'raid_report') {
             return res.status(403).json({ message: 'This message is not a shareable report.' });
         }
 

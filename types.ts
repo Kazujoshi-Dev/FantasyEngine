@@ -1,3 +1,4 @@
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -845,7 +846,7 @@ export interface AdminCharacterInfo {
     characterClass?: CharacterClass; // Added characterClass
 }
 
-export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite';
+export type MessageType = 'pvp_report' | 'player_message' | 'expedition_report' | 'market_notification' | 'system' | 'guild_invite' | 'raid_report';
 
 export interface PlayerMessageBody {
     content: string;
