@@ -1,4 +1,6 @@
 
+
+
 export default {
     guild: {
         title: 'Gildia',
@@ -58,6 +60,8 @@ export default {
             isPublic: 'Gildia Publiczna (Otwarta rekrutacja)',
             rentalTax: 'Podatek od wypożyczeń',
             rentalTaxDesc: 'Procent wartości przedmiotu pobierany jako opłata za wypożyczenie do skarbca gildii.',
+            huntingTax: 'Podatek łowiecki',
+            huntingTaxDesc: 'Procent złota i esencji zdobytych podczas polowań gildyjnych, który trafia bezpośrednio do skarbca gildii.',
             save: 'Zapisz Ustawienia',
             disband: 'Rozwiąż Gildię',
             preview: 'Podgląd',

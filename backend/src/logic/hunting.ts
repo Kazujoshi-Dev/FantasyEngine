@@ -1,6 +1,8 @@
 
 
 
+
+
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -118,6 +120,17 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     const rewardsMap: Record<number, { gold: number, experience: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>> }> = {};
     const allRewardsForReport: Record<string, { gold: number; experience: number; items?: ItemInstance[]; essences?: Partial<Record<EssenceType, number>> }> = {};
 
+    // Guild Tax Data Fetch
+    let guildTaxRate = 0;
+    let guildResources: any = null;
+    if (party.guildId) {
+        const guildRes = await client.query('SELECT resources, hunting_tax FROM guilds WHERE id = $1 FOR UPDATE', [party.guildId]);
+        if (guildRes.rows.length > 0) {
+            guildResources = guildRes.rows[0].resources;
+            guildTaxRate = guildRes.rows[0].hunting_tax || 0;
+        }
+    }
+
     if (isVictory) {
         const bossBonusMultiplier = 1.0 + (playerCombatants.length * 0.3);
         // Rewards use base template stats for range, but multiplied by pool count
@@ -128,6 +141,9 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         
         const splitGold = Math.floor(totalPoolGold);
         const splitExp = Math.floor(totalPoolExp);
+        
+        let totalGuildTaxGold = 0;
+        const totalGuildTaxEssences: Record<string, number> = {};
 
         for (const userId of Object.keys(rawCharactersMap).map(Number)) {
             const char = rawCharactersMap[userId];
@@ -142,6 +158,13 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             if (char.race === 'Gnome') finalGold = Math.floor(finalGold * 1.2);
             if (char.characterClass === 'Thief') finalGold = Math.floor(finalGold * 1.25);
             if (char.race === 'Human') finalExp = Math.floor(finalExp * 1.1);
+            
+            // --- Apply Guild Tax (Only if not defeated? Usually applies to earnings) ---
+            if (party.guildId && guildTaxRate > 0) {
+                const taxAmount = Math.floor(finalGold * (guildTaxRate / 100));
+                finalGold -= taxAmount;
+                totalGuildTaxGold += taxAmount;
+            }
             
             const itemsFound: ItemInstance[] = [];
             const essencesFound: Partial<Record<EssenceType, number>> = {};
@@ -167,6 +190,15 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                         let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                         if(char.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
                         
+                        // Apply Guild Tax to Essences
+                        if (party.guildId && guildTaxRate > 0) {
+                            const taxAmount = Math.floor(amount * (guildTaxRate / 100));
+                            if (taxAmount > 0) {
+                                amount -= taxAmount;
+                                totalGuildTaxEssences[drop.resource] = (totalGuildTaxEssences[drop.resource] || 0) + taxAmount;
+                            }
+                        }
+
                         // drop.resource is strictly typed as EssenceType here because bossTemplate is typed as Enemy
                         essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
                     }
@@ -209,6 +241,27 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             }
 
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
+        }
+        
+        // Update Guild Bank with Tax
+        if (party.guildId && guildResources) {
+            if (totalGuildTaxGold > 0) {
+                guildResources.gold += totalGuildTaxGold;
+                await client.query(
+                    `INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'TAX', 'gold', $2)`,
+                    [party.guildId, totalGuildTaxGold]
+                );
+            }
+            for(const [essence, amount] of Object.entries(totalGuildTaxEssences)) {
+                 if (amount > 0) {
+                     guildResources[essence] += amount;
+                     await client.query(
+                        `INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'TAX', $2, $3)`,
+                        [party.guildId, essence, amount]
+                    );
+                 }
+            }
+            await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(guildResources), party.guildId]);
         }
         
         // Send individual success messages
@@ -260,6 +313,7 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         members: dbParty.members,
         combatLog: dbParty.combat_log,
         allRewards: dbParty.rewards,
-        victory: dbParty.victory
+        victory: dbParty.victory,
+        guildId: dbParty.guild_id
     };
 };

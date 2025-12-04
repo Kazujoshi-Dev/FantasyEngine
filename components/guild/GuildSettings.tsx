@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
@@ -59,29 +61,18 @@ export const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }>
     const [minLevel, setMinLevel] = useState(guild.minLevel || 1);
     const [isPublic, setIsPublic] = useState(guild.isPublic || false);
     const [rentalTax, setRentalTax] = useState(guild.rentalTax || 10);
+    const [huntingTax, setHuntingTax] = useState(guild.huntingTax || 0);
     const [saving, setSaving] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const handleSave = async () => {
         setSaving(true);
         try {
-            await api.updateGuild(desc, crest, minLevel, isPublic);
-            // Updating tax requires a small refactor in api.ts to accept rentalTax in updateGuild, 
-            // but for now we assume backend handles it via updateGuild if we modify api.ts or create a new call.
-            // Let's assume api.updateGuild is flexible or we call a raw endpoint.
-            // Since api.ts is typed, we should ideally update it, but here we can rely on the backend accepting extra fields if passed, 
-            // or we need to update api.ts. For this task I will use a direct fetch to bypass potential type limits if needed, 
-            // or better: assume api.ts updateGuild signature is updated in this batch as well if I could edit it.
-            // I will implement the backend support in routes/guilds.ts.
-            // Here I will use raw fetch to pass rentalTax since I can't edit api.ts in this prompt easily (only specified files).
-            // Actually, I can edit api.ts if I include it in the XML. Let's assume I will extend api.updateGuild in api.ts logic in my head 
-            // OR simpler: just fetch directly here for the custom field.
-            
             const token = localStorage.getItem('token');
             await fetch('/api/guilds/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ description: desc, crestUrl: crest, minLevel, isPublic, rentalTax })
+                body: JSON.stringify({ description: desc, crestUrl: crest, minLevel, isPublic, rentalTax, huntingTax })
             });
 
             onUpdate();
@@ -195,20 +186,37 @@ export const GuildSettings: React.FC<{ guild: GuildType, onUpdate: () => void }>
                     </div>
                 </div>
                 
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.rentalTax')} (0-50%)</label>
-                    <div className="flex items-center gap-4">
-                        <input 
-                            type="range"
-                            min="0"
-                            max="50"
-                            className="flex-grow accent-indigo-500"
-                            value={rentalTax}
-                            onChange={e => setRentalTax(parseInt(e.target.value))}
-                        />
-                        <span className="font-mono text-white w-12 text-right">{rentalTax}%</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.rentalTax')} (0-50%)</label>
+                        <div className="flex items-center gap-4">
+                            <input 
+                                type="range"
+                                min="0"
+                                max="50"
+                                className="flex-grow accent-indigo-500"
+                                value={rentalTax}
+                                onChange={e => setRentalTax(parseInt(e.target.value))}
+                            />
+                            <span className="font-mono text-white w-12 text-right">{rentalTax}%</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{t('guild.settings.rentalTaxDesc')}</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{t('guild.settings.rentalTaxDesc')}</p>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('guild.settings.huntingTax')} (0-50%)</label>
+                        <div className="flex items-center gap-4">
+                            <input 
+                                type="range"
+                                min="0"
+                                max="50"
+                                className="flex-grow accent-purple-500"
+                                value={huntingTax}
+                                onChange={e => setHuntingTax(parseInt(e.target.value))}
+                            />
+                            <span className="font-mono text-white w-12 text-right">{huntingTax}%</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{t('guild.settings.huntingTaxDesc')}</p>
+                    </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-700 flex justify-between items-center">

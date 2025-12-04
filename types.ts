@@ -157,6 +157,7 @@ export interface Enemy {
   lootTable: LootDrop[];
   resourceLootTable?: ResourceDrop[];
   isBoss?: boolean;
+  isGuildBoss?: boolean; // New property
   image?: string; // Boss portrait
   specialAttacks?: BossSpecialAttack[];
   preparationTimeSeconds?: number;
@@ -607,6 +608,7 @@ export interface HuntingParty {
     };
     allRewards?: Record<string, { gold: number; experience: number; items?: ItemInstance[]; essences?: Partial<Record<EssenceType, number>> }>; // Map player name -> rewards
     messageId?: number; // ID of the message containing the report for the current user
+    guildId?: number; // Added for Guild Hunts
 }
 // --- End Hunting System Types ---
 
@@ -633,7 +635,7 @@ export interface GuildTransaction {
     id: number;
     userId: number;
     characterName: string;
-    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL';
+    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX';
     currency: 'gold' | EssenceType;
     amount: number;
     timestamp: string;
@@ -672,6 +674,7 @@ export interface Guild {
     isPublic: boolean;
     minLevel: number;
     rentalTax?: number; // 0-100 percentage
+    huntingTax?: number; // 0-100 percentage, New property
     buildings?: Record<string, number>; // Map building type to level
     // Extended properties
     members?: GuildMember[];

@@ -1,4 +1,6 @@
 
+
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -107,6 +109,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             isPublic: guildData.is_public,
             minLevel: guildData.min_level,
             rentalTax: guildData.rental_tax || 10,
+            huntingTax: guildData.hunting_tax || 0,
             buildings: mergedBuildings,
             members,
             transactions,
@@ -567,7 +570,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/update - Update description and crest
 router.post('/update', authenticateToken, async (req: any, res: any) => {
-    const { description, crestUrl, minLevel, isPublic, rentalTax } = req.body;
+    const { description, crestUrl, minLevel, isPublic, rentalTax, huntingTax } = req.body;
     const userId = req.user.id;
 
     try {
@@ -603,6 +606,12 @@ router.post('/update', authenticateToken, async (req: any, res: any) => {
             const tax = parseInt(rentalTax);
             if(tax < 0 || tax > 50) return res.status(400).json({ message: 'Tax must be between 0 and 50%'});
             fields.push(`rental_tax = $${index++}`);
+            values.push(tax);
+        }
+         if (huntingTax !== undefined) {
+            const tax = parseInt(huntingTax);
+            if(tax < 0 || tax > 50) return res.status(400).json({ message: 'Hunting Tax must be between 0 and 50%'});
+            fields.push(`hunting_tax = $${index++}`);
             values.push(tax);
         }
 

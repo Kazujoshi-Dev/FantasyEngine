@@ -222,6 +222,12 @@ export const initializeDatabase = async () => {
                 victory BOOLEAN
             );
         `);
+        
+        const hasHuntingGuildId = await client.query(`SELECT 1 FROM information_schema.columns WHERE table_name='hunting_parties' AND column_name='guild_id';`);
+        if (!hasHuntingGuildId.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'guild_id' column to 'hunting_parties' table...");
+             await client.query(`ALTER TABLE hunting_parties ADD COLUMN guild_id INT;`);
+        }
 
         // --- Guild System Tables ---
         await client.query(`
@@ -272,6 +278,15 @@ export const initializeDatabase = async () => {
              console.log("MIGRATING SCHEMA: Adding 'rental_tax' column to 'guilds' table...");
              await client.query(`ALTER TABLE guilds ADD COLUMN rental_tax INT DEFAULT 10;`);
         }
+        
+        const hasHuntingTaxColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guilds' AND column_name='hunting_tax';
+        `);
+        if (!hasHuntingTaxColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'hunting_tax' column to 'guilds' table...");
+             await client.query(`ALTER TABLE guilds ADD COLUMN hunting_tax INT DEFAULT 0;`);
+        }
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS guild_members (
@@ -298,7 +313,7 @@ export const initializeDatabase = async () => {
                 id SERIAL PRIMARY KEY,
                 guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
                 user_id INT NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-                type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW, RENTAL
+                type VARCHAR(20) NOT NULL, -- DEPOSIT, WITHDRAW, RENTAL, TAX
                 currency VARCHAR(50) NOT NULL,
                 amount INT NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()

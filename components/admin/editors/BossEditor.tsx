@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -47,6 +49,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
             resourceLootTable: [],
             specialAttacks: [],
             isBoss: true, // Forced
+            isGuildBoss: false,
             ...boss,
             rewards: boss.rewards || { minGold: 100, maxGold: 200, minExperience: 100, maxExperience: 200 },
             stats: { ...defaultStats, ...boss.stats },
@@ -54,9 +57,14 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
+        const isCheckbox = type === 'checkbox';
         const isNumeric = ['preparationTimeSeconds'].includes(name);
-        setFormData(prev => ({ ...prev, [name]: isNumeric ? parseInt(value, 10) || 0 : value }));
+        
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: isCheckbox ? (e.target as HTMLInputElement).checked : (isNumeric ? parseInt(value, 10) || 0 : value) 
+        }));
     };
 
     const handleStatsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -136,6 +144,18 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
                     <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} rows={4} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                     
+                    <div className="flex items-center space-x-2 mt-2">
+                        <input
+                            type="checkbox"
+                            id="isGuildBoss"
+                            name="isGuildBoss"
+                            checked={formData.isGuildBoss || false}
+                            onChange={handleChange}
+                            className="form-checkbox h-5 w-5 text-purple-600 rounded bg-slate-700 border-slate-600"
+                        />
+                        <label htmlFor="isGuildBoss" className="font-bold text-purple-400">Boss Gildyjny</label>
+                    </div>
+
                     <div>
                         <label>Czas przygotowania (sekundy):
                             <input name="preparationTimeSeconds" type="number" value={formData.preparationTimeSeconds ?? 30} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" />

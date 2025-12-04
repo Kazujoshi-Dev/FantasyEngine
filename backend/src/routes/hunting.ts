@@ -1,4 +1,5 @@
 
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -13,15 +14,16 @@ const getGameData = async (): Promise<GameData> => {
     return gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 };
 
-// GET /api/hunting/parties - List open parties (FORMING)
+// GET /api/hunting/parties - List open PUBLIC parties (FORMING)
+// Guild parties are handled by a separate logic or filter
 router.get('/parties', authenticateToken, async (req: any, res: any) => {
     try {
-        // Show parties that are forming and not full, include leader name
+        // Show public parties only (guild_id IS NULL)
         const result = await pool.query(`
             SELECT hp.id, hp.leader_id, hp.boss_id, hp.max_members, hp.status, hp.members, c.data->>'name' as leader_name
             FROM hunting_parties hp
             JOIN characters c ON hp.leader_id = c.user_id
-            WHERE hp.status = 'FORMING' 
+            WHERE hp.status = 'FORMING' AND hp.guild_id IS NULL
             ORDER BY hp.created_at DESC
         `);
         
@@ -40,6 +42,39 @@ router.get('/parties', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch parties' });
+    }
+});
+
+// GET /api/hunting/guild-parties - List active GUILD parties
+router.get('/guild-parties', authenticateToken, async (req: any, res: any) => {
+    try {
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const guildId = memberRes.rows[0].guild_id;
+
+        const result = await pool.query(`
+            SELECT hp.id, hp.leader_id, hp.boss_id, hp.max_members, hp.status, hp.members, c.data->>'name' as leader_name
+            FROM hunting_parties hp
+            JOIN characters c ON hp.leader_id = c.user_id
+            WHERE hp.status = 'FORMING' AND hp.guild_id = $1
+            ORDER BY hp.created_at DESC
+        `, [guildId]);
+        
+        const parties = result.rows.map(row => ({
+            id: row.id,
+            leaderId: row.leader_id,
+            bossId: row.boss_id,
+            maxMembers: row.max_members,
+            status: row.status,
+            members: row.members,
+            currentMembersCount: row.members.length,
+            leaderName: row.leader_name
+        }));
+        
+        res.json(parties);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch guild parties' });
     }
 });
 
@@ -144,27 +179,45 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/hunting/create - Create a new party
 router.post('/create', authenticateToken, async (req: any, res: any) => {
-    const { bossId, maxMembers } = req.body;
+    const { bossId, maxMembers, isGuildParty } = req.body;
     
     try {
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
         const hasLoneWolf = (char.learnedSkills || []).includes('lone-wolf');
         
+        let guildId: number | null = null;
+        if (isGuildParty) {
+            const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+            if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Nie należysz do gildii.' });
+            guildId = memberRes.rows[0].guild_id;
+
+            if (maxMembers < 2) {
+                return res.status(400).json({ message: 'Polowania gildyjne wymagają minimum 2 osób.' });
+            }
+            
+            // Verify Boss is Guild Boss
+            const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'enemies'");
+            const enemies = gameDataRes.rows[0].data;
+            const boss = enemies.find((e: any) => e.id === bossId);
+            if (!boss || !boss.isGuildBoss) {
+                 return res.status(400).json({ message: 'To nie jest boss gildyjny.' });
+            }
+
+        } else {
+            // Regular party logic
+             if (maxMembers === 1 && !hasLoneWolf) {
+                return res.status(400).json({ message: 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".' });
+            }
+        }
+        
         if (char.stats.currentHealth <= 0) {
             return res.status(400).json({ message: 'Nie możesz założyć grupy, gdy masz 0 punktów życia. Ulecz swoją postać.' });
         }
 
-        const minMembers = hasLoneWolf ? 1 : 2;
-
         if (maxMembers < 1 || maxMembers > 5) {
              return res.status(400).json({ message: 'Rozmiar grupy musi być pomiędzy 1 a 5.' });
         }
-
-        if (maxMembers === 1 && !hasLoneWolf) {
-            return res.status(400).json({ message: 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".' });
-        }
-
 
         const existingParty = await getPartyByMember(req.user.id);
         if (existingParty) return res.status(400).json({ message: 'Jesteś już w grupie.' });
@@ -179,12 +232,13 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         }];
 
         await pool.query(`
-            INSERT INTO hunting_parties (leader_id, boss_id, max_members, members)
-            VALUES ($1, $2, $3, $4)
-        `, [req.user.id, bossId, maxMembers, JSON.stringify(initialMembers)]);
+            INSERT INTO hunting_parties (leader_id, boss_id, max_members, members, guild_id)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [req.user.id, bossId, maxMembers, JSON.stringify(initialMembers), guildId]);
 
         res.sendStatus(201);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Nie udało się stworzyć grupy' });
     }
 });
@@ -204,6 +258,14 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
         
         const members = party.members;
         if (members.length >= party.max_members) return res.status(400).json({ message: 'Grupa jest pełna.' });
+        
+        // Guild Party Check
+        if (party.guild_id) {
+            const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+            if (memberRes.rows.length === 0 || memberRes.rows[0].guild_id !== party.guild_id) {
+                return res.status(403).json({ message: 'To jest prywatne polowanie gildyjne.' });
+            }
+        }
 
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
