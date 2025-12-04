@@ -338,24 +338,28 @@ const StandardRewardsPanel: React.FC<{
                 {/* Column 2: Items (Compact List with Hover Tooltip) */}
                 <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700/50">
                     <p className="text-center text-gray-400 text-xs uppercase tracking-widest mb-4">{t('expedition.itemsFound')} ({itemsFound.length})</p>
-                    <div className="flex flex-col gap-2 items-center">
-                        {itemsFound.length === 0 && <p className="text-gray-600 italic text-sm py-4">Brak przedmiotów</p>}
+                    
+                    {itemsFound.length === 0 && <p className="text-gray-600 italic text-sm py-4 text-center">Brak przedmiotów</p>}
+                    
+                    <div className="flex flex-wrap gap-2 justify-center">
                         {itemsFound.map((item, idx) => {
                             const template = itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
                             const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-                            const colorClass = rarityStyles[template.rarity].text;
+                            const rarityColor = rarityStyles[template.rarity].text;
+                            const rarityBg = rarityStyles[template.rarity].bg;
+                            const rarityBorder = rarityStyles[template.rarity].border;
 
                             return (
                                 <div 
                                     key={idx} 
-                                    className="cursor-help px-3 py-2 rounded bg-slate-900/80 border border-slate-700 hover:border-slate-500 w-full text-center transition-colors"
+                                    className={`cursor-help px-3 py-2 rounded-lg border ${rarityBorder} ${rarityBg}/30 hover:${rarityBg}/50 transition-all duration-200`}
                                     onMouseEnter={() => setHoveredItem({ item, template })}
                                     onMouseLeave={() => setHoveredItem(null)}
                                 >
-                                    <span className={`font-bold text-sm ${colorClass}`}>{fullName}</span>
+                                    <span className={`font-bold text-sm ${rarityColor}`}>{fullName}</span>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                     {reward.itemsLostCount && <p className="text-xs text-red-400 mt-4 text-center font-bold">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>}
@@ -382,7 +386,7 @@ const StandardRewardsPanel: React.FC<{
 
             {/* Centered Tooltip Overlay */}
             {hoveredItem && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
                     <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
                          <ItemDetailsPanel 
                             item={hoveredItem.item} 
