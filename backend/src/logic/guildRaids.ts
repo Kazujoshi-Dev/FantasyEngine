@@ -356,8 +356,9 @@ export const processPendingRaids = async (): Promise<void> => {
                         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(defenderResources), raid.defender_guild_id]);
                         
                         // Update Attacker Bank
-                        const attackerGuildRes = await client.query('SELECT resources FROM guilds WHERE id = $1 FOR UPDATE', [raid.attacker_guild_id]);
+                        const attackerGuildRes = await client.query('SELECT resources, leader_id FROM guilds WHERE id = $1 FOR UPDATE', [raid.attacker_guild_id]);
                         const attackerResources = attackerGuildRes.rows[0].resources || { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
+                        const attackerLeaderId = attackerGuildRes.rows[0].leader_id;
                         
                         attackerResources.gold = (attackerResources.gold || 0) + loot.gold;
                         for (const [key, val] of Object.entries(loot.essences)) {
@@ -368,7 +369,15 @@ export const processPendingRaids = async (): Promise<void> => {
                         
                         // Log Bank History
                         if (loot.gold > 0) {
-                            await client.query(`INSERT INTO guild_bank_history (guild_id, type, currency, amount) VALUES ($1, 'LOOT', 'gold', $2)`, [raid.attacker_guild_id, loot.gold]);
+                            await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'LOOT', 'gold', $3)`, [raid.attacker_guild_id, attackerLeaderId, loot.gold]);
+                        }
+                        for (const [essence, amount] of Object.entries(loot.essences)) {
+                            if (amount > 0) {
+                                await client.query(
+                                    `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'LOOT', $3, $4)`,
+                                    [raid.attacker_guild_id, attackerLeaderId, essence, amount]
+                                );
+                            }
                         }
                     }
                 }
