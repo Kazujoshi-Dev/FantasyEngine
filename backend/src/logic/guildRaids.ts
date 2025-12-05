@@ -1,5 +1,5 @@
 import { pool } from '../db.js';
-import { GuildRaid, RaidStatus, RaidType, RaidParticipant, GuildRole, PlayerCharacter, GameData, EssenceType, CombatLogEntry, ExpeditionRewardSummary, PartyMember, PartyMemberStatus } from '../types.js';
+import { GuildRaid, RaidStatus, RaidType, RaidParticipant, GuildRole, PlayerCharacter, GameData, EssenceType, CombatLogEntry, ExpeditionRewardSummary, PartyMember, PartyMemberStatus, CharacterStats } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamVsTeamCombat } from './combat/simulations/index.js';
 
@@ -409,14 +409,16 @@ export const processPendingRaids = async (): Promise<void> => {
                 const subject = `Raport z Rajdu: ${isAttackerWinner ? 'Zwycięstwo' : 'Porażka'}`;
                 const winnerName = winner === 'attacker' ? raid.attackerGuildName : raid.defenderGuildName;
                 
-                // Helper to map RaidParticipant to PartyMember for Summary
+                // Helper to map RaidParticipant to PartyMember for Summary, now including stats
+                const initialStats = combatLog?.[0]?.partyMemberStats || {};
                 const mapToPartyMember = (p: RaidParticipant): PartyMember => ({
                     userId: p.userId,
                     characterName: p.name,
                     level: p.level,
                     race: p.race,
                     characterClass: p.characterClass,
-                    status: PartyMemberStatus.Member
+                    status: PartyMemberStatus.Member,
+                    stats: initialStats[p.name] || undefined
                 });
 
                 const attackerPartyMembers = attackerList.map(mapToPartyMember);
@@ -426,27 +428,17 @@ export const processPendingRaids = async (): Promise<void> => {
                     const isAttackerSide = attackerIds.includes(uid);
                     const myGuildWon = (isAttackerSide && isAttackerWinner) || (!isAttackerSide && !isAttackerWinner);
                     
-                    // If my guild won, and I am on the winning side, I see the loot. Otherwise 0 loot in personal report.
-                    // The main loot is for the GUILD, not player, but we show it in summary.
-                    
-                    const summary: ExpeditionRewardSummary = {
+                    const summary: ExpeditionRewardSummary & { opponents: any[] } = {
                         isVictory: myGuildWon,
                         totalGold: myGuildWon ? loot.gold : 0,
-                        totalExperience: 0, // No XP in guild raids currently
+                        totalExperience: 0, 
                         itemsFound: [],
                         essencesFound: myGuildWon ? loot.essences : {},
                         combatLog: combatLog,
                         rewardBreakdown: [],
                         huntingMembers: isAttackerSide ? attackerPartyMembers : defenderPartyMembers,
-                        // We can abuse 'encounteredEnemies' or a new field to show opposing team, 
-                        // but ExpeditionSummaryModal handles 'opponents' prop if passed directly.
-                        // Here we are storing JSON for the message body, so we need a structure that frontend understands.
-                        // The standard ExpeditionRewardSummary doesn't have 'opponents' field. 
-                        // We will attach it as a custom property that the frontend will look for in 'body'.
+                        opponents: isAttackerSide ? defenderPartyMembers : attackerPartyMembers
                     };
-
-                    // Hack: Inject opponents into the summary object (TS might complain, but JSON doesn't care)
-                    (summary as any).opponents = isAttackerSide ? defenderPartyMembers : attackerPartyMembers;
 
                     await client.query(
                         `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'raid_report', $2, $3)`,

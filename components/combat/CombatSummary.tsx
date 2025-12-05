@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { ExpeditionRewardSummary, CharacterStats, EnemyStats, ItemTemplate, PvpRewardSummary, Affix, ItemInstance, PartyMember, EssenceType, ItemRarity, Enemy, PlayerCharacter } from '../../types';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -469,15 +468,19 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const opponentDamageData = useMemo(() => calculateDamageData(opponents), [opponents, reward.combatLog]);
     
     const onMemberHover = useCallback((member: PartyMember, rect: DOMRect) => {
-        const initialStats = reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+        // Prioritize stats embedded in the member object. Fallback for older reports.
+        const initialStats = member.stats || reward.combatLog[0]?.partyMemberStats?.[member.characterName];
+
         if (initialStats) {
             const finalVitals = finalState.partyHealth[member.characterName];
+            // Ensure initialStats is treated as CharacterStats for type safety
+            const statsAsCharacterStats = initialStats as CharacterStats;
             const mergedStats: CharacterStats = {
-                ...initialStats,
-                currentHealth: finalVitals?.currentHealth ?? initialStats.currentHealth,
-                currentMana: finalVitals?.currentMana ?? initialStats.currentMana,
-                maxHealth: initialStats.maxHealth,
-                maxMana: initialStats.maxMana
+                ...statsAsCharacterStats,
+                currentHealth: finalVitals?.currentHealth ?? statsAsCharacterStats.currentHealth,
+                currentMana: finalVitals?.currentMana ?? statsAsCharacterStats.currentMana,
+                maxHealth: statsAsCharacterStats.maxHealth,
+                maxMana: statsAsCharacterStats.maxMana
             };
             setHoveredCombatant({ type: 'partyMember', data: { name: member.characterName, stats: mergedStats }, rect });
         }

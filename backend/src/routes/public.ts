@@ -1,7 +1,6 @@
-
 import express from 'express';
 import { pool } from '../db.js';
-import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary } from '../types.js';
+import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry } from '../types.js';
 
 const router = express.Router();
 
@@ -65,15 +64,20 @@ router.get('/raid/:id', async (req, res) => {
         }
 
         const raid = result.rows[0];
+        
+        // Extract initial stats from the combat log to embed them in the participants' data.
+        const combatLog: CombatLogEntry[] = raid.combat_log || [];
+        const initialStats = combatLog?.[0]?.partyMemberStats || {};
 
-        // Helper to map participants for frontend
-        const mapToPartyMember = (p: any): PartyMember => ({
+        // Helper to map participants for frontend, now including their stats.
+        const mapToPartyMember = (p: RaidParticipant): PartyMember => ({
              userId: p.userId,
              characterName: p.name,
              level: p.level,
              race: p.race,
              characterClass: p.characterClass,
-             status: PartyMemberStatus.Member
+             status: PartyMemberStatus.Member,
+             stats: initialStats[p.name] || undefined
         });
 
         const attackerParticipants: RaidParticipant[] = typeof raid.attacker_participants === 'string' 
@@ -87,21 +91,16 @@ router.get('/raid/:id', async (req, res) => {
         const friendlyMembers = attackerParticipants.map(mapToPartyMember);
         const opponentMembers = defenderParticipants.map(mapToPartyMember);
 
-        // Construct summary compatible with ExpeditionSummaryModal
-        // Note: Loot is technically only for the winner, but in public report we can show what was looted (or 0 if defender won?)
-        // We'll show total loot available in the context of the attacker for simplicity, or separate it?
-        // The `RaidRewardsPanel` shows "Looted from Guild Bank".
-        
         const isAttackerWinner = raid.winner_guild_id === raid.attacker_guild_id;
         const loot = raid.loot || { gold: 0, essences: {} };
 
         const summary: ExpeditionRewardSummary & { opponents: any[] } = {
-            isVictory: isAttackerWinner, // Context: Did attackers win? (Public view usually favors attacker perspective or neutral)
+            isVictory: isAttackerWinner,
             totalGold: loot.gold,
             totalExperience: 0,
             itemsFound: [],
             essencesFound: loot.essences || {},
-            combatLog: raid.combat_log,
+            combatLog: combatLog,
             rewardBreakdown: [],
             huntingMembers: friendlyMembers,
             opponents: opponentMembers
