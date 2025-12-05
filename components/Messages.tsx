@@ -492,6 +492,8 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                   characterName={currentPlayer.name}
                   itemTemplates={itemTemplates}
                   affixes={affixes}
+                  // @FIX: Pass enemies prop
+                  enemies={enemies}
                   isHunting={!!selectedReport.huntingMembers}
                   huntingMembers={selectedReport.huntingMembers}
                   allRewards={selectedReport.allRewards}
@@ -515,6 +517,8 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                     characterName={selectedPvpReport.attacker.name}
                     itemTemplates={itemTemplates}
                     affixes={affixes}
+                    // @FIX: Pass enemies prop
+                    enemies={enemies}
                     isPvp={true}
                     pvpData={{ attacker: selectedPvpReport.attacker, defender: selectedPvpReport.defender }}
                     isDefenderView={isDefenderView}

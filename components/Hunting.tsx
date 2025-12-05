@@ -207,6 +207,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
                     characterName={character.name}
                     itemTemplates={itemTemplates}
                     affixes={affixes}
+                    // @FIX: Pass enemies prop
+                    enemies={enemies}
                     isHunting={true}
                     huntingMembers={myParty.members}
                     allRewards={myParty.allRewards}

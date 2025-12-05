@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, CombatLogEntry, CharacterStats, CharacterClass, GameData, Race } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
@@ -98,14 +99,75 @@ export const simulateTeamVsTeamCombat = (
         partyMemberStats: partyStats
     });
 
-    // 2. Combat Loop
+    // --- 2. Turn 0: Ranged Weapon Logic ---
+    // Iterate through all combatants to see who has ranged weapons
+    for (const combatant of combatants) {
+        if (combatant.isDead) continue; // Skip dead players
+
+        const weapon = combatant.data.equipment?.mainHand || combatant.data.equipment?.twoHand;
+        const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
+
+        if (template?.isRanged) {
+            // Ranged user gets a free attack on a random living enemy
+            const livingEnemies = combatants.filter(c => c.team !== combatant.team && !c.isDead);
+            if (livingEnemies.length > 0) {
+                const target = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
+
+                // Create attacker/defender states for performAttack
+                const playerAsAttacker: AttackerState & { data: PlayerCharacter } = { ...combatant, stats: combatant.data.stats, name: combatant.data.name };
+                const enemyAsDefender: DefenderState = { ...target, stats: target.data.stats, name: target.data.name };
+
+                const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+                if (combatant.data.characterClass === CharacterClass.Warrior) {
+                    attackOptions.critChanceOverride = 100;
+                    attackOptions.ignoreDodge = true;
+                }
+                
+                // --- Standard Ranged Attack ---
+                const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, enemyAsDefender, 0, gameData, []);
+
+                // Update combatant states
+                Object.assign(combatant, attackerState);
+                Object.assign(target, defenderState);
+
+                log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
+                
+                if(target.currentHealth <= 0 && !target.isDead) {
+                    target.isDead = true;
+                    log.push({ turn: 0, attacker: combatant.data.name, defender: target.data.name, action: 'death', ...getHealthState() });
+                }
+
+                // --- Hunter Bonus Attack ---
+                if (combatant.data.characterClass === CharacterClass.Hunter && !target.isDead) {
+                    const { logs: hunterLogs, defenderState: hunterDefenderState } = performAttack(playerAsAttacker, {...target, stats: target.data.stats, name: target.data.name}, 0, gameData, []);
+                    const lastLog = hunterLogs[hunterLogs.length - 1];
+                    if (lastLog && lastLog.damage !== undefined && !lastLog.isDodge) {
+                        const originalDamage = lastLog.damage;
+                        const reducedDamage = Math.floor(originalDamage * 0.5);
+                        const diff = originalDamage - reducedDamage;
+                        lastLog.damage = reducedDamage;
+                        hunterDefenderState.currentHealth += diff;
+                        lastLog.enemyHealth = hunterDefenderState.currentHealth; // This property is for 1v1, but we can set it for consistency
+                        Object.assign(target, hunterDefenderState);
+                    }
+                    log.push(...hunterLogs.map(l => ({ ...l, ...getHealthState(), action: 'hunter_bonus_shot' })));
+                    if (target.currentHealth <= 0 && !target.isDead) {
+                        target.isDead = true;
+                        log.push({ turn: 0, attacker: combatant.data.name, defender: target.data.name, action: 'death', ...getHealthState() });
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 3. Main Combat Loop ---
     while (
         combatants.some(c => c.team === 'attacker' && !c.isDead) && 
         combatants.some(c => c.team === 'defender' && !c.isDead) && 
         turn < 100
     ) {
         turn++;
-
+        
         // --- Initiative Phase ---
         // Filter living, sort by agility
         const activeQueue = combatants
@@ -115,8 +177,8 @@ export const simulateTeamVsTeamCombat = (
                  if (turn === 1) {
                      const aElf = a.data.race === Race.Elf;
                      const bElf = b.data.race === Race.Elf;
-                     if (aElf && !bElf) return -1;
-                     if (!aElf && bElf) return 1;
+                     if (aElf && !bElf) return -1; // a comes first
+                     if (!aElf && bElf) return 1;  // b comes first
                  }
                  return b.data.stats.agility - a.data.stats.agility;
             });

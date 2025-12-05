@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, CharacterStats, GameData, Race, CharacterClass, MagicAttackType, Skill } from '../types';
@@ -13,7 +14,6 @@ interface StatisticsProps {
   onCharacterUpdate: (character: PlayerCharacter, immediate?: boolean) => void;
   calculateDerivedStats: (character: PlayerCharacter, gameData: GameData | null) => PlayerCharacter;
   gameData: GameData | null;
-  onResetAttributes: () => void;
   onSelectClass: (characterClass: CharacterClass) => void;
 }
 

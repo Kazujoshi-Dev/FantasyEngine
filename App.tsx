@@ -28,6 +28,31 @@ import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemTem
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 
+// @FIX: Defined missing cost calculation functions to be passed to the Camp component.
+const getCampUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
+    return { gold, essences };
+};
+
+const getChestUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
+    return { gold, essences };
+};
+
+const getBackpackUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+    return { gold, essences };
+};
+
 export const App: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
@@ -866,7 +891,6 @@ export const App: React.FC = () => {
                                 onCharacterUpdate={handleCharacterUpdate}
                                 calculateDerivedStats={calculateDerivedStats}
                                 gameData={gameData}
-                                onResetAttributes={handleResetAttributes}
                                 onSelectClass={handleSelectClass}
                             />
                         )}
@@ -889,10 +913,7 @@ export const App: React.FC = () => {
                                 itemTemplates={gameData.itemTemplates}
                                 affixes={gameData.affixes}
                                 onCompletion={handleExpeditionCompletion}
-                                onCancelExpedition={async () => {
-                                    const updated = await api.cancelExpedition();
-                                    setCharacter(updated);
-                                }}
+                                onCancelExpedition={handleCancelExpedition}
                             />
                         )}
                         {activeTab === Tab.Camp && (
@@ -906,37 +927,38 @@ export const App: React.FC = () => {
                                     setCharacter(optimisticChar);
                                     api.updateCharacter({ isResting: newRestingState }).then(updated => setCharacter(updated));
                                 }}
-                                onUpgradeCamp={() => api.upgradeCamp().then(updated => setCharacter(updated))}
-                                getCampUpgradeCost={(level) => {
-                                    // Duplicate logic here for immediate display if needed, or fetch from API (better)
-                                    // Since API handles it, we can just display static cost or replicate logic.
-                                    // Replicating logic for UI display:
-                                     const gold = Math.floor(150 * Math.pow(level, 1.5));
-                                     const essences: { type: EssenceType, amount: number }[] = [];
-                                     if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
-                                     if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
-                                     return { gold, essences };
+                                // @FIX: Add missing onUpgradeCamp, onUpgradeChest, and onUpgradeBackpack props to the Camp component.
+                                onUpgradeCamp={async () => {
+                                    try {
+                                        const updatedChar = await api.upgradeCamp();
+                                        setCharacter(updatedChar);
+                                    } catch (e: any) {
+                                        alert(e.message || t('error.title'));
+                                    }
                                 }}
+                                onUpgradeChest={async () => {
+                                    try {
+                                        const updatedChar = await api.upgradeChest();
+                                        setCharacter(updatedChar);
+                                    } catch (e: any) {
+                                        alert(e.message || t('error.title'));
+                                    }
+                                }}
+                                onUpgradeBackpack={async () => {
+                                    try {
+                                        const updatedChar = await api.upgradeBackpack();
+                                        setCharacter(updatedChar);
+                                    } catch (e: any) {
+                                        alert(e.message || t('error.title'));
+                                    }
+                                }}
+                                getCampUpgradeCost={getCampUpgradeCost}
                                 onCharacterUpdate={handleCharacterUpdate}
                                 onHealToFull={() => api.healCharacter().then(updated => {
-                                    if (updated) setCharacter(updated);
+                                    if (updated) setCharacter(updated as PlayerCharacter);
                                 })}
-                                onUpgradeChest={() => api.upgradeChest().then(updated => setCharacter(updated))}
-                                onUpgradeBackpack={() => api.upgradeBackpack().then(updated => setCharacter(updated))}
-                                getChestUpgradeCost={(level) => {
-                                     const gold = Math.floor(150 * Math.pow(level, 1.5));
-                                     const essences: { type: EssenceType, amount: number }[] = [];
-                                     if (level >= 6) essences.push({ type: EssenceType.Uncommon, amount: Math.floor((level - 5) / 2) + 1 });
-                                     return { gold, essences };
-                                }}
-                                getBackpackUpgradeCost={(level) => {
-                                    const gold = Math.floor(150 * Math.pow(level, 1.5));
-                                    const essences: { type: EssenceType, amount: number }[] = [];
-                                    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
-                                    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
-                                    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
-                                    return { gold, essences };
-                                }}
+                                getChestUpgradeCost={getChestUpgradeCost}
+                                getBackpackUpgradeCost={getBackpackUpgradeCost}
                             />
                         )}
                         {activeTab === Tab.Location && (
@@ -975,8 +997,8 @@ export const App: React.FC = () => {
                                 enemies={gameData.enemies}
                                 itemTemplates={gameData.itemTemplates}
                                 affixes={gameData.affixes}
-                                onAcceptQuest={(id) => api.acceptQuest(id).then(updated => setCharacter(updated))}
-                                onCompleteQuest={(id) => api.completeQuest(id).then(updated => setCharacter(updated))}
+                                onAcceptQuest={handleAcceptQuest}
+                                onCompleteQuest={handleCompleteQuest}
                             />
                         )}
                         {activeTab === Tab.Trader && (
@@ -988,11 +1010,23 @@ export const App: React.FC = () => {
                                 settings={gameData.settings}
                                 traderInventory={traderInventory.regularItems}
                                 traderSpecialOfferItems={traderInventory.specialOfferItems}
-                                onBuyItem={(item) => api.buyItem(item.uniqueId).then(updated => {
-                                    setCharacter(updated);
-                                    fetchTraderInventory(); // Refresh to remove bought item
-                                })}
-                                onSellItems={(items) => api.sellItems(items.map(i => i.uniqueId)).then(updated => setCharacter(updated))}
+                                onBuyItem={async (item) => {
+                                    try {
+                                        const updated = await api.buyItem(item.uniqueId);
+                                        setCharacter(updated);
+                                        fetchTraderInventory();
+                                    } catch (e: any) {
+                                        alert(e.message);
+                                    }
+                                }}
+                                onSellItems={async (items) => {
+                                     try {
+                                        const updated = await api.sellItems(items.map(i => i.uniqueId));
+                                        setCharacter(updated);
+                                    } catch (e: any) {
+                                        alert(e.message);
+                                    }
+                                }}
                             />
                         )}
                         {activeTab === Tab.Blacksmith && (
@@ -1001,14 +1035,26 @@ export const App: React.FC = () => {
                                 baseCharacter={character}
                                 itemTemplates={gameData.itemTemplates}
                                 affixes={gameData.affixes}
-                                onDisenchantItem={(item) => api.disenchantItem(item.uniqueId).then(res => {
-                                    setCharacter(res.updatedCharacter);
-                                    return res.result;
-                                })}
-                                onUpgradeItem={(item) => api.upgradeItem(item.uniqueId).then(res => {
-                                    setCharacter(res.updatedCharacter);
-                                    return res.result;
-                                })}
+                                onDisenchantItem={async (item) => {
+                                    try {
+                                        const res = await api.disenchantItem(item.uniqueId);
+                                        setCharacter(res.updatedCharacter);
+                                        return res.result;
+                                    } catch (e: any) {
+                                        alert(e.message);
+                                        return { success: false };
+                                    }
+                                }}
+                                onUpgradeItem={async (item) => {
+                                    try {
+                                        const res = await api.upgradeItem(item.uniqueId);
+                                        setCharacter(res.updatedCharacter);
+                                        return res.result;
+                                    } catch (e: any) {
+                                        alert(e.message);
+                                        return { success: false, messageKey: 'error.title' };
+                                    }
+                                }}
                             />
                         )}
                         {activeTab === Tab.Tavern && (
@@ -1092,6 +1138,7 @@ export const App: React.FC = () => {
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
+                        enemies={gameData.enemies}
                         messageId={expeditionReport.messageId}
                         backgroundImage={gameData.settings?.reportBackgroundUrl}
                     />
@@ -1112,6 +1159,7 @@ export const App: React.FC = () => {
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
+                        enemies={gameData.enemies}
                         isPvp={true}
                         pvpData={{ attacker: pvpReport.attacker, defender: pvpReport.defender }}
                         backgroundImage={gameData.settings?.reportBackgroundUrl}

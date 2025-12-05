@@ -13,6 +13,7 @@ export interface ExpeditionSummaryModalProps {
     characterName: string;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
+    enemies: Enemy[];
     isPvp?: boolean;
     pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
     isDefenderView?: boolean;
@@ -395,7 +396,7 @@ const StandardRewardsPanel: React.FC<{
 
 export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (props) => {
     const { 
-        reward, onClose, characterName, itemTemplates, affixes, 
+        reward, onClose, characterName, itemTemplates, affixes, enemies,
         isPvp = false, pvpData, isDefenderView = false, 
         isHunting = false, isRaid = false, huntingMembers, opponents, allRewards,
         initialEnemy, encounteredEnemies, bossName, messageId, raidId,
@@ -492,6 +493,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         setHoveredCombatant(null);
     }, []);
 
+    // @FIX: Add onEnemyLeave callback.
+    const onEnemyLeave = useCallback(() => {
+        setHoveredCombatant(null);
+    }, []);
+
     const handleCopyLink = useCallback(() => {
         if (!messageId && !raidId) return;
         const url = raidId 
@@ -513,29 +519,37 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     const effectiveEnemies = useMemo(() => {
         if (encounteredEnemies && encounteredEnemies.length > 0) return encounteredEnemies;
         
-        // Fallback: Reconstruct from log snapshot
+        // Fallback: Reconstruct from log snapshot, now with full stats
         if (finalState.enemiesHealth && finalState.enemiesHealth.length > 0) {
-             return finalState.enemiesHealth.map(h => ({
-                 id: h.uniqueId,
-                 uniqueId: h.uniqueId,
-                 name: h.name,
-                 // Mock minimal stats required for EnemyListPanel display
-                 stats: { 
-                    maxHealth: h.maxHealth, 
-                    minDamage: 0, 
-                    maxDamage: 0, 
-                    armor: 0,
-                    critChance: 0,
-                    agility: 0,
-                    attacksPerTurn: 1
-                 } as EnemyStats, 
-                 description: '',
-                 rewards: {} as any,
-                 lootTable: []
-             } as Enemy));
+             return finalState.enemiesHealth.map(h => {
+                 // Find the enemy template from the full list by name
+                 // This is tricky because of numbered names like "Zombi 1", "Zombi 2"
+                 // I need to strip the number.
+                 const baseName = h.name.replace(/ \d+$/, '');
+                 const template = enemies.find(e => e.name === baseName);
+
+                 return {
+                     id: h.uniqueId,
+                     uniqueId: h.uniqueId,
+                     name: h.name,
+                     // Use template stats if found, otherwise the old mock stats to prevent crashes
+                     stats: template ? template.stats : { 
+                        maxHealth: h.maxHealth, 
+                        minDamage: 0, 
+                        maxDamage: 0, 
+                        armor: 0,
+                        critChance: 0,
+                        agility: 0,
+                        attacksPerTurn: 1
+                     } as EnemyStats, 
+                     description: template ? template.description : '',
+                     rewards: template ? template.rewards : {} as any,
+                     lootTable: template ? template.lootTable : []
+                 } as Enemy;
+             });
         }
         return [];
-    }, [encounteredEnemies, finalState.enemiesHealth]);
+    }, [encounteredEnemies, finalState.enemiesHealth, enemies]);
 
     return (
         <div 
@@ -547,7 +561,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setInspectingItem(null)}>
                     <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
                         <button className="absolute top-2 right-2 text-gray-400 hover:text-white" onClick={() => setInspectingItem(null)}>✕</button>
-                        <ItemDetailsPanel item={inspectingItem.item} template={inspectingItem.template} affixes={affixes} />
+                        <ItemDetailsPanel item={inspectingItem.item} template={inspectingItem.template} affixes={affixes} character={characterName ? {name: characterName} as PlayerCharacter : undefined} />
                     </div>
                 </div>
             )}
@@ -653,7 +667,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                     enemies={effectiveEnemies} 
                                     finalEnemiesHealth={finalState.enemiesHealth}
                                     onEnemyHover={onEnemyHover}
-                                    onEnemyLeave={onMemberLeave}
+                                    // @FIX: Prop name was incorrect. It should be onEnemyLeave.
+                                    onEnemyLeave={onEnemyLeave}
                                 />
                             ) : (
                                  <CombatantStatsPanel name={initialEnemyForDisplay?.name || ''} description={initialEnemyForDisplay?.description} stats={initialEnemyForDisplay?.stats || null} currentHealth={finalState.enemyHealth} />

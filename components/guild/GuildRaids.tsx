@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
-import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary, PartyMember } from '../../types';
+import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary, PartyMember, Enemy } from '../../types';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { ClockIcon } from '../icons/ClockIcon';
@@ -47,7 +47,17 @@ const RaidTimer: React.FC<{ startTime: string }> = ({ startTime }) => {
     );
 };
 
-export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUserId?: number, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ myGuildId, myRole, myUserId, itemTemplates, affixes }) => {
+// @FIX: Add enemies to props
+interface GuildRaidsProps {
+    myGuildId: number;
+    myRole?: GuildRole;
+    myUserId?: number;
+    itemTemplates: ItemTemplate[];
+    affixes: Affix[];
+    enemies: Enemy[];
+}
+
+export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUserId, itemTemplates, affixes, enemies }) => {
     const { t } = useTranslation();
     const [incomingRaids, setIncomingRaids] = useState<GuildRaid[]>([]);
     const [outgoingRaids, setOutgoingRaids] = useState<GuildRaid[]>([]);
@@ -239,6 +249,8 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                     characterName="" 
                     itemTemplates={itemTemplates}
                     affixes={affixes}
+                    // @FIX: Pass enemies to modal
+                    enemies={enemies}
                     isHunting={true}
                     isRaid={true} // Set isRaid flag
                     raidId={selectedRaid.id} // Pass raid ID for public link generation

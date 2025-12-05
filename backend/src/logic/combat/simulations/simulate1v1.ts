@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from '../core.js';
 

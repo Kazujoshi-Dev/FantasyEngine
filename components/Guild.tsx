@@ -1,15 +1,9 @@
 
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { Guild as GuildType, GuildRole, ItemTemplate, Affix, PlayerCharacter } from '../types';
+import { Guild as GuildType, GuildRole, ItemTemplate, Affix, PlayerCharacter, Enemy } from '../types';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { GuildChat } from './guild/GuildChat';
 import { GuildMembers } from './guild/GuildMembers';
@@ -32,6 +26,8 @@ export const Guild: React.FC = () => {
     // Game Data for Armory display
     const [itemTemplates, setItemTemplates] = useState<ItemTemplate[]>([]);
     const [affixes, setAffixes] = useState<Affix[]>([]);
+    // @FIX: Add state for enemies to pass to GuildRaids
+    const [enemies, setEnemies] = useState<Enemy[]>([]);
 
     // Create Form State
     const [newName, setNewName] = useState('');
@@ -50,6 +46,8 @@ export const Guild: React.FC = () => {
             setCharacter(charData);
             setItemTemplates(gameData.itemTemplates);
             setAffixes(gameData.affixes);
+            // @FIX: Set enemies from gameData
+            setEnemies(gameData.enemies);
 
             if (!data) {
                 const list = await api.getGuildList();
@@ -227,6 +225,8 @@ export const Guild: React.FC = () => {
                         myUserId={character?.id}
                         itemTemplates={itemTemplates}
                         affixes={affixes}
+                        // @FIX: Pass enemies to GuildRaids
+                        enemies={enemies}
                     />
                 </div>
             )}
