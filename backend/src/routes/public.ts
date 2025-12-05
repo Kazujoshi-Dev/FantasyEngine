@@ -65,8 +65,19 @@ router.get('/raid/:id', async (req, res) => {
 
         const raid = result.rows[0];
         
-        // Extract initial stats from the combat log to embed them in the participants' data.
-        const combatLog: CombatLogEntry[] = raid.combat_log || [];
+        // Safely parse combat log, which might be a string from the DB
+        let combatLog: CombatLogEntry[] = [];
+        if (typeof raid.combat_log === 'string') {
+            try {
+                const parsed = JSON.parse(raid.combat_log);
+                if (Array.isArray(parsed)) combatLog = parsed;
+            } catch (e) { 
+                console.error(`Error parsing public raid combat log for raid ${id}:`, e); 
+            }
+        } else if (Array.isArray(raid.combat_log)) {
+            combatLog = raid.combat_log;
+        }
+
         const initialStats = combatLog?.[0]?.partyMemberStats || {};
 
         // Helper to map participants for frontend, now including their stats.
