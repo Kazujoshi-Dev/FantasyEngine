@@ -47,7 +47,6 @@ const RaidTimer: React.FC<{ startTime: string }> = ({ startTime }) => {
     );
 };
 
-// @FIX: Add enemies to props
 interface GuildRaidsProps {
     myGuildId: number;
     myRole?: GuildRole;
@@ -129,14 +128,19 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
         const friendlyTeam = isAttacker ? raid.attackerParticipants : raid.defenderParticipants;
         const opposingTeam = isAttacker ? raid.defenderParticipants : raid.attackerParticipants;
         
-        // Map participants to PartyMember format
+        // Extract stats from combat log snapshot (turn 0)
+        const combatLog = raid.combatLog || [];
+        const initialStatsSnapshot = combatLog.length > 0 ? combatLog[0].partyMemberStats : {};
+
+        // Map participants to PartyMember format with Stats injected
         const mapToPartyMember = (p: any): PartyMember => ({
              userId: p.userId,
              characterName: p.name,
              level: p.level,
              race: p.race,
              characterClass: p.characterClass,
-             status: undefined as any // not needed for display
+             status: undefined as any, // not needed for display
+             stats: initialStatsSnapshot ? initialStatsSnapshot[p.name] : undefined
         });
 
         const summary: ExpeditionRewardSummary = {
@@ -145,9 +149,9 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
             totalExperience: 0, 
             itemsFound: [],
             essencesFound: (raid.loot?.essences && didWin) ? raid.loot.essences : {},
-            combatLog: raid.combatLog || [],
+            combatLog: combatLog,
             rewardBreakdown: [],
-            encounteredEnemies: [], // Use opponents prop instead
+            encounteredEnemies: [], 
             huntingMembers: friendlyTeam.map(mapToPartyMember)
         };
         
@@ -249,11 +253,10 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                     characterName="" 
                     itemTemplates={itemTemplates}
                     affixes={affixes}
-                    // @FIX: Pass enemies to modal
                     enemies={enemies}
                     isHunting={true}
-                    isRaid={true} // Set isRaid flag
-                    raidId={selectedRaid.id} // Pass raid ID for public link generation
+                    isRaid={true} 
+                    raidId={selectedRaid.id} 
                     huntingMembers={modalData.summary.huntingMembers}
                     opponents={modalData.opponents}
                 />
