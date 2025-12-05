@@ -9,6 +9,7 @@ import { Language } from '../types';
 
 interface PublicReportViewerProps {
     reportId: string;
+    type?: 'message' | 'raid'; // Added type prop
 }
 
 // A separate, non-authed fetch function for public data
@@ -21,7 +22,7 @@ const fetchPublicApi = async (endpoint: string): Promise<any> => {
     return response.json();
 };
 
-export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId }) => {
+export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId, type = 'message' }) => {
     const t = getT(Language.PL);
     const [reportData, setReportData] = useState<{ type: MessageType; body: any, subject: string, sender: string } | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
@@ -31,9 +32,11 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const endpoint = type === 'raid' ? `/raid/${reportId}` : `/report/${reportId}`;
+                
                 // Fetch both in parallel
                 const [reportRes, gameDataRes] = await Promise.all([
-                    fetchPublicApi(`/report/${reportId}`),
+                    fetchPublicApi(endpoint),
                     api.getGameData()
                 ]);
 
@@ -49,7 +52,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
             }
         };
         fetchData();
-    }, [reportId]);
+    }, [reportId, type]);
 
     const handleClose = () => {
         // Redirect to the main page when the modal is closed
@@ -74,17 +77,18 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         );
     }
 
-    const { type, body } = reportData;
+    const { type: msgType, body } = reportData;
 
     let modalProps: any = {
         onClose: handleClose,
         itemTemplates: gameData.itemTemplates,
         affixes: gameData.affixes,
-        messageId: parseInt(reportId, 10),
+        messageId: type === 'message' ? parseInt(reportId, 10) : null,
+        raidId: type === 'raid' ? parseInt(reportId, 10) : null,
         backgroundImage: gameData.settings?.reportBackgroundUrl,
     };
 
-    if (type === 'expedition_report') {
+    if (msgType === 'expedition_report') {
         const expBody = body as ExpeditionRewardSummary;
         const boss = expBody.bossId ? gameData.enemies.find(e => e.id === expBody.bossId) : undefined;
         
@@ -98,7 +102,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
             encounteredEnemies: expBody.encounteredEnemies,
             bossName: boss?.name,
         };
-    } else if (type === 'raid_report') {
+    } else if (msgType === 'raid_report') {
         // Raid reports share ExpeditionRewardSummary structure but with extra 'opponents' field in body
         const raidBody = body as ExpeditionRewardSummary & { opponents?: any[] };
         
@@ -113,7 +117,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
             isPvp: false,
         };
 
-    } else if (type === 'pvp_report') {
+    } else if (msgType === 'pvp_report') {
         const pvpBody = body as PvpRewardSummary;
         modalProps = {
             ...modalProps,

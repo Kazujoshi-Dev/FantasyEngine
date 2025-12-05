@@ -761,7 +761,13 @@ export const App: React.FC = () => {
     // Check URL for report ID (Public View)
     if (window.location.pathname.startsWith('/report/')) {
         const reportId = window.location.pathname.split('/')[2];
-        return <PublicReportViewer reportId={reportId} />;
+        return <PublicReportViewer reportId={reportId} type="message" />;
+    }
+    
+    // Check URL for raid report ID (Public View)
+    if (window.location.pathname.startsWith('/raid-report/')) {
+        const reportId = window.location.pathname.split('/')[2];
+        return <PublicReportViewer reportId={reportId} type="raid" />;
     }
 
     if (isInitialLoading) {

@@ -1,6 +1,7 @@
 
 import express from 'express';
 import { pool } from '../db.js';
+import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary } from '../types.js';
 
 const router = express.Router();
 
@@ -33,6 +34,89 @@ router.get('/report/:id', async (req, res) => {
     } catch (err) {
         console.error(`Error fetching public report ${id}:`, err);
         res.status(500).json({ message: 'Failed to fetch report data.' });
+    }
+});
+
+// GET /api/public/raid/:id - Get a specific raid report by RAID ID
+router.get('/raid/:id', async (req, res) => {
+    const { id } = req.params;
+
+    if (isNaN(Number(id))) {
+        return res.status(400).json({ message: 'Invalid raid ID.' });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT 
+                gr.combat_log, gr.loot, gr.winner_guild_id, 
+                gr.attacker_participants, gr.defender_participants,
+                gr.attacker_guild_id, gr.defender_guild_id,
+                ag.name as "attackerGuildName",
+                dg.name as "defenderGuildName"
+             FROM guild_raids gr
+             JOIN guilds ag ON gr.attacker_guild_id = ag.id
+             JOIN guilds dg ON gr.defender_guild_id = dg.id
+             WHERE gr.id = $1 AND gr.status = 'FINISHED'`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Raid report not found.' });
+        }
+
+        const raid = result.rows[0];
+
+        // Helper to map participants for frontend
+        const mapToPartyMember = (p: any): PartyMember => ({
+             userId: p.userId,
+             characterName: p.name,
+             level: p.level,
+             race: p.race,
+             characterClass: p.characterClass,
+             status: PartyMemberStatus.Member
+        });
+
+        const attackerParticipants: RaidParticipant[] = typeof raid.attacker_participants === 'string' 
+            ? JSON.parse(raid.attacker_participants) 
+            : raid.attacker_participants;
+            
+        const defenderParticipants: RaidParticipant[] = typeof raid.defender_participants === 'string' 
+            ? JSON.parse(raid.defender_participants) 
+            : raid.defender_participants;
+
+        const friendlyMembers = attackerParticipants.map(mapToPartyMember);
+        const opponentMembers = defenderParticipants.map(mapToPartyMember);
+
+        // Construct summary compatible with ExpeditionSummaryModal
+        // Note: Loot is technically only for the winner, but in public report we can show what was looted (or 0 if defender won?)
+        // We'll show total loot available in the context of the attacker for simplicity, or separate it?
+        // The `RaidRewardsPanel` shows "Looted from Guild Bank".
+        
+        const isAttackerWinner = raid.winner_guild_id === raid.attacker_guild_id;
+        const loot = raid.loot || { gold: 0, essences: {} };
+
+        const summary: ExpeditionRewardSummary & { opponents: any[] } = {
+            isVictory: isAttackerWinner, // Context: Did attackers win? (Public view usually favors attacker perspective or neutral)
+            totalGold: loot.gold,
+            totalExperience: 0,
+            itemsFound: [],
+            essencesFound: loot.essences || {},
+            combatLog: raid.combat_log,
+            rewardBreakdown: [],
+            huntingMembers: friendlyMembers,
+            opponents: opponentMembers
+        };
+        
+        res.json({
+            message_type: 'raid_report',
+            body: summary,
+            subject: `Raport z Rajdu: ${raid.attackerGuildName} vs ${raid.defenderGuildName}`,
+            sender: 'System'
+        });
+
+    } catch (err) {
+        console.error(`Error fetching public raid report ${id}:`, err);
+        res.status(500).json({ message: 'Failed to fetch raid data.' });
     }
 });
 

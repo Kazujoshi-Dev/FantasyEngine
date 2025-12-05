@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
@@ -8,6 +9,43 @@ import { ClockIcon } from '../icons/ClockIcon';
 import { ExpeditionSummaryModal } from '../combat/CombatSummary';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon';
+
+// --- Dedicated Timer Component for smooth updates ---
+const RaidTimer: React.FC<{ startTime: string }> = ({ startTime }) => {
+    const targetTime = new Date(startTime).getTime();
+    const calculateTimeLeft = () => Math.max(0, Math.floor((targetTime - Date.now()) / 1000));
+    
+    const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+
+    useEffect(() => {
+        // Update immediately to avoid initial delay
+        setTimeLeft(calculateTimeLeft());
+
+        const interval = setInterval(() => {
+            const remaining = calculateTimeLeft();
+            setTimeLeft(remaining);
+            if (remaining <= 0) {
+                clearInterval(interval);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [startTime]);
+
+    if (timeLeft <= 0) {
+        return <span>WALKA!</span>;
+    }
+
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+
+    return (
+        <>
+            <ClockIcon className="h-4 w-4"/> 
+            {`${minutes}m ${seconds.toString().padStart(2, '0')}s`}
+        </>
+    );
+};
 
 export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUserId?: number, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ myGuildId, myRole, myUserId, itemTemplates, affixes }) => {
     const { t } = useTranslation();
@@ -115,11 +153,6 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
         const isIncoming = type === 'INCOMING' || (isHistory && raid.defenderGuildId === myGuildId);
         
         const opponentName = isIncoming ? raid.attackerGuildName : raid.defenderGuildName;
-        const startTime = new Date(raid.startTime).getTime();
-        const now = Date.now();
-        const timeLeft = Math.max(0, Math.floor((startTime - now) / 1000));
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
         
         const participants = isIncoming ? raid.defenderParticipants : raid.attackerParticipants;
         const opponentsCount = isIncoming ? raid.attackerParticipants.length : raid.defenderParticipants.length;
@@ -138,12 +171,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                         {isHistory && (won ? <span className="text-green-400 text-sm">(Wygrana)</span> : <span className="text-red-400 text-sm">(Przegrana)</span>)}
                     </h4>
                     <div className="text-sm font-mono text-gray-300 flex items-center gap-1">
-                         {!isHistory && (
-                             <>
-                                <ClockIcon className="h-4 w-4"/> 
-                                {timeLeft > 0 ? `${minutes}m ${seconds}s` : 'WALKA!'}
-                             </>
-                         )}
+                         {!isHistory && <RaidTimer startTime={raid.startTime} />}
                          {isHistory && <span className="text-xs text-gray-500">{new Date(raid.startTime).toLocaleDateString()}</span>}
                     </div>
                 </div>
@@ -213,6 +241,7 @@ export const GuildRaids: React.FC<{ myGuildId: number, myRole?: GuildRole, myUse
                     affixes={affixes}
                     isHunting={true}
                     isRaid={true} // Set isRaid flag
+                    raidId={selectedRaid.id} // Pass raid ID for public link generation
                     huntingMembers={modalData.summary.huntingMembers}
                     opponents={modalData.opponents}
                 />
