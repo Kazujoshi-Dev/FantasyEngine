@@ -49,9 +49,11 @@ export const EnemyListPanel: React.FC<{
                 Wrogowie
             </h4>
             <div className="space-y-3">
-                {enemies.map(enemy => {
-                    const healthData = finalEnemiesHealth?.find(h => h.uniqueId === enemy.uniqueId);
-                    const currentHealth = healthData ? healthData.currentHealth : 0; 
+                {enemies.map((enemy, idx) => {
+                    // Fallback uniqueId generation if missing (e.g. reconstructed from logs)
+                    const uniqueId = enemy.uniqueId || `enemy-${idx}`;
+                    const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
+                    const currentHealth = healthData ? healthData.currentHealth : 0;
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
@@ -59,7 +61,7 @@ export const EnemyListPanel: React.FC<{
 
                     return (
                         <div 
-                            key={enemy.uniqueId} 
+                            key={uniqueId} 
                             className={`p-2 rounded bg-slate-800 relative z-10 hover:z-20 !pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100 grayscale hover:grayscale-0' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
                             onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onEnemyLeave}
@@ -134,11 +136,13 @@ export const CombatantStatsPanel: React.FC<{
             </>
         )}
         
-        <p className="flex justify-between"><strong>{t('statistics.agility')}:</strong> <span>{stats.agility}</span></p>
+        {stats.agility > 0 && <p className="flex justify-between"><strong>{t('statistics.agility')}:</strong> <span>{stats.agility}</span></p>}
         
         <div className="border-t border-slate-700 my-2"></div>
         
-        <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span className="font-mono">{stats.minDamage} - {stats.maxDamage}</span></p>
+        {(stats.minDamage > 0 || stats.maxDamage > 0) && (
+             <p className="flex justify-between"><strong>{isPlayer ? t('statistics.physicalDamage') : t('statistics.damage')}:</strong> <span className="font-mono">{stats.minDamage} - {stats.maxDamage}</span></p>
+        )}
         {magicDamageDisplay && (
             <p className="flex justify-between"><strong>{t('statistics.magicDamage')}:</strong> <span className="font-mono">{magicDamageDisplay}</span></p>
         )}
@@ -413,9 +417,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         if (isHunting && bossName && reward.combatLog[0]?.enemyStats) {
             return { name: bossName, stats: reward.combatLog[0].enemyStats, description: reward.combatLog[0].enemyDescription };
         }
+        // Prioritize passed encounteredEnemies
         if (encounteredEnemies && encounteredEnemies.length > 0) {
             return { name: encounteredEnemies[0].name, stats: encounteredEnemies[0].stats, description: encounteredEnemies[0].description };
         }
+        // Fallback to logs
         if (reward.combatLog.length > 0) {
             const firstLog = reward.combatLog[0];
             return { name: firstLog.defender, stats: firstLog.enemyStats, description: firstLog.enemyDescription };
@@ -500,6 +506,27 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
     }, [messageId, raidId]);
 
     const backgroundStyle = props.backgroundImage ? { backgroundImage: `url(${props.backgroundImage})` } : {};
+
+    // Robust logic to determine if we should show EnemyListPanel (multiple enemies)
+    // Even if encounteredEnemies is missing (old reports), try to reconstruct from log snapshot
+    const effectiveEnemies = useMemo(() => {
+        if (encounteredEnemies && encounteredEnemies.length > 0) return encounteredEnemies;
+        
+        // Fallback: Reconstruct from log snapshot
+        if (finalState.enemiesHealth && finalState.enemiesHealth.length > 0) {
+             return finalState.enemiesHealth.map(h => ({
+                 id: h.uniqueId,
+                 uniqueId: h.uniqueId,
+                 name: h.name,
+                 // Mock minimal stats required for EnemyListPanel display
+                 stats: { maxHealth: h.maxHealth, minDamage: 0, maxDamage: 0, armor: 0 } as EnemyStats, 
+                 description: '',
+                 rewards: {} as any,
+                 lootTable: []
+             } as Enemy));
+        }
+        return [];
+    }, [encounteredEnemies, finalState.enemiesHealth]);
 
     return (
         <div 
@@ -612,9 +639,9 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                                 </>
                             ) : isPvp ? (
                                  <CombatantStatsPanel name={isDefenderView ? pvpData!.attacker.name : pvpData!.defender.name} stats={isDefenderView ? pvpData!.attacker.stats : pvpData!.defender.stats} currentHealth={finalState.enemyHealth} />
-                            ) : encounteredEnemies && encounteredEnemies.length > 1 ? (
+                            ) : effectiveEnemies.length > 1 ? (
                                  <EnemyListPanel 
-                                    enemies={encounteredEnemies} 
+                                    enemies={effectiveEnemies} 
                                     finalEnemiesHealth={finalState.enemiesHealth}
                                     onEnemyHover={onEnemyHover}
                                     onEnemyLeave={onMemberLeave}
