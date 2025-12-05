@@ -53,7 +53,8 @@ export const EnemyListPanel: React.FC<{
                     // Fallback uniqueId generation if missing (e.g. reconstructed from logs)
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
                     const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
-                    const currentHealth = healthData ? healthData.currentHealth : 0;
+                    // EnemyStats usually doesn't have currentHealth, so we default to 0 if healthData is missing to avoid type errors
+                    const currentHealth = healthData ? healthData.currentHealth : 0; 
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
@@ -158,7 +159,7 @@ export const CombatantStatsPanel: React.FC<{
         </p>
 
         <p className="flex justify-between"><strong>{t('statistics.armor')}:</strong> <span>{stats.armor}</span></p>
-        <p className="flex justify-between"><strong>{t('statistics.critChance')}:</strong> <span>{stats.critChance.toFixed(1)}%</span></p>
+        <p className="flex justify-between"><strong>{t('statistics.critChance')}:</strong> <span>{(stats.critChance || 0).toFixed(1)}%</span></p>
         {isPlayer && 'critDamageModifier' in stats && (
              <p className="flex justify-between"><strong>{t('statistics.critDamageModifier')}:</strong> <span>{(stats as CharacterStats).critDamageModifier}%</span></p>
         )}
@@ -519,7 +520,15 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                  uniqueId: h.uniqueId,
                  name: h.name,
                  // Mock minimal stats required for EnemyListPanel display
-                 stats: { maxHealth: h.maxHealth, minDamage: 0, maxDamage: 0, armor: 0 } as EnemyStats, 
+                 stats: { 
+                    maxHealth: h.maxHealth, 
+                    minDamage: 0, 
+                    maxDamage: 0, 
+                    armor: 0,
+                    critChance: 0,
+                    agility: 0,
+                    attacksPerTurn: 1
+                 } as EnemyStats, 
                  description: '',
                  rewards: {} as any,
                  lootTable: []
