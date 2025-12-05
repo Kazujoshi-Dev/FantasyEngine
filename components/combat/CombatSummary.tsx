@@ -60,7 +60,7 @@ export const EnemyListPanel: React.FC<{
                     return (
                         <div 
                             key={enemy.uniqueId} 
-                            className={`p-2 rounded bg-slate-800 relative z-10 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100 grayscale hover:grayscale-0' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
+                            className={`p-2 rounded bg-slate-800 relative z-10 hover:z-20 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
                             onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onEnemyLeave}
                         >
@@ -191,7 +191,7 @@ export const PartyMemberList: React.FC<{
                     return (
                         <div 
                             key={idx} 
-                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 z-10 transition-all duration-200 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100' : ''}`}
+                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 z-10 hover:z-20 transition-all duration-200 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100' : ''}`}
                             onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onMemberLeave}
                         >
