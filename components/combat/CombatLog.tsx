@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { CombatLogEntry, PartyMember } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -25,18 +26,23 @@ export const CombatLogRow: React.FC<{
     };
 
     const getHpForEntity = (name: string, healthSnapshot: any) => {
-        if (friendlyNames.includes(name)) {
-            const playerHealthData = healthSnapshot?.allPlayersHealth?.find((p: any) => p.name === name);
-            if (playerHealthData) {
-                return playerHealthData.currentHealth;
-            }
-            return healthSnapshot?.playerHealth; // Fallback
+        // First, check allPlayersHealth (used in Raids/TvT for EVERYONE, and in Hunting for players)
+        const playerHealthData = healthSnapshot?.allPlayersHealth?.find((p: any) => p.name === name);
+        if (playerHealthData) {
+            return playerHealthData.currentHealth;
         }
+        
+        // Second, check allEnemiesHealth (used in 1vMany PvE)
         const enemyHealthData = healthSnapshot?.allEnemiesHealth?.find((e: any) => e.name === name);
         if (enemyHealthData) {
             return enemyHealthData.currentHealth;
         }
-        return healthSnapshot?.enemyHealth; // Fallback for 1v1
+        
+        // Fallback for 1v1 legacy structure
+        if (friendlyNames.includes(name)) {
+            return healthSnapshot?.playerHealth;
+        }
+        return healthSnapshot?.enemyHealth;
     };
 
 
