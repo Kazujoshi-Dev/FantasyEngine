@@ -25,7 +25,7 @@ export interface ExpeditionSummaryModalProps {
     encounteredEnemies?: Enemy[];
     bossName?: string;
     messageId?: number | null;
-    raidId?: number | null; // Added raidId support
+    raidId?: number | null;
     backgroundImage?: string;
 }
 
@@ -60,7 +60,7 @@ export const EnemyListPanel: React.FC<{
                     return (
                         <div 
                             key={enemy.uniqueId} 
-                            className={`p-2 rounded bg-slate-800 relative z-10 ${isDead ? 'opacity-75 hover:opacity-100 grayscale hover:grayscale-0' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
+                            className={`p-2 rounded bg-slate-800 relative z-10 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100 grayscale hover:grayscale-0' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
                             onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onEnemyLeave}
                         >
@@ -191,7 +191,7 @@ export const PartyMemberList: React.FC<{
                     return (
                         <div 
                             key={idx} 
-                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 z-10 transition-all duration-200 ${isDead ? 'opacity-75 hover:opacity-100' : ''}`}
+                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 z-10 transition-all duration-200 pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100' : ''}`}
                             onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
                             onMouseLeave={onMemberLeave}
                         >
@@ -209,7 +209,6 @@ export const PartyMemberList: React.FC<{
     );
 }
 
-// ... (DamageMeter remains unchanged)
 const DamageMeter: React.FC<{
     damageData: {
         stats: Record<string, number>;
@@ -257,7 +256,6 @@ const DamageMeter: React.FC<{
     );
 }
 
-// ... (RaidRewardsPanel and StandardRewardsPanel remain mostly unchanged from user input, keeping the improved styles)
 const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
     const { t } = useTranslation();
     const hasLoot = totalGold > 0 || Object.keys(essencesFound).length > 0;
@@ -395,14 +393,13 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         reward, onClose, characterName, itemTemplates, affixes, 
         isPvp = false, pvpData, isDefenderView = false, 
         isHunting = false, isRaid = false, huntingMembers, opponents, allRewards,
-        initialEnemy, encounteredEnemies, bossName, messageId, raidId // Support raidId
+        initialEnemy, encounteredEnemies, bossName, messageId, raidId,
     } = props;
     const { t } = useTranslation();
 
     const [inspectingItem, setInspectingItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
     const [hoveredCombatant, setHoveredCombatant] = useState<{ type: 'player' | 'enemy' | 'partyMember', data: any, rect: DOMRect } | null>(null);
 
-    // ... (initialPlayerStats, initialEnemyForDisplay, finalState calculation remains same)
     const initialPlayerStats = useMemo(() => {
         if (isPvp) return isDefenderView ? pvpData!.defender.stats : pvpData!.attacker.stats;
         return reward.combatLog[0]?.playerStats || reward.combatLog[0]?.partyMemberStats?.[characterName];
