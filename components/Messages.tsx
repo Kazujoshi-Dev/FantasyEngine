@@ -403,8 +403,9 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
         }
     };
 
-    const handleCopyLink = (messageId: number) => {
-        const url = `${window.location.origin}/report/${messageId}`;
+    const handleCopyLink = (messageId: number, isRaid = false) => {
+        const path = isRaid ? 'raid-report' : 'report';
+        const url = `${window.location.origin}/${path}/${messageId}`;
         navigator.clipboard.writeText(url).then(() => {
             setCopyStatus('Skopiowano link!');
             setTimeout(() => setCopyStatus(''), 2000);
@@ -420,6 +421,7 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
             switch (msg.message_type) {
                 case 'pvp_report':
                 case 'expedition_report':
+                case 'raid_report':
                     const body = typeof msg.body === 'string' ? JSON.parse(msg.body) : msg.body;
                     return (
                         <div className="mt-4 flex items-center gap-2">
@@ -431,7 +433,7 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                                 }
                                 setSelectedReportMessageId(msg.id);
                             }} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold">{t('messages.viewReport')}</button>
-                            <button onClick={() => handleCopyLink(msg.id)} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
+                            <button onClick={() => handleCopyLink(msg.id, msg.message_type === 'raid_report')} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-500 font-semibold text-sm">
                                 {copyStatus || 'Kopiuj Link'}
                             </button>
                         </div>
@@ -492,10 +494,12 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                   characterName={currentPlayer.name}
                   itemTemplates={itemTemplates}
                   affixes={affixes}
-                  // @FIX: Pass enemies prop
                   enemies={enemies}
-                  isHunting={!!selectedReport.huntingMembers}
+                  // For raid reports, we treat it similar to hunting but handle opponents explicitly
+                  isHunting={!!selectedReport.huntingMembers || !!(selectedReport as any).opponents}
+                  isRaid={!!(selectedReport as any).opponents}
                   huntingMembers={selectedReport.huntingMembers}
+                  opponents={(selectedReport as any).opponents}
                   allRewards={selectedReport.allRewards}
                   initialEnemy={initialEnemyForModal}
                   bossName={bossNameForModal}
@@ -517,7 +521,6 @@ export const Messages: React.FC<MessagesProps> = ({ itemTemplates, affixes, enem
                     characterName={selectedPvpReport.attacker.name}
                     itemTemplates={itemTemplates}
                     affixes={affixes}
-                    // @FIX: Pass enemies prop
                     enemies={enemies}
                     isPvp={true}
                     pvpData={{ attacker: selectedPvpReport.attacker, defender: selectedPvpReport.defender }}

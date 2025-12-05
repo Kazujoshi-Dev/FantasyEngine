@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api, getAuthToken } from '../../api';
-import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary, PartyMember, Enemy } from '../../types';
+import { GuildRaid, RaidType, RaidStatus, GuildRole, ItemTemplate, Affix, ExpeditionRewardSummary, PartyMember, Enemy, CombatLogEntry } from '../../types';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { ClockIcon } from '../icons/ClockIcon';
@@ -128,8 +128,20 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
         const friendlyTeam = isAttacker ? raid.attackerParticipants : raid.defenderParticipants;
         const opposingTeam = isAttacker ? raid.defenderParticipants : raid.attackerParticipants;
         
+        // Safely parse combat log, which might be a string from the DB
+        let combatLog: CombatLogEntry[] = [];
+        if (typeof raid.combatLog === 'string') {
+            try {
+                const parsed = JSON.parse(raid.combatLog);
+                if (Array.isArray(parsed)) combatLog = parsed;
+            } catch (e) { 
+                console.error(`Error parsing combat log for raid ${raid.id}:`, e); 
+            }
+        } else if (Array.isArray(raid.combatLog)) {
+            combatLog = raid.combatLog;
+        }
+
         // Extract stats from combat log snapshot (turn 0)
-        const combatLog = raid.combatLog || [];
         const initialStatsSnapshot = combatLog.length > 0 ? combatLog[0].partyMemberStats : {};
 
         // Map participants to PartyMember format with Stats injected
