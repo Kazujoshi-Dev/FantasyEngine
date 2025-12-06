@@ -359,9 +359,9 @@ router.post('/character/:userId/update-gold', async (req, res) => {
     }
 });
 
-// Update Details (Race, Class, Level)
+// Update Details (Race, Class, Level, Name)
 router.post('/character/:userId/update-details', async (req, res) => {
-    const { race, characterClass, level } = req.body;
+    const { race, characterClass, level, name } = req.body;
     const client = await pool.connect();
     
     try {
@@ -374,6 +374,10 @@ router.post('/character/:userId/update-details', async (req, res) => {
         
         let character: PlayerCharacter = charRes.rows[0].data;
         let statsUpdated = false;
+
+        if (name && name.trim().length > 0) {
+            character.name = name.trim();
+        }
 
         if (race) {
             character.race = race;

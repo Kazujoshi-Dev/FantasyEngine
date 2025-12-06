@@ -29,6 +29,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
   const [goldAmount, setGoldAmount] = useState<string>('0');
 
   // Edit details state
+  const [editName, setEditName] = useState<string>('');
   const [editRace, setEditRace] = useState<Race>(Race.Human);
   const [editClass, setEditClass] = useState<string>('');
   const [editLevel, setEditLevel] = useState<string>('1');
@@ -49,6 +50,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
           setGoldAmount(String(charData.resources?.gold || 0));
           
           // Init edit fields safely
+          setEditName(charData.name || '');
           setEditRace(charData.race || Race.Human);
           setEditClass(charData.characterClass || '');
           setEditLevel(String(charData.level || 1));
@@ -128,9 +130,14 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
   };
   
   const handleUpdateDetails = async () => {
-      if (window.confirm('Zapisanie zmian w poziomie zresetuje statystyki i przeliczy PD. Kontynuować?')) {
+      if (!editName.trim()) {
+          alert('Nazwa postaci nie może być pusta.');
+          return;
+      }
+      if (window.confirm('UWAGA: Zmiana poziomu zresetuje statystyki. Zmiana nazwy, rasy lub klasy wpłynie na grę. Kontynuować?')) {
           try {
               await api.updateCharacterDetails(props.characterInfo.user_id, {
+                  name: editName.trim(),
                   race: editRace,
                   characterClass: editClass || undefined,
                   level: parseInt(editLevel, 10)
@@ -201,6 +208,10 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700">
                 <h3 className="font-bold text-lg mb-3 text-gray-200">Edycja Danych</h3>
                 <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                        <label className="block text-xs text-gray-400 mb-1">Nazwa Postaci</label>
+                        <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-slate-700 p-2 rounded text-sm" />
+                    </div>
                     <div>
                         <label className="block text-xs text-gray-400 mb-1">Rasa</label>
                         <select value={editRace} onChange={e => setEditRace(e.target.value as Race)} className="w-full bg-slate-700 p-2 rounded text-sm">
@@ -214,9 +225,10 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
                             {Object.values(CharacterClass).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
-                     <div>
+                     <div className="col-span-2">
                         <label className="block text-xs text-gray-400 mb-1">Poziom</label>
                         <input type="number" min="1" value={editLevel} onChange={e => setEditLevel(e.target.value)} className="w-full bg-slate-700 p-2 rounded text-sm" />
+                        <p className="text-[10px] text-gray-500 mt-1">Zmiana poziomu zresetuje statystyki i ustawi odpowiednie PD.</p>
                     </div>
                 </div>
                 <button onClick={handleUpdateDetails} className="mt-4 w-full px-4 py-2 text-sm rounded bg-indigo-600 hover:bg-indigo-500 font-semibold">Zapisz Zmiany</button>
