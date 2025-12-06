@@ -654,6 +654,13 @@ export interface GuildArmoryItem {
     userId?: number; // ID of the player holding the item (if borrowed)
 }
 
+export interface GuildBuff {
+    id: string;
+    name: string;
+    stats: Partial<CharacterStats>;
+    expiresAt: number; // Timestamp
+}
+
 export interface Guild {
     id: number;
     name: string;
@@ -670,6 +677,7 @@ export interface Guild {
     rentalTax?: number; // 0-100 percentage
     huntingTax?: number; // 0-100 percentage
     buildings?: Record<string, number>; // Map building type to level
+    activeBuffs?: GuildBuff[]; // New property for active buffs
     // Extended properties
     members?: GuildMember[];
     transactions?: GuildTransaction[];
@@ -785,6 +793,7 @@ export interface PlayerCharacter {
   guildId?: number; // Added guildId
   guildBarracksLevel?: number;
   guildShrineLevel?: number; // Added guildShrineLevel
+  activeGuildBuffs?: GuildBuff[]; // Transient property from backend
   description?: string;
   avatarUrl?: string;
   rentalTax?: number;

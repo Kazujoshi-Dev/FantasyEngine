@@ -1,10 +1,5 @@
 
-
-
-
-
-
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     // The pg driver returns bigint as a string, so we must cast to Number
@@ -19,7 +14,15 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTemplates: ItemTemplate[], affixes: Affix[], guildBarracksLevel: number = 0, guildShrineLevel: number = 0, skills: Skill[] = []): PlayerCharacter => {
+export const calculateDerivedStatsOnServer = (
+    character: PlayerCharacter, 
+    itemTemplates: ItemTemplate[], 
+    affixes: Affix[], 
+    guildBarracksLevel: number = 0, 
+    guildShrineLevel: number = 0, 
+    skills: Skill[] = [],
+    activeGuildBuffs: GuildBuff[] = [] // New parameter
+): PlayerCharacter => {
     
     // Ensure arrays exist to prevent crashes if gameData is partial
     const safeItemTemplates = itemTemplates || [];
@@ -48,6 +51,22 @@ export const calculateDerivedStatsOnServer = (character: PlayerCharacter, itemTe
     // Apply Guild Shrine Bonus (+5 Luck per level)
     if (guildShrineLevel > 0) {
         totalPrimaryStats.luck += (guildShrineLevel * 5);
+    }
+
+    // Apply Guild Altar Buffs
+    if (activeGuildBuffs && activeGuildBuffs.length > 0) {
+        const now = Date.now();
+        activeGuildBuffs.forEach(buff => {
+            if (buff.expiresAt > now) {
+                for (const key in buff.stats) {
+                    const statKey = key as keyof typeof totalPrimaryStats;
+                    // Only apply if it's a primary stat we track here (can extend later for secondary)
+                    if (totalPrimaryStats[statKey] !== undefined) {
+                        totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                    }
+                }
+            }
+        });
     }
 
     let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;

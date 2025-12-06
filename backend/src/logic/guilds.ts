@@ -38,12 +38,6 @@ export const getBuildingCost = (type: string, level: number): { gold: number, co
         const gold = Math.floor(15000 * Math.pow(1.5, level));
         const baseAmount = 1 + level;
         
-        // Lower rarity = Higher cost
-        // Common: Base * 5
-        // Uncommon: Base * 4
-        // Rare: Base * 3
-        // Epic: Base * 2
-        // Legendary: Base * 1
         const costs = [
             { type: EssenceType.Common, amount: baseAmount * 5 },
             { type: EssenceType.Uncommon, amount: baseAmount * 4 },
@@ -53,6 +47,12 @@ export const getBuildingCost = (type: string, level: number): { gold: number, co
         ];
         
         return { gold, costs };
+    }
+    if (type === 'altar') {
+        const gold = Math.floor(100000 * Math.pow(1.5, level));
+        // Base: 5 Legendary. Each level increases it.
+        const essenceAmount = 5 + level;
+        return { gold, costs: [{ type: EssenceType.Legendary, amount: essenceAmount }] };
     }
     
     // Default fallback

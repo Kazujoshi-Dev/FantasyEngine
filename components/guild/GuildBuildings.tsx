@@ -8,6 +8,7 @@ import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { MapIcon } from '../icons/MapIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
+import { StarIcon } from '../icons/StarIcon'; // Using StarIcon as placeholder for Altar if no specific icon
 import { rarityStyles } from '../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, any> = {
@@ -59,6 +60,11 @@ const getBuildingCost = (type: string, level: number): { gold: number, costs: { 
         ];
         return { gold, costs };
     }
+    if (type === 'altar') {
+        const gold = Math.floor(100000 * Math.pow(1.5, level));
+        const essenceAmount = 5 + level;
+        return { gold, costs: [{ type: EssenceType.Legendary, amount: essenceAmount }] };
+    }
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
 }
 
@@ -69,6 +75,7 @@ const BUILDING_DEFINITIONS = [
     { id: 'barracks', icon: SwordsIcon, color: 'text-red-500', maxLevel: 5 },
     { id: 'scoutHouse', icon: MapIcon, color: 'text-green-500', maxLevel: 3 },
     { id: 'shrine', icon: SparklesIcon, color: 'text-purple-400', maxLevel: 5 },
+    { id: 'altar', icon: StarIcon, color: 'text-fuchsia-500', maxLevel: 5 },
 ];
 
 export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
@@ -109,13 +116,14 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
                 else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
                 else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
+                else if (def.id === 'altar') effect = `Odblokowuje rytuały do poziomu ${level}`;
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
                         <div className="flex items-center gap-3 mb-4">
                             <Icon className={`h-8 w-8 ${def.color}`} />
                             <div>
-                                <h4 className="text-xl font-bold text-white">{t(`guild.buildings.${def.id}` as any)}</h4>
+                                <h4 className="text-xl font-bold text-white">{t(`guild.buildings.${def.id}` as any) || def.id}</h4>
                                 <p className="text-xs text-gray-400">{t(`guild.buildings.${def.id}Desc` as any)}</p>
                             </div>
                         </div>

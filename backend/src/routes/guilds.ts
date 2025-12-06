@@ -1,28 +1,29 @@
 
-
-
-
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix, PublicGuildProfile, RaidType } from '../types.js';
+import { Guild, GuildMember, GuildRole, PlayerCharacter, GuildTransaction, EssenceType, GuildInviteBody, GuildArmoryItem, ItemTemplate, ItemInstance, Affix, PublicGuildProfile, RaidType, GuildBuff, CharacterStats } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { canManage, getBuildingCost } from '../logic/guilds.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
+import { randomUUID } from 'crypto';
 
 const router = express.Router();
 
 // GET /api/guilds/my-guild - Get current user's guild data with detailed members
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+
         // Get user's guild membership
-        const membershipRes = await pool.query(
+        const membershipRes = await client.query(
             `SELECT guild_id, role FROM guild_members WHERE user_id = $1`,
             [req.user.id]
         );
 
         if (membershipRes.rows.length === 0) {
+            await client.query('COMMIT');
             return res.json(null); // Not in a guild
         }
 
@@ -30,11 +31,21 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         const myRole = membershipRes.rows[0].role;
 
         // Fetch Guild Info
-        const guildRes = await pool.query(`SELECT * FROM guilds WHERE id = $1`, [guildId]);
+        const guildRes = await client.query(`SELECT * FROM guilds WHERE id = $1 FOR UPDATE`, [guildId]);
         const guildData = guildRes.rows[0];
 
+        // Clean up expired buffs
+        let activeBuffs: GuildBuff[] = guildData.active_buffs || [];
+        const now = Date.now();
+        const validBuffs = activeBuffs.filter(b => b.expiresAt > now);
+        
+        if (validBuffs.length !== activeBuffs.length) {
+             await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(validBuffs), guildId]);
+             activeBuffs = validBuffs;
+        }
+
         // Fetch Members with Character Info
-        const membersRes = await pool.query(`
+        const membersRes = await client.query(`
             SELECT gm.user_id, gm.role, gm.joined_at, c.data->>'name' as name, c.data->>'level' as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
             EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
             FROM guild_members gm
@@ -57,7 +68,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         }));
 
         // Fetch Bank History
-        const historyRes = await pool.query(`
+        const historyRes = await client.query(`
             SELECT gbh.*, c.data->>'name' as character_name
             FROM guild_bank_history gbh
             LEFT JOIN characters c ON gbh.user_id = c.user_id
@@ -76,7 +87,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         }));
         
         // Fetch Chat History (last 50)
-        const chatRes = await pool.query(`
+        const chatRes = await client.query(`
             SELECT gc.*, c.data->>'name' as name, gm.role
             FROM guild_chat gc
             JOIN characters c ON gc.user_id = c.user_id
@@ -95,7 +106,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         }));
 
         // Robust merging of buildings to ensure new types (like scoutHouse, shrine) are present even if DB JSON is old
-        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0 };
+        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0, altar: 0 };
         const mergedBuildings = { ...defaultBuildings, ...(guildData.buildings || {}) };
 
         const guild: Guild & { members: GuildMember[], transactions: GuildTransaction[], myRole: GuildRole, chatHistory: any[] } = {
@@ -114,19 +125,120 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             rentalTax: guildData.rental_tax || 10,
             huntingTax: guildData.hunting_tax || 0,
             buildings: mergedBuildings,
+            activeBuffs: activeBuffs,
             members,
             transactions,
             myRole,
             chatHistory
         };
-
+        
+        await client.query('COMMIT');
         res.json(guild);
 
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch guild info' });
+    } finally {
+        client.release();
     }
 });
+
+// POST /api/guilds/altar/sacrifice
+router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) => {
+    const { ritualId } = req.body; // 1-5
+    const userId = req.user.id;
+
+    if (!ritualId || ritualId < 1 || ritualId > 5) {
+        return res.status(400).json({ message: 'Invalid ritual ID' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check role
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [userId]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const { guild_id, role } = memberRes.rows[0];
+
+        if (!canManage(role)) return res.status(403).json({ message: 'Only leaders and officers can perform sacrifices' });
+
+        // Lock Guild
+        const guildRes = await client.query('SELECT * FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
+        const guild = guildRes.rows[0];
+        const buildings = guild.buildings || {};
+        const altarLevel = buildings.altar || 0;
+
+        if (altarLevel < ritualId) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: `Altar level ${altarLevel} is too low for this ritual (requires ${ritualId})` });
+        }
+
+        // Define Ritual Costs and Effects
+        // For now, only Level 1 is defined as per prompt
+        let cost: { type: EssenceType, amount: number }[] = [];
+        let buff: GuildBuff | null = null;
+
+        if (ritualId === 1) {
+            cost = [
+                { type: EssenceType.Common, amount: 50 },
+                { type: EssenceType.Uncommon, amount: 25 },
+                { type: EssenceType.Rare, amount: 15 },
+                { type: EssenceType.Epic, amount: 5 },
+                { type: EssenceType.Legendary, amount: 1 },
+            ];
+            buff = {
+                id: `luck_1_${Date.now()}`,
+                name: 'Okruchy Szczęścia',
+                stats: { luck: 20 },
+                expiresAt: Date.now() + 2 * 24 * 60 * 60 * 1000 // 2 days
+            };
+        } else {
+             // Placeholder for 2-5
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'This ritual is not yet available.' });
+        }
+
+        // Check resources
+        for (const c of cost) {
+            if ((guild.resources[c.type] || 0) < c.amount) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: `Not enough ${c.type}` });
+            }
+        }
+
+        // Deduct resources
+        for (const c of cost) {
+            guild.resources[c.type] -= c.amount;
+            // Log transaction (simplified as negative amount)
+            // Better: separate log entries or summary? Separate is clearer.
+             await client.query(
+                `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'WITHDRAW', $3, $4)`,
+                [guild_id, userId, c.type, c.amount]
+            );
+        }
+
+        // Add Buff
+        let activeBuffs = guild.active_buffs || [];
+        // Optional: Remove existing buffs of same type if we want non-stacking? 
+        // For now, simple append.
+        activeBuffs.push(buff);
+        
+        await client.query('UPDATE guilds SET resources = $1, active_buffs = $2 WHERE id = $3', [JSON.stringify(guild.resources), JSON.stringify(activeBuffs), guild_id]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Sacrifice accepted', activeBuffs, resources: guild.resources });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Sacrifice failed' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // GET /api/guilds/profile/:id - Get public guild profile
 router.get('/profile/:id', authenticateToken, async (req: any, res: any) => {
@@ -543,8 +655,8 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
         char.resources.gold -= COST;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [char, userId]);
 
-        // Create Guild with full default buildings, explicitly including scoutHouse and shrine
-        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0 };
+        // Create Guild with full default buildings, explicitly including scoutHouse, shrine and altar
+        const defaultBuildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0, altar: 0 };
         const createRes = await client.query(
             `INSERT INTO guilds (name, tag, leader_id, description, buildings) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
             [name, tag, userId, description || '', JSON.stringify(defaultBuildings)]
@@ -662,7 +774,7 @@ router.post('/invite', authenticateToken, async (req: any, res: any) => {
         
         await pool.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
-             VALUES ($1, $2, 'guild_invite', $3, $4)`,
+             VALUES ($1, 'System', 'guild_invite', $3, $4)`,
             [targetId, 'System', `Zaproszenie do gildii: ${guildName}`, JSON.stringify(inviteBody)]
         );
 
@@ -942,10 +1054,10 @@ router.post('/bank', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/upgrade-building
 router.post('/upgrade-building', authenticateToken, async (req: any, res: any) => {
-    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse', 'shrine'
+    const { buildingType } = req.body; // e.g., 'headquarters', 'armory', 'barracks', 'scoutHouse', 'shrine', 'altar'
     const userId = req.user.id;
 
-    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse' && buildingType !== 'shrine') return res.status(400).json({ message: 'Invalid building type' });
+    if (buildingType !== 'headquarters' && buildingType !== 'armory' && buildingType !== 'barracks' && buildingType !== 'scoutHouse' && buildingType !== 'shrine' && buildingType !== 'altar') return res.status(400).json({ message: 'Invalid building type' });
 
     const client = await pool.connect();
     try {
@@ -963,12 +1075,12 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
         const guild = guildRes.rows[0];
         
         // Robustly initialize default buildings including new ones like scoutHouse and shrine
-        let buildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0, ...(guild.buildings || {}) };
+        let buildings = { headquarters: 0, armory: 0, barracks: 0, scoutHouse: 0, shrine: 0, altar: 0, ...(guild.buildings || {}) };
         
         const currentLevel = buildings[buildingType] || 0;
 
-        // Max Level Check for Barracks
-        if (buildingType === 'barracks' && currentLevel >= 5) {
+        // Max Level Check for Barracks, Shrine, Altar
+        if ((buildingType === 'barracks' || buildingType === 'shrine' || buildingType === 'altar') && currentLevel >= 5) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Building is at maximum level.' });
         }
@@ -979,12 +1091,6 @@ router.post('/upgrade-building', authenticateToken, async (req: any, res: any) =
             return res.status(400).json({ message: 'Building is at maximum level.' });
         }
         
-        // Max Level Check for Shrine
-        if (buildingType === 'shrine' && currentLevel >= 5) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Building is at maximum level.' });
-        }
-
         // Calculate Cost (Updated to return array of costs)
         const { gold, costs } = getBuildingCost(buildingType, currentLevel);
 

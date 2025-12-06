@@ -1,3 +1,4 @@
+
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
@@ -253,12 +254,21 @@ export const initializeDatabase = async () => {
              console.log("MIGRATING SCHEMA: Adding 'buildings' column to 'guilds' table...");
              await client.query(`ALTER TABLE guilds ADD COLUMN buildings JSONB DEFAULT '{"headquarters": 0}';`);
         }
+        
+        const hasActiveBuffsColumn = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='guilds' AND column_name='active_buffs';
+        `);
+        if (!hasActiveBuffsColumn.rowCount) {
+             console.log("MIGRATING SCHEMA: Adding 'active_buffs' column to 'guilds' table...");
+             await client.query(`ALTER TABLE guilds ADD COLUMN active_buffs JSONB DEFAULT '[]';`);
+        }
 
-        // Migrate existing buildings to include 'shrine'
+        // Migrate existing buildings to include 'shrine' and 'altar'
         await client.query(`
             UPDATE guilds 
-            SET buildings = buildings || '{"shrine": 0}'::jsonb 
-            WHERE NOT (buildings ? 'shrine');
+            SET buildings = buildings || '{"shrine": 0, "altar": 0}'::jsonb 
+            WHERE NOT (buildings ? 'shrine') OR NOT (buildings ? 'altar');
         `);
         
         const hasCrestUrlColumn = await client.query(`

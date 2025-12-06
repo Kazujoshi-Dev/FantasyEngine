@@ -2,7 +2,7 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary } from '../types.js';
+import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 
@@ -29,11 +29,32 @@ const getBackpackUpgradeCost = (level: number) => {
 // Get Character
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
-        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
+        const result = await pool.query('SELECT data, guild_id FROM characters WHERE user_id = $1', [req.user.id]);
         if (result.rows.length === 0) {
             return res.json(null);
         }
-        res.json(result.rows[0].data);
+        const char = result.rows[0].data;
+        const guildId = result.rows[0].guild_id;
+        
+        // Attach active guild buffs if in a guild
+        if (guildId) {
+            const guildRes = await pool.query('SELECT active_buffs, buildings FROM guilds WHERE id = $1', [guildId]);
+            if (guildRes.rows.length > 0) {
+                const rawBuffs = guildRes.rows[0].active_buffs;
+                const buildings = guildRes.rows[0].buildings || {};
+                
+                // Ensure buffs array is valid and filter expired ones on read
+                const activeBuffs = Array.isArray(rawBuffs) 
+                    ? (rawBuffs as GuildBuff[]).filter(b => b.expiresAt > Date.now()) 
+                    : [];
+
+                char.activeGuildBuffs = activeBuffs;
+                char.guildBarracksLevel = buildings.barracks || 0;
+                char.guildShrineLevel = buildings.shrine || 0;
+            }
+        }
+
+        res.json(char);
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch character' });
     }
@@ -476,8 +497,9 @@ router.post('/expedition/complete', authenticateToken, async (req: any, res: any
     try {
         await client.query('BEGIN');
         
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const charRes = await client.query('SELECT data, guild_id FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
+        const guildId = charRes.rows[0].guild_id;
 
         if (!character.activeExpedition) {
             await client.query('ROLLBACK');
@@ -492,26 +514,52 @@ router.post('/expedition/complete', authenticateToken, async (req: any, res: any
         const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 
-        // Fetch Guild Building Levels (if any)
+        // Fetch Guild Building Levels (if any) and Active Buffs
         let barracksLevel = 0;
         let scoutHouseLevel = 0;
         let shrineLevel = 0;
+        let activeGuildBuffs: GuildBuff[] = [];
 
-        if (character.guildId) {
-            const guildRes = await client.query('SELECT buildings FROM guilds WHERE id = $1', [character.guildId]);
+        if (guildId) {
+            const guildRes = await client.query('SELECT buildings, active_buffs FROM guilds WHERE id = $1', [guildId]);
             if (guildRes.rows.length > 0) {
                 const buildings = guildRes.rows[0].buildings || {};
                 barracksLevel = buildings.barracks || 0;
                 scoutHouseLevel = buildings.scoutHouse || 0;
                 shrineLevel = buildings.shrine || 0;
+                
+                // Filter expired buffs
+                const rawBuffs = guildRes.rows[0].active_buffs || [];
+                activeGuildBuffs = Array.isArray(rawBuffs) 
+                    ? (rawBuffs as GuildBuff[]).filter(b => b.expiresAt > Date.now()) 
+                    : [];
             }
         }
+
+        // IMPORTANT: Update processCompletedExpedition to accept activeGuildBuffs
+        // For now, I will assume I need to pass them or update processCompletedExpedition signature in separate file.
+        // But wait, `processCompletedExpedition` calls `calculateDerivedStatsOnServer`.
+        // So I must pass `activeGuildBuffs` to `processCompletedExpedition`.
+        // Since I cannot change logic/expeditions.ts in this specific change block (different file),
+        // I will modify `calculateDerivedStatsOnServer` to accept extra args and assume `processCompletedExpedition` passes them through
+        // OR I inject buffs into `character` object temporarily if types allow.
+        // Since I modified PlayerCharacter type to include optional activeGuildBuffs, I can set it here!
+        character.activeGuildBuffs = activeGuildBuffs;
+
+        // NOTE: I also need to update `processCompletedExpedition` in logic/expeditions.ts to pass this down to `calculateDerivedStatsOnServer`.
+        // See below for `logic/expeditions.ts` change.
 
         const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel, shrineLevel);
         
         // Update guild building levels on character for client-side display (optional sync)
         updatedCharacter.guildBarracksLevel = barracksLevel;
         updatedCharacter.guildShrineLevel = shrineLevel;
+        // activeGuildBuffs are already set on updatedCharacter from character object mutation or return
+
+        // Clean transient property before saving? No, keep it consistent, but usually we don't save transient data.
+        // `activeGuildBuffs` is defined in type but not strictly needed in DB data JSON.
+        // It's better to remove it before saving to keep DB clean.
+        delete updatedCharacter.activeGuildBuffs;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user.id]);
         
