@@ -477,6 +477,20 @@ export const App: React.FC = () => {
         if (guildShrineLevel > 0) {
             totalPrimaryStats.luck += (guildShrineLevel * 5);
         }
+        
+        // Apply Guild Altar Buffs on Client Side to match Server Side calc
+        if (char.activeGuildBuffs) {
+            char.activeGuildBuffs.forEach(buff => {
+                if (buff.expiresAt > Date.now()) {
+                     for (const key in buff.stats) {
+                         const statKey = key as keyof typeof totalPrimaryStats;
+                         if (totalPrimaryStats[statKey] !== undefined) {
+                             totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                         }
+                     }
+                }
+            });
+        }
     
         let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
         let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
@@ -1095,7 +1109,7 @@ export const App: React.FC = () => {
                              />
                         )}
                         {activeTab === Tab.Guild && (
-                             <Guild />
+                             <Guild onCharacterUpdate={fetchCharacter} />
                         )}
                         {activeTab === Tab.Admin && character.username === 'Kazujoshi' && (
                             <AdminPanel

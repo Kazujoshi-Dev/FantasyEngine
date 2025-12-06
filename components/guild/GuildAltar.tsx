@@ -93,7 +93,12 @@ const ALL_RITUALS: Ritual[] = [
     }
 ];
 
-export const GuildAltar: React.FC<{ guild: Guild }> = ({ guild }) => {
+interface GuildAltarProps {
+    guild: Guild;
+    onCharacterUpdate?: () => void;
+}
+
+export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate }) => {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [activeTier, setActiveTier] = useState<number>(1);
@@ -113,6 +118,11 @@ export const GuildAltar: React.FC<{ guild: Guild }> = ({ guild }) => {
         try {
             await api.performAltarSacrifice(ritualId);
             alert('Rytuał odprawiony pomyślnie!');
+            
+            // Refresh character data to show new buffs immediately
+            if (onCharacterUpdate) {
+                onCharacterUpdate();
+            }
         } catch (e: any) {
             alert(e.message);
         } finally {

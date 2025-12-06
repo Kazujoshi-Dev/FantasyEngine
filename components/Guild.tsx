@@ -16,7 +16,11 @@ import { FormattedText } from './guild/GuildSettings';
 import { GuildRaids } from './guild/GuildRaids';
 import { GuildAltar } from './guild/GuildAltar';
 
-export const Guild: React.FC = () => {
+interface GuildProps {
+    onCharacterUpdate?: () => void;
+}
+
+export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
     const { t } = useTranslation();
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
@@ -233,7 +237,7 @@ export const Guild: React.FC = () => {
                 </div>
             )}
             
-            {tab === 'ALTAR' && <GuildAltar guild={guild} />}
+            {tab === 'ALTAR' && <GuildAltar guild={guild} onCharacterUpdate={onCharacterUpdate} />}
 
             {/* GuildArmory handles its own scrolling layout */}
             {tab === 'ARMORY' && <GuildArmory guild={guild} character={character} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
