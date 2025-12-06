@@ -146,10 +146,10 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
 
 // POST /api/guilds/altar/sacrifice
 router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) => {
-    const { ritualId } = req.body; // 1-5
+    const { ritualId } = req.body; 
     const userId = req.user.id;
 
-    if (!ritualId || ritualId < 1 || ritualId > 5) {
+    if (!ritualId) {
         return res.status(400).json({ message: 'Invalid ritual ID' });
     }
 
@@ -170,13 +170,19 @@ router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) =>
         const buildings = guild.buildings || {};
         const altarLevel = buildings.altar || 0;
 
-        if (altarLevel < ritualId) {
+        // Simple validation: ID 1/101 = Tier 1, ID 2 = Tier 2 etc.
+        let requiredTier = 1;
+        if (ritualId === 2) requiredTier = 2;
+        else if (ritualId === 3) requiredTier = 3;
+        else if (ritualId === 4) requiredTier = 4;
+        else if (ritualId === 5) requiredTier = 5;
+
+        if (altarLevel < requiredTier) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ message: `Altar level ${altarLevel} is too low for this ritual (requires ${ritualId})` });
+            return res.status(400).json({ message: `Altar level ${altarLevel} is too low for this ritual (requires ${requiredTier})` });
         }
 
         // Define Ritual Costs and Effects
-        // For now, only Level 1 is defined as per prompt
         let cost: { type: EssenceType, amount: number }[] = [];
         let buff: GuildBuff | null = null;
 
@@ -194,6 +200,18 @@ router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) =>
                 stats: { luck: 20 },
                 expiresAt: Date.now() + 2 * 24 * 60 * 60 * 1000 // 2 days
             };
+        } else if (ritualId === 101) {
+             // Małe Błogosławieństwo
+             cost = [
+                { type: EssenceType.Common, amount: 100 }
+             ];
+             buff = {
+                id: `exp_1_${Date.now()}`,
+                name: 'Małe Błogosławieństwo',
+                // Explicit cast to 'any' to bypass strict CharacterStats typing, allowing custom 'expBonus'
+                stats: { expBonus: 5 } as any, 
+                expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24h
+             };
         } else {
              // Placeholder for 2-5
              await client.query('ROLLBACK');
@@ -211,8 +229,6 @@ router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) =>
         // Deduct resources
         for (const c of cost) {
             guild.resources[c.type] -= c.amount;
-            // Log transaction (simplified as negative amount)
-            // Better: separate log entries or summary? Separate is clearer.
              await client.query(
                 `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'WITHDRAW', $3, $4)`,
                 [guild_id, userId, c.type, c.amount]
@@ -221,8 +237,8 @@ router.post('/altar/sacrifice', authenticateToken, async (req: any, res: any) =>
 
         // Add Buff
         let activeBuffs = guild.active_buffs || [];
-        // Optional: Remove existing buffs of same type if we want non-stacking? 
-        // For now, simple append.
+        // Replace existing buff of same name if present (refresh duration)
+        activeBuffs = activeBuffs.filter((b: GuildBuff) => b.name !== buff!.name);
         activeBuffs.push(buff);
         
         await client.query('UPDATE guilds SET resources = $1, active_buffs = $2 WHERE id = $3', [JSON.stringify(guild.resources), JSON.stringify(activeBuffs), guild_id]);

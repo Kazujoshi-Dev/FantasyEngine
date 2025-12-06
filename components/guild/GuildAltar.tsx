@@ -42,7 +42,7 @@ const ALL_RITUALS: Ritual[] = [
         id: 101,
         tier: 1,
         name: 'Małe Błogosławieństwo',
-        effect: 'Zwiększa zdobywane doświadczenie o 2%.',
+        effect: 'Zwiększa zdobywane doświadczenie o 5%.',
         duration: '24 godziny',
         cost: [{ type: EssenceType.Common, amount: 100 }]
     },
@@ -105,7 +105,8 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate
     const canManage = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
 
     const handleSacrifice = async (ritualId: number) => {
-        if (ritualId !== 1) {
+        // ID 1 (Luck) and 101 (Exp) are implemented
+        if (ritualId !== 1 && ritualId !== 101) {
             alert('Ten rytuał nie jest jeszcze dostępny (Wkrótce).');
             return;
         }
@@ -153,6 +154,9 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate
                                     <span className="font-bold text-white">{buff.name}</span>
                                     <span className="text-gray-500">|</span>
                                     <span className="text-green-300">{formatTimeLeft(buff.expiresAt)}</span>
+                                    {/* Display specific bonuses if known */}
+                                    {(buff.stats as any).expBonus && <span className="text-sky-300 ml-1">(+{(buff.stats as any).expBonus}% XP)</span>}
+                                    {buff.stats.luck && <span className="text-amber-300 ml-1">(+{buff.stats.luck} Szczęścia)</span>}
                                 </div>
                             ))}
                         </div>
@@ -191,7 +195,7 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {displayedRituals.map((ritual) => {
-                            const isBackendImplemented = ritual.id === 1;
+                            const isBackendImplemented = ritual.id === 1 || ritual.id === 101;
                             const canAfford = ritual.cost.every(c => (guild.resources[c.type] || 0) >= c.amount);
                             const isAlreadyActive = guild.activeBuffs?.some(b => b.name === ritual.name && b.expiresAt > Date.now());
 

@@ -165,6 +165,16 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         if(character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.20);
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
         
+        // Apply Guild Buffs (Experience Bonus)
+        const expBuffs = character.activeGuildBuffs?.filter(b => (b.stats as any).expBonus);
+        if (expBuffs && expBuffs.length > 0) {
+            expBuffs.forEach(b => {
+                 const bonus = (b.stats as any).expBonus || 0;
+                 const bonusAmount = Math.floor(totalExperience * (bonus / 100));
+                 totalExperience += bonusAmount;
+            });
+        }
+        
         // Handle loot drops
         const allLootTables = [
             ...(expedition.lootTable || []),
