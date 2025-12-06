@@ -734,6 +734,17 @@ export interface GuildRaid {
 }
 // --- End Guild System Types ---
 
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface TraderData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+    lastRefresh: number;
+}
+
 export interface PlayerCharacter {
   id?: number; // User ID
   username?: string;
@@ -757,6 +768,7 @@ export interface PlayerCharacter {
   lastEnergyUpdateTime: number;
   equipment: Record<EquipmentSlot, ItemInstance | null>;
   inventory: ItemInstance[];
+  traderData?: TraderData; // Personal trader inventory
   pvpWins: number;
   pvpLosses: number;
   pvpProtectionUntil: number; // Timestamp
@@ -785,11 +797,6 @@ export interface TraderSettings {
         [ItemRarity.Uncommon]: number;
         [ItemRarity.Rare]: number;
     };
-}
-
-export interface TraderInventoryData {
-    regularItems: ItemInstance[];
-    specialOfferItems: ItemInstance[];
 }
 
 export interface GameSettings {

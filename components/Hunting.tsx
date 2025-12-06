@@ -34,8 +34,8 @@ export const Hunting: React.FC<HuntingProps> = ({ character, enemies, itemTempla
 
     const lobbyPollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Filter for bosses only
-    const bosses = useMemo(() => enemies.filter(e => e.isBoss), [enemies]);
+    // Filter for bosses only AND exclude guild bosses
+    const bosses = useMemo(() => enemies.filter(e => e.isBoss && !e.isGuildBoss), [enemies]);
     
     // Auto-select first boss
     useEffect(() => {

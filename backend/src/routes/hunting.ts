@@ -1,5 +1,6 @@
 
 
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -208,6 +209,14 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
             // Regular party logic
              if (maxMembers === 1 && !hasLoneWolf) {
                 return res.status(400).json({ message: 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".' });
+            }
+            
+            // Verify Boss is NOT a Guild Boss
+            const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'enemies'");
+            const enemies = gameDataRes.rows[0].data;
+            const boss = enemies.find((e: any) => e.id === bossId);
+            if (boss && boss.isGuildBoss) {
+                 return res.status(400).json({ message: 'Ten boss jest dostępny tylko w polowaniach gildyjnych.' });
             }
         }
         
