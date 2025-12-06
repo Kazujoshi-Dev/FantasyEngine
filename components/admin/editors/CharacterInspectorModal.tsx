@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
-import { AdminCharacterInfo, PlayerCharacter, GameData, ItemInstance } from '../../../types';
+import { AdminCharacterInfo, PlayerCharacter, GameData, ItemInstance, Race, CharacterClass } from '../../../types';
 import { ItemListItem } from '../../shared/ItemSlot';
+import { api } from '../../../api'; // Ensure api is imported directly if not passed via props fully
 
 interface CharacterInspectorModalProps {
   characterInfo: AdminCharacterInfo;
@@ -26,6 +27,10 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
   const [newPassword, setNewPassword] = useState('');
   const [goldAmount, setGoldAmount] = useState<string>(String(props.characterInfo.gold || 0));
 
+  // Edit details state
+  const [editRace, setEditRace] = useState<Race>(Race.Human);
+  const [editClass, setEditClass] = useState<string>('');
+  const [editLevel, setEditLevel] = useState<string>('1');
 
   const fetchCharacter = useCallback(async () => {
     setIsLoading(true);
@@ -33,6 +38,12 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
       const charData = await props.onInspectCharacter(props.characterInfo.user_id);
       setFullCharacter(charData);
       setGoldAmount(String(charData.resources.gold || 0));
+      
+      // Init edit fields
+      setEditRace(charData.race);
+      setEditClass(charData.characterClass || '');
+      setEditLevel(String(charData.level));
+
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -91,6 +102,22 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
       }
   };
   
+  const handleUpdateDetails = async () => {
+      if (window.confirm('Zapisanie zmian w poziomie zresetuje statystyki i przeliczy PD. Kontynuować?')) {
+          try {
+              await api.updateCharacterDetails(props.characterInfo.user_id, {
+                  race: editRace,
+                  characterClass: editClass || undefined,
+                  level: parseInt(editLevel, 10)
+              });
+              alert('Dane postaci zaktualizowane.');
+              fetchCharacter();
+          } catch(e: any) {
+              alert(e.message);
+          }
+      }
+  };
+  
   const handleDeleteItem = async (item: ItemInstance) => {
       if(window.confirm(t('admin.characterInspector.deleteItemConfirm'))) {
           try {
@@ -125,13 +152,38 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={props.onClose}>
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-indigo-400">{t('admin.characterInspector.title', { characterName: props.characterInfo.name })}</h2>
         
         {isLoading ? <p>Ładowanie...</p> : fullCharacter ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Actions & Account */}
             <div className="space-y-6">
+              
+               <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700">
+                <h3 className="font-bold text-lg mb-3 text-gray-200">Edycja Danych</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">Rasa</label>
+                        <select value={editRace} onChange={e => setEditRace(e.target.value as Race)} className="w-full bg-slate-700 p-2 rounded text-sm">
+                            {Object.values(Race).map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">Klasa</label>
+                        <select value={editClass} onChange={e => setEditClass(e.target.value)} className="w-full bg-slate-700 p-2 rounded text-sm">
+                            <option value="">Brak (Novice)</option>
+                            {Object.values(CharacterClass).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-xs text-gray-400 mb-1">Poziom</label>
+                        <input type="number" min="1" value={editLevel} onChange={e => setEditLevel(e.target.value)} className="w-full bg-slate-700 p-2 rounded text-sm" />
+                    </div>
+                </div>
+                <button onClick={handleUpdateDetails} className="mt-4 w-full px-4 py-2 text-sm rounded bg-indigo-600 hover:bg-indigo-500 font-semibold">Zapisz Zmiany</button>
+              </div>
+
               <div className="bg-slate-900/40 p-4 rounded-xl">
                 <h3 className="font-bold text-lg mb-3 text-gray-200">Akcje na Postaci</h3>
                 <div className="grid grid-cols-2 gap-2">

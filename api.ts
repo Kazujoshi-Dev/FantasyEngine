@@ -1,10 +1,6 @@
-
-import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './types';
+import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './src/types';
 
 const API_URL = '/api';
-
-// Variable to store the difference between client clock and server clock (in ms)
-let serverTimeOffset = 0;
 
 export const getAuthToken = () => localStorage.getItem('token');
 
@@ -56,34 +52,11 @@ export const api = {
     getGameData: (): Promise<GameData> => fetchApi('/game-data'),
     updateGameData: (key: string, data: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key, data }) }),
     updateGameSettings: (settings: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key: 'settings', data: settings }) }),
-    
-    /**
-     * Synchronizes client clock with server clock taking network latency into account.
-     * Algorithm:
-     * 1. Capture client start time (t0)
-     * 2. Get server time
-     * 3. Capture client end time (t1)
-     * 4. Latency ~= (t1 - t0) / 2
-     * 5. Estimated Server Time at t1 = ServerTimeResponse + Latency
-     * 6. Offset = Estimated Server Time - Client Time (t1)
-     */
     synchronizeTime: async () => {
-        const start = Date.now();
-        const response = await fetchApi('/time');
-        const end = Date.now();
-        
-        const serverTime = response.time;
-        const latency = (end - start) / 2;
-        
-        // Calculate the offset needed to add to client time to match server time
-        serverTimeOffset = (serverTime + latency) - end;
-        
-        console.log(`Time synchronized. Server time: ${new Date(serverTime).toLocaleTimeString()}, Offset: ${serverTimeOffset.toFixed(0)}ms, Latency: ${latency.toFixed(0)}ms`);
-        return serverTimeOffset; 
+        await fetchApi('/time'); // Ping for now
+        return 0; 
     },
-    
-    // Returns the estimated current time on the server
-    getServerTime: () => Date.now() + serverTimeOffset,
+    getServerTime: () => Date.now(),
 
     // Character
     getCharacter: (): Promise<PlayerCharacter> => fetchApi('/character'),
@@ -193,6 +166,7 @@ export const api = {
     resetCharacterProgress: (id: number) => fetchApi(`/admin/characters/${id}/reset-progress`, { method: 'POST' }),
     adminHealCharacter: (id: number) => fetchApi(`/admin/characters/${id}/heal`, { method: 'POST' }),
     updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/character/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
+    updateCharacterDetails: (id: number, data: { race?: string, characterClass?: string, level?: number }) => fetchApi(`/admin/character/${id}/update-details`, { method: 'POST', body: JSON.stringify(data) }),
     regenerateCharacterEnergy: (id: number) => fetchApi(`/admin/characters/${id}/regenerate-energy`, { method: 'POST' }),
     changeUserPassword: (id: number, newPass: string) => fetchApi(`/admin/users/${id}/password`, { method: 'POST', body: JSON.stringify({ newPassword: newPass }) }),
     inspectCharacter: (id: number) => fetchApi(`/admin/characters/${id}/inspect`),
