@@ -2,8 +2,9 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, EssenceType } from '../types.js';
+import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
+import { processCompletedExpedition } from '../logic/expeditions.js';
 
 const router = express.Router();
 
@@ -284,6 +285,290 @@ router.get('/characters/names', authenticateToken, async (req, res) => {
         res.json(names);
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch names' });
+    }
+});
+
+// --- MISSING ENDPOINTS RESTORED BELOW ---
+
+// POST /api/character/equip
+router.post('/character/equip', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) return res.status(404).json({ message: 'Character not found' });
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        
+        if (itemIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item not found in inventory' });
+        }
+
+        const itemToEquip = character.inventory[itemIndex];
+        
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates = gameDataRes.rows[0]?.data || [];
+        const template = itemTemplates.find((t: any) => t.id === itemToEquip.templateId);
+
+        if (!template) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Invalid item template' });
+        }
+
+        // Handle Consumables
+        if (template.slot === 'consumable') {
+            // Simplified consumable logic (e.g. health potion)
+            // In a real game, check template.effectType
+            // For now, assume standard health potion if name contains 'Health' or similar
+            // OR just return error if not implemented
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Consumables not implemented yet via equip endpoint.' });
+        }
+
+        // Unequip existing item in slot
+        let slotToEquip = template.slot as EquipmentSlot;
+        
+        // Handle Rings
+        if (template.slot === 'ring') {
+             if (!character.equipment[EquipmentSlot.Ring1]) slotToEquip = EquipmentSlot.Ring1;
+             else if (!character.equipment[EquipmentSlot.Ring2]) slotToEquip = EquipmentSlot.Ring2;
+             else slotToEquip = EquipmentSlot.Ring1; // Swap Ring1 by default
+        }
+        
+        // Handle 2H Weapons
+        if (template.slot === 'twoHand') {
+             slotToEquip = EquipmentSlot.TwoHand;
+             // Must unequip MainHand and OffHand if present
+             if (character.equipment[EquipmentSlot.MainHand]) {
+                 character.inventory.push(character.equipment[EquipmentSlot.MainHand]!);
+                 character.equipment[EquipmentSlot.MainHand] = null;
+             }
+             if (character.equipment[EquipmentSlot.OffHand]) {
+                 character.inventory.push(character.equipment[EquipmentSlot.OffHand]!);
+                 character.equipment[EquipmentSlot.OffHand] = null;
+             }
+        }
+
+        // Handle 1H/Offhand replacing 2H
+        if ((template.slot === 'mainHand' || template.slot === 'offHand') && character.equipment[EquipmentSlot.TwoHand]) {
+             character.inventory.push(character.equipment[EquipmentSlot.TwoHand]!);
+             character.equipment[EquipmentSlot.TwoHand] = null;
+        }
+
+        const existingItem = character.equipment[slotToEquip];
+        if (existingItem) {
+            character.inventory.push(existingItem);
+        }
+
+        character.equipment[slotToEquip] = itemToEquip;
+        character.inventory.splice(itemIndex, 1);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to equip item' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/character/unequip
+router.post('/character/unequip', authenticateToken, async (req: any, res: any) => {
+    const { slot } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        const itemToUnequip = character.equipment[slot as EquipmentSlot];
+        if (!itemToUnequip) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'No item in that slot' });
+        }
+
+        if (character.inventory.length >= getBackpackCapacity(character)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Inventory is full' });
+        }
+
+        character.inventory.push(itemToUnequip);
+        character.equipment[slot as EquipmentSlot] = null;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to unequip item' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/expedition/start
+router.post('/expedition/start', authenticateToken, async (req: any, res: any) => {
+    const { expeditionId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.activeExpedition) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Already on an expedition' });
+        }
+        
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
+        const expeditions = gameDataRes.rows[0]?.data || [];
+        const expedition = expeditions.find((e: any) => e.id === expeditionId);
+
+        if (!expedition) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Expedition not found' });
+        }
+
+        if (character.resources.gold < expedition.goldCost) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough gold' });
+        }
+        if (character.stats.currentEnergy < expedition.energyCost) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough energy' });
+        }
+
+        character.resources.gold -= expedition.goldCost;
+        character.stats.currentEnergy -= expedition.energyCost;
+        
+        character.activeExpedition = {
+            expeditionId,
+            finishTime: Date.now() + (expedition.duration * 1000),
+            enemies: [], // populated on completion
+            combatLog: [],
+            rewards: { gold: 0, experience: 0 }
+        };
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to start expedition' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/expedition/complete
+router.post('/expedition/complete', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.activeExpedition) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'No active expedition' });
+        }
+
+        if (Date.now() < character.activeExpedition.finishTime) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Expedition not finished yet' });
+        }
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data");
+        const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
+
+        // Fetch Guild Building Levels (if any)
+        let barracksLevel = 0;
+        let scoutHouseLevel = 0;
+        let shrineLevel = 0;
+
+        if (character.guildId) {
+            const guildRes = await client.query('SELECT buildings FROM guilds WHERE id = $1', [character.guildId]);
+            if (guildRes.rows.length > 0) {
+                const buildings = guildRes.rows[0].buildings || {};
+                barracksLevel = buildings.barracks || 0;
+                scoutHouseLevel = buildings.scoutHouse || 0;
+                shrineLevel = buildings.shrine || 0;
+            }
+        }
+
+        const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel, shrineLevel);
+        
+        // Update guild building levels on character for client-side display (optional sync)
+        updatedCharacter.guildBarracksLevel = barracksLevel;
+        updatedCharacter.guildShrineLevel = shrineLevel;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user.id]);
+        
+        // Save report message
+        const messageRes = await client.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
+             VALUES ($1, 'System', 'expedition_report', $2, $3) RETURNING id`,
+            [req.user.id, `Raport z Wyprawy: ${expeditionName}`, JSON.stringify(summary)]
+        );
+
+        await client.query('COMMIT');
+        
+        res.json({ updatedCharacter, summary, messageId: messageRes.rows[0].id });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to complete expedition' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/expedition/cancel
+router.post('/expedition/cancel', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.activeExpedition) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'No active expedition' });
+        }
+
+        // Refund resources logic (optional, here implemented)
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
+        const expeditions = gameDataRes.rows[0]?.data || [];
+        const expedition = expeditions.find((e: any) => e.id === character.activeExpedition!.expeditionId);
+
+        if (expedition) {
+            character.resources.gold += expedition.goldCost;
+            character.stats.currentEnergy += expedition.energyCost;
+        }
+
+        character.activeExpedition = null;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to cancel expedition' });
+    } finally {
+        client.release();
     }
 });
 
