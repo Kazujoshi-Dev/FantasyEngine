@@ -1,6 +1,10 @@
+
 import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './types';
 
 const API_URL = '/api';
+
+// Zmienna przechowująca różnicę czasu między klientem a serwerem
+let serverTimeOffset = 0;
 
 export const getAuthToken = () => localStorage.getItem('token');
 
@@ -52,11 +56,33 @@ export const api = {
     getGameData: (): Promise<GameData> => fetchApi('/game-data'),
     updateGameData: (key: string, data: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key, data }) }),
     updateGameSettings: (settings: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key: 'settings', data: settings }) }),
+    
+    // Time Synchronization
     synchronizeTime: async () => {
-        await fetchApi('/time'); // Ping for now
-        return 0; 
+        const start = Date.now();
+        try {
+            const response = await fetchApi('/time');
+            const end = Date.now();
+            // Obliczamy opóźnienie sieci (zakładamy symetrię: połowa czasu podróży)
+            const latency = (end - start) / 2;
+            const serverTime = response.time;
+            
+            // Obliczamy różnicę: Czas Serwera - Czas Lokalny
+            // serverTimeOffset pozwala nam potem uzyskać czas serwera dodając go do Date.now()
+            // Formuła: Oczekiwany Czas Klienta = Czas Serwera + Latency
+            // Offset = (Czas Serwera + Latency) - Czas Końcowy Klienta
+            serverTimeOffset = serverTime - (end - latency);
+            
+            console.log(`Time synchronized. Offset: ${serverTimeOffset.toFixed(2)}ms, Latency: ${latency.toFixed(2)}ms`);
+            return serverTimeOffset;
+        } catch (e) {
+            console.warn("Time synchronization failed, using local time.", e);
+            return 0;
+        }
     },
-    getServerTime: () => Date.now(),
+    
+    // Zwraca szacowany czas serwera
+    getServerTime: () => Date.now() + serverTimeOffset,
 
     // Character
     getCharacter: (): Promise<PlayerCharacter> => fetchApi('/character'),

@@ -108,14 +108,50 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// Update Character (Sync)
+// Update Character (Partial Update / Merge)
 router.put('/character', authenticateToken, async (req: any, res: any) => {
-    const character = req.body;
+    const updates = req.body;
+    const client = await pool.connect();
+    
     try {
-        await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
-        res.json(character);
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+
+        const currentData = charRes.rows[0].data;
+        
+        // Deep merge logic (simplified for top-level keys + settings, but robust enough for current usage)
+        const updatedData = {
+            ...currentData,
+            ...updates,
+            // Ensure we don't accidentally overwrite nested objects with partials if updates contains them shallowly
+            // (Though in this specific case, App.tsx sends flat updates mostly. For 'settings', we might need care)
+            settings: {
+                ...currentData.settings,
+                ...(updates.settings || {})
+            }
+        };
+
+        // Specific logic for isResting toggle to snapshot health
+        if (updates.isResting === true && !currentData.isResting) {
+            updatedData.restStartHealth = currentData.stats.currentHealth;
+            updatedData.lastRestTime = Date.now();
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(updatedData), req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(updatedData);
     } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Update character error:", err);
         res.status(500).json({ message: 'Failed to update character' });
+    } finally {
+        client.release();
     }
 });
 
