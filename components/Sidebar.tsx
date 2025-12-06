@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { BarChartIcon } from './icons/BarChartIcon';
@@ -96,24 +97,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, playe
       Tab.University, Tab.Messages, Tab.Options, Tab.Admin
   ];
 
-  const order = settings?.sidebarOrder && settings.sidebarOrder.length > 0 ? settings.sidebarOrder : defaultOrder;
+  // Determine the base order from settings or default
+  const savedOrder = settings?.sidebarOrder && settings.sidebarOrder.length > 0 ? settings.sidebarOrder : defaultOrder;
   
-  if (!order.includes(Tab.Hunting)) {
-      const adminIndex = order.indexOf(Tab.Admin);
-      if (adminIndex !== -1) order.splice(adminIndex, 0, Tab.Hunting);
-      else order.push(Tab.Hunting);
-  }
+  // Clone to avoid mutation of props/state
+  const order = [...savedOrder];
 
-  if (!order.includes(Tab.Guild)) {
-      const tavernIndex = order.indexOf(Tab.Tavern);
-      if (tavernIndex !== -1) {
-          order.splice(tavernIndex + 1, 0, Tab.Guild);
-      } else {
+  // ROBUSTNESS FIX: Ensure ALL tabs from defaultOrder are present in the final list.
+  // This fixes the issue where a database save with missing tabs (e.g. from older version or corruption)
+  // causes users to lose access to features like Guilds, Hunting or University.
+  defaultOrder.forEach(tab => {
+      if (!order.includes(tab)) {
+          // If Tab.Admin is in the list, insert new tabs BEFORE it. Otherwise push to end.
           const adminIndex = order.indexOf(Tab.Admin);
-          if (adminIndex !== -1) order.splice(adminIndex, 0, Tab.Guild);
-          else order.push(Tab.Guild);
+          if (adminIndex !== -1) {
+              order.splice(adminIndex, 0, tab);
+          } else {
+              order.push(tab);
+          }
       }
-  }
+  });
 
   const visibleMenuItems = order
     .filter(tabId => menuItemsConfig[tabId]) 

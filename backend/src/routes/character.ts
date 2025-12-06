@@ -2,7 +2,7 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff } from '../types.js';
+import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff, CharacterStats } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js'; // Import stats calculator
@@ -116,6 +116,114 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
         res.json(character);
     } catch (err) {
         res.status(500).json({ message: 'Failed to update character' });
+    }
+});
+
+// Distribute Stat Points (Fix for "Unknown Error")
+router.post('/character/stats', authenticateToken, async (req: any, res: any) => {
+    const { stats } = req.body; // Partial<CharacterStats> containing deltas
+    
+    if (!stats) return res.status(400).json({ message: 'Missing stats data' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Character not found' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        let totalPointsSpent = 0;
+        const allowedStats = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+
+        for (const [key, value] of Object.entries(stats)) {
+            if (!allowedStats.includes(key)) continue;
+            const points = Number(value);
+            if (isNaN(points) || points < 0) {
+                 await client.query('ROLLBACK');
+                 return res.status(400).json({ message: 'Invalid stat value' });
+            }
+            totalPointsSpent += points;
+        }
+
+        if (character.stats.statPoints < totalPointsSpent) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough stat points' });
+        }
+
+        // Apply updates
+        for (const [key, value] of Object.entries(stats)) {
+            if (allowedStats.includes(key)) {
+                (character.stats as any)[key] = ((character.stats as any)[key] || 0) + Number(value);
+            }
+        }
+        character.stats.statPoints -= totalPointsSpent;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Stat distribution error:", err);
+        res.status(500).json({ message: 'Failed to distribute stats' });
+    } finally {
+        client.release();
+    }
+});
+
+// Reset Attributes
+router.post('/character/stats/reset', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Character not found' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        const isFreeReset = !character.freeStatResetUsed;
+        const resetCost = 100 * character.level;
+
+        if (!isFreeReset && character.resources.gold < resetCost) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold' });
+        }
+
+        // Calculate total points to return
+        // 10 base points + (level - 1)
+        const totalPoints = 10 + (character.level - 1);
+        
+        // Reset stats to 0
+        character.stats.strength = 0;
+        character.stats.agility = 0;
+        character.stats.accuracy = 0;
+        character.stats.stamina = 0;
+        character.stats.intelligence = 0;
+        character.stats.energy = 0;
+        character.stats.luck = 0;
+        
+        character.stats.statPoints = totalPoints;
+
+        if (!isFreeReset) {
+            character.resources.gold -= resetCost;
+        }
+        character.freeStatResetUsed = true;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Stat reset error:", err);
+        res.status(500).json({ message: 'Failed to reset stats' });
+    } finally {
+        client.release();
     }
 });
 
@@ -299,6 +407,58 @@ router.post('/character/upgrade-backpack', authenticateToken, async (req: any, r
     }
 });
 
+// Upgrade Camp
+router.post('/character/camp/upgrade', authenticateToken, async (req: any, res: any) => {
+     const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Init camp if missing
+        if (!character.camp) character.camp = { level: 1 };
+        const currentLevel = character.camp.level || 1;
+
+        if(currentLevel >= 10) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Camp is already at max level' });
+        }
+        
+        // Camp upgrade cost logic duplicated here for backend validation
+        const goldCost = Math.floor(150 * Math.pow(currentLevel, 1.5));
+        const essenceCosts: { type: EssenceType, amount: number }[] = [];
+        if (currentLevel >= 5 && currentLevel <= 7) essenceCosts.push({ type: EssenceType.Common, amount: (currentLevel - 4) * 2 });
+        if (currentLevel >= 8) essenceCosts.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: currentLevel - 7 });
+
+         // Check Gold
+        if ((character.resources.gold || 0) < goldCost) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); 
+        }
+        // Check Essences
+        for (const e of essenceCosts) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                 await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough ${e.type}` }); 
+            }
+        }
+
+        // Deduct & Upgrade
+        character.resources.gold -= goldCost;
+        for (const e of essenceCosts) character.resources[e.type] -= e.amount;
+        character.camp.level = currentLevel + 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Upgrade failed' });
+    } finally {
+        client.release();
+    }
+});
+
 // Route to get character names for compose message autocomplete
 router.get('/characters/names', authenticateToken, async (req, res) => {
     try {
@@ -350,10 +510,6 @@ router.post('/character/heal', authenticateToken, async (req, res) => {
         client.release();
     }
 });
-
-// ... (equip, unequip, expedition start/complete/cancel routes - same as original)
-// REPEATING ONLY THE CHANGED FILE CONTENT STRUCTURE ABOVE, ASSUMING REST OF FILE IS UNCHANGED OR CONTEXT IS PROVIDED
-// NOTE: I am re-emitting the rest of the file content to be safe as per "Full content of file" instruction.
 
 // POST /api/character/equip
 router.post('/character/equip', authenticateToken, async (req: any, res: any) => {
@@ -642,6 +798,146 @@ router.post('/expedition/cancel', authenticateToken, async (req: any, res: any) 
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to cancel expedition' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /character/skills/learn
+router.post('/character/skills/learn', authenticateToken, async (req: any, res: any) => {
+    const { skillId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
+        const skills: any[] = gameDataRes.rows[0]?.data || [];
+        const skill = skills.find(s => s.id === skillId);
+
+        if (!skill) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Skill not found' }); }
+
+        // Check if already learned
+        if (character.learnedSkills && character.learnedSkills.includes(skillId)) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Skill already learned' });
+        }
+
+        // Validate Requirements
+        if (skill.requirements) {
+            if (character.level < (skill.requirements.level || 0)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Level too low' }); }
+            const stats: any = character.stats;
+            for (const stat of ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy']) {
+                if (stats[stat] < (skill.requirements[stat] || 0)) {
+                    await client.query('ROLLBACK'); return res.status(400).json({ message: `Insufficient ${stat}` });
+                }
+            }
+        }
+
+        // Validate Costs
+        if (skill.cost) {
+            if ((character.resources.gold || 0) < (skill.cost.gold || 0)) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); }
+            for (const type of Object.values(EssenceType)) {
+                if ((character.resources[type] || 0) < (skill.cost[type] || 0)) {
+                     await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough ${type}` });
+                }
+            }
+        }
+
+        // Deduct Cost
+        if (skill.cost) {
+            character.resources.gold -= (skill.cost.gold || 0);
+            for (const type of Object.values(EssenceType)) {
+                 if (skill.cost[type]) character.resources[type] -= skill.cost[type];
+            }
+        }
+
+        // Learn Skill
+        if (!character.learnedSkills) character.learnedSkills = [];
+        character.learnedSkills.push(skillId);
+
+        // If passive, apply effect immediately if applicable (e.g. static stat bonus not handled by derivedStats)
+        // For now, derivedStats handles passives.
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to learn skill' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /character/skills/toggle
+router.post('/character/skills/toggle', authenticateToken, async (req: any, res: any) => {
+    const { skillId, isActive } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.learnedSkills || !character.learnedSkills.includes(skillId)) {
+            await client.query('ROLLBACK'); return res.status(400).json({ message: 'Skill not learned' });
+        }
+        
+        // Ensure activeSkills array exists
+        if (!character.activeSkills) character.activeSkills = [];
+
+        if (isActive) {
+            if (!character.activeSkills.includes(skillId)) {
+                character.activeSkills.push(skillId);
+            }
+        } else {
+            character.activeSkills = character.activeSkills.filter(id => id !== skillId);
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to toggle skill' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /character/class
+router.post('/character/class', authenticateToken, async (req: any, res: any) => {
+    const { characterClass } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Character not found' }); }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.level < 10) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Level 10 required' });
+        }
+        if (character.characterClass) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Class already selected' });
+        }
+        
+        // Validate class against race (Optional, but good practice)
+        // ... (validation logic here based on Race enum)
+
+        character.characterClass = characterClass;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch(err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to select class' });
     } finally {
         client.release();
     }
