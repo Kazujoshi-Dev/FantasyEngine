@@ -4,6 +4,7 @@ import { Guild, EssenceType, GuildRole } from '../../types';
 import { api } from '../../api';
 import { rarityStyles } from '../shared/ItemSlot';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { StarIcon } from '../icons/StarIcon'; // Ensure StarIcon is imported
 
 const essenceToRarityMap: Record<EssenceType, any> = {
     [EssenceType.Common]: rarityStyles['Common'],
@@ -186,8 +187,24 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate
 
             {/* 2. Scrollable Content Area */}
             <div className="flex-grow overflow-y-auto pr-2 pb-2">
+                
+                {/* Lore Description */}
+                <div className="bg-slate-900/40 p-4 rounded-xl border border-purple-900/20 mb-6 text-center">
+                    <h3 className="text-purple-400 font-bold text-lg mb-2 flex items-center justify-center gap-2">
+                        <StarIcon className="h-5 w-5" />
+                        Ołtarz Mroku
+                        <StarIcon className="h-5 w-5" />
+                    </h3>
+                    <p className="text-gray-400 text-sm italic leading-relaxed max-w-3xl mx-auto">
+                        W sercu gildyjnej siedziby, spowity wiecznym cieniem, stoi Ołtarz.
+                        To tutaj, poprzez starożytne rytuały i ofiary z rzadkich esencji,
+                        przywołujecie potężne błogosławieństwa wzmacniające całe bractwo.
+                        Pamiętajcie jednak – moc zawsze wymaga ofiary.
+                    </p>
+                </div>
+
                 {isTierLocked ? (
-                    <div className="flex flex-col items-center justify-center h-full bg-slate-900/30 rounded-xl border-2 border-slate-800 border-dashed opacity-70">
+                    <div className="flex flex-col items-center justify-center h-64 bg-slate-900/30 rounded-xl border-2 border-slate-800 border-dashed opacity-70">
                         <span className="text-5xl mb-4 grayscale">🔒</span>
                         <h4 className="text-xl font-bold text-gray-400 mb-2">Wtajemniczenie {activeTier} jest zablokowane</h4>
                         <p className="text-gray-500">Wymagany poziom budynku Ołtarza Mroku: <span className="text-white font-bold">{activeTier}</span></p>
