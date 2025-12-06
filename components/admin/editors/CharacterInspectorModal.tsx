@@ -33,7 +33,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
   const [editClass, setEditClass] = useState<string>('');
   const [editLevel, setEditLevel] = useState<string>('1');
 
-  const fetchCharacter = useCallback(async () => {
+  const fetchCharacter = useCallback(async (resetForm: boolean = true) => {
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -41,33 +41,38 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
       if (!charData) throw new Error("Puste dane postaci");
       
       setFullCharacter(charData);
-      // Safe access with optional chaining
-      setGoldAmount(String(charData.resources?.gold || 0));
       
-      // Init edit fields safely
-      setEditRace(charData.race || Race.Human);
-      setEditClass(charData.characterClass || '');
-      setEditLevel(String(charData.level || 1));
+      // Reset form fields ONLY if explicitly requested (e.g. initial load)
+      // This prevents overwriting user input when refreshing data after an action
+      if (resetForm) {
+          // Safe access with optional chaining
+          setGoldAmount(String(charData.resources?.gold || 0));
+          
+          // Init edit fields safely
+          setEditRace(charData.race || Race.Human);
+          setEditClass(charData.characterClass || '');
+          setEditLevel(String(charData.level || 1));
+      }
 
     } catch (err: any) {
       setLoadError(err.message || "Błąd ładowania");
-      // Even on error, we might want to allow soft reset if backend lets us, 
-      // but typically inspect needs to work first. 
-      // However, if inspect fails due to parsing, we can't do much in UI except generic actions.
     } finally {
       setIsLoading(false);
     }
   }, [props.onInspectCharacter, props.characterInfo.user_id]);
 
   useEffect(() => {
-    fetchCharacter();
-  }, [fetchCharacter]);
+    // Only fetch on mount or if user ID changes.
+    // We intentionally exclude fetchCharacter from deps to prevent re-fetching when parent re-renders.
+    fetchCharacter(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.characterInfo.user_id]);
 
   const handleAction = async (action: (userId: number) => void | Promise<void>) => {
     if(window.confirm('Czy na pewno chcesz wykonać tę akcję?')) {
         await action(props.characterInfo.user_id);
         alert('Akcja wykonana pomyślnie.');
-        fetchCharacter(); // Refresh data
+        fetchCharacter(false); // Refresh data but keep form input
     }
   };
 
@@ -76,7 +81,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
           try {
               await api.softResetCharacter(props.characterInfo.user_id);
               alert('Postać została naprawiona.');
-              fetchCharacter();
+              fetchCharacter(true);
           } catch (e: any) {
               alert(e.message);
           }
@@ -89,7 +94,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
               try {
                   await props.onResetCharacterProgress(props.characterInfo.user_id);
                   alert('Postęp postaci został zresetowany.');
-                  fetchCharacter();
+                  fetchCharacter(true);
               } catch(e: any) {
                   alert(e.message);
               }
@@ -118,7 +123,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
       if (window.confirm(`Ustawić złoto dla ${props.characterInfo.name} na ${gold}?`)) {
           await props.onUpdateCharacterGold(props.characterInfo.user_id, gold);
           alert('Złoto zaktualizowane.');
-          fetchCharacter();
+          fetchCharacter(false);
       }
   };
   
@@ -131,7 +136,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
                   level: parseInt(editLevel, 10)
               });
               alert('Dane postaci zaktualizowane.');
-              fetchCharacter();
+              fetchCharacter(true); // Reset form with new values from server
           } catch(e: any) {
               alert(e.message);
           }
