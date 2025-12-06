@@ -186,4 +186,5 @@ export const api = {
     getDbTableData: (table: string, page: number, limit: number) => fetchApi(`/admin/db/table/${table}?page=${page}&limit=${limit}`),
     updateDbRow: (table: string, data: any) => fetchApi(`/admin/db/table/${table}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDbRow: (table: string, primaryKeyValue: any) => fetchApi(`/admin/db/table/${table}`, { method: 'DELETE', body: JSON.stringify({ primaryKeyValue }) }),
+    softResetCharacter: (id: number) => fetchApi(`/admin/characters/${id}/soft-reset`, { method: 'POST' }),
 };

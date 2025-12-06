@@ -24,8 +24,9 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
   const { t } = useTranslation();
   const [fullCharacter, setFullCharacter] = useState<PlayerCharacter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
-  const [goldAmount, setGoldAmount] = useState<string>(String(props.characterInfo.gold || 0));
+  const [goldAmount, setGoldAmount] = useState<string>('0');
 
   // Edit details state
   const [editRace, setEditRace] = useState<Race>(Race.Human);
@@ -34,18 +35,25 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
 
   const fetchCharacter = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const charData = await props.onInspectCharacter(props.characterInfo.user_id);
-      setFullCharacter(charData);
-      setGoldAmount(String(charData.resources.gold || 0));
+      if (!charData) throw new Error("Puste dane postaci");
       
-      // Init edit fields
-      setEditRace(charData.race);
+      setFullCharacter(charData);
+      // Safe access with optional chaining
+      setGoldAmount(String(charData.resources?.gold || 0));
+      
+      // Init edit fields safely
+      setEditRace(charData.race || Race.Human);
       setEditClass(charData.characterClass || '');
-      setEditLevel(String(charData.level));
+      setEditLevel(String(charData.level || 1));
 
-    } catch (err) {
-      alert((err as Error).message);
+    } catch (err: any) {
+      setLoadError(err.message || "Błąd ładowania");
+      // Even on error, we might want to allow soft reset if backend lets us, 
+      // but typically inspect needs to work first. 
+      // However, if inspect fails due to parsing, we can't do much in UI except generic actions.
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +69,18 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
         alert('Akcja wykonana pomyślnie.');
         fetchCharacter(); // Refresh data
     }
+  };
+
+  const handleSoftReset = async () => {
+      if (window.confirm(`NAPRAWA (SOFT RESET): To przywróci postać do poziomu 1 i zresetuje statystyki do bezpiecznych wartości, ale ZACHOWA ekwipunek i złoto. Użyj tego, jeśli postać jest zbugowana.`)) {
+          try {
+              await api.softResetCharacter(props.characterInfo.user_id);
+              alert('Postać została naprawiona.');
+              fetchCharacter();
+          } catch (e: any) {
+              alert(e.message);
+          }
+      }
   };
 
   const handleResetProgress = async () => {
@@ -135,7 +155,7 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
       <div className="space-y-1 max-h-60 overflow-y-auto bg-slate-800/50 p-2 rounded-md">
         {items.filter((i): i is ItemInstance => i !== null).map(item => {
           const template = props.gameData.itemTemplates.find(t => t.id === item.templateId);
-          if (!template) return null;
+          if (!template) return <div key={item.uniqueId} className="text-red-500 text-xs">Błąd: Brak szablonu ({item.templateId})</div>;
           return (
             <div key={item.uniqueId} className="flex items-center gap-2">
               <div className="flex-grow">
@@ -150,13 +170,26 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
     </div>
   );
 
+  // Defensive check for character data
+  const hasData = !!fullCharacter;
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={props.onClose}>
       <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-indigo-400">{t('admin.characterInspector.title', { characterName: props.characterInfo.name })}</h2>
         
-        {isLoading ? <p>Ładowanie...</p> : fullCharacter ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {isLoading && <p>Ładowanie...</p>}
+        
+        {loadError && (
+            <div className="bg-red-900/50 p-4 rounded border border-red-700 mb-4">
+                <p className="font-bold text-red-300">Błąd odczytu postaci: {loadError}</p>
+                <p className="text-sm text-gray-400">Postać może być uszkodzona. Spróbuj użyć "Soft Reset".</p>
+                <button onClick={handleSoftReset} className="mt-2 px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-white font-bold">Napraw (Soft Reset)</button>
+            </div>
+        )}
+
+        {/* Render UI even if partial data, using fallbacks */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Actions & Account */}
             <div className="space-y-6">
               
@@ -190,7 +223,11 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
                   <button onClick={() => handleAction(props.onHealCharacter)} className="px-3 py-2 text-sm rounded bg-green-700 hover:bg-green-600">Ulecz</button>
                   <button onClick={() => handleAction(props.onRegenerateCharacterEnergy)} className="px-3 py-2 text-sm rounded bg-sky-700 hover:bg-sky-600">Zregeneruj Energię</button>
                   <button onClick={() => handleAction(props.onResetCharacterStats)} className="px-3 py-2 text-sm rounded bg-amber-700 hover:bg-amber-600">Resetuj Statystyki</button>
-                  <button onClick={handleResetProgress} className="px-3 py-2 text-sm rounded bg-orange-800 hover:bg-orange-700 font-bold text-orange-100 border border-orange-600">Resetuj Postępy (Hard)</button>
+                  
+                  {/* NEW SOFT RESET BUTTON */}
+                  <button onClick={handleSoftReset} className="px-3 py-2 text-sm rounded bg-emerald-700 hover:bg-emerald-600 font-bold text-white border border-emerald-500" title="Resetuje poziom do 1 i naprawia strukturę, ale zachowuje przedmioty.">Naprawa (Soft Reset)</button>
+
+                  <button onClick={handleResetProgress} className="px-3 py-2 text-sm rounded bg-orange-800 hover:bg-orange-700 font-bold text-orange-100 border border-orange-600">Wyczyść wszystko (Hard)</button>
                   <button onClick={() => handleAction(props.onDeleteCharacter)} className="px-3 py-2 text-sm rounded bg-red-800 hover:bg-red-700 col-span-2 mt-2 border border-red-600">Usuń Postać</button>
                 </div>
               </div>
@@ -212,13 +249,18 @@ export const CharacterInspectorModal: React.FC<CharacterInspectorModalProps> = (
               </div>
             </div>
 
-            {/* Right Column: Items */}
+            {/* Right Column: Items - Only render if data is present to avoid crashes */}
             <div className="bg-slate-900/40 p-4 rounded-xl space-y-4">
-               {renderItemList(t('admin.characterInspector.equipment'), Object.values(fullCharacter.equipment))}
-               {renderItemList(t('admin.characterInspector.inventory'), fullCharacter.inventory)}
+               {hasData ? (
+                   <>
+                    {renderItemList(t('admin.characterInspector.equipment'), Object.values(fullCharacter!.equipment || {}))}
+                    {renderItemList(t('admin.characterInspector.inventory'), fullCharacter!.inventory || [])}
+                   </>
+               ) : (
+                   <p className="text-gray-500 italic text-center">Brak danych przedmiotów (uszkodzona postać?)</p>
+               )}
             </div>
           </div>
-        ) : <p>Nie można załadować danych postaci.</p>}
         
         <div className="text-right mt-6">
           <button onClick={props.onClose} className="px-6 py-2 rounded-lg bg-slate-600 hover:bg-slate-700 font-semibold">Zamknij</button>
