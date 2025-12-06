@@ -96,7 +96,7 @@ export default {
         critChance: 'Szansa na Trafienie Krytyczne',
         manaRegen: 'Regeneracja many na turę',
         nextEnergyIn: 'Następny za {time}',
-        itemBonusNote: 'Zielone wartości w nawiasach to bonusy z założonych przedmiotów.',
+        itemBonusNote: 'Zielone wartości w nawiasach to bonusy z założonych przedmiotów i bonusów.',
         critDamageModifier: 'Modyfikator Obr. Kryt.',
         critDamageModifierDesc: 'Mnożnik obrażeń zadawanych przy trafieniu krytycznym. Bazowo 200%.',
         healthDesc: 'Twoje całkowite punkty zdrowia. Zwiększa się wraz z Wytrzymałością i bonusami z przedmiotów. Regeneruje się podczas odpoczynku w obozie.',
