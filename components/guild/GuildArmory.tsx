@@ -206,17 +206,17 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
             {/* Borrowed Items Management (Leader/Officer/Owner view) */}
             {(canManage || (userId && armoryData.borrowedItems.some(i => i.ownerId === userId))) && (
-                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col max-h-[600px]">
                     <h3 className="text-lg font-bold text-amber-400 mb-4">Wypożyczone Przedmioty</h3>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto flex-grow">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-900/50 text-gray-400">
+                            <thead className="bg-slate-900/50 text-gray-400 sticky top-0 z-10">
                                 <tr>
-                                    <th className="p-2">Przedmiot</th>
-                                    <th className="p-2">Właściciel</th>
-                                    <th className="p-2">Wypożyczone przez</th>
-                                    <th className="p-2">Data wypożyczenia</th>
-                                    <th className="p-2 text-right">Akcja</th>
+                                    <th className="p-2 bg-slate-900">Przedmiot</th>
+                                    <th className="p-2 bg-slate-900">Właściciel</th>
+                                    <th className="p-2 bg-slate-900">Wypożyczone przez</th>
+                                    <th className="p-2 bg-slate-900">Data wypożyczenia</th>
+                                    <th className="p-2 text-right bg-slate-900">Akcja</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -247,7 +247,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-slate-700">
                         * Liderzy, Oficerowie oraz prawowici właściciele mogą wymusić zwrot przedmiotu do zbrojowni w każdej chwili.
                     </p>
                 </div>
