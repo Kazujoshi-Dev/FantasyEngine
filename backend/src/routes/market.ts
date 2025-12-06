@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -19,20 +20,28 @@ router.get('/listings', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         await processExpiredListings(client);
+        
+        // Updated query: Join characters table instead of users to get character names from JSON data
         const result = await client.query(
-            `SELECT ml.*, u.username as seller_name, highest_bidder.username as highest_bidder_name, COUNT(mb.id) as bid_count
+            `SELECT 
+                ml.*, 
+                c_seller.data->>'name' as seller_name, 
+                c_bidder.data->>'name' as highest_bidder_name, 
+                COUNT(mb.id) as bid_count
              FROM market_listings ml
-             JOIN users u ON ml.seller_id = u.id
-             LEFT JOIN users highest_bidder ON ml.highest_bidder_id = highest_bidder.id
+             JOIN characters c_seller ON ml.seller_id = c_seller.user_id
+             LEFT JOIN characters c_bidder ON ml.highest_bidder_id = c_bidder.user_id
              LEFT JOIN market_bids mb ON ml.id = mb.listing_id
              WHERE ml.status = 'ACTIVE'
-             GROUP BY ml.id, u.username, highest_bidder.username
+             GROUP BY ml.id, c_seller.data, c_bidder.data
              ORDER BY ml.expires_at ASC`
         );
+        
         await client.query('COMMIT');
         res.json(result.rows);
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error(err);
         res.status(500).json({ message: 'Failed to fetch market listings' });
     } finally {
         client.release();
@@ -200,8 +209,22 @@ router.post('/bid', authenticateToken, async (req: any, res: any) => {
         }
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [bidder, bidderId]);
-        const updatedListingRes = await client.query("UPDATE market_listings SET current_bid_price = $1, highest_bidder_id = $2, updated_at = NOW() WHERE id = $3 RETURNING *", [amount, bidderId, listingId]);
+        
+        // Return the updated listing structure, fetching names again to ensure frontend consistency immediately
+        await client.query("UPDATE market_listings SET current_bid_price = $1, highest_bidder_id = $2, updated_at = NOW() WHERE id = $3", [amount, bidderId, listingId]);
         await client.query("INSERT INTO market_bids (listing_id, bidder_id, amount) VALUES ($1, $2, $3)", [listingId, bidderId, amount]);
+        
+        // Re-fetch the listing with names joined for the response
+        const updatedListingRes = await client.query(
+            `SELECT ml.*, c_seller.data->>'name' as seller_name, c_bidder.data->>'name' as highest_bidder_name, COUNT(mb.id) as bid_count
+             FROM market_listings ml
+             JOIN characters c_seller ON ml.seller_id = c_seller.user_id
+             LEFT JOIN characters c_bidder ON ml.highest_bidder_id = c_bidder.user_id
+             LEFT JOIN market_bids mb ON ml.id = mb.listing_id
+             WHERE ml.id = $1
+             GROUP BY ml.id, c_seller.data, c_bidder.data`,
+            [listingId]
+        );
 
         await client.query('COMMIT');
         res.json(updatedListingRes.rows[0]);
