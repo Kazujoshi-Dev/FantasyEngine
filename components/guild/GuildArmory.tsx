@@ -117,17 +117,17 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
     if (loading || !armoryData) return <p className="text-gray-400">Ładowanie zbrojowni...</p>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Armory Contents */}
                 <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center mb-4 flex-shrink-0">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2"><ShieldIcon className="h-5 w-5 text-indigo-400"/> Zbrojownia</h3>
                         <span className="text-sm text-gray-400">{armoryData.armoryItems.length} / {capacity}</span>
                     </div>
                     
                     {/* Filters */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="grid grid-cols-2 gap-2 mb-4 flex-shrink-0">
                         <select className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white" value={filterRarity} onChange={(e) => setFilterRarity(e.target.value as ItemRarity | 'all')}>
                             <option value="all">Wszystkie Rzadkości</option>
                             {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
@@ -183,7 +183,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
                 {/* My Backpack (Deposit) */}
                 <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
-                    <h3 className="text-lg font-bold text-gray-300 mb-4">Mój Plecak (Depozyt)</h3>
+                    <h3 className="text-lg font-bold text-gray-300 mb-4 flex-shrink-0">Mój Plecak (Depozyt)</h3>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                         {myItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów do zdeponowania.</p>}
                         {myItems.map(item => {
@@ -206,35 +206,37 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
             {/* Borrowed Items Management (Leader/Officer/Owner view) */}
             {(canManage || (userId && armoryData.borrowedItems.some(i => i.ownerId === userId))) && (
-                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col max-h-[600px]">
+                <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col mt-6">
                     <h3 className="text-lg font-bold text-amber-400 mb-4">Wypożyczone Przedmioty</h3>
-                    <div className="overflow-auto flex-grow">
+                    
+                    {/* Table Container with Explicit Scroll */}
+                    <div className="overflow-y-auto max-h-[500px] border border-slate-700/50 rounded bg-slate-900/30">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-900/50 text-gray-400 sticky top-0 z-10">
+                            <thead className="bg-slate-900 text-gray-400 sticky top-0 z-10 shadow-md">
                                 <tr>
-                                    <th className="p-2 bg-slate-900">Przedmiot</th>
-                                    <th className="p-2 bg-slate-900">Właściciel</th>
-                                    <th className="p-2 bg-slate-900">Wypożyczone przez</th>
-                                    <th className="p-2 bg-slate-900">Data wypożyczenia</th>
-                                    <th className="p-2 text-right bg-slate-900">Akcja</th>
+                                    <th className="p-3 bg-slate-900 border-b border-slate-700">Przedmiot</th>
+                                    <th className="p-3 bg-slate-900 border-b border-slate-700">Właściciel</th>
+                                    <th className="p-3 bg-slate-900 border-b border-slate-700">Wypożyczone przez</th>
+                                    <th className="p-3 bg-slate-900 border-b border-slate-700">Data</th>
+                                    <th className="p-3 text-right bg-slate-900 border-b border-slate-700">Akcja</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-700/50">
                                 {armoryData.borrowedItems.map((entry, idx) => {
                                     const template = templates.find(t => t.id === entry.item.templateId);
                                     
                                     return (
-                                        <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                                            <td className="p-2">
+                                        <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
+                                            <td className="p-3">
                                                 {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
                                             </td>
-                                            <td className="p-2 text-gray-300">{entry.ownerName}</td>
-                                            <td className="p-2 text-sky-400 font-bold">{entry.borrowedBy}</td>
-                                            <td className="p-2 text-gray-400 text-xs">
+                                            <td className="p-3 text-gray-300">{entry.ownerName}</td>
+                                            <td className="p-3 text-sky-400 font-bold">{entry.borrowedBy}</td>
+                                            <td className="p-3 text-gray-400 text-xs">
                                                 {entry.depositedAt ? new Date(entry.depositedAt).toLocaleString() : '-'}
                                             </td>
-                                            <td className="p-2 text-right">
-                                                <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white">
+                                            <td className="p-3 text-right">
+                                                <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white transition-colors">
                                                     Wymuś Zwrot
                                                 </button>
                                             </td>
@@ -242,12 +244,13 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                     );
                                 })}
                                 {armoryData.borrowedItems.length === 0 && (
-                                    <tr><td colSpan={5} className="p-4 text-center text-gray-500">Brak wypożyczonych przedmiotów.</td></tr>
+                                    <tr><td colSpan={5} className="p-8 text-center text-gray-500 italic">Brak wypożyczonych przedmiotów.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-slate-700">
+                    
+                    <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-slate-700">
                         * Liderzy, Oficerowie oraz prawowici właściciele mogą wymusić zwrot przedmiotu do zbrojowni w każdej chwili.
                     </p>
                 </div>
