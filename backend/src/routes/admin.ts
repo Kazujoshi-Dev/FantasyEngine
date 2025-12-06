@@ -513,11 +513,71 @@ router.post('/messages/global', async (req, res) => {
     }
 });
 
-// ... (audit/duplicates, resolve-duplicates, audit/orphans, resolve-orphans, find-item, audit/fix-*, wipe-game-data, db editor routes from previous file content)
-// Re-pasting them here for completeness of the file if they were cut off, but relying on "existing code" comment is safer if context is limited.
-// Assuming they are present based on "// ... (rest of existing routes: audit, etc.)" comment structure.
+router.post('/audit/fix-characters', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
+        let fixed = 0;
+        
+        for (const row of result.rows) {
+            let character = row.data as PlayerCharacter;
+            let needsUpdate = false;
+            
+            // Check essential fields that cause "lost" state
+            if (!character.name) {
+                // Try to recover name from users table join if possible, but here we just need safe structure
+                // Actually character MUST have a name.
+                // We'll rely on client-side recovery or manual fix if name is gone, but we ensure structure.
+            }
+            
+            if (!character.race || character.race === 'race.null' as any) {
+                character.race = 'Human' as any;
+                needsUpdate = true;
+            }
+            
+            // Init missing objects
+            if (!character.resources) { character.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 }; needsUpdate = true; }
+            if (!character.camp) { character.camp = { level: 1 }; needsUpdate = true; }
+            if (!character.chest) { character.chest = { level: 1, gold: 0 }; needsUpdate = true; }
+            if (!character.backpack) { character.backpack = { level: 1 }; needsUpdate = true; }
+            
+            // Recalculate stats if corrupted
+            if (!character.stats || isNaN(Number(character.stats.maxHealth)) || character.stats.maxHealth <= 0) {
+                 // Reset base stats to level 1 defaults temporarily if totally broken
+                 if(!character.stats) {
+                      character.stats = {
+                        strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0, statPoints: 10 + (character.level - 1),
+                        currentHealth: 50, maxHealth: 50, currentEnergy: 10, maxEnergy: 10, currentMana: 20, maxMana: 20,
+                        minDamage: 0, maxDamage: 0, magicDamageMin: 0, magicDamageMax: 0, critChance: 0, critDamageModifier: 200, armor: 0, armorPenetrationPercent: 0, armorPenetrationFlat: 0,
+                        attacksPerRound: 1, manaRegen: 0, lifeStealPercent: 0, lifeStealFlat: 0, manaStealPercent: 0, manaStealFlat: 0, dodgeChance: 0
+                    };
+                 } else {
+                     // Ensure maxHealth is safe
+                     character.stats.maxHealth = Math.max(50, Number(character.stats.maxHealth) || 50);
+                     character.stats.currentHealth = Math.min(character.stats.currentHealth, character.stats.maxHealth);
+                 }
+                 needsUpdate = true;
+            }
 
-// Full Audit Routes (restored for clarity in XML replacement)
+            if (needsUpdate) {
+                await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [character, row.user_id]);
+                fixed++;
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ checked: result.rows.length, fixed });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Failed to run character audit' });
+    } finally {
+        client.release();
+    }
+});
+
+// ... (existing audit routes for gold, values, attributes, wipe, db editor)
+
+// Audit duplicates route
 router.get('/audit/duplicates', async (req, res) => {
     try {
         // Fetch all characters and Item Templates for name resolution
@@ -858,35 +918,6 @@ router.get('/find-item/:uniqueId', async (req, res) => {
 
     } catch (err: any) {
         res.status(500).json({ message: err.message });
-    }
-});
-
-router.post('/audit/fix-characters', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const result = await client.query("SELECT user_id, data FROM characters FOR UPDATE");
-        let fixed = 0;
-        for (const row of result.rows) {
-            let character = row.data as PlayerCharacter;
-            let needsUpdate = false;
-            if (!character.resources) { character.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 }; needsUpdate = true; }
-            if (!character.camp) { character.camp = { level: 1 }; needsUpdate = true; }
-            if (!character.chest) { character.chest = { level: 1, gold: 0 }; needsUpdate = true; }
-            if (!character.backpack) { character.backpack = { level: 1 }; needsUpdate = true; }
-            // Add other checks here...
-            if (needsUpdate) {
-                await client.query("UPDATE characters SET data = $1 WHERE user_id = $2", [character, row.user_id]);
-                fixed++;
-            }
-        }
-        await client.query('COMMIT');
-        res.json({ checked: result.rows.length, fixed });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to run character audit' });
-    } finally {
-        client.release();
     }
 });
 

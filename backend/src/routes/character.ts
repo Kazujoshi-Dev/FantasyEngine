@@ -5,6 +5,7 @@ import { pool } from '../db.js';
 import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff } from '../types.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
+import { calculateDerivedStatsOnServer } from '../logic/stats.js'; // Import stats calculator
 
 const router = express.Router();
 
@@ -309,7 +310,50 @@ router.get('/characters/names', authenticateToken, async (req, res) => {
     }
 });
 
-// --- MISSING ENDPOINTS RESTORED BELOW ---
+// POST /api/character/heal - Full Heal
+router.post('/character/heal', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Character not found' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        // RECALCULATE maxHealth to ensure it's not corrupted/stale before setting currentHealth
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
+        const safeMaxHealth = derivedChar.stats.maxHealth || 50;
+        const safeMaxMana = derivedChar.stats.maxMana || 20;
+
+        character.stats.currentHealth = safeMaxHealth;
+        character.stats.currentMana = safeMaxMana;
+
+        // Ensure max stats are also synced back to stored object to prevent mismatch
+        character.stats.maxHealth = safeMaxHealth;
+        character.stats.maxMana = safeMaxMana;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Heal error:", err);
+        res.status(500).json({ message: 'Failed to heal character' });
+    } finally {
+        client.release();
+    }
+});
+
+// ... (equip, unequip, expedition start/complete/cancel routes - same as original)
+// REPEATING ONLY THE CHANGED FILE CONTENT STRUCTURE ABOVE, ASSUMING REST OF FILE IS UNCHANGED OR CONTEXT IS PROVIDED
+// NOTE: I am re-emitting the rest of the file content to be safe as per "Full content of file" instruction.
 
 // POST /api/character/equip
 router.post('/character/equip', authenticateToken, async (req: any, res: any) => {
@@ -341,10 +385,6 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
 
         // Handle Consumables
         if (template.slot === 'consumable') {
-            // Simplified consumable logic (e.g. health potion)
-            // In a real game, check template.effectType
-            // For now, assume standard health potion if name contains 'Health' or similar
-            // OR just return error if not implemented
              await client.query('ROLLBACK');
              return res.status(400).json({ message: 'Consumables not implemented yet via equip endpoint.' });
         }
@@ -536,29 +576,16 @@ router.post('/expedition/complete', authenticateToken, async (req: any, res: any
             }
         }
 
-        // IMPORTANT: Update processCompletedExpedition to accept activeGuildBuffs
-        // For now, I will assume I need to pass them or update processCompletedExpedition signature in separate file.
-        // But wait, `processCompletedExpedition` calls `calculateDerivedStatsOnServer`.
-        // So I must pass `activeGuildBuffs` to `processCompletedExpedition`.
-        // Since I cannot change logic/expeditions.ts in this specific change block (different file),
-        // I will modify `calculateDerivedStatsOnServer` to accept extra args and assume `processCompletedExpedition` passes them through
-        // OR I inject buffs into `character` object temporarily if types allow.
-        // Since I modified PlayerCharacter type to include optional activeGuildBuffs, I can set it here!
+        // Inject active buffs into character for calculation
         character.activeGuildBuffs = activeGuildBuffs;
-
-        // NOTE: I also need to update `processCompletedExpedition` in logic/expeditions.ts to pass this down to `calculateDerivedStatsOnServer`.
-        // See below for `logic/expeditions.ts` change.
 
         const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(character, gameData, barracksLevel, scoutHouseLevel, shrineLevel);
         
         // Update guild building levels on character for client-side display (optional sync)
         updatedCharacter.guildBarracksLevel = barracksLevel;
         updatedCharacter.guildShrineLevel = shrineLevel;
-        // activeGuildBuffs are already set on updatedCharacter from character object mutation or return
 
-        // Clean transient property before saving? No, keep it consistent, but usually we don't save transient data.
-        // `activeGuildBuffs` is defined in type but not strictly needed in DB data JSON.
-        // It's better to remove it before saving to keep DB clean.
+        // Clean transient property before saving
         delete updatedCharacter.activeGuildBuffs;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [updatedCharacter, req.user.id]);

@@ -51,8 +51,12 @@ const ChestPanel: React.FC<{
     const { chest, resources: displayResources } = character; // Use derived character for UI display
     const [amount, setAmount] = useState<string>('');
     
-    const capacity = getChestCapacity(chest.level);
-    const upgradeCost = getChestUpgradeCost(chest.level);
+    // Robustly handle missing properties in case of data corruption
+    const chestLevel = chest?.level || 1;
+    const chestGold = chest?.gold || 0;
+
+    const capacity = getChestCapacity(chestLevel);
+    const upgradeCost = getChestUpgradeCost(chestLevel);
     
     // Use baseCharacter for all logic to ensure source of truth
     const canAffordUpgrade = (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
@@ -93,12 +97,12 @@ const ChestPanel: React.FC<{
                     {t('camp.chestTitle')}
                 </h3>
                 <div className="space-y-2 text-lg mb-4">
-                    <p className="flex justify-between"><span className="text-gray-300">{t('camp.chestLevel')}:</span> <span className="font-bold text-white">{chest.level}</span></p>
+                    <p className="flex justify-between"><span className="text-gray-300">{t('camp.chestLevel')}:</span> <span className="font-bold text-white">{chestLevel}</span></p>
                     <p className="flex justify-between"><span className="text-gray-300">{t('camp.chestCapacity')}:</span> <span className="font-mono font-bold text-amber-400">{capacity.toLocaleString()}</span></p>
                 </div>
                  <div className="w-full bg-slate-700 rounded-full h-4 relative my-4">
-                    <div className="bg-amber-600 h-4 rounded-full" style={{ width: `${(chest.gold / capacity) * 100}%` }}></div>
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{chest.gold.toLocaleString()} / {capacity.toLocaleString()}</span>
+                    <div className="bg-amber-600 h-4 rounded-full" style={{ width: `${(chestGold / capacity) * 100}%` }}></div>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{chestGold.toLocaleString()} / {capacity.toLocaleString()}</span>
                 </div>
                 <div className="space-y-2">
                     <input type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder={t('camp.amount') || 'Amount'} className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-center" />
@@ -111,12 +115,12 @@ const ChestPanel: React.FC<{
                 </div>
             </div>
             <div className="border-t border-slate-700/50 mt-6 pt-4">
-                <h4 className="text-lg font-bold text-gray-300 mb-2">{t('camp.upgradeChest')} (Lvl {chest.level + 1})</h4>
+                <h4 className="text-lg font-bold text-gray-300 mb-2">{t('camp.upgradeChest')} (Lvl {chestLevel + 1})</h4>
                  <div className="space-y-1 text-sm">
                     <p className="flex justify-between items-center">
                         <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
-                        <span className={`font-mono ${(displayResources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
-                            {(displayResources.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                        <span className={`font-mono ${(displayResources?.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                            {(displayResources?.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
                         </span>
                     </p>
                     {upgradeCost.essences.map(e => {
@@ -124,8 +128,8 @@ const ChestPanel: React.FC<{
                          return (
                             <p key={e.type} className="flex justify-between items-center">
                                 <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
-                                <span className={`font-mono ${(displayResources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(displayResources[e.type] || 0)} / {e.amount}
+                                <span className={`font-mono ${(displayResources?.[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(displayResources?.[e.type] || 0)} / {e.amount}
                                 </span>
                             </p>
                         )
@@ -180,8 +184,8 @@ const BackpackPanel: React.FC<{
                          <div className="space-y-1 text-sm">
                             <p className="flex justify-between items-center">
                                 <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
-                                <span className={`font-mono ${(displayResources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(displayResources.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                                <span className={`font-mono ${(displayResources?.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(displayResources?.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
                                 </span>
                             </p>
                             {upgradeCost.essences.map(e => {
@@ -189,8 +193,8 @@ const BackpackPanel: React.FC<{
                                  return (
                                     <p key={e.type} className="flex justify-between items-center">
                                         <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
-                                        <span className={`font-mono ${(displayResources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
-                                            {(displayResources[e.type] || 0)} / {e.amount}
+                                        <span className={`font-mono ${(displayResources?.[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                            {(displayResources?.[e.type] || 0)} / {e.amount}
                                         </span>
                                     </p>
                                 )
@@ -209,11 +213,13 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
     const { t } = useTranslation();
     const { camp, isResting, resources, stats, restStartHealth, activeTravel, activeExpedition } = character;
     const isTraveling = activeTravel !== null;
+    
+    const campLevel = camp?.level || 1;
     const maxLevel = 10;
-    const isMaxLevel = camp.level >= maxLevel;
+    const isMaxLevel = campLevel >= maxLevel;
 
-    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getCampUpgradeCost(camp.level);
-    const canAffordUpgrade = !isMaxLevel && (resources.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (resources[e.type] || 0) >= e.amount);
+    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getCampUpgradeCost(campLevel);
+    const canAffordUpgrade = !isMaxLevel && (resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (resources?.[e.type] || 0) >= e.amount);
 
     const [countdown, setCountdown] = useState(REGEN_INTERVAL_SECONDS);
 
@@ -230,8 +236,11 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
         return () => clearInterval(timerId);
     }, [isResting]);
     
-    const regeneratedHealth = isResting ? stats.currentHealth - restStartHealth : 0;
-    const healthPercentage = (stats.currentHealth / stats.maxHealth) * 100;
+    // Safety check for stats to prevent crash
+    const currentHealth = stats?.currentHealth || 0;
+    const maxHealth = stats?.maxHealth || 1; // Avoid divide by zero
+    const regeneratedHealth = isResting ? Math.max(0, currentHealth - restStartHealth) : 0;
+    const healthPercentage = (currentHealth / maxHealth) * 100;
 
     return (
         <ContentPanel title={t('camp.title')}>
@@ -246,11 +255,11 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                         <div className="space-y-2 text-lg">
                             <p className="flex justify-between">
                                 <span className="text-gray-300">{t('camp.level')}:</span>
-                                <span className="font-bold text-white">{camp.level} / {maxLevel}</span>
+                                <span className="font-bold text-white">{campLevel} / {maxLevel}</span>
                             </p>
                              <p className="flex justify-between">
                                 <span className="text-gray-300">{t('camp.regeneration')}:</span>
-                                <span className="font-bold text-green-400">{camp.level}% HP / min</span>
+                                <span className="font-bold text-green-400">{campLevel}% HP / min</span>
                             </p>
                         </div>
                         <div className="mt-6">
@@ -261,7 +270,7 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                                     style={{ width: `${healthPercentage}%` }}>
                                 </div>
                                 <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
-                                    {stats.currentHealth.toFixed(1)} / {stats.maxHealth}
+                                    {currentHealth.toFixed(1)} / {maxHealth}
                                 </span>
                             </div>
                         </div>
@@ -282,12 +291,12 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                         </button>
                         <button
                             onClick={onHealToFull}
-                            disabled={activeExpedition !== null || isTraveling || isResting || stats.currentHealth >= stats.maxHealth}
+                            disabled={activeExpedition !== null || isTraveling || isResting || currentHealth >= maxHealth}
                             className={`w-full mt-2 py-2 rounded-lg font-bold text-sm transition-colors duration-200 shadow-md
                                 bg-emerald-600 hover:bg-emerald-700 text-white
                                 disabled:bg-slate-600 disabled:cursor-not-allowed
                             `}
-                            title={stats.currentHealth >= stats.maxHealth ? "You are already at full health." : ""}
+                            title={currentHealth >= maxHealth ? "You are already at full health." : ""}
                         >
                             {t('camp.healToFull')}
                         </button>
@@ -319,14 +328,14 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                         ) : (
                             <div className="space-y-4">
                                 <div>
-                                    <p className="text-lg text-gray-300">{t('camp.nextLevel')}: <span className="font-bold text-white">{camp.level + 1}</span></p>
-                                    <p className="text-lg text-gray-300">{t('camp.newRegeneration')}: <span className="font-bold text-green-400">{camp.level + 1}% HP / min</span></p>
+                                    <p className="text-lg text-gray-300">{t('camp.nextLevel')}: <span className="font-bold text-white">{campLevel + 1}</span></p>
+                                    <p className="text-lg text-gray-300">{t('camp.newRegeneration')}: <span className="font-bold text-green-400">{campLevel + 1}% HP / min</span></p>
                                 </div>
                                 <div className="bg-slate-800/50 p-4 rounded-lg space-y-1 text-sm">
                                     <p className="flex justify-between items-center">
                                         <span className="flex items-center"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}:</span>
-                                        <span className={`font-mono ${(resources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
-                                            {(resources.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                                        <span className={`font-mono ${(resources?.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                                            {(resources?.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
                                         </span>
                                     </p>
                                     {upgradeCost.essences.map(e => {
@@ -334,8 +343,8 @@ export const Camp: React.FC<CampProps> = ({ character, baseCharacter, onToggleRe
                                         return (
                                             <p key={e.type} className="flex justify-between items-center">
                                                 <span className={rarityStyles[rarity].text}>{t(`resources.${e.type}`)}:</span>
-                                                <span className={`font-mono ${(resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
-                                                    {(resources[e.type] || 0)} / {e.amount}
+                                                <span className={`font-mono ${(resources?.[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {(resources?.[e.type] || 0)} / {e.amount}
                                                 </span>
                                             </p>
                                         )
