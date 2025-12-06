@@ -23,8 +23,6 @@ interface Ritual {
     isActive?: boolean; // placeholder for future use logic
 }
 
-// Hardcoded rituals structure for now. 
-// Backend only supports ID 1 currently, so others are placeholders or potential future expansions.
 const ALL_RITUALS: Ritual[] = [
     {
         id: 1,
@@ -142,123 +140,134 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onCharacterUpdate
     const isTierLocked = altarLevel < activeTier;
 
     return (
-        <div className="h-[70vh] overflow-y-auto pr-2 animate-fade-in flex flex-col gap-6">
-            {/* Flavor Text Section */}
-            <div className="bg-slate-900/40 p-8 rounded-xl border border-purple-900/30 flex flex-col items-center text-center gap-6 justify-center relative overflow-hidden shrink-0">
-                <h3 className="text-3xl font-bold text-purple-500 tracking-wider uppercase border-b border-purple-900/50 pb-4 px-12 drop-shadow-lg relative z-10">
-                    Ołtarz Mroku (Poziom {altarLevel})
-                </h3>
-                
-                <div className="max-w-3xl bg-slate-950/80 p-6 rounded-lg border border-purple-500/30 shadow-[0_0_40px_rgba(88,28,135,0.15)] relative overflow-hidden group backdrop-blur-sm z-10">
-                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-70"></div>
-                    <p className="text-md text-purple-100/90 italic leading-loose font-serif">
-                        "Ołtarz Mroku, wyrzeźbiony z czarnego jak noc obsydianu, pulsuje tępym, nieludzkim światłem. 
-                        Gdy członkowie gildii składają na nim esencje w ofierze, kamień wchłania je niczym wygłodniała bestia. 
-                        W zamian Ołtarz uwalnia w eter ciężką, lepką energię, która spowija wybranych niczym cień o własnej woli."
-                    </p>
-                     <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-900 to-transparent opacity-70"></div>
-                </div>
-                
-                {/* Decorative background FX */}
-                <div className="absolute -left-10 -top-10 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl pointer-events-none"></div>
-            </div>
-            
-            {/* Active Buffs */}
-             {guild.activeBuffs && guild.activeBuffs.length > 0 && (
-                <div className="bg-slate-800/60 p-4 rounded-xl border border-green-500/30">
-                    <h4 className="text-green-400 font-bold mb-2 uppercase tracking-wider text-sm">Aktywne Błogosławieństwa</h4>
-                    <div className="flex gap-4 flex-wrap">
-                        {guild.activeBuffs.map((buff, idx) => (
-                            <div key={idx} className="bg-slate-900/80 px-4 py-2 rounded border border-green-500/20 text-sm flex flex-col items-center shadow-lg">
-                                <span className="font-bold text-white">{buff.name}</span>
-                                <span className="text-xs text-green-300 mt-1">Czas: {formatTimeLeft(buff.expiresAt)}</span>
-                                <div className="text-xs text-gray-400 mt-1 flex flex-col items-center">
-                                     {buff.stats.luck && <span>+ {buff.stats.luck} Szczęścia</span>}
-                                </div>
-                            </div>
-                        ))}
+        <div className="h-[70vh] flex flex-col gap-6 animate-fade-in">
+            {/* Scrollable Upper Section */}
+            <div className="shrink-0 space-y-6">
+                {/* Flavor Text Section */}
+                <div className="bg-slate-900/40 p-8 rounded-xl border border-purple-900/30 flex flex-col items-center text-center gap-6 justify-center relative overflow-hidden">
+                    <h3 className="text-3xl font-bold text-purple-500 tracking-wider uppercase border-b border-purple-900/50 pb-4 px-12 drop-shadow-lg relative z-10">
+                        Ołtarz Mroku (Poziom {altarLevel})
+                    </h3>
+                    
+                    <div className="max-w-3xl bg-slate-950/80 p-6 rounded-lg border border-purple-500/30 shadow-[0_0_40px_rgba(88,28,135,0.15)] relative overflow-hidden group backdrop-blur-sm z-10">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-70"></div>
+                        <p className="text-md text-purple-100/90 italic leading-loose font-serif">
+                            "Ołtarz Mroku, wyrzeźbiony z czarnego jak noc obsydianu, pulsuje tępym, nieludzkim światłem. 
+                            Gdy członkowie gildii składają na nim esencje w ofierze, kamień wchłania je niczym wygłodniała bestia. 
+                            W zamian Ołtarz uwalnia w eter ciężką, lepką energię, która spowija wybranych niczym cień o własnej woli."
+                        </p>
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-900 to-transparent opacity-70"></div>
                     </div>
+                    
+                    {/* Decorative background FX */}
+                    <div className="absolute -left-10 -top-10 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
-            )}
-
-            {/* Tabs Navigation */}
-            <div className="flex border-b border-slate-700 gap-2 overflow-x-auto">
-                {[1, 2, 3, 4, 5].map(tier => (
-                    <button
-                        key={tier}
-                        onClick={() => setActiveTier(tier)}
-                        className={`px-6 py-3 text-sm font-medium transition-all relative ${
-                            activeTier === tier 
-                            ? 'text-white border-b-2 border-purple-500 bg-purple-900/20' 
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                        }`}
-                    >
-                        Wtajemniczenie {tier}
-                        {altarLevel < tier && <span className="ml-2 text-[10px] text-red-500 font-bold">(Zablokowane)</span>}
-                    </button>
-                ))}
+                
+                {/* Active Buffs */}
+                {guild.activeBuffs && guild.activeBuffs.length > 0 && (
+                    <div className="bg-slate-800/60 p-4 rounded-xl border border-green-500/30">
+                        <h4 className="text-green-400 font-bold mb-2 uppercase tracking-wider text-sm">Aktywne Błogosławieństwa</h4>
+                        <div className="flex gap-4 flex-wrap">
+                            {guild.activeBuffs.map((buff, idx) => (
+                                <div key={idx} className="bg-slate-900/80 px-4 py-2 rounded border border-green-500/20 text-sm flex flex-col items-center shadow-lg">
+                                    <span className="font-bold text-white">{buff.name}</span>
+                                    <span className="text-xs text-green-300 mt-1">Czas: {formatTimeLeft(buff.expiresAt)}</span>
+                                    <div className="text-xs text-gray-400 mt-1 flex flex-col items-center">
+                                        {buff.stats.luck && <span>+ {buff.stats.luck} Szczęścia</span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Rituals Content */}
-            {isTierLocked ? (
-                <div className="flex flex-col items-center justify-center py-16 bg-slate-900/30 rounded-xl border border-slate-800 border-dashed">
-                    <span className="text-4xl mb-4">🔒</span>
-                    <h4 className="text-xl font-bold text-gray-400 mb-2">Wtajemniczenie {activeTier} jest zablokowane</h4>
-                    <p className="text-gray-500">Wymagany poziom Ołtarza Mroku: <span className="text-white font-bold">{activeTier}</span></p>
+            {/* Sticky Tabs Navigation */}
+            <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 pt-2">
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                    {[1, 2, 3, 4, 5].map(tier => (
+                        <button
+                            key={tier}
+                            onClick={() => setActiveTier(tier)}
+                            className={`px-6 py-3 text-sm font-medium transition-all whitespace-nowrap ${
+                                activeTier === tier 
+                                ? 'text-white border-b-2 border-purple-500 bg-purple-900/20' 
+                                : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                            }`}
+                        >
+                            Wtajemniczenie {tier}
+                            {altarLevel < tier && <span className="ml-2 text-[10px] text-red-500 font-bold">(Zablokowane)</span>}
+                        </button>
+                    ))}
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                    {displayedRituals.map((ritual) => {
-                        const isBackendImplemented = ritual.id === 1; // Only ID 1 works on backend currently
-                        const canAfford = ritual.cost.every(c => (guild.resources[c.type] || 0) >= c.amount);
+            </div>
 
-                        return (
-                            <div key={ritual.id} className={`relative p-6 rounded-xl border transition-all duration-300 bg-slate-800/40 border-purple-900/50 hover:border-purple-500/50 hover:bg-slate-800/60 shadow-lg flex flex-col`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <h4 className="font-bold text-lg text-purple-300">
-                                        {ritual.name}
-                                    </h4>
-                                    {!isBackendImplemented && <span className="text-xs bg-slate-800 px-2 py-1 rounded text-gray-500 border border-slate-600">Wkrótce</span>}
+            {/* Scrollable Rituals Content */}
+            <div className="flex-grow overflow-y-auto pr-2 pb-4">
+                {isTierLocked ? (
+                    <div className="flex flex-col items-center justify-center py-16 bg-slate-900/30 rounded-xl border border-slate-800 border-dashed">
+                        <span className="text-4xl mb-4">🔒</span>
+                        <h4 className="text-xl font-bold text-gray-400 mb-2">Wtajemniczenie {activeTier} jest zablokowane</h4>
+                        <p className="text-gray-500">Wymagany poziom Ołtarza Mroku: <span className="text-white font-bold">{activeTier}</span></p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {displayedRituals.map((ritual) => {
+                            const isBackendImplemented = ritual.id === 1; // Only ID 1 works on backend currently
+                            const canAfford = ritual.cost.every(c => (guild.resources[c.type] || 0) >= c.amount);
+                            const isAlreadyActive = guild.activeBuffs?.some(b => b.name === ritual.name && b.expiresAt > Date.now());
+
+                            return (
+                                <div key={ritual.id} className={`relative p-6 rounded-xl border transition-all duration-300 bg-slate-800/40 border-purple-900/50 hover:border-purple-500/50 hover:bg-slate-800/60 shadow-lg flex flex-col ${isAlreadyActive ? 'ring-2 ring-green-500/50 bg-green-900/10' : ''}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h4 className="font-bold text-lg text-purple-300">
+                                            {ritual.name}
+                                        </h4>
+                                        {!isBackendImplemented && !isAlreadyActive && <span className="text-xs bg-slate-800 px-2 py-1 rounded text-gray-500 border border-slate-600">Wkrótce</span>}
+                                        {isAlreadyActive && <span className="text-xs bg-green-900 px-2 py-1 rounded text-green-300 border border-green-600 font-bold">Aktywny</span>}
+                                    </div>
+                                    
+                                    <p className="text-sm text-gray-300 mb-2 flex-grow">{ritual.effect}</p>
+                                    <p className="text-xs text-gray-400 mb-4">Czas trwania: <span className="text-white">{ritual.duration}</span></p>
+                                    
+                                    <div className="bg-slate-950/50 p-3 rounded mb-4 space-y-1">
+                                        <p className="text-xs text-gray-500 uppercase mb-1">Wymagana ofiara:</p>
+                                        {ritual.cost.map((c, idx) => {
+                                            const has = (guild.resources[c.type] || 0);
+                                            const enough = has >= c.amount;
+                                            return (
+                                                <div key={idx} className="flex justify-between text-xs">
+                                                    <span className={essenceToRarityMap[c.type].text}>{t(`resources.${c.type}`)}</span>
+                                                    <span className={enough ? 'text-green-400' : 'text-red-400'}>
+                                                        {has}/{c.amount}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => handleSacrifice(ritual.id)}
+                                        disabled={!canManage || !canAfford || loading || !isBackendImplemented || isAlreadyActive}
+                                        className={`w-full py-2 rounded font-bold text-sm transition-all mt-auto 
+                                            ${isAlreadyActive 
+                                                ? 'bg-green-800 text-green-200 cursor-not-allowed' 
+                                                : canManage && canAfford && isBackendImplemented 
+                                                    ? 'bg-purple-700 hover:bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' 
+                                                    : 'bg-slate-700 text-gray-500 cursor-not-allowed'}`}
+                                    >
+                                        {isAlreadyActive ? 'Rytuał Trwa' : (loading ? 'Odprawianie...' : 'Poświęć')}
+                                    </button>
                                 </div>
-                                
-                                <p className="text-sm text-gray-300 mb-2 flex-grow">{ritual.effect}</p>
-                                <p className="text-xs text-gray-400 mb-4">Czas trwania: <span className="text-white">{ritual.duration}</span></p>
-                                
-                                <div className="bg-slate-950/50 p-3 rounded mb-4 space-y-1">
-                                    <p className="text-xs text-gray-500 uppercase mb-1">Wymagana ofiara:</p>
-                                    {ritual.cost.map((c, idx) => {
-                                        const has = (guild.resources[c.type] || 0);
-                                        const enough = has >= c.amount;
-                                        return (
-                                            <div key={idx} className="flex justify-between text-xs">
-                                                <span className={essenceToRarityMap[c.type].text}>{t(`resources.${c.type}`)}</span>
-                                                <span className={enough ? 'text-green-400' : 'text-red-400'}>
-                                                    {has}/{c.amount}
-                                                </span>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                                
-                                <button 
-                                    onClick={() => handleSacrifice(ritual.id)}
-                                    disabled={!canManage || !canAfford || loading || !isBackendImplemented}
-                                    className={`w-full py-2 rounded font-bold text-sm transition-all mt-auto 
-                                        ${canManage && canAfford && isBackendImplemented 
-                                            ? 'bg-purple-700 hover:bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' 
-                                            : 'bg-slate-700 text-gray-500 cursor-not-allowed'}`}
-                                >
-                                    {loading ? 'Odprawianie...' : 'Poświęć'}
-                                </button>
-                            </div>
-                        );
-                    })}
-                    {displayedRituals.length === 0 && (
-                         <p className="col-span-full text-center text-gray-500 italic py-8">Brak dostępnych rytuałów na tym poziomie wtajemniczenia.</p>
-                    )}
-                </div>
-            )}
+                            );
+                        })}
+                        {displayedRituals.length === 0 && (
+                             <p className="col-span-full text-center text-gray-500 italic py-8">Brak dostępnych rytuałów na tym poziomie wtajemniczenia.</p>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
