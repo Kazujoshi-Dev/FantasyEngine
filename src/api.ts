@@ -47,6 +47,7 @@ export const api = {
     register: (credentials: any) => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(credentials) }),
     logout: (token: string) => fetchApi('/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }),
     sendHeartbeat: () => fetchApi('/auth/session/heartbeat', { method: 'POST' }),
+    changePassword: (oldPassword: string, newPassword: string) => fetchApi('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
 
     // General
     getGameData: (): Promise<GameData> => fetchApi('/game-data'),
@@ -68,7 +69,7 @@ export const api = {
     distributeStatPoints: (stats: any) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
     resetAttributes: () => fetchApi('/character/stats/reset', { method: 'POST' }),
     healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
-    getCharacterNames: () => fetchApi('/character/names'),
+    getCharacterNames: () => fetchApi('/characters/names'),
     getCharacterProfile: (name: string): Promise<PublicCharacterProfile> => fetchApi(`/character/profile/${name}`),
     
     // Camp & Inventory
@@ -184,8 +185,4 @@ export const api = {
     getDbTableData: (table: string, page: number, limit: number) => fetchApi(`/admin/db/table/${table}?page=${page}&limit=${limit}`),
     updateDbRow: (table: string, data: any) => fetchApi(`/admin/db/table/${table}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDbRow: (table: string, primaryKeyValue: any) => fetchApi(`/admin/db/table/${table}`, { method: 'DELETE', body: JSON.stringify({ primaryKeyValue }) }),
-    
-    // Misc
-    getCharacterNames: () => fetchApi('/characters/names'), // Assuming implemented
-    getCharacterProfile: (name: string): Promise<PublicCharacterProfile> => fetchApi(`/character/profile/${name}`),
 };
