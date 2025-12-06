@@ -145,6 +145,7 @@ export const api = {
     upgradeGuildBuilding: (buildingType: string) => fetchApi('/guilds/upgrade-building', { method: 'POST', body: JSON.stringify({ buildingType }) }),
     guildBankTransaction: (type: string, currency: string, amount: number) => fetchApi('/guilds/bank', { method: 'POST', body: JSON.stringify({ type, currency, amount }) }),
     getGuildRanking: () => fetchApi('/ranking/guilds'),
+    performAltarSacrifice: (ritualId: number) => fetchApi('/guilds/altar/sacrifice', { method: 'POST', body: JSON.stringify({ ritualId }) }),
     
     // Hunting
     getHuntingParties: () => fetchApi('/hunting/parties'),
