@@ -116,7 +116,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
                 else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
                 else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
-                else if (def.id === 'altar') effect = `Odblokowuje rytuały do poziomu ${level}`;
+                else if (def.id === 'altar') effect = level > 0 ? `Odblokowuje Wtajemniczenie poziomu ${level}` : 'Brak efektu';
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">

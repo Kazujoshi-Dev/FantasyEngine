@@ -1,3 +1,4 @@
+
 export default {
     guild: {
         title: 'Gildia',
@@ -25,6 +26,8 @@ export default {
             scoutHouseDesc: 'Pozwala znajdować dodatkowe przedmioty podczas wypraw (+1 na poziom).',
             shrine: 'Kapliczka',
             shrineDesc: 'Zwiększa szczęście o 5 za każdy poziom budynku.',
+            altar: 'Ołtarz Mroku',
+            altarDesc: 'Umożliwia przeprowadzanie rytuałów dających tymczasowe bonusy członkom gildii.',
             level: 'Poziom',
             currentEffect: 'Obecny efekt',
             upgrade: 'Ulepsz',
