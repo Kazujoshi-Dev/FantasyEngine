@@ -22,7 +22,7 @@ import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
-import { PublicReportViewer } from './components/PublicReportViewer';
+import { PublicReportViewer } from './PublicReportViewer';
 import { api } from './api';
 import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
