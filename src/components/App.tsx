@@ -25,9 +25,9 @@ import { Guild } from './Guild';
 import { PublicReportViewer } from './PublicReportViewer';
 import { api } from '../api';
 import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from '../types';
-import { LanguageContext } from '../contexts/LanguageContext';
+import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from '../i18n';
-import { CharacterProvider, useCharacter } from '../contexts/CharacterContext';
+import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
 
 // Error Boundary Component to catch crashes and show a readable error instead of white screen
 interface ErrorBoundaryProps {
@@ -446,6 +446,7 @@ export const App: React.FC = () => {
         // No need to clear other states as they will be unmounted.
     };
     
+    // Check for public report viewing in URL
     if (window.location.pathname.startsWith('/report/') || window.location.pathname.startsWith('/raid-report/')) {
         const parts = window.location.pathname.split('/');
         const reportId = parts[2];
@@ -453,7 +454,10 @@ export const App: React.FC = () => {
         return <PublicReportViewer reportId={reportId} type={type} />;
     }
 
-    if (!token) {
+    // Check for password reset in URL (must be before token check to show reset UI)
+    const isPasswordReset = window.location.pathname.startsWith('/reset-password/');
+
+    if (isPasswordReset || !token) {
         return (
             <ErrorBoundary>
                 <Auth onLoginSuccess={handleLoginSuccess} />
