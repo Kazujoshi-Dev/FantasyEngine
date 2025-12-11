@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff, CharacterStats, QuestType, Quest, ItemInstance, PublicCharacterProfile } from '../types.js';
+import { PlayerCharacter, EssenceType, GameData, EquipmentSlot, MessageType, ExpeditionRewardSummary, GuildBuff, CharacterStats, QuestType, Quest, ItemInstance, PublicCharacterProfile, SkillCost } from '../types.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 import { processCompletedExpedition } from '../logic/expeditions.js';
 import { calculateDerivedStatsOnServer, getWarehouseUpgradeCost, getWarehouseCapacity, getTreasuryUpgradeCost } from '../logic/stats.js';
@@ -379,7 +379,7 @@ router.post('/character/camp/upgrade', authenticateToken, async (req: any, res: 
         res.json(character);
     } catch(err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Error' });
+        res.status(500).json({ message: 'Error upgrading camp' });
     } finally {
         client.release();
     }
@@ -883,6 +883,332 @@ router.post('/expedition/complete', authenticateToken, async (req: any, res: any
     }
 });
 
-// ... (Rest of the routes including skills, class, quests etc.)
+// POST /quests/complete
+router.post('/quests/complete', authenticateToken, async (req: any, res: any) => {
+    const { questId } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // Fetch character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Fetch Game Data (Quests)
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'quests'");
+        const quests: Quest[] = gameDataRes.rows[0]?.data || [];
+        const quest = quests.find(q => q.id === questId);
+
+        if (!quest) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Quest not found' });
+        }
+
+        // Check if accepted
+        if (!character.acceptedQuests.includes(questId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Quest not accepted' });
+        }
+
+        // Get progress
+        let progressEntry = character.questProgress.find(p => p.questId === questId);
+        if (!progressEntry) {
+            progressEntry = { questId, progress: 0, completions: 0 };
+            character.questProgress.push(progressEntry);
+        }
+
+        // Check repeatable
+        if (quest.repeatable > 0 && progressEntry.completions >= quest.repeatable) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Quest completed max times' });
+        }
+
+        const objective = quest.objective;
+        
+        // Validate Objective
+        let isObjectiveMet = false;
+        
+        if (objective.type === 'Kill') {
+            if (progressEntry.progress >= objective.amount) isObjectiveMet = true;
+        } 
+        else if (objective.type === 'Gather') {
+            const items = character.inventory.filter(i => i.templateId === objective.targetId);
+            if (items.length >= objective.amount) {
+                isObjectiveMet = true;
+                // Remove items
+                const newInventory = [];
+                let toRemove = objective.amount;
+                
+                // Prioritize non-equipped items (inventory is array of instances)
+                for (const item of character.inventory) {
+                    if (item.templateId === objective.targetId && toRemove > 0) {
+                        toRemove--;
+                        // Don't add to new inventory
+                    } else {
+                        newInventory.push(item);
+                    }
+                }
+                character.inventory = newInventory;
+            }
+        }
+        else if (objective.type === 'GatherResource') {
+            const currentAmount = (character.resources as any)[objective.targetId as string] || 0;
+            if (currentAmount >= objective.amount) {
+                 isObjectiveMet = true;
+                 (character.resources as any)[objective.targetId as string] -= objective.amount;
+            }
+        }
+        else if (objective.type === 'PayGold') {
+             if (character.resources.gold >= objective.amount) {
+                 isObjectiveMet = true;
+                 character.resources.gold -= objective.amount;
+             }
+        }
+
+        if (!isObjectiveMet) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Objective not met' });
+        }
+
+        // Grant Rewards
+        if (quest.rewards) {
+            if (quest.rewards.gold) character.resources.gold += quest.rewards.gold;
+            if (quest.rewards.experience) character.experience += quest.rewards.experience;
+            
+            // Items
+            if (quest.rewards.itemRewards) {
+                 const gameDataTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+                 const itemTemplates = gameDataTemplatesRes.rows[0]?.data || [];
+                 const gameDataAffixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes'");
+                 const affixes = gameDataAffixesRes.rows[0]?.data || [];
+
+                 const backpackCapacity = getBackpackCapacity(character);
+
+                 for (const reward of quest.rewards.itemRewards) {
+                     for(let i=0; i<(reward.quantity || 1); i++) {
+                         if (character.inventory.length < backpackCapacity) {
+                             const newItem = createItemInstance(reward.templateId, itemTemplates, affixes);
+                             character.inventory.push(newItem);
+                         } else {
+                             await client.query('ROLLBACK');
+                             return res.status(400).json({ message: 'Inventory full, cannot receive rewards.' });
+                         }
+                     }
+                 }
+            }
+            
+            // Resources
+            if (quest.rewards.resourceRewards) {
+                for (const reward of quest.rewards.resourceRewards) {
+                    (character.resources as any)[reward.resource] = ((character.resources as any)[reward.resource] || 0) + reward.quantity;
+                }
+            }
+
+            // Loot Table (Random)
+            if (quest.rewards.lootTable) {
+                 const gameDataTemplatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+                 const itemTemplates = gameDataTemplatesRes.rows[0]?.data || [];
+                 const gameDataAffixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes'");
+                 const affixes = gameDataAffixesRes.rows[0]?.data || [];
+                 const backpackCapacity = getBackpackCapacity(character);
+
+                for (const drop of quest.rewards.lootTable) {
+                    if (Math.random() * 100 < drop.chance) {
+                        if (character.inventory.length < backpackCapacity) {
+                             const newItem = createItemInstance(drop.templateId, itemTemplates, affixes);
+                             character.inventory.push(newItem);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update Progress
+        progressEntry.completions += 1;
+        character.acceptedQuests = character.acceptedQuests.filter(id => id !== questId);
+        
+        // Reset progress for next run if repeatable
+        if (quest.repeatable === 0 || progressEntry.completions < quest.repeatable) {
+            progressEntry.progress = 0;
+        }
+
+        // Level up check
+        while (character.experience >= character.experienceToNextLevel) {
+            character.experience -= character.experienceToNextLevel;
+            character.level += 1;
+            character.stats.statPoints += 1;
+            character.experienceToNextLevel = Math.floor(100 * Math.pow(character.level, 1.3));
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message || 'Server error' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/quests/accept', authenticateToken, async (req: any, res: any) => {
+    const { questId } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.acceptedQuests.includes(questId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Quest already accepted' });
+        }
+        
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'quests'");
+        const quests: Quest[] = gameDataRes.rows[0]?.data || [];
+        const quest = quests.find(q => q.id === questId);
+        
+        if (!quest) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Quest not found' });
+        }
+        
+        // Check repeatable limits
+        const progressEntry = character.questProgress?.find(p => p.questId === questId);
+        if (progressEntry && quest.repeatable > 0 && progressEntry.completions >= quest.repeatable) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Quest cannot be repeated anymore' });
+        }
+
+        character.acceptedQuests.push(questId);
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message || 'Server error' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/class', authenticateToken, async (req: any, res: any) => {
+    const { characterClass } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.level < 10) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Level too low (min 10)' });
+        }
+        if (character.characterClass) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Class already selected' });
+        }
+        
+        character.characterClass = characterClass;
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error selecting class' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/skills/learn', authenticateToken, async (req: any, res: any) => {
+    const { skillId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
+        const skills = gameDataRes.rows[0]?.data || [];
+        const skill = skills.find((s: any) => s.id === skillId);
+
+        if (!skill) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Skill not found' });
+        }
+
+        if (character.learnedSkills?.includes(skillId)) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Skill already learned' });
+        }
+        
+        // Cost check
+        for(const key of Object.keys(skill.cost)) {
+            const cost = skill.cost[key as keyof SkillCost];
+            if (cost && (character.resources as any)[key] < cost) {
+                 await client.query('ROLLBACK');
+                 return res.status(400).json({ message: `Not enough ${key}` });
+            }
+            if (cost) (character.resources as any)[key] -= cost;
+        }
+
+        if (!character.learnedSkills) character.learnedSkills = [];
+        character.learnedSkills.push(skillId);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/skills/toggle', authenticateToken, async (req: any, res: any) => {
+    const { skillId, isActive } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.learnedSkills?.includes(skillId)) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Skill not learned' });
+        }
+
+        if (!character.activeSkills) character.activeSkills = [];
+        
+        if (isActive) {
+            if (!character.activeSkills.includes(skillId)) character.activeSkills.push(skillId);
+        } else {
+            character.activeSkills = character.activeSkills.filter(id => id !== skillId);
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
 
 export default router;
