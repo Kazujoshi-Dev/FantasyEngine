@@ -1,11 +1,35 @@
 
-// ... existing imports
 import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './types';
 
 const API_URL = '/api';
 
-// FIX: Added module-level state for time offset.
+// --- Time Synchronization ---
 let serverTimeOffset = 0;
+
+const synchronizeTime = async (): Promise<number> => {
+    try {
+        const requestTime = Date.now();
+        const response = await fetch(`${API_URL}/time`);
+        if (!response.ok) throw new Error('Time sync request failed');
+        
+        const { time: serverTime } = await response.json();
+        const responseTime = Date.now();
+        
+        const latency = (responseTime - requestTime) / 2;
+        const estimatedServerTimeAtResponse = serverTime + latency;
+        serverTimeOffset = estimatedServerTimeAtResponse - responseTime;
+        
+        console.log(`Time synchronized. Offset to server: ${serverTimeOffset.toFixed(0)}ms`);
+        return serverTimeOffset;
+    } catch (e) {
+        console.error("Failed to synchronize time with server:", e);
+        serverTimeOffset = 0;
+        return 0;
+    }
+};
+
+const getServerTime = () => Date.now() + serverTimeOffset;
+// --- End Time Synchronization ---
 
 export const getAuthToken = () => localStorage.getItem('token');
 
@@ -26,21 +50,27 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (response.status === 401) {
-        // Token invalid
         throw new Error('Invalid token');
     }
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(errorData.message || 'API request failed');
-    }
-
-    // Handle 204 No Content
+    // Check for 204 No Content
     if (response.status === 204) {
         return null;
     }
 
-    return response.json();
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'API request failed');
+        }
+        return data;
+    } else {
+        // If response is not JSON (e.g. HTML 404 or 500 from proxy), treat as error
+        const text = await response.text();
+        console.error("Non-JSON API response:", text.substring(0, 200)); // Log first 200 chars for debug
+        throw new Error(`API returned non-JSON response (${response.status})`);
+    }
 };
 
 export const api = {
@@ -52,36 +82,17 @@ export const api = {
     logout: (token: string) => fetchApi('/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }),
     sendHeartbeat: () => fetchApi('/auth/session/heartbeat', { method: 'POST' }),
     changePassword: (oldPassword: string, newPassword: string) => fetchApi('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
+    // NEW AUTH METHODS
     forgotPassword: (email: string) => fetchApi('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
     resetPassword: (token: string, newPassword: string) => fetchApi('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+    setEmail: (email: string) => fetchApi('/auth/set-email', { method: 'POST', body: JSON.stringify({ email }) }),
 
     // General
     getGameData: (): Promise<GameData> => fetchApi('/game-data'),
     updateGameData: (key: string, data: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key, data }) }),
     updateGameSettings: (settings: any) => fetchApi('/game-data', { method: 'PUT', body: JSON.stringify({ key: 'settings', data: settings }) }),
-    // FIX: Replaced placeholder synchronizeTime with correct logic.
-    synchronizeTime: async (): Promise<number> => {
-        try {
-            const requestTime = Date.now();
-            const response = await fetch(`${API_URL}/time`);
-            if (!response.ok) throw new Error('Time sync request failed');
-            
-            const { time: serverTime } = await response.json();
-            const responseTime = Date.now();
-            
-            const latency = (responseTime - requestTime) / 2;
-            const estimatedServerTimeAtResponse = serverTime + latency;
-            serverTimeOffset = estimatedServerTimeAtResponse - responseTime;
-            
-            console.log(`Time synchronized. Offset to server: ${serverTimeOffset.toFixed(0)}ms`);
-            return serverTimeOffset;
-        } catch (e) {
-            console.error("Failed to synchronize time with server:", e);
-            serverTimeOffset = 0;
-            return 0;
-        }
-    },
-    getServerTime: () => Date.now() + serverTimeOffset,
+    synchronizeTime,
+    getServerTime,
 
     // Character
     getCharacter: (): Promise<PlayerCharacter> => fetchApi('/character'),
@@ -104,7 +115,7 @@ export const api = {
     chestDeposit: (amount: number): Promise<PlayerCharacter> => fetchApi('/character/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
     chestWithdraw: (amount: number): Promise<PlayerCharacter> => fetchApi('/character/treasury/withdraw', { method: 'POST', body: JSON.stringify({ amount }) }),
     // Warehouse Methods
-    upgradeWarehouse: () => fetchApi('/character/warehouse/upgrade', { method: 'POST' }),
+    upgradeWarehouse: (): Promise<PlayerCharacter> => fetchApi('/character/warehouse/upgrade', { method: 'POST' }),
     warehouseDeposit: (itemId: string): Promise<PlayerCharacter> => fetchApi('/character/warehouse/deposit', { method: 'POST', body: JSON.stringify({ itemId }) }),
     warehouseWithdraw: (itemId: string): Promise<PlayerCharacter> => fetchApi('/character/warehouse/withdraw', { method: 'POST', body: JSON.stringify({ itemId }) }),
     
@@ -163,10 +174,7 @@ export const api = {
     leaveGuild: () => fetchApi('/guilds/leave', { method: 'POST' }),
     getMyGuild: (): Promise<Guild | null> => fetchApi('/guilds/my-guild'),
     getGuildProfile: (id: number): Promise<PublicGuildProfile> => fetchApi(`/guilds/profile/${id}`),
-    
-    // ADDED updateGuild
     updateGuild: (data: any) => fetchApi('/guilds/update', { method: 'POST', body: JSON.stringify(data) }),
-    
     getGuildArmory: () => fetchApi('/guilds/armory'),
     depositToArmory: (itemId: string) => fetchApi('/guilds/armory/deposit', { method: 'POST', body: JSON.stringify({ itemId }) }),
     borrowFromArmory: (armoryId: number) => fetchApi('/guilds/armory/borrow', { method: 'POST', body: JSON.stringify({ armoryId }) }),

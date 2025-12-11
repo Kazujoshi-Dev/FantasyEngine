@@ -27,6 +27,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     const description = settings?.titleScreen?.description || '';
 
     useEffect(() => {
+        // Check for reset password token in URL
         const path = window.location.pathname;
         if (path.startsWith('/reset-password/')) {
             const token = path.split('/')[2];
@@ -43,7 +44,8 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 const data = await api.getGameData();
                 setSettings(data.settings);
             } catch (err) {
-                console.error("Failed to load game settings for auth screen:", err);
+                // Suppress visual error for settings load failures (common in preview environments)
+                console.warn("Failed to load game settings (ignoring for UI stability):", err);
             }
         };
         fetchSettings();
@@ -76,12 +78,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             } else if (view === 'forgot') {
                 const res = await api.forgotPassword(email);
                 setMessage(res.message);
+                // Don't change view immediately, let user see message
                 setEmail('');
             } else if (view === 'reset') {
                 const res = await api.resetPassword(resetToken, password);
                 setMessage(res.message);
                 setView('login');
                 setPassword('');
+                // Clear token from URL to keep things clean
                 window.history.pushState({}, '', '/');
             }
         } catch (err: any) {
@@ -171,6 +175,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                                     </div>
                                 )}
                                 
+                                {/* Pole Email - widoczne przy rejestracji i odzyskiwaniu hasła */}
                                 {(view === 'register' || view === 'forgot') && (
                                     <div className="animate-fade-in">
                                         <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
@@ -182,6 +187,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             className="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            // Email is technically optional in DB schema (UNIQUE allows nulls), but recommended for recovery
                                             placeholder="twoj@email.com (do odzyskiwania hasła)"
                                             autoComplete="email"
                                         />

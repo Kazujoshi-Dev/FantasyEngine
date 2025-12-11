@@ -69,7 +69,10 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
         // If response is not JSON (e.g. HTML 404 or 500 from proxy), treat as error
         const text = await response.text();
         console.error("Non-JSON API response:", text.substring(0, 200)); // Log first 200 chars for debug
-        throw new Error(`API returned non-JSON response (${response.status})`);
+        
+        // Try to identify if it's a known server error (like 502 Bad Gateway)
+        const errorPreview = text.includes('<html') ? `HTML Response (${response.status})` : text.substring(0, 100);
+        throw new Error(`API Error ${response.status}: ${errorPreview}`);
     }
 };
 
