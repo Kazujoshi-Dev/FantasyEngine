@@ -20,6 +20,8 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Force refresh by adding timestamp to bypass cache if any
+        console.log("Fetching Global Stats...");
         const fetchStats = async () => {
             setLoading(true);
             try {
@@ -74,7 +76,9 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             </h3>
 
             {loading ? (
-                <p className="text-gray-400 text-center">Ładowanie statystyk serwera...</p>
+                <div className="flex justify-center py-10">
+                    <p className="text-gray-400 animate-pulse">Ładowanie statystyk serwera...</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Demographics - Races */}
@@ -92,6 +96,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                                     {renderProgressBar(count, stats?.totalPlayers || 1, 'bg-amber-500')}
                                 </div>
                             ))}
+                            {sortedRaces.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
                         </div>
                     </div>
 
@@ -113,10 +118,11 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                                     </div>
                                 )
                             })}
+                            {sortedClasses.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
                         </div>
                     </div>
 
-                    {/* Content Stats */}
+                    {/* Content Stats (Static) */}
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                         <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
                             <ShieldIcon className="h-5 w-5 text-red-400"/>
@@ -190,7 +196,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             )}
             
             <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center">
-                * Statystyki popularności przedmiotów i afiksów są agregowane z ekwipunku oraz plecaków wszystkich graczy w czasie rzeczywistym.
+                * Statystyki popularności są agregowane z inwentarza wszystkich graczy w czasie rzeczywistym.
             </div>
         </div>
     );
