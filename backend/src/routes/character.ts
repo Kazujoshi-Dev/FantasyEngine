@@ -447,13 +447,265 @@ router.post('/character/upgrade-backpack', authenticateToken, async (req: any, r
     }
 });
 
-// ... (Treasury and Warehouse routes omitted for brevity - no changes needed there)
+// --- TREASURY ROUTES ---
+
+// Deposit to Treasury
+router.post('/character/treasury/deposit', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        // Ensure treasury exists
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        
+        const treasury = character.treasury;
+        const capacity = getChestCapacity(treasury.level);
+
+        if (treasury.gold + amount > capacity) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Skarbiec jest pełny.' });
+        }
+
+        if (character.resources.gold < amount) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Nie masz wystarczająco złota.' });
+        }
+
+        character.resources.gold -= amount;
+        treasury.gold += amount;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error depositing gold' });
+    } finally {
+        client.release();
+    }
+});
+
+// Withdraw from Treasury
+router.post('/character/treasury/withdraw', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Ensure treasury exists
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        const treasury = character.treasury;
+
+        if (treasury.gold < amount) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Nie masz wystarczająco złota w skarbcu.' });
+        }
+
+        treasury.gold -= amount;
+        character.resources.gold += amount;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error withdrawing gold' });
+    } finally {
+        client.release();
+    }
+});
+
+// Upgrade Treasury
+router.post('/character/treasury/upgrade', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        const treasury = character.treasury;
+
+        const currentLevel = treasury.level;
+        if (currentLevel >= 10) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Max level reached' });
+        }
+
+        const cost = getTreasuryUpgradeCost(currentLevel);
+
+        if (character.resources.gold < cost.gold) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold' });
+        }
+
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: `Not enough ${e.type}` });
+            }
+        }
+
+        character.resources.gold -= cost.gold;
+        for (const e of cost.essences) {
+            character.resources[e.type] -= e.amount;
+        }
+        
+        treasury.level += 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error upgrading treasury' });
+    } finally {
+        client.release();
+    }
+});
+
+// --- WAREHOUSE ROUTES ---
+
+router.post('/character/warehouse/upgrade', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        const warehouse = character.warehouse;
+        
+        const currentLevel = warehouse.level;
+        if (currentLevel >= 10) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Max level reached' });
+        }
+
+        const cost = getWarehouseUpgradeCost(currentLevel);
+
+        if (character.resources.gold < cost.gold) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold' });
+        }
+
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: `Not enough ${e.type}` });
+            }
+        }
+
+        character.resources.gold -= cost.gold;
+        for (const e of cost.essences) {
+            character.resources[e.type] -= e.amount;
+        }
+
+        warehouse.level += 1;
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error upgrading warehouse' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/warehouse/deposit', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        
+        const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (inventoryIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item not found in inventory' });
+        }
+        
+        const item = character.inventory[inventoryIndex];
+        if (item.isBorrowed) {
+             await client.query('ROLLBACK');
+             return res.status(403).json({ message: 'Cannot deposit borrowed items' });
+        }
+
+        const capacity = getWarehouseCapacity(character.warehouse.level);
+        if (character.warehouse.items.length >= capacity) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Warehouse is full' });
+        }
+
+        character.inventory.splice(inventoryIndex, 1);
+        character.warehouse.items.push(item);
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error depositing item' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/character/warehouse/withdraw', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+        
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        
+        const warehouseIndex = character.warehouse.items.findIndex(i => i.uniqueId === itemId);
+        if (warehouseIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item not found in warehouse' });
+        }
+        
+        if (character.inventory.length >= getBackpackCapacity(character)) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Backpack is full' });
+        }
+
+        const item = character.warehouse.items[warehouseIndex];
+        character.warehouse.items.splice(warehouseIndex, 1);
+        character.inventory.push(item);
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Error withdrawing item' });
+    } finally {
+        client.release();
+    }
+});
+
 // Legacy chest routes pointing to treasury logic for compatibility
 router.post('/character/chest/deposit', (req, res) => res.redirect(307, '/api/character/treasury/deposit'));
 router.post('/character/chest/withdraw', (req, res) => res.redirect(307, '/api/character/treasury/withdraw'));
 router.post('/character/upgrade-chest', (req, res) => res.redirect(307, '/api/character/treasury/upgrade'));
 
-// ... (Warehouse routes omitted)
 
 // POST /api/expedition/start
 router.post('/expedition/start', authenticateToken, async (req: any, res: any) => {
@@ -506,6 +758,47 @@ router.post('/expedition/start', authenticateToken, async (req: any, res: any) =
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to start expedition' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/expedition/cancel
+router.post('/expedition/cancel', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.activeExpedition) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'No active expedition to cancel.' });
+        }
+
+        // Refund logic
+        const expeditionId = character.activeExpedition.expeditionId;
+        const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
+        const expeditions = gameDataRes.rows[0]?.data || [];
+        const expedition = expeditions.find((e: any) => e.id === expeditionId);
+
+        if (expedition) {
+            character.resources.gold += expedition.goldCost;
+            character.stats.currentEnergy += expedition.energyCost;
+            // Optionally cap energy if it exceeds max
+            // const maxEnergy = ... (calculation needed, but simple add back is acceptable for now)
+        }
+
+        character.activeExpedition = null;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+
+        res.json(character);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to cancel expedition' });
     } finally {
         client.release();
     }
