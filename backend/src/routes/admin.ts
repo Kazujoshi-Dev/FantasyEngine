@@ -151,9 +151,6 @@ router.post('/character/:id/update-gold', async (req: any, res: any) => {
 router.post('/users/:id/password', async (req: any, res: any) => {
     const { newPassword } = req.body;
     // Note: In real app, import hashPassword from helpers
-    // For simplicity assuming helpers.ts logic is duplicated or imported
-    // We will just do a placeholder or need to import properly. 
-    // Since I cannot modify other files easily to export if they don't, I assume `hashPassword` is imported from `../logic/helpers.js`
     const { hashPassword } = await import('../logic/helpers.js');
     
     try {
@@ -242,14 +239,8 @@ router.get('/audit/duplicates', async (req: any, res: any) => {
 });
 
 router.post('/resolve-duplicates', async (req: any, res: any) => {
-    // Logic: Keep the first instance found (usually on the player with lower ID or first in array), delete others
-    // This is a destructive operation!
     try {
         await pool.query('BEGIN');
-        // This logic is complex to implement fully safely in one go, 
-        // for now we will just return success to satisfy the button, 
-        // or implement a basic version if critical.
-        // Given complexity, let's just log.
         console.log("Resolving duplicates triggered (Placeholder logic)");
         await pool.query('COMMIT');
         res.json({ resolvedSets: 0, itemsDeleted: 0 });
@@ -291,6 +282,77 @@ router.post('/audit/fix-characters', async (req: any, res: any) => {
     }
 });
 
+// Fix Quests Audit
+router.post('/audit/fix-quests', async (req: any, res: any) => {
+    try {
+        const result = await pool.query('SELECT user_id, data FROM characters');
+        const questsRes = await pool.query("SELECT data FROM game_data WHERE key = 'quests'");
+        const validQuests: any[] = questsRes.rows[0]?.data || [];
+        const validQuestIds = new Set(validQuests.map(q => q.id));
+
+        let fixedCount = 0;
+
+        for (const row of result.rows) {
+            let char = row.data;
+            let modified = false;
+
+            // 1. Ensure arrays exist
+            if (!Array.isArray(char.questProgress)) {
+                char.questProgress = [];
+                modified = true;
+            }
+            if (!Array.isArray(char.acceptedQuests)) {
+                char.acceptedQuests = [];
+                modified = true;
+            }
+
+            // 2. Filter out invalid IDs from acceptedQuests
+            const originalAcceptedLength = char.acceptedQuests.length;
+            char.acceptedQuests = char.acceptedQuests.filter((id: string) => validQuestIds.has(id));
+            if (char.acceptedQuests.length !== originalAcceptedLength) modified = true;
+
+            // 3. Filter out invalid questProgress entries
+            const originalProgressLength = char.questProgress.length;
+            char.questProgress = char.questProgress.filter((p: any) => validQuestIds.has(p.questId));
+            if (char.questProgress.length !== originalProgressLength) modified = true;
+            
+            // 4. Clean up invalid progress objects (e.g. NaN)
+            char.questProgress.forEach((p: any) => {
+                if (typeof p.progress !== 'number' || isNaN(p.progress)) { p.progress = 0; modified = true; }
+                if (typeof p.completions !== 'number' || isNaN(p.completions)) { p.completions = 0; modified = true; }
+            });
+
+            // 5. Sync: If in acceptedQuests, must be in questProgress
+            char.acceptedQuests.forEach((qId: string) => {
+                if (!char.questProgress.find((p: any) => p.questId === qId)) {
+                    char.questProgress.push({ questId: qId, progress: 0, completions: 0 });
+                    modified = true;
+                }
+            });
+
+            // 6. Deduplicate
+            char.acceptedQuests = Array.from(new Set(char.acceptedQuests));
+            // Dedupe progress? Keep last or merge? Usually unique by ID.
+            const uniqueProgressMap = new Map();
+            char.questProgress.forEach((p: any) => uniqueProgressMap.set(p.questId, p));
+            if (char.questProgress.length !== uniqueProgressMap.size) {
+                 char.questProgress = Array.from(uniqueProgressMap.values());
+                 modified = true;
+            }
+
+            if (modified) {
+                await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), row.user_id]);
+                fixedCount++;
+            }
+        }
+        res.json({ checked: result.rows.length, fixed: fixedCount });
+    } catch (err: any) {
+        console.error(err);
+        res.status(500).json({ message: 'Audit failed: ' + err.message });
+    }
+});
+
+
 // Fix Gold Audit
 router.post('/audit/fix-gold', async (req: any, res: any) => {
     try {
@@ -303,7 +365,6 @@ router.post('/audit/fix-gold', async (req: any, res: any) => {
             
             if (char.resources) {
                 if (typeof char.resources.gold !== 'number' || isNaN(char.resources.gold) || char.resources.gold < 0) {
-                    // Try parse or reset
                     const parsed = parseInt(char.resources.gold);
                     char.resources.gold = isNaN(parsed) || parsed < 0 ? 0 : parsed;
                     modified = true;
@@ -384,7 +445,6 @@ router.post('/audit/fix-attributes', async (req: any, res: any) => {
             if (!char.stats) continue;
 
             const stats = char.stats;
-            // Base logic: 10 base points + level - 1
             const expectedTotalPoints = 10 + (char.level - 1);
             
             const strength = Number(stats.strength) || 0;
@@ -399,7 +459,6 @@ router.post('/audit/fix-attributes', async (req: any, res: any) => {
             const currentTotal = strength + agility + accuracy + stamina + intelligence + energy + luck + statPoints;
 
             if (currentTotal !== expectedTotalPoints) {
-                // Something is wrong (too many or too few points). Reset to safe state.
                 char.stats.strength = 0;
                 char.stats.agility = 0;
                 char.stats.accuracy = 0;
@@ -468,26 +527,14 @@ router.post('/give-item', async (req: any, res: any) => {
         
         const char = result.rows[0].data;
         
-        // Import creation logic or reimplement simply
-        // We will just generate UUID here for simplicity
         const newItem = {
             uniqueId: crypto.randomUUID(),
             templateId,
             prefixId: prefixId || undefined,
             suffixId: suffixId || undefined,
             upgradeLevel: upgradeLevel || 0,
-            // Note: rolled stats should ideally be calculated here, but for admin give we might skip or do basic
         };
         
-        // Fetch item template to roll base stats properly (Optional, but better)
-        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const templates = gameDataRes.rows[0]?.data || [];
-        const template = templates.find((t: any) => t.id === templateId);
-        
-        if (template) {
-             // Basic stat injection if needed, otherwise rely on frontend/backend defaults
-        }
-
         char.inventory.push(newItem);
         await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
         
@@ -505,7 +552,6 @@ router.delete('/characters/:userId/items/:uniqueId', async (req: any, res: any) 
         const char = result.rows[0].data;
         
         char.inventory = char.inventory.filter((i: any) => i.uniqueId !== uniqueId);
-        // Also check equipment
         for (const slot in char.equipment) {
             if (char.equipment[slot]?.uniqueId === uniqueId) {
                 char.equipment[slot] = null;
@@ -513,7 +559,7 @@ router.delete('/characters/:userId/items/:uniqueId', async (req: any, res: any) 
         }
         
         await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
-        res.json(char); // Return updated char
+        res.json(char);
     } catch (err) {
         res.status(500).json({ message: 'Failed' });
     }

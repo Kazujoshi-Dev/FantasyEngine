@@ -1,37 +1,37 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Auth } from './components/Auth';
-import { CharacterCreation } from './components/CharacterCreation';
-import { Sidebar, NewsModal } from './components/Sidebar';
-import { Statistics } from './components/Statistics';
-import { Equipment } from './components/Equipment';
-import { ExpeditionComponent } from './components/Expedition';
-import { ExpeditionSummaryModal } from './components/combat/CombatSummary';
-import { Camp } from './components/Camp';
-import { Location } from './components/Location';
-import { Resources } from './components/Resources';
-import { Ranking } from './components/Ranking';
-import { AdminPanel } from './components/AdminPanel';
-import { Trader } from './components/Trader';
-import { Blacksmith } from './components/Blacksmith';
-import { Messages } from './components/Messages';
-import { Quests } from './components/Quests';
-import { Tavern } from './components/Tavern';
-import { Market } from './components/Market';
-import { Options } from './components/Options';
-import { University } from './components/University';
-import { Hunting } from './components/Hunting';
-import { Guild } from './components/Guild';
-import { PublicReportViewer } from './components/PublicReportViewer';
-import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
-import { LanguageContext } from './contexts/LanguageContext';
-import { getT } from './i18n';
-import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
+import React, { useState, useEffect, useCallback, useRef, Component, ReactNode } from 'react';
+import { Auth } from './Auth';
+import { CharacterCreation } from './CharacterCreation';
+import { Sidebar, NewsModal } from './Sidebar';
+import { Statistics } from './Statistics';
+import { Equipment } from './Equipment';
+import { ExpeditionComponent } from './Expedition';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
+import { Camp } from './Camp';
+import { Location } from './Location';
+import { Resources } from './Resources';
+import { Ranking } from './Ranking';
+import { AdminPanel } from './AdminPanel';
+import { Trader } from './Trader';
+import { Blacksmith } from './Blacksmith';
+import { Messages } from './Messages';
+import { Quests } from './Quests';
+import { Tavern } from './Tavern';
+import { Market } from './Market';
+import { Options } from './Options';
+import { University } from './University';
+import { Hunting } from './Hunting';
+import { Guild } from './Guild';
+import { PublicReportViewer } from './PublicReportViewer';
+import { api } from '../api';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from '../types';
+import { LanguageContext } from '../contexts/LanguageContext';
+import { getT } from '../i18n';
+import { CharacterProvider, useCharacter } from '../contexts/CharacterContext';
 
 // Error Boundary Component to catch crashes and show a readable error instead of white screen
 interface ErrorBoundaryProps {
-    children?: React.ReactNode;
+    children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -39,7 +39,7 @@ interface ErrorBoundaryState {
     error: Error | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     state: ErrorBoundaryState = { hasError: false, error: null };
 
     static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -67,7 +67,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 </div>
             );
         }
-        return (this as any).props.children;
+        return this.props.children;
     }
 }
 
@@ -96,15 +96,43 @@ const AppContent: React.FC = () => {
 
     const t = getT(character?.settings?.language || Language.PL);
 
+    // Moved handleLogout up here so it can be used by data fetchers
+    const handleLogout = useCallback(() => {
+        const token = api.getAuthToken();
+        if (token) api.logout(token);
+        localStorage.removeItem('token');
+        window.location.reload(); // Force a full reload to clear all state
+    }, []);
+
+    // --- HEARTBEAT SYSTEM ---
+    useEffect(() => {
+        if (!api.getAuthToken()) return;
+
+        // Send immediate heartbeat on load
+        api.sendHeartbeat().catch(err => console.error("Initial heartbeat failed", err));
+
+        // Send heartbeat every 30 seconds to keep status "Online"
+        const heartbeatInterval = setInterval(() => {
+            api.sendHeartbeat().catch(err => console.error("Heartbeat failed", err));
+        }, 30000);
+
+        return () => clearInterval(heartbeatInterval);
+    }, []);
+    // ------------------------
+
     const checkUnreadMessages = useCallback(async () => {
         if (!api.getAuthToken()) return;
         try {
             const hasUnread = await api.getUnreadMessagesStatus();
             setHasUnreadMessages(hasUnread);
-        } catch (e) {
-            console.error("Failed to check unread messages", e);
+        } catch (e: any) {
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                console.error("Failed to check unread messages", e);
+            }
         }
-    }, []);
+    }, [handleLogout]);
 
     useEffect(() => {
         activeTabRef.current = activeTab;
@@ -130,16 +158,29 @@ const AppContent: React.FC = () => {
         try {
             const data = await api.getRanking();
             setRanking(data);
-        } catch (e) { console.error("Failed to fetch ranking", e); } 
-        finally { setIsRankingLoading(false); }
-    }, []);
+        } catch (e: any) { 
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                console.error("Failed to fetch ranking", e); 
+            }
+        } finally { 
+            setIsRankingLoading(false); 
+        }
+    }, [handleLogout]);
 
     const fetchTraderInventory = useCallback(async (force = false) => {
         try {
             const inventory = await api.getTraderInventory(force);
             setTraderInventory(inventory);
-        } catch (e) { console.error("Failed to fetch trader inventory", e); }
-    }, []);
+        } catch (e: any) { 
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                console.error("Failed to fetch trader inventory", e); 
+            }
+        }
+    }, [handleLogout]);
 
     const fetchTavernData = useCallback(async () => {
         try {
@@ -161,8 +202,14 @@ const AppContent: React.FC = () => {
                     return prevLastSeen;
                 });
             }
-        } catch (e) { console.error("Failed to fetch tavern data", e); }
-    }, []);
+        } catch (e: any) { 
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                console.error("Failed to fetch tavern data", e); 
+            }
+        }
+    }, [handleLogout]);
 
     useEffect(() => {
         if (activeTab === Tab.Ranking) fetchRanking();
@@ -186,9 +233,16 @@ const AppContent: React.FC = () => {
             setCharacter(result.updatedCharacter);
             setExpeditionReport({ summary: result.summary, messageId: result.messageId });
             checkUnreadMessages();
-        } catch (e) { console.error("Failed to complete expedition automatically", e); } 
-        finally { isCompletingExpeditionRef.current = false; }
-    }, [character, setCharacter, checkUnreadMessages]);
+        } catch (e: any) { 
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                console.error("Failed to complete expedition automatically", e); 
+            }
+        } finally { 
+            isCompletingExpeditionRef.current = false; 
+        }
+    }, [character, setCharacter, checkUnreadMessages, handleLogout]);
 
     useEffect(() => {
         if (!character?.activeExpedition) return;
@@ -202,13 +256,6 @@ const AppContent: React.FC = () => {
         return () => clearTimeout(timer);
     }, [character?.activeExpedition, handleExpeditionCompletion]);
 
-    const handleLogout = () => {
-        const token = api.getAuthToken();
-        if (token) api.logout(token);
-        localStorage.removeItem('token');
-        window.location.reload(); // Force a full reload to clear all state
-    };
-
     const handleCharacterCreate = async (newCharData: { name: string, race: Race }) => {
         try {
             const startLocationId = gameData?.locations.find(l => l.isStartLocation)?.id || gameData?.locations[0]?.id || 'start';
@@ -216,7 +263,11 @@ const AppContent: React.FC = () => {
             setCharacter(createdChar);
         } catch (err: any) {
             console.error(err);
-            alert(err.message || t('error.title'));
+            if (err.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                alert(err.message || t('error.title'));
+            }
         }
     };
     
@@ -227,7 +278,13 @@ const AppContent: React.FC = () => {
             setCharacter(result.updatedAttacker);
             setPvpReport(result.summary);
             fetchRanking(); 
-        } catch (e: any) { alert(e.message); }
+        } catch (e: any) { 
+            if (e.message === 'Invalid token') {
+                handleLogout();
+            } else {
+                alert(e.message); 
+            }
+        }
     };
     
     if (!character) {

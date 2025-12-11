@@ -31,6 +31,7 @@ import huntingRoutes from './routes/hunting.js';
 import uploadRoutes from './routes/upload.js';
 import publicRoutes from './routes/public.js';
 import guildRoutes from './routes/guilds.js';
+import questRoutes from './routes/quests.js';
 
 
 dotenv.config();
@@ -107,12 +108,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/hunting', huntingRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/guilds', guildRoutes);
+app.use('/api/quests', questRoutes); // Add dedicated quests router
 app.use('/api', characterRoutes); // Broad catch-all for character-related fallback
-
-// Catch-all for API 404s to prevent falling through to frontend HTML
-app.all('/api/*', (req, res) => {
-    res.status(404).json({ message: 'API Endpoint not found' });
-});
 
 // ===================================================================================
 //                            SOCKET.IO HANDLING

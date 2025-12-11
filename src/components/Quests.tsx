@@ -47,7 +47,11 @@ const QuestCard: React.FC<{
             const updatedChar = await api.acceptQuest(questId);
             updateCharacter(updatedChar);
         } catch (e: any) {
-            alert(e.message);
+            if (e.message === 'Invalid token') {
+                window.location.reload();
+            } else {
+                alert(e.message);
+            }
         }
     };
     const onCompleteQuest = async (questId: string) => {
@@ -55,7 +59,11 @@ const QuestCard: React.FC<{
             const updatedChar = await api.completeQuest(questId);
             updateCharacter(updatedChar);
         } catch (e: any) {
-            alert(e.message);
+             if (e.message === 'Invalid token') {
+                window.location.reload();
+            } else {
+                alert(e.message);
+            }
         }
     };
 

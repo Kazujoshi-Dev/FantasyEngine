@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ContentPanel } from '@/components/ContentPanel';
 import { Message, ItemTemplate, PvpRewardSummary, PlayerCharacter, PlayerMessageBody, ExpeditionRewardSummary, Affix, MarketNotificationBody, CurrencyType, ItemRarity, EssenceType, ItemInstance, Enemy, GuildInviteBody } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { ExpeditionSummaryModal } from '@/components/combat/CombatSummary';
 import { MailIcon } from '@/components/icons/MailIcon';
 import { api } from '@/api';
 import { rarityStyles } from '@/components/shared/ItemSlot';
@@ -10,28 +11,6 @@ import { CoinsIcon } from '@/components/icons/CoinsIcon';
 import { StarIcon } from '@/components/icons/StarIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
 
-// Fix: ExpeditionSummaryModal is not exported from its module. Adding a placeholder to fix compilation.
-const ExpeditionSummaryModal = (props: any) => {
-    useEffect(() => {
-        const handleEsc = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                props.onClose();
-            }
-        };
-        window.addEventListener('keydown', handleEsc);
-        return () => {
-            window.removeEventListener('keydown', handleEsc);
-        };
-    }, [props.onClose]);
-
-    return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={props.onClose}>
-            <div className="bg-slate-800 p-4 rounded" onClick={e => e.stopPropagation()}>
-                Report unavailable due to a build issue. Press ESC to close.
-            </div>
-        </div>
-    );
-};
 interface ComposeMessageModalProps {
     allCharacterNames: string[];
     onClose: () => void;

@@ -44,8 +44,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 const data = await api.getGameData();
                 setSettings(data.settings);
             } catch (err) {
-                // Suppress visual error for settings load failures (common in preview environments)
-                console.warn("Failed to load game settings (ignoring for UI stability):", err);
+                console.error("Failed to load game settings for auth screen:", err);
             }
         };
         fetchSettings();

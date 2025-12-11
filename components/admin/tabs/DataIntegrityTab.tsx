@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
@@ -13,6 +14,8 @@ export const DataIntegrityTab: React.FC = () => {
   const [valueAuditMessage, setValueAuditMessage] = useState<string | null>(null);
   const [isAttributesAuditLoading, setIsAttributesAuditLoading] = useState(false);
   const [attributesAuditMessage, setAttributesAuditMessage] = useState<string | null>(null);
+  const [isQuestAuditLoading, setIsQuestAuditLoading] = useState(false);
+  const [questAuditMessage, setQuestAuditMessage] = useState<string | null>(null);
   const [isWiping, setIsWiping] = useState(false);
 
   const handleRunAudit = async () => {
@@ -69,6 +72,20 @@ export const DataIntegrityTab: React.FC = () => {
       alert(`Attributes audit failed: ${err.message}`);
     } finally {
       setIsAttributesAuditLoading(false);
+    }
+  };
+
+  const handleRunQuestAudit = async () => {
+    setIsQuestAuditLoading(true);
+    setQuestAuditMessage(null);
+    try {
+      // @ts-ignore
+      const result = await api.runQuestAudit();
+      setQuestAuditMessage(`Sprawdzono ${result.checked} postaci. Naprawiono struktury zadań dla ${result.fixed} postaci.`);
+    } catch (err: any) {
+      alert(`Quest audit failed: ${err.message}`);
+    } finally {
+      setIsQuestAuditLoading(false);
     }
   };
 
@@ -154,6 +171,23 @@ export const DataIntegrityTab: React.FC = () => {
               {attributesAuditMessage && (
                   <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
                       {attributesAuditMessage}
+                  </div>
+              )}
+          </div>
+      </div>
+      
+      <div className="border-t border-slate-700/50 mt-6 pt-6">
+          <h3 className="text-xl font-bold text-indigo-400 mb-4">Naprawa Struktur Zadań (Fix Quests)</h3>
+          <p className="text-sm text-gray-400 mb-4">
+              Naprawia uszkodzone tablice zadań (null/undefined), usuwa nieprawidłowe ID zadań i synchronizuje listę zaakceptowanych zadań z postępem. Rozwiązuje problem "Unknown Error" przy akceptowaniu zadań.
+          </p>
+          <div className="flex flex-col items-start gap-4">
+              <button onClick={handleRunQuestAudit} disabled={isQuestAuditLoading} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600">
+                  {isQuestAuditLoading ? 'Naprawianie zadań...' : 'Uruchom naprawę zadań'}
+              </button>
+              {questAuditMessage && (
+                  <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
+                      {questAuditMessage}
                   </div>
               )}
           </div>

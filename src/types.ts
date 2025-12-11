@@ -1004,6 +1004,7 @@ export interface PublicCharacterProfile {
     guildTag?: string;
     description?: string;
     avatarUrl?: string;
+    isOnline?: boolean;
 }
 
 export interface PublicGuildProfile {

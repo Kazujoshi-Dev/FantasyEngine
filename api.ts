@@ -1,4 +1,5 @@
 
+
 import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './types';
 
 const API_URL = '/api';
@@ -50,30 +51,21 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (response.status === 401) {
+        // Token invalid
         throw new Error('Invalid token');
     }
 
-    // Check for 204 No Content
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || 'API request failed');
+    }
+
+    // Handle 204 No Content
     if (response.status === 204) {
         return null;
     }
 
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") !== -1) {
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.message || 'API request failed');
-        }
-        return data;
-    } else {
-        // If response is not JSON (e.g. HTML 404 or 500 from proxy), treat as error
-        const text = await response.text();
-        console.error("Non-JSON API response:", text.substring(0, 200)); // Log first 200 chars for debug
-        
-        // Try to identify if it's a known server error (like 502 Bad Gateway)
-        const errorPreview = text.includes('<html') ? `HTML Response (${response.status})` : text.substring(0, 100);
-        throw new Error(`API Error ${response.status}: ${errorPreview}`);
-    }
+    return response.json();
 };
 
 export const api = {
@@ -216,6 +208,7 @@ export const api = {
     runGoldAudit: () => fetchApi('/admin/audit/fix-gold', { method: 'POST' }),
     runValuesAudit: () => fetchApi('/admin/audit/fix-values', { method: 'POST' }),
     runAttributesAudit: () => fetchApi('/admin/audit/fix-attributes', { method: 'POST' }),
+    runQuestAudit: () => fetchApi('/admin/audit/fix-quests', { method: 'POST' }),
     wipeGameData: () => fetchApi('/admin/wipe-game-data', { method: 'POST' }),
     getDbTables: () => fetchApi('/admin/db/tables'),
     getDbTableData: (table: string, page: number, limit: number) => fetchApi(`/admin/db/table/${table}?page=${page}&limit=${limit}`),
