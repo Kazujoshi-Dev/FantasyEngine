@@ -12,6 +12,7 @@ import { api } from '../../../api';
 
 interface TriviaTabProps {
     gameData: GameData;
+    // Removed allCharacters prop as we now fetch aggregated data from API
 }
 
 export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
@@ -25,6 +26,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
         setLoading(true);
         setError(null);
         try {
+            console.log("Fetching global stats...");
             const data = await api.getGlobalStats();
             setStats(data);
         } catch (err: any) {
@@ -95,7 +97,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             {error && (
                 <div className="bg-red-900/50 p-4 rounded border border-red-700 text-center animate-pulse">
                     <p className="text-red-300 font-bold">Błąd: {error}</p>
-                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Upewnij się, że backend został zrestartowany.</p>
+                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Upewnij się, że backend obsługuje endpoint /stats/global.</p>
                 </div>
             )}
 
