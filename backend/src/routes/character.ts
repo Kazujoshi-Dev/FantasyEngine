@@ -21,7 +21,6 @@ const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// ... (GET /character, GET /profile/:name, POST /character, PUT /character - unchanged code omitted for brevity)
 // Get Character
 router.get('/character', authenticateToken, async (req: any, res: any) => {
     try {
@@ -189,8 +188,6 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
             const currentEmail = userRes.rows[0].email;
             if (currentEmail) {
                 // Email already set, ignore update or error
-                // We proceed without updating email if it's already set (safe fail)
-                // or return error if strict. Let's return error to inform user.
                 if (currentEmail !== updates.email) {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ message: 'Email is already set and cannot be changed here.' });
@@ -224,8 +221,6 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
         const updatedData = {
             ...currentData,
             ...updates,
-            // Ensure we don't accidentally overwrite nested objects with partials if updates contains them shallowly
-            // (Though in this specific case, App.tsx sends flat updates mostly. For 'settings', we might need care)
             settings: {
                 ...currentData.settings,
                 ...(updates.settings || {})
@@ -251,9 +246,9 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// Distribute Stat Points (Fix for "Unknown Error")
+// Distribute Stat Points
 router.post('/character/stats', authenticateToken, async (req: any, res: any) => {
-    const { stats } = req.body; // Partial<CharacterStats> containing deltas
+    const { stats } = req.body; 
     
     if (!stats) return res.status(400).json({ message: 'Missing stats data' });
 
@@ -326,11 +321,8 @@ router.post('/character/stats/reset', authenticateToken, async (req: any, res: a
             return res.status(400).json({ message: 'Not enough gold' });
         }
 
-        // Calculate total points to return
-        // 10 base points + (level - 1)
         const totalPoints = 10 + (character.level - 1);
         
-        // Reset stats to 0
         character.stats.strength = 0;
         character.stats.agility = 0;
         character.stats.accuracy = 0;
@@ -398,27 +390,60 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const charRes = await client.query('SELECT data, guild_id FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found' });
         }
         const character: PlayerCharacter = charRes.rows[0].data;
+        const guildId = charRes.rows[0].guild_id;
 
         if (character.activeExpedition || character.activeTravel) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Cannot heal while active' });
         }
 
-        // Heal logic
-        character.stats.currentHealth = character.stats.maxHealth;
-        character.stats.currentMana = character.stats.maxMana; // Optional: Heal mana too? Usually yes for full restore.
+        // --- DYNAMIC MAX HEALTH CALCULATION ---
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user.id]);
+        let activeBuffs: GuildBuff[] = [];
+        let barracksLevel = 0;
+        let shrineLevel = 0;
+
+        if (guildId) {
+            const guildRes = await client.query('SELECT active_buffs, buildings FROM guilds WHERE id = $1', [guildId]);
+            if (guildRes.rows.length > 0) {
+                 const rawBuffs = guildRes.rows[0].active_buffs || [];
+                 activeBuffs = Array.isArray(rawBuffs) ? (rawBuffs as GuildBuff[]).filter(b => b.expiresAt > Date.now()) : [];
+                 barracksLevel = guildRes.rows[0].buildings?.barracks || 0;
+                 shrineLevel = guildRes.rows[0].buildings?.shrine || 0;
+            }
+        }
+
+        // Calculate stats on the fly to get true max health
+        const derivedChar = calculateDerivedStatsOnServer(
+            character, 
+            itemTemplates, 
+            affixes, 
+            barracksLevel, 
+            shrineLevel, 
+            skills, 
+            activeBuffs
+        );
+
+        // Apply heal using calculated max values
+        character.stats.currentHealth = derivedChar.stats.maxHealth;
+        character.stats.currentMana = derivedChar.stats.maxMana;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error(err);
         res.status(500).json({ message: 'Error healing character' });
     } finally {
         client.release();

@@ -67,7 +67,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 </div>
             );
         }
-        return this.props.children;
+        return (this as any).props.children;
     }
 }
 
@@ -280,7 +280,6 @@ const AppContent: React.FC = () => {
                             <Ranking
                                 ranking={ranking}
                                 isLoading={isRankingLoading}
-                                onAttack={handleAttackPlayer}
                                 onComposeMessage={(name) => { setActiveTab(Tab.Messages); setPendingComposeRecipient(name); }}
                             />
                         )}
