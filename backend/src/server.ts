@@ -109,6 +109,11 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/guilds', guildRoutes);
 app.use('/api', characterRoutes); // Broad catch-all for character-related fallback
 
+// Catch-all for API 404s to prevent falling through to frontend HTML
+app.all('/api/*', (req, res) => {
+    res.status(404).json({ message: 'API Endpoint not found' });
+});
+
 // ===================================================================================
 //                            SOCKET.IO HANDLING
 // ===================================================================================

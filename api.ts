@@ -50,21 +50,27 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (response.status === 401) {
-        // Token invalid
         throw new Error('Invalid token');
     }
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(errorData.message || 'API request failed');
-    }
-
-    // Handle 204 No Content
+    // Check for 204 No Content
     if (response.status === 204) {
         return null;
     }
 
-    return response.json();
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'API request failed');
+        }
+        return data;
+    } else {
+        // If response is not JSON (e.g. HTML 404 or 500 from proxy), treat as error
+        const text = await response.text();
+        console.error("Non-JSON API response:", text.substring(0, 200)); // Log first 200 chars for debug
+        throw new Error(`API returned non-JSON response (${response.status})`);
+    }
 };
 
 export const api = {
