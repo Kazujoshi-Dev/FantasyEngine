@@ -7,6 +7,7 @@ import { ShieldIcon } from '../../icons/ShieldIcon';
 import { SwordsIcon } from '../../icons/SwordsIcon';
 import { UsersIcon } from '../../icons/UsersIcon';
 import { BookOpenIcon } from '../../icons/BookOpenIcon';
+import { CoinsIcon } from '../../icons/CoinsIcon';
 import { api } from '../../../api';
 
 interface TriviaTabProps {
@@ -18,21 +19,23 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
     const { itemTemplates, affixes, enemies, quests, locations, skills } = gameData;
     const [stats, setStats] = useState<GlobalStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchStats = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await api.getGlobalStats();
+            setStats(data);
+        } catch (err: any) {
+            console.error("Failed to fetch global stats:", err);
+            setError(err.message || 'Nie udało się pobrać statystyk.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        // Force refresh by adding timestamp to bypass cache if any
-        console.log("Fetching Global Stats...");
-        const fetchStats = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getGlobalStats();
-                setStats(data);
-            } catch (err) {
-                console.error("Failed to fetch global stats:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchStats();
     }, []);
 
@@ -67,20 +70,55 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
          if (!stats) return [];
          return Object.entries(stats.classCounts).sort((a, b) => b[1] - a[1]);
     }, [stats]);
+    
+    const formattedGold = useMemo(() => {
+        if(!stats) return '0';
+        return stats.totalGoldInEconomy.toLocaleString();
+    }, [stats]);
 
     return (
         <div className="animate-fade-in space-y-6">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                <SparklesIcon className="h-6 w-6" />
-                Statystyki Świata Gry
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-indigo-400 flex items-center gap-2">
+                    <SparklesIcon className="h-6 w-6" />
+                    Statystyki Świata Gry
+                </h3>
+                <button 
+                    onClick={fetchStats} 
+                    disabled={loading}
+                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-sm disabled:opacity-50"
+                >
+                    {loading ? 'Odświeżanie...' : 'Odśwież'}
+                </button>
+            </div>
+
+            {error && (
+                <div className="bg-red-900/50 p-4 rounded border border-red-700 text-center">
+                    <p className="text-red-300 font-bold">Błąd: {error}</p>
+                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Sprawdź logi backendu.</p>
+                </div>
+            )}
 
             {loading ? (
-                <div className="flex justify-center py-10">
-                    <p className="text-gray-400 animate-pulse">Ładowanie statystyk serwera...</p>
+                <div className="flex justify-center py-20">
+                    <p className="text-gray-400 animate-pulse text-lg">Analizowanie danych serwera...</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                     {/* Economy Stats */}
+                    <div className="col-span-full bg-slate-800/80 p-6 rounded-xl border border-amber-500/30 flex justify-between items-center">
+                        <div>
+                            <h4 className="text-xl font-bold text-amber-400 mb-1 flex items-center gap-2">
+                                <CoinsIcon className="h-6 w-6"/> Ekonomia Świata
+                            </h4>
+                            <p className="text-gray-400 text-sm">Całkowita ilość złota w posiadaniu graczy.</p>
+                        </div>
+                        <div className="text-right">
+                             <p className="text-4xl font-mono font-bold text-white tracking-wide">{formattedGold}</p>
+                             <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Sztuk Złota</p>
+                        </div>
+                    </div>
+
                     {/* Demographics - Races */}
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                         <h4 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
@@ -90,7 +128,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                             {sortedRaces.map(([race, count]) => (
                                 <div key={race} className="bg-slate-900/30 p-2 rounded">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-gray-300">{t(`race.${race}`)}</span>
+                                        <span className="text-gray-300">{t(`race.${race}`) || race}</span>
                                         <span className="font-mono text-white">{count} ({((count / (stats?.totalPlayers || 1)) * 100).toFixed(1)}%)</span>
                                     </div>
                                     {renderProgressBar(count, stats?.totalPlayers || 1, 'bg-amber-500')}
@@ -107,7 +145,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                         </h4>
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                             {sortedClasses.map(([className, count]) => {
-                                const displayClass = className === 'Novice' ? 'Bez klasy (Novice)' : t(`class.${className}`);
+                                const displayClass = className === 'Novice' ? 'Bez klasy (Novice)' : t(`class.${className}`) || className;
                                 return (
                                     <div key={className} className="bg-slate-900/30 p-2 rounded">
                                         <div className="flex justify-between text-sm">
@@ -163,7 +201,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                                  const item = itemTemplates.find(t => t.id === id);
                                  return (
                                      <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded">
-                                         <span className="text-gray-300 truncate">{item ? item.name : id}</span>
+                                         <span className="text-gray-300 truncate w-32" title={item ? item.name : id}>{item ? item.name : id}</span>
                                          <span className="font-mono text-sky-400 font-bold">{count}</span>
                                      </div>
                                  )
@@ -184,7 +222,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                                  const name = affix ? (typeof affix.name === 'string' ? affix.name : affix.name.masculine) : id;
                                  return (
                                      <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded">
-                                         <span className="text-gray-300 truncate">{name}</span>
+                                         <span className="text-gray-300 truncate w-32" title={name}>{name}</span>
                                          <span className="font-mono text-purple-400 font-bold">{count}</span>
                                      </div>
                                  )
@@ -195,8 +233,8 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                 </div>
             )}
             
-            <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center">
-                * Statystyki popularności przedmiotów i afiksów są agregowane z ekwipunku oraz plecaków wszystkich graczy w czasie rzeczywistym.
+            <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center mt-6">
+                * Statystyki popularności są agregowane z inwentarza oraz ekwipunku wszystkich graczy w czasie rzeczywistym.
             </div>
         </div>
     );

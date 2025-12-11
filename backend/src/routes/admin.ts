@@ -29,42 +29,53 @@ router.get('/stats/global', async (req: any, res: any) => {
     try {
         const client = await pool.connect();
         try {
-            // 1. Race & Class Counts
+            // 1. Race & Class Counts & Economy
             const demographicsRes = await client.query(`
                 SELECT 
-                    data->>'race' as race,
-                    data->>'characterClass' as "characterClass",
+                    COALESCE(data->>'race', 'Unknown') as race,
+                    COALESCE(data->>'characterClass', 'Novice') as "characterClass",
+                    COALESCE((data->'resources'->>'gold')::bigint, 0) as gold,
                     COUNT(*) as count
                 FROM characters
-                GROUP BY data->>'race', data->>'characterClass'
+                GROUP BY data->>'race', data->>'characterClass', data->'resources'->>'gold'
             `);
 
             const raceCounts: Record<string, number> = {};
             const classCounts: Record<string, number> = {};
             let totalPlayers = 0;
+            let totalGoldInEconomy = 0;
 
             demographicsRes.rows.forEach(row => {
                 const count = parseInt(row.count, 10);
-                const race = row.race || 'Unknown';
-                const charClass = row.characterClass || 'Novice';
+                const gold = parseInt(row.gold, 10) || 0;
                 
-                raceCounts[race] = (raceCounts[race] || 0) + count;
-                classCounts[charClass] = (classCounts[charClass] || 0) + count;
+                raceCounts[row.race] = (raceCounts[row.race] || 0) + count;
+                classCounts[row.characterClass] = (classCounts[row.characterClass] || 0) + count;
+                
                 totalPlayers += count;
+                totalGoldInEconomy += (gold * count); // Approx if grouped, or exact if rows are unique per gold val
             });
+            
+            // Re-calculate total gold accurately without grouping interference
+            const goldRes = await client.query(`SELECT SUM(COALESCE((data->'resources'->>'gold')::bigint, 0)) as total_gold FROM characters`);
+            totalGoldInEconomy = parseInt(goldRes.rows[0].total_gold || '0', 10);
 
             // 2. Item & Affix Popularity (Aggregating Inventory + Equipment)
-            // Using CTE to gather all item objects first
+            // Using LATERAL and COALESCE for safety against null JSON fields
             const popularityRes = await client.query(`
                 WITH all_items AS (
-                    -- Inventory items
+                    -- Inventory items (Handle null inventory)
                     SELECT value as item_data 
-                    FROM characters, jsonb_array_elements(data->'inventory')
+                    FROM characters, 
+                    LATERAL jsonb_array_elements(COALESCE(data->'inventory', '[]'::jsonb))
+                    
                     UNION ALL
-                    -- Equipment items (filter out nulls)
+                    
+                    -- Equipment items (Handle null equipment and null slots)
                     SELECT value as item_data 
-                    FROM characters, jsonb_each(data->'equipment') 
-                    WHERE value != 'null'
+                    FROM characters, 
+                    LATERAL jsonb_each(COALESCE(data->'equipment', '{}'::jsonb))
+                    WHERE jsonb_typeof(value) != 'null'
                 )
                 SELECT 
                     item_data->>'templateId' as "templateId",
@@ -104,6 +115,7 @@ router.get('/stats/global', async (req: any, res: any) => {
 
             res.json({
                 totalPlayers,
+                totalGoldInEconomy,
                 raceCounts,
                 classCounts,
                 topItems,
@@ -114,7 +126,7 @@ router.get('/stats/global', async (req: any, res: any) => {
             client.release();
         }
     } catch (err) {
-        console.error(err);
+        console.error("Global Stats Error:", err);
         res.status(500).json({ message: 'Failed to fetch global stats' });
     }
 });

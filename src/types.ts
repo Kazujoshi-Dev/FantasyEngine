@@ -1022,6 +1022,7 @@ export interface PublicGuildProfile {
 
 export interface GlobalStats {
     totalPlayers: number;
+    totalGoldInEconomy: number;
     raceCounts: Record<string, number>;
     classCounts: Record<string, number>;
     topItems: { id: string, count: number }[];
