@@ -214,6 +214,8 @@ export const api = {
     updateDbRow: (table: string, data: any) => fetchApi(`/admin/db/table/${table}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDbRow: (table: string, primaryKeyValue: any) => fetchApi(`/admin/db/table/${table}`, { method: 'DELETE', body: JSON.stringify({ primaryKeyValue }) }),
     softResetCharacter: (id: number) => fetchApi(`/admin/characters/${id}/soft-reset`, { method: 'POST' }),
+    
+    // NEW: Global Stats (Fixes 'getGlobalStats is not a function')
     getGlobalStats: (): Promise<GlobalStats> => fetchApi('/admin/stats/global'),
     
     // Admin Guilds

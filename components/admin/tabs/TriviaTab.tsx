@@ -1,57 +1,113 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { GameData, GlobalStats } from '../../../types';
+
+
+
+
+import React, { useMemo } from 'react';
+import { GameData, AffixType, Race, CharacterClass, AdminCharacterInfo } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { SparklesIcon } from '../../icons/SparklesIcon';
 import { ShieldIcon } from '../../icons/ShieldIcon';
 import { SwordsIcon } from '../../icons/SwordsIcon';
 import { UsersIcon } from '../../icons/UsersIcon';
 import { BookOpenIcon } from '../../icons/BookOpenIcon';
-import { CoinsIcon } from '../../icons/CoinsIcon';
-import { api } from '../../../api';
 
 interface TriviaTabProps {
     gameData: GameData;
-    // Removed allCharacters prop as we now fetch aggregated data from API
+    allCharacters?: AdminCharacterInfo[];
 }
 
-export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
+export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = [] }) => {
     const { t } = useTranslation();
     const { itemTemplates, affixes, enemies, quests, locations, skills } = gameData;
-    const [stats, setStats] = useState<GlobalStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
-    const fetchStats = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            console.log("Fetching global stats...");
-            const data = await api.getGlobalStats();
-            setStats(data);
-        } catch (err: any) {
-            console.error("Failed to fetch global stats:", err);
-            setError(err.message || 'Nie udało się pobrać statystyk.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const stats = useMemo(() => {
+        let totalCombinations = 0n; 
+        let mostFlexibleItem = { name: '', count: 0 };
+        
+        // Categorize Affixes
+        const prefixes = affixes.filter(a => a.type === AffixType.Prefix);
+        const suffixes = affixes.filter(a => a.type === AffixType.Suffix);
 
-    useEffect(() => {
-        fetchStats();
-    }, []);
+        // Max Affix Damage Calculation (Pre-calc for performance)
+        const maxPrefixDmg = prefixes.reduce((max, p) => Math.max(max, p.damageMax?.max || 0), 0);
+        const maxSuffixDmg = suffixes.reduce((max, p) => Math.max(max, p.damageMax?.max || 0), 0);
+        let ultimateWeapon = { name: 'Brak', damage: 0 };
 
-    const staticStats = useMemo(() => {
+        itemTemplates.forEach(item => {
+            // 1. Combinations Logic
+            const validPrefixesCount = prefixes.filter(p => p.spawnChances && p.spawnChances[item.category] && p.spawnChances[item.category]! > 0).length;
+            const validSuffixesCount = suffixes.filter(s => s.spawnChances && s.spawnChances[item.category] && s.spawnChances[item.category]! > 0).length;
+            const combinations = (1 + validPrefixesCount) * (1 + validSuffixesCount);
+            totalCombinations += BigInt(combinations);
+
+            if (combinations > mostFlexibleItem.count) {
+                mostFlexibleItem = { name: item.name, count: combinations };
+            }
+
+            // 2. Ultimate Weapon Logic (Base + Max Prefix + Max Suffix)
+            // Only check weapons (items with damage)
+            if (item.damageMax?.max && item.damageMax.max > 0) {
+                // Calculate Base Damage at +10 Upgrade (100% bonus)
+                const baseMax = item.damageMax.max;
+                // Math.round(base * 1.0) represents the +100% bonus from level 10 upgrade
+                const upgradedBaseMax = baseMax + Math.round(baseMax * 1.0);
+
+                // Simplified check: assumes best prefix/suffix CAN spawn on this weapon category
+                // For exact precision we would filter maxPrefixDmg by item.category, but this is good for trivia.
+                const theoreticalMax = upgradedBaseMax + maxPrefixDmg + maxSuffixDmg;
+                
+                if (theoreticalMax > ultimateWeapon.damage) {
+                    ultimateWeapon = { name: item.name, damage: theoreticalMax };
+                }
+            }
+        });
+
         return {
+            totalCombinations: totalCombinations.toString(),
+            avgCombinationsPerItem: itemTemplates.length > 0 ? (Number(totalCombinations) / itemTemplates.length).toFixed(0) : 0,
+            mostFlexibleItem,
+            ultimateWeapon,
+            
+            // Counts
             itemsCount: itemTemplates.length,
             affixCount: affixes.length,
             enemiesCount: enemies.filter(e => !e.isBoss).length,
             bossCount: enemies.filter(e => e.isBoss).length,
             questsCount: quests.length,
             locationsCount: locations.length,
+            
+            // Enums & Arrays
+            raceCount: Object.keys(Race).length,
+            classCount: Object.keys(CharacterClass).length,
             skillCount: (skills || []).length
         };
     }, [itemTemplates, affixes, enemies, quests, locations, skills]);
+
+    const demographics = useMemo(() => {
+        const raceCounts: Record<string, number> = {};
+        const classCounts: Record<string, number> = {};
+        const totalPlayers = allCharacters.length;
+
+        allCharacters.forEach(char => {
+            if (char.race) {
+                raceCounts[char.race] = (raceCounts[char.race] || 0) + 1;
+            }
+            
+            const className = char.characterClass || 'Bez klasy (Novice)';
+            classCounts[className] = (classCounts[className] || 0) + 1;
+        });
+
+        // Sort descending
+        const sortedRaces = Object.entries(raceCounts).sort((a, b) => b[1] - a[1]);
+        const sortedClasses = Object.entries(classCounts).sort((a, b) => b[1] - a[1]);
+
+        return { sortedRaces, sortedClasses, totalPlayers };
+    }, [allCharacters]);
+
+    const formatNumber = (num: string | number) => {
+        return Number(num).toLocaleString('pl-PL');
+    };
 
     const renderProgressBar = (count: number, total: number, color: string) => {
         const percent = total > 0 ? (count / total) * 100 : 0;
@@ -61,183 +117,148 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             </div>
         );
     }
-    
-    // Sort received demographics
-    const sortedRaces = useMemo(() => {
-        if (!stats) return [];
-        return Object.entries(stats.raceCounts).sort((a, b) => b[1] - a[1]);
-    }, [stats]);
-    
-    const sortedClasses = useMemo(() => {
-         if (!stats) return [];
-         return Object.entries(stats.classCounts).sort((a, b) => b[1] - a[1]);
-    }, [stats]);
-    
-    const formattedGold = useMemo(() => {
-        if(!stats) return '0';
-        return stats.totalGoldInEconomy.toLocaleString();
-    }, [stats]);
 
     return (
         <div className="animate-fade-in space-y-6">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-2xl font-bold text-indigo-400 flex items-center gap-2">
-                    <SparklesIcon className="h-6 w-6" />
-                    Statystyki Świata Gry (Live)
-                </h3>
-                <button 
-                    onClick={fetchStats} 
-                    disabled={loading}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-bold text-white shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {loading ? 'Odświeżanie...' : 'Odśwież Dane'}
-                </button>
-            </div>
+            <h3 className="text-2xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
+                <SparklesIcon className="h-6 w-6" />
+                Ciekawostki Świata Gry
+            </h3>
 
-            {error && (
-                <div className="bg-red-900/50 p-4 rounded border border-red-700 text-center animate-pulse">
-                    <p className="text-red-300 font-bold">Błąd: {error}</p>
-                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Upewnij się, że backend obsługuje endpoint /stats/global.</p>
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-400 animate-pulse text-lg">Analizowanie danych serwera...</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {/* Economy Stats */}
-                    <div className="col-span-full bg-slate-800/80 p-6 rounded-xl border border-amber-500/30 flex justify-between items-center shadow-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Main Stat Card */}
+                <div className="col-span-full bg-gradient-to-r from-slate-800 to-indigo-900/50 p-6 rounded-xl border border-indigo-500/30 shadow-lg">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h4 className="text-xl font-bold text-amber-400 mb-1 flex items-center gap-2">
-                                <CoinsIcon className="h-6 w-6"/> Ekonomia Świata
-                            </h4>
-                            <p className="text-gray-400 text-sm">Całkowita ilość złota w posiadaniu wszystkich graczy.</p>
+                            <h4 className="text-lg text-indigo-300 font-semibold mb-2">Liczba możliwych przedmiotów</h4>
+                            <p className="text-4xl md:text-6xl font-extrabold text-white tracking-tight text-shadow">
+                                {formatNumber(stats.totalCombinations)}
+                            </p>
+                            <p className="text-sm text-gray-400 mt-2">
+                                Unikalnych wariantów ekwipunku (Baza + Prefiksy + Sufiksy).
+                            </p>
                         </div>
-                        <div className="text-right">
-                             <p className="text-4xl font-mono font-bold text-white tracking-wide text-shadow-sm">{formattedGold}</p>
-                             <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Sztuk Złota</p>
-                        </div>
-                    </div>
-
-                    {/* Demographics - Races */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                        <h4 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
-                            <UsersIcon className="h-5 w-5"/> Populacja Ras ({stats?.totalPlayers})
-                        </h4>
-                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {sortedRaces.map(([race, count]) => (
-                                <div key={race} className="bg-slate-900/30 p-2 rounded">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-300">{t(`race.${race}`) || race}</span>
-                                        <span className="font-mono text-white">{count} ({((count / (stats?.totalPlayers || 1)) * 100).toFixed(1)}%)</span>
-                                    </div>
-                                    {renderProgressBar(count, stats?.totalPlayers || 1, 'bg-amber-500')}
-                                </div>
-                            ))}
-                            {sortedRaces.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
-                        </div>
-                    </div>
-
-                    {/* Demographics - Classes */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                        <h4 className="text-lg font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                            <BookOpenIcon className="h-5 w-5"/> Populacja Klas
-                        </h4>
-                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {sortedClasses.map(([className, count]) => {
-                                const displayClass = className === 'Novice' ? 'Bez klasy (Novice)' : t(`class.${className}`) || className;
-                                return (
-                                    <div key={className} className="bg-slate-900/30 p-2 rounded">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-gray-300">{displayClass}</span>
-                                            <span className="font-mono text-white">{count} ({((count / (stats?.totalPlayers || 1)) * 100).toFixed(1)}%)</span>
-                                        </div>
-                                        {renderProgressBar(count, stats?.totalPlayers || 1, 'bg-indigo-500')}
-                                    </div>
-                                )
-                            })}
-                            {sortedClasses.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
-                        </div>
-                    </div>
-
-                    {/* Content Stats (Static) */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                        <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
-                            <ShieldIcon className="h-5 w-5 text-red-400"/>
-                            Zawartość (Statyczna)
-                        </h4>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
-                                <span className="text-gray-300">Zwykli Przeciwnicy</span>
-                                <span className="font-mono font-bold text-white">{staticStats.enemiesCount}</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded border border-red-900/30">
-                                <span className="text-red-300 font-bold">Bossowie</span>
-                                <span className="font-mono font-bold text-red-500">{staticStats.bossCount}</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
-                                <span className="text-gray-300">Zadania (Questy)</span>
-                                <span className="font-mono font-bold text-yellow-400">{staticStats.questsCount}</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
-                                <span className="text-gray-300">Lokacje</span>
-                                <span className="font-mono font-bold text-green-400">{staticStats.locationsCount}</span>
-                            </div>
-                             <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
-                                <span className="text-gray-300">Umiejętności</span>
-                                <span className="font-mono font-bold text-sky-400">{staticStats.skillCount}</span>
-                            </div>
-                        </div>
-                    </div>
-                
-                    {/* Top Items */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 col-span-1 md:col-span-1">
-                        <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
-                            <SwordsIcon className="h-5 w-5 text-sky-400"/>
-                            Najpopularniejsze Przedmioty
-                        </h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                             {stats?.topItems.map(({ id, count }) => {
-                                 const item = itemTemplates.find(t => t.id === id);
-                                 return (
-                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded hover:bg-slate-800 transition-colors">
-                                         <span className="text-gray-300 truncate w-32" title={item ? item.name : id}>{item ? item.name : id}</span>
-                                         <span className="font-mono text-sky-400 font-bold">{count}</span>
-                                     </div>
-                                 )
-                             })}
-                             {stats?.topItems.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
-                        </div>
-                    </div>
-
-                    {/* Top Affixes */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 col-span-1 md:col-span-1">
-                        <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
-                            <SparklesIcon className="h-5 w-5 text-purple-400"/>
-                            Najpopularniejsze Afiksy
-                        </h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                             {stats?.topAffixes.map(({ id, count }) => {
-                                 const affix = affixes.find(a => a.id === id);
-                                 const name = affix ? (typeof affix.name === 'string' ? affix.name : affix.name.masculine) : id;
-                                 return (
-                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded hover:bg-slate-800 transition-colors">
-                                         <span className="text-gray-300 truncate w-32" title={name}>{name}</span>
-                                         <span className="font-mono text-purple-400 font-bold">{count}</span>
-                                     </div>
-                                 )
-                             })}
-                             {stats?.topAffixes.length === 0 && <p className="text-gray-500 text-sm">Brak danych.</p>}
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-600/50 text-right">
+                            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Teoretycznie najsilniejsza broń</p>
+                            <p className="text-xl font-bold text-red-400">{stats.ultimateWeapon.name}</p>
+                            <p className="text-sm text-gray-300">Maks. obrażeń: <span className="font-mono font-bold text-white">{stats.ultimateWeapon.damage}</span></p>
+                            <p className="text-[10px] text-gray-500 italic">(Ulepszenie +10 + Perfect Roll + Najlepsze Afiksy)</p>
                         </div>
                     </div>
                 </div>
-            )}
+
+                {/* Demographics - Races */}
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h4 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
+                        <UsersIcon className="h-5 w-5"/> Populacja Ras
+                    </h4>
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        {demographics.sortedRaces.map(([race, count]) => (
+                            <div key={race} className="bg-slate-900/30 p-2 rounded">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-300">{t(`race.${race}`)}</span>
+                                    <span className="font-mono text-white">{count} ({((count / demographics.totalPlayers) * 100).toFixed(1)}%)</span>
+                                </div>
+                                {renderProgressBar(count, demographics.totalPlayers, 'bg-amber-500')}
+                            </div>
+                        ))}
+                         {demographics.sortedRaces.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
+                    </div>
+                </div>
+
+                 {/* Demographics - Classes */}
+                 <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h4 className="text-lg font-bold text-indigo-400 mb-4 flex items-center gap-2">
+                        <BookOpenIcon className="h-5 w-5"/> Populacja Klas
+                    </h4>
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        {demographics.sortedClasses.map(([className, count]) => {
+                            // Try to translate class key if it matches enum, otherwise display raw (e.g. 'Bez klasy')
+                            const displayClass = className === 'Bez klasy (Novice)' ? className : t(`class.${className}`);
+                            return (
+                                <div key={className} className="bg-slate-900/30 p-2 rounded">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-300">{displayClass}</span>
+                                        <span className="font-mono text-white">{count} ({((count / demographics.totalPlayers) * 100).toFixed(1)}%)</span>
+                                    </div>
+                                    {renderProgressBar(count, demographics.totalPlayers, 'bg-indigo-500')}
+                                </div>
+                            )
+                        })}
+                        {demographics.sortedClasses.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
+                    </div>
+                </div>
+
+                {/* Development & Variety */}
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <UsersIcon className="h-5 w-5 text-green-400"/>
+                        Różnorodność Systemu
+                    </h4>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Dostępne Rasy</span>
+                            <span className="font-mono font-bold text-amber-400">{stats.raceCount}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Dostępne Klasy</span>
+                            <span className="font-mono font-bold text-indigo-400">{stats.classCount}</span>
+                        </div>
+                         <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Umiejętności (Uniw.)</span>
+                            <span className="font-mono font-bold text-sky-400">{stats.skillCount}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content Stats */}
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <ShieldIcon className="h-5 w-5 text-red-400"/>
+                        Zagrożenia i Content
+                    </h4>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Zwykli Przeciwnicy</span>
+                            <span className="font-mono font-bold text-white">{stats.enemiesCount}</span>
+                        </div>
+                         <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded border border-red-900/30">
+                            <span className="text-red-300 font-bold">Bossowie</span>
+                            <span className="font-mono font-bold text-red-500">{stats.bossCount}</span>
+                        </div>
+                         <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Zadania (Questy)</span>
+                            <span className="font-mono font-bold text-yellow-400">{stats.questsCount}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Item Stats */}
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <SwordsIcon className="h-5 w-5 text-sky-400"/>
+                        Baza Przedmiotów
+                    </h4>
+                     <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Szablony</span>
+                            <span className="font-mono font-bold text-white">{stats.itemsCount}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
+                            <span className="text-gray-300">Afiksy</span>
+                            <span className="font-mono font-bold text-purple-400">{stats.affixCount}</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-900/30 text-xs text-center text-gray-400">
+                            Najbardziej elastyczny przedmiot:<br/>
+                            <span className="text-amber-400 font-bold text-sm">{stats.mostFlexibleItem.name}</span>
+                            <br/>({formatNumber(stats.mostFlexibleItem.count)} wariantów)
+                        </div>
+                    </div>
+                </div>
+            </div>
             
-            <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center mt-6">
-                * Statystyki popularności są agregowane z inwentarza oraz ekwipunku wszystkich graczy w czasie rzeczywistym.
+            <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center">
+                * Obliczenia są wykonywane w czasie rzeczywistym na podstawie aktualnie zdefiniowanych danych w grze oraz aktywnych postaci.
             </div>
         </div>
     );
