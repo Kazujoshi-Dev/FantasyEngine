@@ -1,0 +1,222 @@
+
+import React, { useState, useEffect } from 'react';
+import { ContentPanel } from './ContentPanel';
+import { PlayerCharacter, Location as LocationType, Tab } from '../types';
+import { CoinsIcon } from './icons/CoinsIcon';
+import { MapIcon } from './icons/MapIcon';
+import { BoltIcon } from './icons/BoltIcon';
+import { ClockIcon } from './icons/ClockIcon';
+import { useTranslation } from '../contexts/LanguageContext';
+import { HandshakeIcon } from './icons/HandshakeIcon';
+import { AnvilIcon } from './icons/AnvilIcon';
+import { QuestIcon } from './icons/QuestIcon';
+import { MessageSquareIcon } from './icons/MessageSquareIcon';
+import { ScaleIcon } from './icons/ScaleIcon';
+import { api } from '../api';
+import { useCharacter } from '../contexts/CharacterContext';
+
+interface LocationPanelProps {
+  playerCharacter: PlayerCharacter;
+  locations: LocationType[];
+}
+
+const formatTimeLeft = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+};
+
+const TravelInProgressPanel: React.FC<LocationPanelProps> = ({ playerCharacter, locations }) => {
+    const { t } = useTranslation();
+    const { activeTravel } = playerCharacter;
+    const [timeLeft, setTimeLeft] = useState(0);
+
+    const destination = locations.find(l => l.id === activeTravel?.destinationLocationId);
+
+    useEffect(() => {
+        if (activeTravel) {
+            const updateTimer = () => {
+                // Use api.getServerTime() for sync
+                const remaining = Math.max(0, Math.floor((activeTravel.finishTime - api.getServerTime()) / 1000));
+                setTimeLeft(remaining);
+            };
+
+            updateTimer();
+            const intervalId = setInterval(updateTimer, 1000);
+            return () => clearInterval(intervalId);
+        }
+    }, [activeTravel]);
+
+    if (!activeTravel || !destination) return null;
+
+    return (
+        <div className="bg-slate-900/40 p-8 rounded-xl text-center">
+            <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('location.travelingTitle')}</h3>
+            <p className="text-4xl font-extrabold text-white mb-4">{destination.name}</p>
+            {destination.image && <img src={destination.image} alt={destination.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+            <p className="text-lg text-gray-400 mb-6">{t('location.arrivesIn')}</p>
+            <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
+        </div>
+    );
+};
+
+
+export const Location: React.FC = () => {
+  const { character: playerCharacter, baseCharacter, gameData, updateCharacter } = useCharacter();
+  const { t } = useTranslation();
+
+  if (!playerCharacter || !baseCharacter || !gameData) {
+      return null;
+  }
+  const locations = gameData.locations;
+  const currentLocation = locations.find(loc => loc.id === playerCharacter.currentLocationId);
+  const otherLocations = locations.filter(loc => loc.id !== playerCharacter.currentLocationId);
+
+  const tabInfoMap: Partial<Record<Tab, { icon: React.ReactElement; label: string }>> = {
+    [Tab.Expedition]: { icon: <MapIcon />, label: t('sidebar.expedition') },
+    [Tab.Quests]: { icon: <QuestIcon />, label: t('sidebar.quests') },
+    [Tab.Tavern]: { icon: <MessageSquareIcon />, label: t('sidebar.tavern') },
+    [Tab.Trader]: { icon: <HandshakeIcon />, label: t('sidebar.trader') },
+    [Tab.Blacksmith]: { icon: <AnvilIcon />, label: t('sidebar.blacksmith') },
+    [Tab.Market]: { icon: <ScaleIcon />, label: t('sidebar.market') },
+  };
+
+  const handleStartTravel = (destinationId: string) => {
+    const destination = locations.find(loc => loc.id === destinationId);
+    if (!destination || playerCharacter.activeTravel) return;
+
+    // Check resources on the derived character (to ensure UI consistency), 
+    // but update the base character to avoid "baking in" item stats.
+    const hasEnoughGold = playerCharacter.resources.gold >= destination.travelCost;
+    const hasEnoughEnergy = playerCharacter.stats.currentEnergy >= destination.travelEnergyCost;
+
+    if (hasEnoughGold && hasEnoughEnergy) {
+      const updatedCharacter: PlayerCharacter = {
+        ...baseCharacter, // Use baseCharacter to avoid duplicating item stats
+        resources: {
+          ...baseCharacter.resources,
+          gold: baseCharacter.resources.gold - destination.travelCost,
+        },
+        stats: {
+          ...baseCharacter.stats,
+          currentEnergy: baseCharacter.stats.currentEnergy - destination.travelEnergyCost,
+        },
+        activeTravel: {
+          destinationLocationId: destination.id,
+          // Calculate finish time using server time logic on client is OK, 
+          // but ideally server should set this timestamp.
+          // Since this is a local optimistic update, using Date.now() here is acceptable 
+          // as long as backend overwrites/validates it or if the discrepancy is small.
+          // However, strictly speaking, to be safe with our new system:
+          finishTime: api.getServerTime() + destination.travelTime * 1000,
+        }
+      };
+      updateCharacter(updatedCharacter, true);
+    } else {
+      let message = `${t('location.cannotTravel')}. `;
+      if (!hasEnoughGold) message += `${t('location.lackGold')}. `;
+      if (!hasEnoughEnergy) message += `${t('location.lackEnergy')}.`;
+      alert(message.trim());
+    }
+  };
+
+  if (!currentLocation) {
+    return (
+      <ContentPanel title={t('location.title')}>
+        <p className="text-red-400">{t('location.error')}</p>
+      </ContentPanel>
+    );
+  }
+  
+  if (playerCharacter.activeTravel) {
+      return (
+          <ContentPanel title={t('location.title')}>
+              <TravelInProgressPanel playerCharacter={playerCharacter} locations={locations} />
+          </ContentPanel>
+      );
+  }
+
+  return (
+    <ContentPanel title={t('location.title')}>
+        <div className="flex justify-end items-center mb-4">
+            <div className="flex items-center space-x-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-700/50">
+                <BoltIcon className="h-5 w-5 text-sky-400" />
+                <span className="font-semibold text-gray-300">{t('statistics.energyLabel')}:</span>
+                <span className="font-mono text-lg font-bold text-white">{playerCharacter.stats.currentEnergy} / {playerCharacter.stats.maxEnergy}</span>
+            </div>
+        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-slate-900/40 p-6 rounded-xl">
+          <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('location.currentLocation')}</h3>
+          <p className="text-4xl font-extrabold text-white">{currentLocation.name}</p>
+          {currentLocation.image && <img src={currentLocation.image} alt={currentLocation.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
+          <p className="text-gray-400 mt-4 italic">{currentLocation.description}</p>
+        </div>
+
+        <div className="bg-slate-900/40 p-6 rounded-xl">
+          <h3 className="text-2xl font-bold text-indigo-400 mb-4 flex items-center">
+            <MapIcon className="h-6 w-6 mr-2" /> {t('location.travels')}
+          </h3>
+          {otherLocations.length > 0 ? (
+            <ul className="space-y-4">
+              {otherLocations.map(loc => (
+                <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center">
+                  <div className="flex items-start gap-4 flex-grow">
+                     {loc.image && <img src={loc.image} alt={loc.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />}
+                     <div className="flex-grow">
+                        <p className="text-lg font-semibold text-white">{loc.name}</p>
+                        <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
+                        <div className="flex items-center text-sm mt-2 space-x-4">
+                          <div className="flex items-center text-amber-400">
+                            <CoinsIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelCost}</span>
+                          </div>
+                           <div className="flex items-center text-sky-400">
+                            <BoltIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelEnergyCost}</span>
+                          </div>
+                          <div className="flex items-center text-gray-400">
+                            <ClockIcon className="h-4 w-4 mr-1" />
+                            <span>{loc.travelTime}s</span>
+                          </div>
+                        </div>
+                        {loc.availableTabs && loc.availableTabs.length > 0 && (
+                            <div className="mt-3 border-t border-slate-700/50 pt-3">
+                                <h4 className="text-xs font-semibold text-gray-500 mb-2">{t('location.availableFacilities')}</h4>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    {loc.availableTabs
+                                        .filter(tabId => tabInfoMap[tabId])
+                                        .map(tabId => {
+                                            const tabInfo = tabInfoMap[tabId]!;
+                                            return (
+                                                <div key={tabId} title={tabInfo.label} className="flex items-center gap-1.5 text-slate-400">
+                                                    {React.cloneElement(tabInfo.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
+                                                    <span className="text-xs">{tabInfo.label}</span>
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                            </div>
+                        )}
+                      </div>
+                  </div>
+                  <button
+                    onClick={() => handleStartTravel(loc.id)}
+                    disabled={playerCharacter.resources.gold < loc.travelCost || playerCharacter.stats.currentEnergy < loc.travelEnergyCost}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed flex-shrink-0 ml-4"
+                  >
+                    {t('location.travel')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400">{t('location.noLocations')}</p>
+          )}
+        </div>
+      </div>
+    </ContentPanel>
+  );
+};

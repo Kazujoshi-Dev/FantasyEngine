@@ -1,0 +1,31 @@
+{
+  "name": "fantastic-idle-expedition",
+  "version": "1.0.0",
+  "description": "A browser-based fantasy game.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev:frontend": "mkdir -p dist && cp index.html dist/",
+    "dev:frontend": "vite",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
+    "build:frontend": "vite build",
+    "build:backend": "npm run build --prefix backend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start": "npm start --prefix backend"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.3.3",
+    "@vitejs/plugin-react": "^4.3.1"
+  }
+}

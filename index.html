@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kroniki Mroku</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+      
+      /* New Slider Styles */
+      .slider-viewport {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .slider-track {
+        display: flex;
+        height: 100%;
+        transition: transform 0.7s ease-in-out;
+      }
+      .slider-image {
+        flex-shrink: 0;
+        /* width is now set dynamically in JS */
+        height: 100%;
+        object-fit: contain; /* Fit image inside without cropping */
+        cursor: pointer;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+    "pg": "https://aistudiocdn.com/pg@^8.16.3",
+    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.3",
+    "crypto": "https://aistudiocdn.com/crypto@^1.0.1",
+    "buffer": "https://aistudiocdn.com/buffer@^6.0.3",
+    "express": "https://aistudiocdn.com/express@^5.2.1",
+    "cors": "https://aistudiocdn.com/cors@^2.8.5",
+    "fs": "https://aistudiocdn.com/fs@^0.0.1-security",
+    "node-cron": "https://aistudiocdn.com/node-cron@^4.2.1",
+    "http": "https://aistudiocdn.com/http@^0.0.1-security",
+    "socket.io": "https://aistudiocdn.com/socket.io@^4.8.1",
+    "multer": "https://aistudiocdn.com/multer@^2.0.2",
+    "socket.io-client": "https://aistudiocdn.com/socket.io-client@^4.8.1",
+    "nodemailer": "https://esm.sh/nodemailer@^7.0.11"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-slate-900 text-gray-200 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
