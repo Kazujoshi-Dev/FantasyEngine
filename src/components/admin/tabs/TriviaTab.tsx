@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { GameData, GlobalStats, Race, CharacterClass } from '../../../types';
+import { GameData, GlobalStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { SparklesIcon } from '../../icons/SparklesIcon';
 import { ShieldIcon } from '../../icons/ShieldIcon';
@@ -45,10 +45,6 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             skillCount: (skills || []).length
         };
     }, [itemTemplates, affixes, enemies, quests, locations, skills]);
-
-    const formatNumber = (num: string | number) => {
-        return Number(num).toLocaleString('pl-PL');
-    };
 
     const renderProgressBar = (count: number, total: number, color: string) => {
         const percent = total > 0 ? (count / total) * 100 : 0;
@@ -124,7 +120,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                         <h4 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
                             <ShieldIcon className="h-5 w-5 text-red-400"/>
-                            Zawartość
+                            Zawartość (Statyczna)
                         </h4>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded">

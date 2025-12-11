@@ -54,7 +54,7 @@ router.get('/stats/global', async (req: any, res: any) => {
             });
 
             // 2. Item & Affix Popularity (Aggregating Inventory + Equipment)
-            // Using CTE to gather all item objects first
+            // Using CTE to gather all item objects first. This is resource intensive but accurate.
             const popularityRes = await client.query(`
                 WITH all_items AS (
                     -- Inventory items
@@ -114,7 +114,7 @@ router.get('/stats/global', async (req: any, res: any) => {
             client.release();
         }
     } catch (err) {
-        console.error(err);
+        console.error("Global Stats Error:", err);
         res.status(500).json({ message: 'Failed to fetch global stats' });
     }
 });
