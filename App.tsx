@@ -24,7 +24,7 @@ import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
-import { GameData, Tab, Race, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
@@ -95,22 +95,6 @@ const AppContent: React.FC = () => {
     const activeTabRef = useRef<Tab>(Tab.Statistics);
 
     const t = getT(character?.settings?.language || Language.PL);
-
-    // --- HEARTBEAT SYSTEM ---
-    useEffect(() => {
-        if (!api.getAuthToken()) return;
-
-        // Send immediate heartbeat on load
-        api.sendHeartbeat().catch(err => console.error("Initial heartbeat failed", err));
-
-        // Send heartbeat every 30 seconds to keep status "Online"
-        const heartbeatInterval = setInterval(() => {
-            api.sendHeartbeat().catch(err => console.error("Heartbeat failed", err));
-        }, 30000);
-
-        return () => clearInterval(heartbeatInterval);
-    }, []);
-    // ------------------------
 
     const checkUnreadMessages = useCallback(async () => {
         if (!api.getAuthToken()) return;
@@ -222,7 +206,7 @@ const AppContent: React.FC = () => {
         const token = api.getAuthToken();
         if (token) api.logout(token);
         localStorage.removeItem('token');
-        window.location.reload();
+        window.location.reload(); // Force a full reload to clear all state
     };
 
     const handleCharacterCreate = async (newCharData: { name: string, race: Race }) => {
@@ -236,7 +220,6 @@ const AppContent: React.FC = () => {
         }
     };
     
-    // Add handleAttackPlayer to be passed to Ranking component
     const handleAttackPlayer = async (defenderId: number) => {
         try {
             const result = await api.attackPlayer(defenderId);
@@ -390,19 +373,15 @@ export const App: React.FC = () => {
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
 
-    // This component will now only handle the top-level loading and auth state.
-    // All other state will be in providers or AppContent.
-
     const handleLoginSuccess = (newToken: string) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);
-        setIsInitialLoading(true); // Trigger re-load inside AppContent
+        setIsInitialLoading(true);
     };
     
     const handleForceLogout = () => {
         localStorage.removeItem('token');
         setToken(null);
-        // No need to clear other states as they will be unmounted.
     };
     
     if (window.location.pathname.startsWith('/report/') || window.location.pathname.startsWith('/raid-report/')) {
@@ -447,7 +426,6 @@ const AppLoader: React.FC<{children: React.ReactNode, onLogout: () => void}> = (
                 ]);
                 
                 if (!gameData || !charData) {
-                    // This could mean no character exists, which AppContent will handle by showing CharacterCreation
                     if (!charData) {
                         setGameData(gameData);
                         setIsLoading(false);
