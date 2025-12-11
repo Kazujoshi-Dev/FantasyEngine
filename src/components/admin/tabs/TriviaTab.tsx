@@ -196,7 +196,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             )}
             
             <div className="bg-slate-900/30 p-4 rounded-lg text-xs text-gray-500 italic text-center">
-                * Statystyki popularności są agregowane z inwentarza wszystkich graczy w czasie rzeczywistym.
+                * Statystyki popularności przedmiotów i afiksów są agregowane z ekwipunku oraz plecaków wszystkich graczy w czasie rzeczywistym.
             </div>
         </div>
     );
