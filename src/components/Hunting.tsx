@@ -12,7 +12,7 @@ import { StarIcon } from './icons/StarIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
 
 export const Hunting: React.FC = () => {
-    const { character, gameData } = useCharacter();
+    const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT'>('DASHBOARD');
     const [parties, setParties] = useState<any[]>([]);
@@ -192,6 +192,9 @@ export const Hunting: React.FC = () => {
                 <ExpeditionSummaryModal 
                     reward={reportData!}
                     onClose={() => {
+                        // CRITICAL FIX: Refresh character data after combat to update Health Bar
+                        api.getCharacter().then(updateCharacter);
+                        
                         if (myParty.status === PartyStatus.Finished) {
                             api.leaveParty().then(() => {
                                 setMyParty(null);
