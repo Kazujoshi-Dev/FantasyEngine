@@ -220,6 +220,7 @@ const AppContent: React.FC = () => {
         }
     };
     
+    // Add handleAttackPlayer to be passed to Ranking component
     const handleAttackPlayer = async (defenderId: number) => {
         try {
             const result = await api.attackPlayer(defenderId);
@@ -373,15 +374,19 @@ export const App: React.FC = () => {
     const [loadingMessage, setLoadingMessage] = useState('');
     const [loadingError, setLoadingError] = useState<string | null>(null);
 
+    // This component will now only handle the top-level loading and auth state.
+    // All other state will be in providers or AppContent.
+
     const handleLoginSuccess = (newToken: string) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);
-        setIsInitialLoading(true);
+        setIsInitialLoading(true); // Trigger re-load inside AppContent
     };
     
     const handleForceLogout = () => {
         localStorage.removeItem('token');
         setToken(null);
+        // No need to clear other states as they will be unmounted.
     };
     
     if (window.location.pathname.startsWith('/report/') || window.location.pathname.startsWith('/raid-report/')) {
@@ -426,6 +431,7 @@ const AppLoader: React.FC<{children: React.ReactNode, onLogout: () => void}> = (
                 ]);
                 
                 if (!gameData || !charData) {
+                    // This could mean no character exists, which AppContent will handle by showing CharacterCreation
                     if (!charData) {
                         setGameData(gameData);
                         setIsLoading(false);
