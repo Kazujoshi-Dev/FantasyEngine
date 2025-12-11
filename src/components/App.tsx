@@ -1,33 +1,33 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Auth } from './Auth';
-import { CharacterCreation } from './CharacterCreation';
-import { Sidebar, NewsModal } from './Sidebar';
-import { Statistics } from './Statistics';
-import { Equipment } from './Equipment';
-import { ExpeditionComponent } from './Expedition';
-import { ExpeditionSummaryModal } from './combat/CombatSummary';
-import { Camp } from './Camp';
-import { Location } from './Location';
-import { Resources } from './Resources';
-import { Ranking } from './Ranking';
-import { AdminPanel } from './AdminPanel';
-import { Trader } from './Trader';
-import { Blacksmith } from './Blacksmith';
-import { Messages } from './Messages';
-import { Quests } from './Quests';
-import { Tavern } from './Tavern';
-import { Market } from './Market';
-import { Options } from './Options';
-import { University } from './University';
-import { Hunting } from './Hunting';
-import { Guild } from './Guild';
-import { PublicReportViewer } from './PublicReportViewer';
-import { api } from '../api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from '../types';
-import { LanguageContext } from '../contexts/LanguageContext';
-import { getT } from '../i18n';
-import { CharacterProvider, useCharacter } from '../contexts/CharacterContext';
+import { Auth } from './components/Auth';
+import { CharacterCreation } from './components/CharacterCreation';
+import { Sidebar, NewsModal } from './components/Sidebar';
+import { Statistics } from './components/Statistics';
+import { Equipment } from './components/Equipment';
+import { ExpeditionComponent } from './components/Expedition';
+import { ExpeditionSummaryModal } from './components/combat/CombatSummary';
+import { Camp } from './components/Camp';
+import { Location } from './components/Location';
+import { Resources } from './components/Resources';
+import { Ranking } from './components/Ranking';
+import { AdminPanel } from './components/AdminPanel';
+import { Trader } from './components/Trader';
+import { Blacksmith } from './components/Blacksmith';
+import { Messages } from './components/Messages';
+import { Quests } from './components/Quests';
+import { Tavern } from './components/Tavern';
+import { Market } from './components/Market';
+import { Options } from './components/Options';
+import { University } from './components/University';
+import { Hunting } from './components/Hunting';
+import { Guild } from './components/Guild';
+import { PublicReportViewer } from './components/PublicReportViewer';
+import { api } from './api';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
+import { LanguageContext } from './contexts/LanguageContext';
+import { getT } from './i18n';
+import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
 
 // Error Boundary Component to catch crashes and show a readable error instead of white screen
 interface ErrorBoundaryProps {
@@ -280,6 +280,7 @@ const AppContent: React.FC = () => {
                             <Ranking
                                 ranking={ranking}
                                 isLoading={isRankingLoading}
+                                onAttack={handleAttackPlayer}
                                 onComposeMessage={(name) => { setActiveTab(Tab.Messages); setPendingComposeRecipient(name); }}
                             />
                         )}
