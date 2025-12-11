@@ -5,6 +5,7 @@ import { Language } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { ShieldIcon } from './icons/ShieldIcon';
 
 export const Options: React.FC = () => {
   const { character, updateCharacter } = useCharacter();
@@ -162,12 +163,17 @@ export const Options: React.FC = () => {
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Adres Email (Odzyskiwanie hasła)</label>
                         {hasEmail ? (
-                             <div className="w-full bg-slate-800/50 border border-slate-600/50 rounded-md px-3 py-2 text-green-400 italic flex items-center justify-between">
-                                 <span>{character.email}</span>
-                                 <span className="text-xs text-gray-500">Zabezpieczone</span>
+                             <div className="w-full bg-slate-800/80 border border-green-700/50 rounded-md px-4 py-3 flex items-center justify-between">
+                                 <div className="flex items-center gap-2">
+                                     <span className="text-gray-200 font-mono">{character.email}</span>
+                                 </div>
+                                 <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold uppercase tracking-wider bg-green-900/30 px-2 py-1 rounded">
+                                     <ShieldIcon className="h-3 w-3" />
+                                     Zabezpieczone
+                                 </div>
                              </div>
                         ) : (
-                            <div className="space-y-1 bg-slate-800/30 p-2 rounded border border-amber-900/30">
+                            <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-700/30">
                                 <input 
                                     type="email" 
                                     value={email} 
@@ -177,7 +183,7 @@ export const Options: React.FC = () => {
                                     autoComplete="email"
                                 />
                                 <p className="text-xs text-amber-500 mt-1">
-                                    Uwaga: Email można przypisać do konta tylko raz. Służy wyłącznie do odzyskiwania hasła.
+                                    <strong>Uwaga:</strong> Adres email można przypisać do konta tylko raz. Służy on wyłącznie do odzyskiwania hasła.
                                 </p>
                                 {emailStatus.message && (
                                     <p className={`text-xs ${emailStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -193,7 +199,7 @@ export const Options: React.FC = () => {
                         <button
                         onClick={handleSaveProfile}
                         disabled={saveProfileStatus !== 'idle'}
-                        className="px-6 py-2 rounded-md bg-green-700 hover:bg-green-600 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                        className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
                         >
                         {saveProfileStatus === 'saving' ? t('admin.general.saving') + '...' : t('options.save')}
                         </button>
@@ -263,7 +269,7 @@ export const Options: React.FC = () => {
                         <button
                         type="submit"
                         disabled={!oldPassword || !newPassword || !confirmPassword}
-                        className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                        className="px-6 py-2 rounded-md bg-red-700 hover:bg-red-600 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
                         >
                         {t('options.security.changePassword')}
                         </button>
