@@ -1,5 +1,4 @@
 
-
 export enum Tab {
   Statistics,
   Equipment,
@@ -1019,4 +1018,12 @@ export interface PublicGuildProfile {
     createdAt: string;
     isPublic: boolean;
     minLevel: number;
+}
+
+export interface GlobalStats {
+    totalPlayers: number;
+    raceCounts: Record<string, number>;
+    classCounts: Record<string, number>;
+    topItems: { id: string, count: number }[];
+    topAffixes: { id: string, count: number }[];
 }

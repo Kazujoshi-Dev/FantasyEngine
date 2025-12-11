@@ -22,6 +22,104 @@ const checkAdmin = async (req: any, res: any, next: any) => {
 router.use(authenticateToken, checkAdmin);
 
 // ==========================================
+//               GLOBAL STATS
+// ==========================================
+
+router.get('/stats/global', async (req: any, res: any) => {
+    try {
+        const client = await pool.connect();
+        try {
+            // 1. Race & Class Counts
+            const demographicsRes = await client.query(`
+                SELECT 
+                    data->>'race' as race,
+                    data->>'characterClass' as "characterClass",
+                    COUNT(*) as count
+                FROM characters
+                GROUP BY data->>'race', data->>'characterClass'
+            `);
+
+            const raceCounts: Record<string, number> = {};
+            const classCounts: Record<string, number> = {};
+            let totalPlayers = 0;
+
+            demographicsRes.rows.forEach(row => {
+                const count = parseInt(row.count, 10);
+                const race = row.race || 'Unknown';
+                const charClass = row.characterClass || 'Novice';
+                
+                raceCounts[race] = (raceCounts[race] || 0) + count;
+                classCounts[charClass] = (classCounts[charClass] || 0) + count;
+                totalPlayers += count;
+            });
+
+            // 2. Item & Affix Popularity (Aggregating Inventory + Equipment)
+            // Using CTE to gather all item objects first
+            const popularityRes = await client.query(`
+                WITH all_items AS (
+                    -- Inventory items
+                    SELECT value as item_data 
+                    FROM characters, jsonb_array_elements(data->'inventory')
+                    UNION ALL
+                    -- Equipment items (filter out nulls)
+                    SELECT value as item_data 
+                    FROM characters, jsonb_each(data->'equipment') 
+                    WHERE value != 'null'
+                )
+                SELECT 
+                    item_data->>'templateId' as "templateId",
+                    item_data->>'prefixId' as "prefixId",
+                    item_data->>'suffixId' as "suffixId"
+                FROM all_items
+            `);
+
+            const itemCounts: Record<string, number> = {};
+            const affixCounts: Record<string, number> = {};
+
+            popularityRes.rows.forEach(row => {
+                // Count Item Templates
+                if (row.templateId) {
+                    itemCounts[row.templateId] = (itemCounts[row.templateId] || 0) + 1;
+                }
+                // Count Affixes (Prefix)
+                if (row.prefixId) {
+                    affixCounts[row.prefixId] = (affixCounts[row.prefixId] || 0) + 1;
+                }
+                // Count Affixes (Suffix)
+                if (row.suffixId) {
+                    affixCounts[row.suffixId] = (affixCounts[row.suffixId] || 0) + 1;
+                }
+            });
+
+            // Sort and limit results for frontend
+            const topItems = Object.entries(itemCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 50)
+                .map(([id, count]) => ({ id, count }));
+
+            const topAffixes = Object.entries(affixCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 50)
+                .map(([id, count]) => ({ id, count }));
+
+            res.json({
+                totalPlayers,
+                raceCounts,
+                classCounts,
+                topItems,
+                topAffixes
+            });
+
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch global stats' });
+    }
+});
+
+// ==========================================
 //               USERS & CHARACTERS
 // ==========================================
 

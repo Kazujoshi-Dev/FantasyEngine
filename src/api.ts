@@ -1,6 +1,5 @@
 
-
-import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType } from './types';
+import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType, GlobalStats } from './types';
 
 const API_URL = '/api';
 
@@ -195,7 +194,7 @@ export const api = {
     updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/character/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
     updateCharacterDetails: (id: number, data: { name?: string, race?: string, characterClass?: string, level?: number }) => fetchApi(`/admin/character/${id}/update-details`, { method: 'POST', body: JSON.stringify(data) }),
     regenerateCharacterEnergy: (id: number) => fetchApi(`/admin/characters/${id}/regenerate-energy`, { method: 'POST' }),
-    changeUserPassword: (id: number, newPass: string) => fetchApi(`/admin/users/${id}/password`, { method: 'POST', body: JSON.stringify({ newPass }) }),
+    changeUserPassword: (id: number, newPass: string) => fetchApi(`/admin/users/${id}/password`, { method: 'POST', body: JSON.stringify({ newPassword: newPass }) }),
     inspectCharacter: (id: number) => fetchApi(`/admin/characters/${id}/inspect`),
     deleteCharacterItem: (userId: number, itemUniqueId: string) => fetchApi(`/admin/characters/${userId}/items/${itemUniqueId}`, { method: 'DELETE' }),
     adminGiveItem: (userId: number, data: any) => fetchApi('/admin/give-item', { method: 'POST', body: JSON.stringify({ userId, ...data }) }),
@@ -215,6 +214,7 @@ export const api = {
     updateDbRow: (table: string, data: any) => fetchApi(`/admin/db/table/${table}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDbRow: (table: string, primaryKeyValue: any) => fetchApi(`/admin/db/table/${table}`, { method: 'DELETE', body: JSON.stringify({ primaryKeyValue }) }),
     softResetCharacter: (id: number) => fetchApi(`/admin/characters/${id}/soft-reset`, { method: 'POST' }),
+    getGlobalStats: (): Promise<GlobalStats> => fetchApi('/admin/stats/global'),
     
     // Admin Guilds
     adminGetGuilds: () => fetchApi('/admin/guilds'),
