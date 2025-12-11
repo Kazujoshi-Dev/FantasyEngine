@@ -61,6 +61,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
                   onSendGlobalMessage={api.sendGlobalMessage}
                 />;
       case 'trivia':
+        // TriviaTab fetches its own character data now if needed, or we can fetch basic list here if optimizing
+        // For now, pass basic gameData
         return <TriviaTab gameData={safeGameData} />;
       case 'guilds':
         return <GuildsTab />;

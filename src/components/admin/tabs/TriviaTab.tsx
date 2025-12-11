@@ -81,40 +81,41 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-indigo-400 flex items-center gap-2">
                     <SparklesIcon className="h-6 w-6" />
-                    Statystyki Świata Gry
+                    Statystyki Świata Gry (Live)
                 </h3>
                 <button 
                     onClick={fetchStats} 
                     disabled={loading}
-                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-sm disabled:opacity-50"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-bold text-white shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {loading ? 'Odświeżanie...' : 'Odśwież'}
+                    {loading ? 'Odświeżanie...' : 'Odśwież Dane'}
                 </button>
             </div>
 
             {error && (
-                <div className="bg-red-900/50 p-4 rounded border border-red-700 text-center">
+                <div className="bg-red-900/50 p-4 rounded border border-red-700 text-center animate-pulse">
                     <p className="text-red-300 font-bold">Błąd: {error}</p>
-                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Sprawdź logi backendu.</p>
+                    <p className="text-sm text-gray-400">Serwer nie zwrócił danych. Upewnij się, że backend został zrestartowany.</p>
                 </div>
             )}
 
             {loading ? (
-                <div className="flex justify-center py-20">
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-gray-400 animate-pulse text-lg">Analizowanie danych serwera...</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      {/* Economy Stats */}
-                    <div className="col-span-full bg-slate-800/80 p-6 rounded-xl border border-amber-500/30 flex justify-between items-center">
+                    <div className="col-span-full bg-slate-800/80 p-6 rounded-xl border border-amber-500/30 flex justify-between items-center shadow-lg">
                         <div>
                             <h4 className="text-xl font-bold text-amber-400 mb-1 flex items-center gap-2">
                                 <CoinsIcon className="h-6 w-6"/> Ekonomia Świata
                             </h4>
-                            <p className="text-gray-400 text-sm">Całkowita ilość złota w posiadaniu graczy.</p>
+                            <p className="text-gray-400 text-sm">Całkowita ilość złota w posiadaniu wszystkich graczy.</p>
                         </div>
                         <div className="text-right">
-                             <p className="text-4xl font-mono font-bold text-white tracking-wide">{formattedGold}</p>
+                             <p className="text-4xl font-mono font-bold text-white tracking-wide text-shadow-sm">{formattedGold}</p>
                              <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Sztuk Złota</p>
                         </div>
                     </div>
@@ -124,7 +125,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                         <h4 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
                             <UsersIcon className="h-5 w-5"/> Populacja Ras ({stats?.totalPlayers})
                         </h4>
-                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                             {sortedRaces.map(([race, count]) => (
                                 <div key={race} className="bg-slate-900/30 p-2 rounded">
                                     <div className="flex justify-between text-sm">
@@ -143,7 +144,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                         <h4 className="text-lg font-bold text-indigo-400 mb-4 flex items-center gap-2">
                             <BookOpenIcon className="h-5 w-5"/> Populacja Klas
                         </h4>
-                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                             {sortedClasses.map(([className, count]) => {
                                 const displayClass = className === 'Novice' ? 'Bez klasy (Novice)' : t(`class.${className}`) || className;
                                 return (
@@ -196,11 +197,11 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                             <SwordsIcon className="h-5 w-5 text-sky-400"/>
                             Najpopularniejsze Przedmioty
                         </h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                              {stats?.topItems.map(({ id, count }) => {
                                  const item = itemTemplates.find(t => t.id === id);
                                  return (
-                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded">
+                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded hover:bg-slate-800 transition-colors">
                                          <span className="text-gray-300 truncate w-32" title={item ? item.name : id}>{item ? item.name : id}</span>
                                          <span className="font-mono text-sky-400 font-bold">{count}</span>
                                      </div>
@@ -216,12 +217,12 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
                             <SparklesIcon className="h-5 w-5 text-purple-400"/>
                             Najpopularniejsze Afiksy
                         </h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                              {stats?.topAffixes.map(({ id, count }) => {
                                  const affix = affixes.find(a => a.id === id);
                                  const name = affix ? (typeof affix.name === 'string' ? affix.name : affix.name.masculine) : id;
                                  return (
-                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded">
+                                     <div key={id} className="flex justify-between items-center text-sm bg-slate-900/30 p-1.5 rounded hover:bg-slate-800 transition-colors">
                                          <span className="text-gray-300 truncate w-32" title={name}>{name}</span>
                                          <span className="font-mono text-purple-400 font-bold">{count}</span>
                                      </div>
