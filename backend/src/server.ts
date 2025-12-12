@@ -18,7 +18,11 @@ import { processPendingRaids } from './logic/guildRaids.js';
 // Import all route handlers
 import authRoutes from './routes/auth.js';
 import gameDataRoutes from './routes/gameData.js';
-import characterRoutes from './routes/character.js';
+// FIX: Remove .js extension for TS resolution if using ts-node or similar in dev, 
+// or ensure the file is compiled. In standard TS setup, importing from source .ts usually omits extension or uses .js if "moduleResolution": "Node16/NodeNext".
+// However, the error 'File ... is not a module' was due to missing export in character.ts. 
+// Assuming character.ts is fixed now, we keep the import consistent with others.
+import characterRoutes from './routes/character.js'; 
 import rankingRoutes from './routes/ranking.js';
 import traderRoutes from './routes/trader.js';
 import blacksmithRoutes from './routes/blacksmith.js';
