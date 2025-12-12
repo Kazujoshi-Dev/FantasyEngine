@@ -46,6 +46,8 @@ export const calculateDerivedStatsOnServer = (
         totalPrimaryStats.luck += (guildShrineLevel * 5);
     }
 
+    let bonusAttacksFromBuffs = 0;
+
     if (activeGuildBuffs && activeGuildBuffs.length > 0) {
         const now = Date.now();
         activeGuildBuffs.forEach(buff => {
@@ -54,6 +56,9 @@ export const calculateDerivedStatsOnServer = (
                     const statKey = key as keyof typeof totalPrimaryStats;
                     if (totalPrimaryStats[statKey] !== undefined) {
                         totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                    }
+                    if (key === 'attacksPerRound') {
+                        bonusAttacksFromBuffs += (Number(buff.stats[key]) || 0);
                     }
                 }
             }
@@ -182,7 +187,7 @@ export const calculateDerivedStatsOnServer = (
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     
     const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
-    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound;
+    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs;
     const attacksPerRound = !isNaN(calculatedAPR) ? parseFloat(calculatedAPR.toFixed(2)) : 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
@@ -283,6 +288,7 @@ export const getCampUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
+// Also exported for ChestPanel backward compatibility or if Chest uses same logic
 export const getTreasuryUpgradeCost = (level: number) => {
     const gold = Math.floor(200 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -291,7 +297,6 @@ export const getTreasuryUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// Also exported for ChestPanel backward compatibility or if Chest uses same logic
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
 // Updated logic: 2x the cost of Treasury

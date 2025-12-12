@@ -85,6 +85,7 @@ export const GuildAltar: React.FC<GuildAltarProps> = ({ guild, onUpdate }) => {
             case 'expBonus': return 'Bonus Doświadczenia';
             case 'minDamage': return t('item.damageMin');
             case 'maxDamage': return t('item.damageMax');
+            case 'attacksPerRound': return t('statistics.attacksPerTurn');
             default: return t(`statistics.${key}` as any);
         }
     };

@@ -47,6 +47,8 @@ export const calculateDerivedStats = (
         totalPrimaryStats.luck += (guildShrineLevel * 5);
     }
 
+    let bonusAttacksFromBuffs = 0;
+
     if (activeGuildBuffs && activeGuildBuffs.length > 0) {
         const now = Date.now();
         activeGuildBuffs.forEach(buff => {
@@ -55,6 +57,9 @@ export const calculateDerivedStats = (
                     const statKey = key as keyof typeof totalPrimaryStats;
                     if (totalPrimaryStats[statKey] !== undefined) {
                         totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                    }
+                    if (key === 'attacksPerRound') {
+                        bonusAttacksFromBuffs += (Number(buff.stats[key]) || 0);
                     }
                 }
             }
@@ -183,7 +188,7 @@ export const calculateDerivedStats = (
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
     
     const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
-    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound;
+    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs;
     const attacksPerRound = !isNaN(calculatedAPR) ? parseFloat(calculatedAPR.toFixed(2)) : 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
@@ -284,7 +289,6 @@ export const getCampUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// FIX: Add getTreasuryUpgradeCost function for consistency with backend
 export const getTreasuryUpgradeCost = (level: number) => {
     const gold = Math.floor(200 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -293,10 +297,8 @@ export const getTreasuryUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// FIX: Update getChestUpgradeCost to use getTreasuryUpgradeCost
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
-// FIX: Add getWarehouseUpgradeCost function
 export const getWarehouseUpgradeCost = (level: number) => {
     const baseCost = getTreasuryUpgradeCost(level);
     return {
@@ -314,7 +316,6 @@ export const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// FIX: Add getWarehouseCapacity function
 export const getWarehouseCapacity = (level: number) => {
     return 5 + ((level - 1) * 3);
 };

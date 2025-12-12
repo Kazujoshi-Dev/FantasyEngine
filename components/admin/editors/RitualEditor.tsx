@@ -194,6 +194,7 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
                     <StatInput label={t('item.damageMin')} statKey="minDamage" />
                     <StatInput label={t('item.damageMax')} statKey="maxDamage" />
                     <StatInput label={t('statistics.armor')} statKey="armor" />
+                    <StatInput label={t('statistics.attacksPerTurn')} statKey="attacksPerRound" />
                     <StatInput label={t('statistics.critChance')} statKey="critChance" isPercentage />
                     <StatInput label={t('statistics.critDamageModifier')} statKey="critDamageModifier" isPercentage />
                     <StatInput label={t('item.magicDamageMin')} statKey="magicDamageMin" />
