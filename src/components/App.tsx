@@ -1,32 +1,32 @@
 
 import React, { useState, useEffect, useCallback, useRef, Component, ReactNode } from 'react';
-import { Auth } from './Auth';
-import { CharacterCreation } from './CharacterCreation';
-import { Sidebar, NewsModal } from './Sidebar';
-import { Statistics } from './Statistics';
-import { Equipment } from './Equipment';
-import { ExpeditionComponent } from './Expedition';
-import { ExpeditionSummaryModal } from './combat/CombatSummary';
-import { Camp } from './Camp';
-import { Location } from './Location';
-import { Resources } from './Resources';
-import { Ranking } from './Ranking';
-import { AdminPanel } from './AdminPanel';
-import { Trader } from './Trader';
-import { Blacksmith } from './Blacksmith';
-import { Messages } from './Messages';
-import { Quests } from './Quests';
-import { Tavern } from './Tavern';
-import { Market } from './Market';
-import { Options } from './Options';
-import { University } from './University';
-import { Hunting } from './Hunting';
-import { Guild } from './Guild';
-import { PublicReportViewer } from './PublicReportViewer';
-import { api } from '../api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from '../types';
+import { Auth } from './components/Auth';
+import { CharacterCreation } from './components/CharacterCreation';
+import { Sidebar, NewsModal } from './components/Sidebar';
+import { Statistics } from './components/Statistics';
+import { Equipment } from './components/Equipment';
+import { ExpeditionComponent } from './components/Expedition';
+import { ExpeditionSummaryModal } from './components/combat/CombatSummary';
+import { Camp } from './components/Camp';
+import { Location } from './components/Location';
+import { Resources } from './components/Resources';
+import { Ranking } from './components/Ranking';
+import { AdminPanel } from './components/AdminPanel';
+import { Trader } from './components/Trader';
+import { Blacksmith } from './components/Blacksmith';
+import { Messages } from './components/Messages';
+import { Quests } from './components/Quests';
+import { Tavern } from './components/Tavern';
+import { Market } from './components/Market';
+import { Options } from './components/Options';
+import { University } from './components/University';
+import { Hunting } from './components/Hunting';
+import { Guild } from './components/Guild';
+import { PublicReportViewer } from './components/PublicReportViewer';
+import { api } from './api';
+import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
-import { getT } from '../i18n';
+import { getT } from './i18n';
 import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
 
 // Error Boundary Component to catch crashes and show a readable error instead of white screen
@@ -72,7 +72,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const AppContent: React.FC = () => {
-    const { character, derivedCharacter, setCharacter, gameData, setGameData } = useCharacter();
+    const { character, derivedCharacter, setCharacter, gameData, setGameData, updateCharacter } = useCharacter();
     const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
     const [isNewsOpen, setIsNewsOpen] = useState(false);
     const [hasNewNews, setHasNewNews] = useState(false);
@@ -382,7 +382,10 @@ const AppContent: React.FC = () => {
                 {expeditionReport && (
                     <ExpeditionSummaryModal
                         reward={expeditionReport.summary}
-                        onClose={() => setExpeditionReport(null)}
+                        onClose={() => {
+                            api.getCharacter().then(updateCharacter);
+                            setExpeditionReport(null);
+                        }}
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
@@ -403,7 +406,10 @@ const AppContent: React.FC = () => {
                             itemsFound: [],
                             essencesFound: {}
                         }}
-                        onClose={() => setPvpReport(null)}
+                        onClose={() => {
+                            api.getCharacter().then(updateCharacter);
+                            setPvpReport(null);
+                        }}
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
@@ -446,7 +452,6 @@ export const App: React.FC = () => {
         // No need to clear other states as they will be unmounted.
     };
     
-    // Check for public report viewing in URL
     if (window.location.pathname.startsWith('/report/') || window.location.pathname.startsWith('/raid-report/')) {
         const parts = window.location.pathname.split('/');
         const reportId = parts[2];
@@ -454,10 +459,7 @@ export const App: React.FC = () => {
         return <PublicReportViewer reportId={reportId} type={type} />;
     }
 
-    // Check for password reset in URL (must be before token check to show reset UI)
-    const isPasswordReset = window.location.pathname.startsWith('/reset-password/');
-
-    if (isPasswordReset || !token) {
+    if (!token) {
         return (
             <ErrorBoundary>
                 <Auth onLoginSuccess={handleLoginSuccess} />
