@@ -359,12 +359,12 @@ const UpgradePanel: React.FC<{
                                 <div className="flex justify-center items-start gap-4 my-2">
                                      <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.currentStats')}</p>
-                                        <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" compact={true} />
+                                        <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" hideAffixes={false} compact={true} />
                                     </div>
                                     <ArrowRightIcon className="h-6 w-6 text-slate-500 mt-8" />
                                     <div className="flex-1">
                                         <p className="text-center text-sm text-gray-400 mb-1">{t('blacksmith.upgrade.statsAfterUpgrade')}</p>
-                                        <ItemDetailsPanel item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" compact={true} />
+                                        <ItemDetailsPanel item={{...selectedItem, upgradeLevel: (selectedItem.upgradeLevel || 0) + 1}} template={selectedTemplate} affixes={affixes} showIcon={false} size="small" hideAffixes={false} compact={true} />
                                     </div>
                                 </div>
 
@@ -470,4 +470,3 @@ export const Blacksmith: React.FC = () => {
         </ContentPanel>
     );
 };
-
