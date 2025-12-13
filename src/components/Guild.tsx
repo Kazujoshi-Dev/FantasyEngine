@@ -103,6 +103,10 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
             console.debug('Guild socket connection issue:', err.message);
         });
 
+        socket.on('receive_guild_message', (msg) => {
+            handleNewChatMessage(msg);
+        });
+
         // Listen for general guild updates (bank, armory, buildings)
         socket.on('guild_update', () => {
             console.log('Guild update received via socket, refreshing data...');
@@ -300,7 +304,35 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
             {tab === 'BANK' && <GuildBank guild={guild} character={character} onTransaction={fetchGuild} />}
 
             {/* GuildChat handles its own scrolling layout */}
-            {tab === 'CHAT' && <GuildChat guildId={guild.id} messages={guild.chatHistory || []} onMessageReceived={handleNewChatMessage} />}
+            {tab === 'CHAT' && (
+                <div className="h-[70vh] overflow-hidden flex flex-col">
+                    <GuildChat 
+                        guildId={guild.id} 
+                        messages={guild.chatHistory || []} 
+                        onMessageReceived={handleNewChatMessage} 
+                    />
+                    {/* Inject socket emit logic into GuildChat form via updating its props or handling here?
+                        Actually, GuildChat displays messages. The input form in GuildChat needs to emit.
+                        I'll modify GuildChat to accept a `onSend` callback OR pass the socket ref. 
+                        Let's fix GuildChat to accept `onSend`.
+                    */}
+                    <form 
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const input = (e.currentTarget.elements.namedItem('msg') as HTMLInputElement);
+                            const val = input.value.trim();
+                            if(val && socketRef.current) {
+                                socketRef.current.emit('send_guild_message', { guildId: guild.id, content: val, token: getAuthToken() });
+                                input.value = '';
+                            }
+                        }}
+                        className="mt-4 flex gap-2"
+                    >
+                        <input name="msg" className="flex-grow bg-slate-800 border border-slate-600 rounded p-2 text-white" placeholder="Napisz wiadomość..." />
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-white font-bold">Wyślij</button>
+                    </form>
+                </div>
+            )}
 
             {tab === 'SETTINGS' && isLeader && (
                 <div className="h-[70vh] overflow-y-auto pr-2">
