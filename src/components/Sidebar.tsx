@@ -2,14 +2,8 @@
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
-import { 
-    CoinsIcon, BoltIcon, SwordsIcon, ShieldIcon, MapIcon, HomeIcon, 
-    TrophyIcon, MailIcon, HandshakeIcon, AnvilIcon, MessageSquareIcon, 
-    ScaleIcon, SettingsIcon, LogOutIcon, SparklesIcon, SkullIcon,
-    UsersIcon, StarIcon, BookOpenIcon, MenuIcon, XIcon, GlobeIcon
-} from './icons/AllIcons'; // Zakładam, że ikony mogą być importowane pojedynczo lub stworzę plik pomocniczy, tu użyję inline importów jeśli trzeba, ale dla czystości zakładam istnienie plików
 
-// Import individual icons if AllIcons doesn't exist (most safe approach based on provided files)
+// Import individual icons
 import { CoinsIcon as IconCoins } from './icons/CoinsIcon';
 import { BoltIcon as IconBolt } from './icons/BoltIcon';
 import { SwordsIcon as IconSwords } from './icons/SwordsIcon';
@@ -30,7 +24,8 @@ import { UsersIcon as IconUsers } from './icons/UsersIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { BookOpenIcon as IconBook } from './icons/BookOpenIcon';
 import { CoffeeIcon } from './icons/CoffeeIcon';
-import { CrossIcon } from './icons/CrossIcon'; // Placeholder if needed
+import { CrossIcon } from './icons/CrossIcon';
+import { GlobeIcon } from './icons/GlobeIcon';
 
 interface SidebarProps {
     activeTab: Tab;
@@ -64,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
         { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
         { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
-        { tab: Tab.Hunting, icon: CrossIcon, label: t('sidebar.hunting') }, // Use CrossIcon or similar for hunting
+        { tab: Tab.Hunting, icon: CrossIcon, label: t('sidebar.hunting') },
         { tab: Tab.Quests, icon: QuestIcon, label: t('sidebar.quests') },
         { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
         { tab: Tab.Location, icon: GlobeIcon, label: t('sidebar.location') },
