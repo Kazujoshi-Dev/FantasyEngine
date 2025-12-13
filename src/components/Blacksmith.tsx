@@ -118,12 +118,22 @@ const DisenchantPanel: React.FC<{
                     onSelectItem={setSelectedItem}
                 />
             </div>
-            <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center justify-start text-center min-h-0">
+            <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center justify-start text-center min-h-0 overflow-y-auto">
                  <AnvilIcon className="h-10 w-10 text-slate-500 mb-2" />
                  {selectedTemplate && selectedItem ? (
                      <div className="w-full max-w-sm">
                          <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('blacksmith.disenchantItem')}</h3>
-                         <ItemDetailsPanel item={selectedItem} template={selectedTemplate} affixes={affixes} character={character} />
+                         <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50 text-left shadow-sm">
+                            <ItemDetailsPanel 
+                                item={selectedItem} 
+                                template={selectedTemplate} 
+                                affixes={affixes} 
+                                character={character} 
+                                showIcon={false}
+                                compact={true}
+                                size="small"
+                            />
+                         </div>
                          <div className="space-y-3 bg-slate-800/50 p-4 rounded-lg mt-6">
                              <div className="flex justify-between text-lg"><span className="text-gray-300">{t('blacksmith.disenchantCost')}</span><span className="font-mono font-bold text-amber-400 flex items-center">{disenchantCost} <CoinsIcon className="h-4 w-4 ml-1" /></span></div>
                              <div className="flex justify-between text-lg">
@@ -186,7 +196,7 @@ const UpgradePanel: React.FC<{
     [character.equipment]);
 
     const equipmentSlotOptions = useMemo(() => {
-        const slots: {value: string, label: string}[] = (Object.values(EquipmentSlot) as string[])
+        const slots: {value: string, label: string}[] = Object.values(EquipmentSlot)
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
             .map(slot => ({ value: slot, label: t(`equipment.slot.${slot}`) as string }));
         
