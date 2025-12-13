@@ -470,3 +470,4 @@ export const Blacksmith: React.FC = () => {
         </ContentPanel>
     );
 };
+
