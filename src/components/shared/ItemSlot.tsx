@@ -285,7 +285,7 @@ interface ItemListProps {
     affixes: Affix[];
     selectedItem: ItemInstance | null;
     onSelectItem: (item: ItemInstance) => void;
-    showPrice?: 'buy' | 'sell' | 'buy-special';
+    showPrice?: 'buy' | 'sell' | 'buy-special' | ((item: any) => 'buy' | 'sell' | 'buy-special');
     meetsRequirements?: (item: ItemInstance) => boolean;
 }
 
@@ -308,7 +308,8 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                         const suffix = affixes.find(a => a.id === item.suffixId);
                         itemValue += Number(suffix?.value) || 0;
                     }
-                    const multiplier = showPrice === 'buy' ? 2 : showPrice === 'buy-special' ? 5 : 1;
+                    const priceType = typeof showPrice === 'function' ? showPrice(item) : showPrice;
+                    const multiplier = priceType === 'buy' ? 2 : priceType === 'buy-special' ? 5 : 1;
                     price = itemValue * multiplier;
                 }
 
