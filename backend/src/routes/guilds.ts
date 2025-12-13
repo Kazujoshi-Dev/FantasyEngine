@@ -4,7 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { GuildRole, EssenceType, RaidType, PlayerCharacter, ItemInstance, ItemTemplate, Affix, EquipmentSlot, GuildInviteBody } from '../types.js';
 import { canManage, getBuildingCost } from '../logic/guilds.js';
-import { getBackpackCapacity } from '../logic/helpers.js';
+import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 
 const router = express.Router();
@@ -397,6 +397,8 @@ router.post('/invite', authenticateToken, async (req: any, res: any) => {
         const guildName = guildRes.rows[0].name;
 
         const inviteBody: GuildInviteBody = { guildId: guild_id, guildName };
+        
+        await enforceInboxLimit(client, targetId);
         await client.query(
             `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'guild_invite', $2, $3)`,
             [targetId, `Zaproszenie do gildii ${guildName}`, JSON.stringify(inviteBody)]
