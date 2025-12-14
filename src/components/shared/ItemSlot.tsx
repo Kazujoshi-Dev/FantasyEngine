@@ -113,26 +113,41 @@ export const ItemDetailsPanel: React.FC<{
 
     const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, isAffix: boolean}> = ({title, source, isAffix}) => {
         const bonusFactor = isAffix ? affixUpgradeFactor : baseUpgradeFactor;
-        const calculateStat = (base?: number) => base !== undefined ? base + Math.round(base * bonusFactor) : undefined;
-        const calculateFloatStat = (base?: number) => base !== undefined ? base + base * bonusFactor : undefined;
+        
+        // Helper to safely get numeric value from potential range object
+        const getValue = (val: any): number => {
+            if (typeof val === 'number') return val;
+            if (val && typeof val.max === 'number') return val.max;
+            return 0;
+        };
+
+        const calculateStat = (base?: any) => {
+             const val = getValue(base);
+             return val !== undefined ? val + Math.round(val * bonusFactor) : undefined;
+        }
+
+        const calculateFloatStat = (base?: any) => {
+             const val = getValue(base);
+             return val !== undefined ? val + val * bonusFactor : undefined;
+        }
         
         const s = source as any; // To access properties dynamically
         
         const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${calculateStat(v as number)}`, color: 'text-green-300'})) : []),
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${calculateStat(v)}`, color: 'text-green-300'})) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`},
             (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerTurn'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`},
             (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`},
             (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`},
             (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${calculateStat(s.critDamageModifierBonus)}%`},
-            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent || 0}% / ${calculateStat(s.armorPenetrationFlat)}`},
-            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent || 0}% / ${calculateStat(s.lifeStealFlat)}`},
-            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent || 0}% / ${calculateStat(s.manaStealFlat)}`},
+            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent ? getValue(s.armorPenetrationPercent) : 0}% / ${calculateStat(s.armorPenetrationFlat)}`},
+            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent ? getValue(s.lifeStealPercent) : 0}% / ${calculateStat(s.lifeStealFlat)}`},
+            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent ? getValue(s.manaStealPercent) : 0}% / ${calculateStat(s.manaStealFlat)}`},
             (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
             (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
             (s.magicAttackType !== undefined) && {label: t('item.magicAttackType'), value: t(`item.magic.${s.magicAttackType}`), color: 'text-purple-300', valueClass: 'font-semibold'},
-            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${s.dodgeChanceBonus.toFixed(1)}%`},
+            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${calculateFloatStat(s.dodgeChanceBonus)?.toFixed(1)}%`},
         ].filter(Boolean);
 
         if (entries.length === 0) return null;
