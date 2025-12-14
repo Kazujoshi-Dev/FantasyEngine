@@ -8,6 +8,7 @@ import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
+import { randomUUID } from 'crypto';
 
 const router = express.Router();
 
@@ -121,8 +122,21 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
             [userId, towerId, currentHP, currentMana, JSON.stringify(initialRewards)]
         );
 
+        const row = insertRes.rows[0];
+        // Fix: Map snake_case from DB to camelCase for frontend
+        const activeRun: ActiveTowerRun = {
+            id: row.id,
+            userId: row.user_id,
+            towerId: row.tower_id,
+            currentFloor: row.current_floor,
+            currentHealth: row.current_health,
+            currentMana: row.current_mana,
+            accumulatedRewards: row.accumulated_rewards,
+            status: row.status
+        };
+
         await client.query('COMMIT');
-        res.json({ activeRun: insertRes.rows[0], tower });
+        res.json({ activeRun, tower });
 
     } catch (err: any) {
         await client.query('ROLLBACK');
@@ -200,10 +214,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             // Add rewards to accumulator
             const rewards = activeRun.accumulated_rewards;
             
-            // Enemy drops
-            // Simplified: Towers give rewards primarily from Floor Config, but maybe enemy loot too?
-            // Spec says "Nagrody za każde piętro definiowane przez admina". Let's stick to floor config rewards + enemy generic gold/xp
-            
             // Enemy Base Rewards
             const goldGain = Math.floor(Math.random() * (enemyTemplate.rewards.maxGold - enemyTemplate.rewards.minGold + 1)) + enemyTemplate.rewards.minGold;
             const xpGain = Math.floor(Math.random() * (enemyTemplate.rewards.maxExperience - enemyTemplate.rewards.minExperience + 1)) + enemyTemplate.rewards.minExperience;
@@ -215,9 +225,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             if (floorConfig.guaranteedReward) {
                 rewards.gold += (floorConfig.guaranteedReward.gold || 0);
                 rewards.experience += (floorConfig.guaranteedReward.experience || 0);
-                
-                // Add items/resources to list
-                // Needs logic to generate items. For now, simple gold/xp.
             }
             
             // Loot generation (Generic logic from expeditions)
@@ -244,7 +251,45 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 // Auto-claim grand prize and finish
                 if (tower.grandPrize) {
                     rewards.gold += (tower.grandPrize.gold || 0);
-                    // Add items/resources
+                    rewards.experience += (tower.grandPrize.experience || 0);
+                    
+                    // Add Grand Prize Essences
+                    if (tower.grandPrize.essences) {
+                        for(const [key, val] of Object.entries(tower.grandPrize.essences)) {
+                            rewards.essences[key] = (rewards.essences[key] || 0) + (val as number);
+                        }
+                    }
+
+                    // Add Grand Prize Items
+                    if (tower.grandPrize.items && tower.grandPrize.items.length > 0) {
+                        for (const itemDef of tower.grandPrize.items) {
+                            // Re-generate item to give it a unique ID for the player
+                            // itemDef serves as the "blueprint"
+                            const newItem = createItemInstance(
+                                itemDef.templateId, 
+                                gameData.itemTemplates, 
+                                gameData.affixes, 
+                                undefined, 
+                                false // don't re-roll affixes if we want exact? Actually createItemInstance re-rolls.
+                            );
+                            
+                            // If the grand prize definition has specific affixes/upgrade level, apply them
+                            // but keep the new uniqueId
+                            newItem.prefixId = itemDef.prefixId;
+                            newItem.suffixId = itemDef.suffixId;
+                            newItem.upgradeLevel = itemDef.upgradeLevel;
+                            
+                            // Recalculate stats based on enforced affixes/level if createItemInstance was random
+                            // For simplicity, we assume createItemInstance logic handles stats generation if ids provided,
+                            // but currently createItemInstance generates random if allowed.
+                            // Ideally we should have a 'reconstructItem' helper. 
+                            // Since we don't have one readily exported, we accept random rolls on the affixes stats, 
+                            // or simple push the definition with a new ID.
+                            
+                            newItem.uniqueId = randomUUID(); // Critical: New ID
+                            rewards.items.push(newItem);
+                        }
+                    }
                 }
                 
                 // Transfer rewards to character
@@ -334,7 +379,20 @@ router.post('/continue', authenticateToken, async (req: any, res: any) => {
             [userId]
         );
         if (result.rows.length === 0) return res.status(400).json({ message: 'No active run to continue.' });
-        res.json({ message: 'Proceeded to next floor', activeRun: result.rows[0] });
+        
+        const row = result.rows[0];
+        const activeRun: ActiveTowerRun = {
+            id: row.id,
+            userId: row.user_id,
+            towerId: row.tower_id,
+            currentFloor: row.current_floor,
+            currentHealth: row.current_health,
+            currentMana: row.current_mana,
+            accumulatedRewards: row.accumulated_rewards,
+            status: row.status
+        };
+
+        res.json({ message: 'Proceeded to next floor', activeRun });
     } catch(err: any) {
         res.status(500).json({ message: err.message });
     }

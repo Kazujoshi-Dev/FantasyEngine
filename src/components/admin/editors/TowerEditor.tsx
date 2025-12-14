@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
-import { Tower, GameData, TowerFloor, EssenceType, LootDrop } from '../../../types';
+import React, { useState, useMemo } from 'react';
+import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate } from '../../../types';
 import { PlusCircleIcon } from '../../icons/PlusCircleIcon';
 import { MinusCircleIcon } from '../../icons/MinusCircleIcon';
+import { CoinsIcon } from '../../icons/CoinsIcon';
+import { rarityStyles, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
+import { useTranslation } from '../../../contexts/LanguageContext';
 
 interface TowerEditorProps {
     tower: Partial<Tower>;
@@ -12,6 +15,7 @@ interface TowerEditorProps {
 }
 
 export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCancel, gameData }) => {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState<Partial<Tower>>({
         id: crypto.randomUUID(),
         name: '',
@@ -19,14 +23,19 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         locationId: '',
         totalFloors: 0,
         floors: [],
-        grandPrize: { gold: 0, experience: 0 },
+        grandPrize: { gold: 0, experience: 0, items: [], essences: {} },
         isActive: true,
         ...tower
     });
     
-    // State for managing floors locally before save
-    // We want to ensure totalFloors matches floors array length
-    
+    // --- Item Creator State ---
+    const [newItemCategory, setNewItemCategory] = useState<ItemCategory | 'all'>('all');
+    const [newItemTemplateId, setNewItemTemplateId] = useState('');
+    const [newItemPrefixId, setNewItemPrefixId] = useState('');
+    const [newItemSuffixId, setNewItemSuffixId] = useState('');
+    const [newItemLevel, setNewItemLevel] = useState(0);
+
+    // --- State for managing floors locally before save ---
     const addFloor = () => {
         setFormData(prev => ({
             ...prev,
@@ -79,6 +88,73 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
          updateFloor(floorIndex, { enemies: newEnemies });
     };
 
+    // --- Grand Prize Helpers ---
+    const updateGrandPrizeEssence = (type: EssenceType, amount: number) => {
+        setFormData(prev => {
+            const currentEssences = { ...(prev.grandPrize?.essences || {}) };
+            if (amount <= 0) {
+                delete currentEssences[type];
+            } else {
+                currentEssences[type] = amount;
+            }
+            return {
+                ...prev,
+                grandPrize: { ...prev.grandPrize, essences: currentEssences } as any
+            };
+        });
+    };
+
+    const addGrandPrizeItem = () => {
+        if (!newItemTemplateId) return;
+        const newItem: ItemInstance = {
+            uniqueId: crypto.randomUUID(), // Temp ID for editor
+            templateId: newItemTemplateId,
+            prefixId: newItemPrefixId || undefined,
+            suffixId: newItemSuffixId || undefined,
+            upgradeLevel: newItemLevel
+        };
+        setFormData(prev => ({
+            ...prev,
+            grandPrize: {
+                ...prev.grandPrize,
+                items: [...(prev.grandPrize?.items || []), newItem]
+            } as any
+        }));
+        // Reset form
+        setNewItemPrefixId('');
+        setNewItemSuffixId('');
+        setNewItemLevel(0);
+    };
+
+    const removeGrandPrizeItem = (uniqueId: string) => {
+        setFormData(prev => ({
+            ...prev,
+            grandPrize: {
+                ...prev.grandPrize,
+                items: prev.grandPrize?.items?.filter(i => i.uniqueId !== uniqueId) || []
+            } as any
+        }));
+    };
+
+    // --- Filter logic for Item Creator ---
+    const filteredTemplates = useMemo(() => {
+        return gameData.itemTemplates.filter(t => newItemCategory === 'all' || t.category === newItemCategory)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [gameData.itemTemplates, newItemCategory]);
+
+    const selectedTemplate = useMemo(() => gameData.itemTemplates.find(t => t.id === newItemTemplateId), [newItemTemplateId, gameData.itemTemplates]);
+    
+    const validPrefixes = useMemo(() => {
+        if (!selectedTemplate) return [];
+        return gameData.affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[selectedTemplate.category]);
+    }, [selectedTemplate, gameData.affixes]);
+
+    const validSuffixes = useMemo(() => {
+        if (!selectedTemplate) return [];
+        return gameData.affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[selectedTemplate.category]);
+    }, [selectedTemplate, gameData.affixes]);
+
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.locationId) {
@@ -89,7 +165,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl space-y-6">
+        <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
             <h3 className="text-xl font-bold text-purple-400">Edytor Wieży</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -108,15 +184,84 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                     <label className="block text-sm text-gray-400">Opis</label>
                     <textarea className="w-full bg-slate-700 p-2 rounded" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                 </div>
-                
-                {/* Grand Prize */}
-                <div className="col-span-2 bg-slate-800/50 p-3 rounded border border-amber-600/30">
-                     <p className="text-amber-400 font-bold text-sm mb-2">Nagroda Główna (za ukończenie)</p>
-                     <div className="flex gap-4">
-                         <label>Złoto: <input type="number" className="w-24 bg-slate-700 p-1 rounded" value={formData.grandPrize?.gold} onChange={e => setFormData({...formData, grandPrize: {...formData.grandPrize, gold: parseInt(e.target.value)||0}} as any)} /></label>
-                         <label>XP: <input type="number" className="w-24 bg-slate-700 p-1 rounded" value={formData.grandPrize?.experience} onChange={e => setFormData({...formData, grandPrize: {...formData.grandPrize, experience: parseInt(e.target.value)||0}} as any)} /></label>
+            </div>
+            
+            {/* Grand Prize Section */}
+            <div className="bg-slate-800/50 p-4 rounded-lg border border-amber-600/30">
+                 <h4 className="text-amber-400 font-bold text-lg mb-4 flex items-center gap-2"><CoinsIcon className="h-5 w-5"/> Nagroda Główna (za ukończenie)</h4>
+                 
+                 {/* Basic Currency */}
+                 <div className="flex gap-4 mb-4">
+                     <label className="text-sm text-gray-300">Złoto: <input type="number" className="w-24 bg-slate-700 p-1 rounded ml-2" value={formData.grandPrize?.gold} onChange={e => setFormData({...formData, grandPrize: {...formData.grandPrize, gold: parseInt(e.target.value)||0}} as any)} /></label>
+                     <label className="text-sm text-gray-300">XP: <input type="number" className="w-24 bg-slate-700 p-1 rounded ml-2" value={formData.grandPrize?.experience} onChange={e => setFormData({...formData, grandPrize: {...formData.grandPrize, experience: parseInt(e.target.value)||0}} as any)} /></label>
+                 </div>
+                 
+                 {/* Essences */}
+                 <div className="mb-4">
+                     <p className="text-xs text-gray-500 font-bold uppercase mb-2">Esencje</p>
+                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                         {Object.values(EssenceType).map(type => (
+                             <div key={type} className="flex items-center gap-2">
+                                 <span className={`text-xs ${rarityStyles[type === EssenceType.Common ? 'Common' : type === EssenceType.Uncommon ? 'Uncommon' : type === EssenceType.Rare ? 'Rare' : type === EssenceType.Epic ? 'Epic' : 'Legendary'].text}`}>{t(`resources.${type}`)}:</span>
+                                 <input 
+                                     type="number" 
+                                     className="w-16 bg-slate-700 p-1 rounded text-xs" 
+                                     value={(formData.grandPrize?.essences as any)?.[type] || 0}
+                                     onChange={e => updateGrandPrizeEssence(type, parseInt(e.target.value) || 0)}
+                                 />
+                             </div>
+                         ))}
                      </div>
-                </div>
+                 </div>
+
+                 {/* Items */}
+                 <div>
+                     <p className="text-xs text-gray-500 font-bold uppercase mb-2">Przedmioty</p>
+                     
+                     {/* Existing Added Items */}
+                     <div className="space-y-2 mb-3">
+                         {(formData.grandPrize?.items || []).map((item, idx) => {
+                             const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
+                             if (!tmpl) return null;
+                             const fullName = getGrammaticallyCorrectFullName(item, tmpl, gameData.affixes);
+                             return (
+                                 <div key={idx} className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700">
+                                     <span className={`${rarityStyles[tmpl.rarity].text} text-sm`}>
+                                         {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                     </span>
+                                     <button type="button" onClick={() => removeGrandPrizeItem(item.uniqueId)} className="text-red-500 hover:text-red-400 text-xs">Usuń</button>
+                                 </div>
+                             );
+                         })}
+                     </div>
+
+                     {/* Add Item Form */}
+                     <div className="bg-slate-900/30 p-3 rounded border border-slate-700/50">
+                         <p className="text-xs text-indigo-300 mb-2">Dodaj Przedmiot:</p>
+                         <div className="grid grid-cols-2 gap-2 mb-2">
+                            <select value={newItemCategory} onChange={e => { setNewItemCategory(e.target.value as any); setNewItemTemplateId(''); }} className="bg-slate-700 text-xs p-1 rounded">
+                                <option value="all">Kat: Wszystkie</option>
+                                {Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}
+                            </select>
+                            <select value={newItemTemplateId} onChange={e => setNewItemTemplateId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded">
+                                <option value="">-- Wybierz Bazę --</option>
+                                {filteredTemplates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rarity})</option>)}
+                            </select>
+                         </div>
+                         <div className="grid grid-cols-3 gap-2 mb-2">
+                             <select value={newItemPrefixId} onChange={e => setNewItemPrefixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
+                                 <option value="">Prefiks: Brak</option>
+                                 {validPrefixes.map(p => <option key={p.id} value={p.id}>{p.name.masculine}</option>)}
+                             </select>
+                             <select value={newItemSuffixId} onChange={e => setNewItemSuffixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
+                                 <option value="">Sufiks: Brak</option>
+                                 {validSuffixes.map(s => <option key={s.id} value={s.id}>{s.name.masculine}</option>)}
+                             </select>
+                             <input type="number" placeholder="Lvl" min="0" max="10" value={newItemLevel} onChange={e => setNewItemLevel(parseInt(e.target.value)||0)} className="bg-slate-700 text-xs p-1 rounded" />
+                         </div>
+                         <button type="button" onClick={addGrandPrizeItem} disabled={!newItemTemplateId} className="w-full bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold py-1 rounded">Dodaj Przedmiot do Nagrody</button>
+                     </div>
+                 </div>
             </div>
 
             {/* Floors Editor */}
@@ -126,7 +271,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                     <button type="button" onClick={addFloor} className="px-3 py-1 bg-green-700 rounded text-xs hover:bg-green-600">+ Piętro</button>
                 </h4>
                 
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                <div className="space-y-4">
                     {formData.floors?.map((floor, idx) => (
                         <div key={idx} className="bg-slate-800/50 p-4 rounded border border-slate-700">
                             <div className="flex justify-between items-center mb-3">
