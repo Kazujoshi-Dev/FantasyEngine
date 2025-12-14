@@ -388,7 +388,7 @@ export const Tower: React.FC = () => {
                                      </div>
                                  )}
 
-                                 {/* Display Item Rewards with Tooltips */}
+                                 {/* Display Item Rewards - No Tooltip as requested */}
                                  {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
                                      <div className="space-y-1">
                                          {tower.grandPrize.items.map((item, idx) => {
@@ -399,9 +399,7 @@ export const Tower: React.FC = () => {
                                              return (
                                                  <p 
                                                     key={idx} 
-                                                    className={`text-xs ${color} truncate cursor-help hover:underline`}
-                                                    onMouseEnter={() => setHoveredItem({ item, template: tmpl })}
-                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                    className={`text-xs ${color} truncate`}
                                                  >
                                                      {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
                                                  </p>
