@@ -95,6 +95,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const sidebarStyle = settings?.sidebarBackgroundUrl 
         ? { backgroundImage: `url(${settings.sidebarBackgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
         : {};
+        
+    // Obliczanie procentu zdrowia
+    const healthPercent = Math.max(0, Math.min(100, (playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100));
 
     return (
         <>
@@ -126,18 +129,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 text-center">
                             {t('sidebar.title')}
                         </h1>
-                        <div className="mt-4 w-full bg-slate-800/80 rounded-lg p-3 border border-slate-700">
-                            <div className="flex justify-between items-center text-sm mb-1">
-                                <span className="text-gray-400">Lvl {playerCharacter.level}</span>
-                                <span className="text-white font-bold">{playerCharacter.name}</span>
+                        <div className="mt-4 w-full bg-slate-800/80 rounded-lg p-3 border border-slate-700 shadow-lg">
+                            <div className="flex justify-between items-center text-sm mb-2">
+                                <span className="text-gray-400 text-xs">Lvl {playerCharacter.level}</span>
+                                <span className="text-white font-bold truncate max-w-[120px]" title={playerCharacter.name}>{playerCharacter.name}</span>
                             </div>
-                            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                            
+                            {/* Health Bar */}
+                            <div className="mb-1.5 relative w-full h-3.5 bg-slate-900 rounded-full overflow-hidden border border-slate-600/50 group cursor-help">
                                 <div 
-                                    className="bg-sky-500 h-full" 
+                                    className="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-500 ease-out" 
+                                    style={{ width: `${healthPercent}%` }}
+                                ></div>
+                                <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] tracking-wide">
+                                    {Math.ceil(playerCharacter.stats.currentHealth)} / {playerCharacter.stats.maxHealth} HP
+                                </div>
+                            </div>
+
+                            {/* XP Bar */}
+                            <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden mb-2">
+                                <div 
+                                    className="bg-sky-500 h-full transition-all duration-500" 
                                     style={{ width: `${(playerCharacter.experience / playerCharacter.experienceToNextLevel) * 100}%` }}
                                 ></div>
                             </div>
-                            <div className="flex justify-between mt-2 text-xs font-mono">
+
+                            <div className="flex justify-between mt-1 text-xs font-mono border-t border-slate-700/50 pt-2">
                                 <span className="flex items-center text-amber-400">
                                     <IconCoins className="h-3 w-3 mr-1" /> {playerCharacter.resources.gold.toLocaleString()}
                                 </span>

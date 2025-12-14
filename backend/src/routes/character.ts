@@ -220,7 +220,7 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
-        // 1. Fetch Character & Guild Data (similar to expedition complete to get buffs/buildings)
+        // 1. Fetch Character & Guild Data (RAW Data from DB)
         const charRes = await client.query(`
             SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
@@ -238,7 +238,7 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const guildBuffs = charRes.rows[0].active_buffs || [];
         
-        // Inject buffs
+        // Important: activeGuildBuffs are usually transient or need re-injection for calc
         character.activeGuildBuffs = guildBuffs;
 
         if (character.activeExpedition || character.activeTravel) {
@@ -250,8 +250,9 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 
-        // 3. Recalculate Derived Stats (This ensures maxHealth includes +5 items, buffs, etc.)
-        character = calculateDerivedStatsOnServer(
+        // 3. Recalculate Derived Stats TEMPORARILY to find the max values
+        // WARNING: We must NOT save 'derivedCharacter' back to the DB, or we duplicate stats!
+        const derivedCharacter = calculateDerivedStatsOnServer(
             character, 
             gameData.itemTemplates || [], 
             gameData.affixes || [], 
@@ -261,14 +262,17 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
             character.activeGuildBuffs || []
         );
 
-        // 4. Apply Heal
-        character.stats.currentHealth = character.stats.maxHealth;
-        character.stats.currentMana = character.stats.maxMana; 
+        // 4. Apply Heal to the RAW character
+        // We use the MAX values from the derived character to set the CURRENT values on the raw character.
+        character.stats.currentHealth = derivedCharacter.stats.maxHealth;
+        character.stats.currentMana = derivedCharacter.stats.maxMana; 
         character.isResting = false; 
 
+        // 5. Save the RAW character (without the derived bonuses burned in)
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         await client.query('COMMIT');
         
+        // Return raw character (frontend will re-derive stats)
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
