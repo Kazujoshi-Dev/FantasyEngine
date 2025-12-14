@@ -185,6 +185,12 @@ export const Tower: React.FC = () => {
         rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
     } | null>(null);
 
+    // Queue for final victory if we want to show combat report first
+    const [pendingFinalVictory, setPendingFinalVictory] = useState<{
+        outcome: 'VICTORY';
+        rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
+    } | null>(null);
+
     // State for Intermediate Floor Report (Combat Log for current floor)
     const [floorReport, setFloorReport] = useState<ExpeditionRewardSummary | null>(null);
     
@@ -193,7 +199,7 @@ export const Tower: React.FC = () => {
 
     const fetchData = useCallback(async () => {
         // Block fetching if any modal is open to prevent state jump
-        if (endGameSummary || floorReport) return;
+        if (endGameSummary || floorReport || pendingFinalVictory) return;
 
         setLoading(true);
         try {
@@ -211,7 +217,7 @@ export const Tower: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [endGameSummary, floorReport]);
+    }, [endGameSummary, floorReport, pendingFinalVictory]);
 
     useEffect(() => {
         fetchData();
@@ -234,29 +240,40 @@ export const Tower: React.FC = () => {
             const res = await api.fightTower();
             
             if (res.victory) {
+                // Update local state to reflect new floor/hp immediately behind the modal
+                if (activeRun) {
+                    // If tower complete, backend keeps floor at max or handles it, but locally we might want to just show current
+                    const newFloor = res.currentFloor || activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);
+                    setActiveRun({
+                        ...activeRun,
+                        currentFloor: newFloor,
+                        currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
+                        currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
+                        accumulatedRewards: res.rewards // Update pending rewards
+                    });
+                    api.getCharacter().then(updateCharacter);
+                }
+
                 if (res.isTowerComplete) {
-                    // Tower Finished! Switch to End Game Summary View
-                    setEndGameSummary({
+                    // 1. Prepare final summary data but queue it
+                    setPendingFinalVictory({
                         outcome: 'VICTORY',
                         rewards: res.rewards || { gold: 0, experience: 0, items: [], essences: {} }
                     });
-                    setActiveRun(null);
+                    
+                    // 2. Show the combat report for the FINAL boss first
+                    setFloorReport({
+                        isVictory: true,
+                        totalGold: 0, // Don't show confusing total gold here, show in final summary
+                        totalExperience: 0,
+                        itemsFound: [], 
+                        essencesFound: {},
+                        combatLog: res.combatLog,
+                        rewardBreakdown: [{ source: `Finałowa Walka: ${activeTower?.name}`, gold: 0, experience: 0 }]
+                    });
+
                 } else {
                     // Intermediate Floor Victory
-                    // 1. Update local state to reflect new floor/hp immediately behind the modal
-                    if (activeRun) {
-                        const newFloor = res.currentFloor || activeRun.currentFloor + 1;
-                        setActiveRun({
-                            ...activeRun,
-                            currentFloor: newFloor,
-                            currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
-                            currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
-                            accumulatedRewards: res.rewards
-                        });
-                        api.getCharacter().then(updateCharacter);
-                    }
-                    
-                    // 2. Show Floor Combat Report
                     setFloorReport({
                         isVictory: true,
                         totalGold: 0, // Not showing looted gold per floor to avoid confusion with stash
@@ -295,6 +312,17 @@ export const Tower: React.FC = () => {
         }
     };
 
+    const handleCloseFloorReport = () => {
+        setFloorReport(null);
+        
+        // If we have a pending victory summary (end of tower), show it now
+        if (pendingFinalVictory) {
+            setEndGameSummary(pendingFinalVictory);
+            setPendingFinalVictory(null);
+            setActiveRun(null); // Clear run state now that we are showing summary
+        }
+    };
+
     const handleCloseSummary = () => {
         setEndGameSummary(null);
         // Full refresh after end game
@@ -323,11 +351,11 @@ export const Tower: React.FC = () => {
 
     // --- MAIN RENDER ---
 
-    if (loading && !endGameSummary && !floorReport) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
+    if (loading && !endGameSummary && !floorReport && !pendingFinalVictory) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
     if (!character || !gameData) return null;
 
-    // 1. END GAME SUMMARY (Highest Priority)
-    if (endGameSummary) {
+    // 1. END GAME SUMMARY (Highest Priority, but only if not viewing floor report)
+    if (endGameSummary && !floorReport) {
         return (
             <ContentPanel title={endGameSummary.outcome === 'VICTORY' ? 'Zwycięstwo!' : 'Koniec Wyprawy'}>
                 <TowerSummaryView 
@@ -367,11 +395,11 @@ export const Tower: React.FC = () => {
                     </div>
                 )}
                 
-                {/* Floor Report Modal */}
+                {/* Floor Report Modal - Uses specific close handler now */}
                 {floorReport && (
                      <ExpeditionSummaryModal 
                         reward={floorReport}
-                        onClose={() => setFloorReport(null)}
+                        onClose={handleCloseFloorReport}
                         characterName={character.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
