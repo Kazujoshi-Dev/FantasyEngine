@@ -8,29 +8,33 @@ import { api } from '../api';
 import { GeneralTab } from './admin/tabs/GeneralTab';
 import { UsersTab } from './admin/tabs/UsersTab';
 import { TriviaTab } from './admin/tabs/TriviaTab';
-import { GenericAdminTab } from './admin/GenericAdminTab';
-import { FieldDefinition } from './admin/SchemaForm';
 
-// --- Placeholders for unimplemented specific tabs ---
-const PlaceholderTab: React.FC<{name: string}> = ({name}) => (
-    <div className="flex items-center justify-center h-full text-gray-500 p-4 border border-dashed border-gray-700 rounded-lg">
-        Zakładka {name} jest w trakcie budowy lub używa widoku generycznego.
-    </div>
-);
-
-const ItemCreatorTab = (props: any) => <PlaceholderTab name="ItemCreator" />;
-const PvpTab = (props: any) => <PlaceholderTab name="Pvp" />;
-const ItemInspectorTab = (props: any) => <PlaceholderTab name="ItemInspector" />;
-const DuplicationAuditTab = (props: any) => <PlaceholderTab name="DuplicationAudit" />;
-const OrphanAuditTab = (props: any) => <PlaceholderTab name="OrphanAudit" />;
-const DataIntegrityTab = (props: any) => <PlaceholderTab name="DataIntegrity" />;
+// Dedykowane Tabs (zawierają zaawansowane edytory)
+import { LocationsTab } from './admin/tabs/LocationsTab';
+import { ExpeditionsTab } from './admin/tabs/ExpeditionsTab';
+import { EnemiesTab } from './admin/tabs/EnemiesTab';
+import { BossesTab } from './admin/tabs/BossesTab';
+import { ItemsTab } from './admin/tabs/ItemsTab';
+import { AffixesTab } from './admin/tabs/AffixesTab';
+import QuestsTab from './admin/tabs/QuestsTab'; // Default export w tym pliku
+import { UniversityTab } from './admin/tabs/UniversityTab';
+import { RitualsTab } from './admin/tabs/RitualsTab';
+import { GuildsTab } from './admin/tabs/GuildsTab';
+import { HuntingTab } from './admin/tabs/HuntingTab';
+import { ItemCreatorTab } from './admin/tabs/ItemCreatorTab';
+import { PvpTab } from './admin/tabs/PvpTab';
+import { ItemInspectorTab } from './admin/tabs/ItemInspectorTab';
+import { DuplicationAuditTab } from './admin/tabs/DuplicationAuditTab';
+import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
+import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
+import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 
 interface AdminPanelProps {
   gameData: GameData;
   onGameDataUpdate: (key: string, data: any) => void;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpdate }) => {
   const { t } = useTranslation();
@@ -47,99 +51,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
       onGameDataUpdate('settings', newSettings);
   };
 
-  // --- Field Definitions for Forms ---
-  
-  const commonItemFields: Record<string, FieldDefinition> = {
-      rarity: {
-          type: 'select',
-          options: Object.values(ItemRarity).map(v => ({ value: v, label: v }))
-      },
-      slot: {
-          type: 'select',
-          options: [...Object.values(EquipmentSlot), 'consumable', 'ring'].map(v => ({ value: v, label: v }))
-      },
-      category: {
-          type: 'select',
-          options: Object.values(ItemCategory).map(v => ({ value: v, label: v }))
-      },
-      gender: {
-          type: 'select',
-          options: [
-              { value: 'Masculine', label: 'Męski' },
-              { value: 'Feminine', label: 'Żeński' },
-              { value: 'Neuter', label: 'Nijaki' }
-          ]
-      },
-      magicAttackType: {
-          type: 'select',
-          options: Object.values(MagicAttackType).map(v => ({ value: v, label: v }))
-      }
-  };
-
-  const questFields: Record<string, FieldDefinition> = {
-      objective: { type: 'select', label: 'Cel główny (Obiekt złożony)', readonly: true }, // Complex object, managed via tree
-  };
-
-  const skillFields: Record<string, FieldDefinition> = {
-      type: {
-          type: 'select',
-          options: Object.values(SkillType).map(v => ({ value: v, label: v }))
-      },
-      category: {
-          type: 'select',
-          options: Object.values(SkillCategory).map(v => ({ value: v, label: v }))
-      }
-  };
-
-  const ritualFields: Record<string, FieldDefinition> = {
-      // Add if needed
-  };
-
-  const affixFields: Record<string, FieldDefinition> = {
-      type: {
-          type: 'select',
-          options: [
-              { value: 'Prefix', label: 'Prefix' },
-              { value: 'Suffix', label: 'Suffix' }
-          ]
-      }
-  };
-
   const renderActiveTab = () => {
     switch (adminTab) {
+      // Zakładki Ogólne
       case 'general': return <GeneralTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onForceTraderRefresh={() => api.getTraderInventory(true)} onSendGlobalMessage={api.sendGlobalMessage} />;
       case 'users': return <UsersTab gameData={safeGameData} />;
       case 'trivia': return <TriviaTab gameData={safeGameData} />;
       
-      // Generic Data Tabs with Smart Forms
+      // Zakładki Contentu Gry (Używają dedykowanych komponentów zamiast GenericAdminTab)
       case 'locations': 
-          return <GenericAdminTab data={safeGameData.locations} dataKey="locations" onUpdate={onGameDataUpdate} title="Lokacje" displayField="name" />;
+          return <LocationsTab locations={safeGameData.locations} onGameDataUpdate={onGameDataUpdate} />;
       case 'expeditions': 
-          return <GenericAdminTab data={safeGameData.expeditions} dataKey="expeditions" onUpdate={onGameDataUpdate} title="Wyprawy" displayField="name" />;
+          return <ExpeditionsTab expeditions={safeGameData.expeditions} locations={safeGameData.locations} enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
       case 'enemies': 
-          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => !e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Wrogowie" displayField="name" />;
+          return <EnemiesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
       case 'bosses': 
-          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Bossowie" displayField="name" newItemTemplate={{isBoss: true}} />;
+          return <BossesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
       case 'items': 
-          return <GenericAdminTab data={safeGameData.itemTemplates} dataKey="itemTemplates" onUpdate={onGameDataUpdate} title="Przedmioty" displayField="name" fieldDefinitions={commonItemFields} />;
+          return <ItemsTab itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
       case 'affixes': 
-          return <GenericAdminTab data={safeGameData.affixes} dataKey="affixes" onUpdate={onGameDataUpdate} title="Afiksy" displayField="name.masculine" fieldDefinitions={affixFields} />;
+          return <AffixesTab affixes={safeGameData.affixes} onGameDataUpdate={onGameDataUpdate} />;
       case 'quests': 
-          return <GenericAdminTab data={safeGameData.quests} dataKey="quests" onUpdate={onGameDataUpdate} title="Zadania" displayField="name" fieldDefinitions={questFields} />;
+          return <QuestsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       case 'university': 
-          return <GenericAdminTab data={safeGameData.skills} dataKey="skills" onUpdate={onGameDataUpdate} title="Umiejętności" displayField="name" fieldDefinitions={skillFields} />;
+          return <UniversityTab skills={safeGameData.skills} onGameDataUpdate={onGameDataUpdate} />;
       case 'rituals': 
-          return <GenericAdminTab data={safeGameData.rituals || []} dataKey="rituals" onUpdate={onGameDataUpdate} title="Rytuały" displayField="name" fieldDefinitions={ritualFields} />;
+          return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       
-      case 'guilds': return <PlaceholderTab name="Gildie" />;
-      case 'hunting': return <PlaceholderTab name="Polowania" />;
-      case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
+      // Zakładki Zarządzania Systemami
+      case 'guilds': return <GuildsTab />;
+      case 'hunting': return <HuntingTab settings={settings} onSettingsUpdate={handleSettingsUpdate} />;
       case 'pvp': return <PvpTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onResetAllPvpCooldowns={api.resetAllPvpCooldowns} />;
+      case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
+      
+      // Zakładki Narzędziowe / Audyty
       case 'itemInspector': return <ItemInspectorTab gameData={safeGameData} />;
       case 'dataIntegrity': return <DataIntegrityTab />;
       case 'duplicationAudit': return <DuplicationAuditTab />;
       case 'orphanAudit': return <OrphanAuditTab />;
-      default: return null;
+      case 'databaseEditor': return <DatabaseEditorTab />;
+      
+      default: return <div className="text-gray-500 p-4">Wybierz zakładkę</div>;
     }
   };
 
@@ -155,10 +107,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
     { id: 'quests', label: 'Zadania' },
     { id: 'university', label: 'Umiejętności' },
     { id: 'rituals', label: 'Rytuały' },
+    { id: 'guilds', label: 'Gildie' },
+    { id: 'hunting', label: 'Polowania' },
     { id: 'trivia', label: 'Info' },
-    { id: 'itemCreator', label: 'Kreator (Wkrótce)' },
-    { id: 'pvp', label: 'PvP (Wkrótce)' },
+    { id: 'itemCreator', label: 'Kreator' },
+    { id: 'pvp', label: 'PvP' },
+    { id: 'itemInspector', label: 'Inspektor' },
     { id: 'dataIntegrity', label: 'Audyty' },
+    { id: 'databaseEditor', label: 'Baza Danych' },
   ];
 
   return (
