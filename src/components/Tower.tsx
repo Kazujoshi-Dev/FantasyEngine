@@ -101,10 +101,12 @@ export const Tower: React.FC = () => {
             setReportOpen(true);
             
             if (res.victory) {
-                // If victory but NOT complete, we remain in tower view
-                // If complete, report will show and onClose will clear state
+                // If victory:
+                // 1. If NOT complete: User stays in activeRun view (behind modal) until they close modal.
+                // 2. If complete: The backend sets status to COMPLETED. We show the modal.
+                //    When modal closes, fetchData will see no activeRun and show Lobby.
             } else {
-                // Defeat - cleared
+                // Defeat - cleared immediately from state so background switches to Lobby (or stays generic)
                 setActiveRun(null);
                 setActiveTower(null);
             }
@@ -135,7 +137,8 @@ export const Tower: React.FC = () => {
             });
             setReportOpen(true);
             
-            // Clear local state immediately as backend is done
+            // Clear local state immediately as backend is done. 
+            // The modal will remain visible because it's rendered conditionally on `reportOpen` at the top level.
             setActiveRun(null);
             setActiveTower(null);
             api.getCharacter().then(updateCharacter);
@@ -147,7 +150,7 @@ export const Tower: React.FC = () => {
     const handleCloseReport = () => {
         setReportOpen(false);
         setCombatResult(null);
-        // After fight, refresh state to reflect new floor or completion
+        // After fight/report close, refresh state to reflect new floor or completion/lobby
         fetchData();
         api.getCharacter().then(updateCharacter);
     };
@@ -166,6 +169,36 @@ export const Tower: React.FC = () => {
     if (loading) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
     if (!character || !gameData) return null;
 
+    // --- REPORT MODAL (PRIORITY VIEW) ---
+    // Render this independently of activeRun state so it persists after retreat/completion
+    if (reportOpen && combatResult) {
+         // Determine tower name context (might be missing if we just cleared activeTower state, try to persist or use generic)
+         const towerName = activeTower?.name || "Wieża Mroku";
+         
+         const summary: ExpeditionRewardSummary = {
+            isVictory: combatResult.victory,
+            totalGold: combatResult.rewards?.gold || 0, 
+            totalExperience: combatResult.rewards?.experience || 0,
+            itemsFound: combatResult.rewards?.items || [],
+            essencesFound: combatResult.rewards?.essences || {},
+            combatLog: combatResult.combatLog,
+            rewardBreakdown: combatResult.isTowerComplete 
+                ? [{ source: `Ukończono/Ucieczka: ${towerName}`, gold: combatResult.rewards?.gold || 0, experience: combatResult.rewards?.experience || 0 }] 
+                : [],
+         };
+         
+         return (
+             <ExpeditionSummaryModal 
+                reward={summary}
+                onClose={handleCloseReport}
+                characterName={character.name}
+                itemTemplates={gameData.itemTemplates}
+                affixes={gameData.affixes}
+                enemies={gameData.enemies}
+             />
+         );
+    }
+
     // --- Active Run View ---
     if (activeRun && activeTower) {
         const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
@@ -174,32 +207,6 @@ export const Tower: React.FC = () => {
         
         const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
         const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
-
-        // Show report modal if open
-        if (reportOpen && combatResult) {
-             const summary: ExpeditionRewardSummary = {
-                isVictory: combatResult.victory,
-                totalGold: combatResult.rewards?.gold || 0, 
-                totalExperience: combatResult.rewards?.experience || 0,
-                itemsFound: combatResult.rewards?.items || [],
-                essencesFound: combatResult.rewards?.essences || {},
-                combatLog: combatResult.combatLog,
-                rewardBreakdown: combatResult.isTowerComplete 
-                    ? [{ source: `Ukończono/Ucieczka z Wieży: ${activeTower.name}`, gold: combatResult.rewards?.gold || 0, experience: combatResult.rewards?.experience || 0 }] 
-                    : [],
-             };
-             
-             return (
-                 <ExpeditionSummaryModal 
-                    reward={summary}
-                    onClose={handleCloseReport}
-                    characterName={character.name}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
-                    enemies={gameData.enemies}
-                 />
-             );
-        }
 
         return (
             <ContentPanel title={`Wieża Mroku: ${activeTower.name}`}>
