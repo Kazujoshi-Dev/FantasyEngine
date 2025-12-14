@@ -5,7 +5,6 @@ import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, CombatLogEntry, ExpeditionRewardSummary, ItemTemplate, Enemy, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
-import { StarIcon } from './icons/StarIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel } from './shared/ItemSlot';
@@ -52,14 +51,17 @@ export const Tower: React.FC = () => {
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
     const [loading, setLoading] = useState(true);
     
-    // Combat Result now includes 'rewards' which works for both Fight (completion) and Retreat
-    const [combatResult, setCombatResult] = useState<{ victory: boolean, combatLog: CombatLogEntry[], rewards?: any, isTowerComplete?: boolean } | null>(null);
-    const [reportOpen, setReportOpen] = useState(false);
+    // Explicit state for the end-game summary. If this is not null, the modal is shown.
+    const [summaryData, setSummaryData] = useState<ExpeditionRewardSummary | null>(null);
     
     // Tooltip State
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     const fetchData = useCallback(async () => {
+        // Do not fetch/refresh if we are viewing the summary report. 
+        // This prevents the background from switching to "Lobby" or "Active Run" prematurely.
+        if (summaryData) return; 
+
         setLoading(true);
         try {
             const data = await api.getTowers();
@@ -76,7 +78,7 @@ export const Tower: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [summaryData]); // Dependency on summaryData ensures we don't fetch when it's open
 
     useEffect(() => {
         fetchData();
@@ -88,7 +90,7 @@ export const Tower: React.FC = () => {
             const res = await api.startTower(towerId);
             setActiveRun(res.activeRun);
             setActiveTower(res.tower);
-            api.getCharacter().then(updateCharacter); // Sync energy/resources
+            api.getCharacter().then(updateCharacter); 
         } catch (e: any) {
             alert(e.message);
         }
@@ -97,12 +99,51 @@ export const Tower: React.FC = () => {
     const handleFight = async () => {
         try {
             const res = await api.fightTower();
-            setCombatResult(res);
-            setReportOpen(true);
             
-            // NOTE: We do NOT clear activeRun here even on defeat/victory.
-            // We keep the state "frozen" in the background so the modal displays over the tower view.
-            // The cleanup happens in handleCloseReport via fetchData().
+            if (res.victory) {
+                if (res.isTowerComplete) {
+                    // Tower Finished! Show summary.
+                    const summary: ExpeditionRewardSummary = {
+                        isVictory: true,
+                        totalGold: res.rewards?.gold || 0,
+                        totalExperience: res.rewards?.experience || 0,
+                        itemsFound: res.rewards?.items || [],
+                        essencesFound: res.rewards?.essences || {},
+                        combatLog: res.combatLog,
+                        rewardBreakdown: [{ source: `Ukończono Wieżę: ${activeTower?.name}`, gold: res.rewards?.gold || 0, experience: res.rewards?.experience || 0 }]
+                    };
+                    setSummaryData(summary);
+                } else {
+                    // Just next floor, update state locally to reflect changes immediately
+                    if (activeRun) {
+                        setActiveRun({
+                            ...activeRun,
+                            currentFloor: res.currentFloor || activeRun.currentFloor + 1,
+                            // Assume rewards accumulator is updated on backend, we could sync it or just wait
+                            currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
+                            currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
+                            accumulatedRewards: res.rewards // Update pending rewards
+                        });
+                        // Also update character bar stats
+                        api.getCharacter().then(updateCharacter);
+                    } else {
+                        // Fallback sync
+                        fetchData();
+                    }
+                }
+            } else {
+                // Defeat. Show summary (failure).
+                const summary: ExpeditionRewardSummary = {
+                    isVictory: false,
+                    totalGold: 0,
+                    totalExperience: 0,
+                    itemsFound: [],
+                    essencesFound: {},
+                    combatLog: res.combatLog,
+                    rewardBreakdown: []
+                };
+                setSummaryData(summary);
+            }
         } catch (e: any) {
             alert(e.message);
         }
@@ -112,10 +153,14 @@ export const Tower: React.FC = () => {
         if (!confirm('Czy na pewno chcesz uciec z wieży? Zabierzesz ze sobą wszystkie zgromadzone dotąd łupy.')) return;
         try {
             const res = await api.retreatTower();
-            // Mock a "victory" result to show the summary modal with gathered loot
-            setCombatResult({
-                victory: true,
-                combatLog: [{
+            // Construct success summary from retreat data
+            const summary: ExpeditionRewardSummary = {
+                isVictory: true,
+                totalGold: res.rewards?.gold || 0,
+                totalExperience: res.rewards?.experience || 0,
+                itemsFound: res.rewards?.items || [],
+                essencesFound: res.rewards?.essences || {},
+                combatLog: [{ // Synthetic log
                     turn: 0,
                     attacker: 'System',
                     defender: 'Gracz',
@@ -125,12 +170,12 @@ export const Tower: React.FC = () => {
                     enemyHealth: 0,
                     enemyMana: 0
                 }],
-                rewards: res.rewards,
-                isTowerComplete: true // Treat retreat as completion for modal purposes
-            });
-            setReportOpen(true);
+                rewardBreakdown: [{ source: 'Ucieczka z Wieży (Zgromadzone Łupy)', gold: res.rewards?.gold || 0, experience: res.rewards?.experience || 0 }]
+            };
+            setSummaryData(summary);
             
-            // NOTE: Do NOT clear activeRun here. Wait for modal close.
+            // We do NOT clear activeRun here explicitly. We let the modal blocking logic prevent fetching.
+            // When modal closes, we will refresh and the backend will say "no run".
             api.getCharacter().then(updateCharacter);
         } catch (e: any) {
             alert(e.message);
@@ -138,12 +183,23 @@ export const Tower: React.FC = () => {
     };
 
     const handleCloseReport = () => {
-        setReportOpen(false);
-        setCombatResult(null);
-        // This is the critical moment: now that the user saw the result, we refresh.
-        // If the run ended (Victory/Defeat/Retreat), fetchData will return no active run, switching view to Lobby.
-        fetchData(); 
-        api.getCharacter().then(updateCharacter);
+        setSummaryData(null);
+        // Now that we closed the report, we MUST refresh the state.
+        // If the run ended, the backend will return null for activeRun, returning us to Lobby.
+        // We set loading to true to smooth the transition.
+        setLoading(true);
+        api.getTowers().then(data => {
+             if (data.activeRun) {
+                setActiveRun(data.activeRun);
+                setActiveTower(data.tower);
+            } else {
+                setTowers(data.towers || []);
+                setActiveRun(null);
+                setActiveTower(null);
+            }
+            setLoading(false);
+            api.getCharacter().then(updateCharacter);
+        });
     };
 
     // Helper to get enemies for a specific floor from tower config
@@ -161,13 +217,39 @@ export const Tower: React.FC = () => {
     if (!character || !gameData) return null;
 
     // --- Render Logic ---
-    // We determine what "Main View" to show (Active Run or Lobby)
-    // The Modal is rendered conditionally on top of it.
     
-    let mainView = null;
+    // 1. Tooltip Overlay (Global for this component)
+    const tooltipOverlay = hoveredItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+            <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
+                    <ItemDetailsPanel 
+                    item={hoveredItem.item} 
+                    template={hoveredItem.template} 
+                    affixes={gameData.affixes} 
+                    size="small"
+                    compact={true}
+                    />
+            </div>
+        </div>
+    );
 
-    // --- Active Run View ---
+    // 2. Summary Modal Overlay
+    const summaryOverlay = summaryData && (
+        <ExpeditionSummaryModal 
+            reward={summaryData}
+            onClose={handleCloseReport}
+            characterName={character.name}
+            itemTemplates={gameData.itemTemplates}
+            affixes={gameData.affixes}
+            enemies={gameData.enemies}
+        />
+    );
+
+    // 3. Main Content
+    let content = null;
+
     if (activeRun && activeTower) {
+        // --- Active Run View ---
         const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
         const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
         const rewards = activeRun.accumulatedRewards;
@@ -175,7 +257,7 @@ export const Tower: React.FC = () => {
         const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
         const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
 
-        mainView = (
+        content = (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
                 
                 {/* Left: Status & Progress */}
@@ -297,7 +379,7 @@ export const Tower: React.FC = () => {
         );
     } else {
         // --- Lobby View ---
-        mainView = (
+        content = (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
                 {towers.length === 0 && <p className="text-gray-500 col-span-full text-center py-12">Brak wież w tej lokacji.</p>}
                 {towers.map(tower => (
@@ -368,49 +450,11 @@ export const Tower: React.FC = () => {
         );
     }
     
-    // --- Overall Render ---
     return (
         <ContentPanel title={activeRun && activeTower ? `Wieża Mroku: ${activeTower.name}` : "Wieża Mroku"}>
-            {/* Modal Overlay */}
-            {reportOpen && combatResult && (
-                 <ExpeditionSummaryModal 
-                    reward={{
-                        isVictory: combatResult.victory,
-                        totalGold: combatResult.rewards?.gold || 0, 
-                        totalExperience: combatResult.rewards?.experience || 0,
-                        itemsFound: combatResult.rewards?.items || [],
-                        essencesFound: combatResult.rewards?.essences || {},
-                        combatLog: combatResult.combatLog,
-                        rewardBreakdown: combatResult.isTowerComplete 
-                            ? [{ source: `Ukończono/Ucieczka: ${activeTower?.name || 'Wieża'}`, gold: combatResult.rewards?.gold || 0, experience: combatResult.rewards?.experience || 0 }] 
-                            : [],
-                    }}
-                    onClose={handleCloseReport}
-                    characterName={character.name}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
-                    enemies={gameData.enemies}
-                 />
-            )}
-            
-            {/* Tooltip Overlay */}
-            {hoveredItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                         <ItemDetailsPanel 
-                            item={hoveredItem.item} 
-                            template={hoveredItem.template} 
-                            affixes={gameData.affixes} 
-                            size="small"
-                            compact={true}
-                         />
-                    </div>
-                </div>
-            )}
-            
-            {/* Main Content (Lobby or Active Run) */}
-            {mainView}
-            
+            {summaryOverlay}
+            {tooltipOverlay}
+            {content}
         </ContentPanel>
     );
 };
