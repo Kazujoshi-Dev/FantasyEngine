@@ -8,6 +8,7 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { HandshakeIcon } from './icons/HandshakeIcon';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 interface TraderProps {
     traderInventory: ItemInstance[];
@@ -18,6 +19,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance; source: 'buy' | 'sell' } | null>(null);
+    const [selectedSellIds, setSelectedSellIds] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
@@ -25,6 +27,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
     // Reset selection on tab change
     useEffect(() => {
         setSelectedItem(null);
+        setSelectedSellIds(new Set());
     }, [activeTab]);
 
     if (!character || !baseCharacter || !gameData) return null;
@@ -35,15 +38,13 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
             const updatedChar = await api.buyItem(item.uniqueId);
             updateCharacter(updatedChar);
             setSelectedItem(null);
-            // Refresh inventory logic is handled by parent/api hook generally, 
-            // but for instant feedback we rely on updatedChar from response
         } catch (e: any) {
             alert(e.message);
         }
     };
 
     const handleSell = async (item: ItemInstance) => {
-        // Simple confirmation for high value items?
+        // Single sell fallback or specific item sell from details
         const template = itemTemplates.find(t => t.id === item.templateId);
         if (template && (template.rarity === ItemRarity.Epic || template.rarity === ItemRarity.Legendary)) {
             if (!confirm(`Czy na pewno chcesz sprzedać ${template.name}?`)) return;
@@ -53,41 +54,96 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
             const updatedChar = await api.sellItems([item.uniqueId]);
             updateCharacter(updatedChar);
             setSelectedItem(null);
+            setSelectedSellIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(item.uniqueId);
+                return newSet;
+            });
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    const handleSellJunk = async () => {
-        const junkItems = character.inventory.filter(item => {
-            if (item.isBorrowed) return false;
-            const template = itemTemplates.find(t => t.id === item.templateId);
-            return template && (template.rarity === ItemRarity.Common || template.rarity === ItemRarity.Uncommon);
+    const handleSellSelected = async () => {
+        if (selectedSellIds.size === 0) return;
+
+        const itemsToSell = character.inventory.filter(i => selectedSellIds.has(i.uniqueId));
+        let totalValue = 0;
+        let hasHighValue = false;
+
+        itemsToSell.forEach(item => {
+             const template = itemTemplates.find(t => t.id === item.templateId);
+             if (template && (template.rarity === ItemRarity.Epic || template.rarity === ItemRarity.Legendary)) {
+                 hasHighValue = true;
+             }
+             totalValue += getSellPrice(item);
         });
 
-        if (junkItems.length === 0) {
+        if (hasHighValue) {
+            if (!confirm(`Wśród zaznaczonych przedmiotów są przedmioty Epickie lub Legendarne. Czy na pewno chcesz sprzedać ${itemsToSell.length} przedmiotów za ${totalValue} złota?`)) return;
+        }
+
+        try {
+            const ids = Array.from(selectedSellIds);
+            const updatedChar = await api.sellItems(ids);
+            updateCharacter(updatedChar);
+            setSelectedSellIds(new Set());
+            setSelectedItem(null);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleSellAllByRarity = async (rarity: ItemRarity) => {
+        const itemsToSell = character.inventory.filter(item => {
+            if (item.isBorrowed) return false;
+            const template = itemTemplates.find(t => t.id === item.templateId);
+            return template && template.rarity === rarity;
+        });
+
+        if (itemsToSell.length === 0) {
             alert(t('trader.noItemsToSellOfRarity'));
             return;
         }
 
-        const count = junkItems.length;
         let totalValue = 0;
-        
-        junkItems.forEach(item => {
-             const template = itemTemplates.find(t => t.id === item.templateId);
-             let val = Number(template?.value) || 0;
-             // Add affix value calculation if needed, simplifying for junk
-             totalValue += val;
+        itemsToSell.forEach(item => {
+             totalValue += getSellPrice(item);
         });
 
-        if (confirm(t('trader.bulkSellConfirm', { count, types: t('trader.junkTypes'), value: totalValue }))) {
+        if (confirm(t('trader.bulkSellConfirm', { count: itemsToSell.length, types: t(`rarity.${rarity}`), value: totalValue }))) {
              try {
-                const ids = junkItems.map(i => i.uniqueId);
+                const ids = itemsToSell.map(i => i.uniqueId);
                 const updatedChar = await api.sellItems(ids);
                 updateCharacter(updatedChar);
+                // Also clear these from selection if they were selected
+                setSelectedSellIds(prev => {
+                    const newSet = new Set(prev);
+                    ids.forEach(id => newSet.delete(id));
+                    return newSet;
+                });
             } catch (e: any) {
                 alert(e.message);
             }
+        }
+    };
+
+    const handleItemClick = (item: ItemInstance, source: 'buy' | 'sell') => {
+        if (source === 'sell') {
+            setSelectedSellIds(prev => {
+                const newSet = new Set(prev);
+                if (newSet.has(item.uniqueId)) {
+                    newSet.delete(item.uniqueId);
+                } else {
+                    newSet.add(item.uniqueId);
+                }
+                return newSet;
+            });
+            // Update preview to show the last clicked item
+            setSelectedItem({ item, source: 'sell' });
+        } else {
+            // In Buy mode, single selection
+            setSelectedItem({ item, source: 'buy' });
         }
     };
 
@@ -124,12 +180,14 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
         });
     };
 
-    // Combine regular and special items for the "Buy" list, marking specials
-    const buyList = useMemo(() => {
-        const regular = filterItems(traderInventory).map(i => ({ ...i, _isSpecial: false }));
-        const special = filterItems(traderSpecialOfferItems).map(i => ({ ...i, _isSpecial: true }));
-        return [...special, ...regular];
-    }, [traderInventory, traderSpecialOfferItems, filterSlot, filterRarity, itemTemplates]);
+    // Separate filtered lists for Buy tab
+    const filteredSpecialOffers = useMemo(() => {
+        return filterItems(traderSpecialOfferItems).map(i => ({ ...i, _isSpecial: true }));
+    }, [traderSpecialOfferItems, filterSlot, filterRarity, itemTemplates]);
+
+    const filteredRegularWares = useMemo(() => {
+        return filterItems(traderInventory).map(i => ({ ...i, _isSpecial: false }));
+    }, [traderInventory, filterSlot, filterRarity, itemTemplates]);
 
     const sellList = useMemo(() => {
         // Exclude borrowed items from sell list
@@ -138,6 +196,20 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
     }, [character.inventory, filterSlot, filterRarity, itemTemplates]);
 
     const selectedTemplate = selectedItem ? itemTemplates.find(t => t.id === selectedItem.item.templateId) : null;
+    
+    // Calculate total value of selected sell items
+    const selectedSellValue = useMemo(() => {
+        let total = 0;
+        if (activeTab === 'sell') {
+            character.inventory.forEach(item => {
+                if (selectedSellIds.has(item.uniqueId)) {
+                    total += getSellPrice(item);
+                }
+            });
+        }
+        return total;
+    }, [selectedSellIds, character.inventory, activeTab, gameData]);
+
     const selectedPrice = selectedItem 
         ? (selectedItem.source === 'buy' 
             ? getBuyPrice(selectedItem.item, (selectedItem.item as any)._isSpecial) 
@@ -194,44 +266,88 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                                 <option key={r} value={r}>{t(`rarity.${r}`)}</option>
                             ))}
                         </select>
-                        {activeTab === 'sell' && (
-                            <button 
-                                onClick={handleSellJunk}
-                                className="ml-auto px-4 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold rounded border border-red-800 transition-colors"
-                            >
-                                {t('trader.sellAllJunk')}
-                            </button>
-                        )}
                     </div>
 
-                    <div className="flex-grow overflow-y-auto pr-2">
+                    <div className="flex-grow overflow-y-auto pr-2 space-y-4">
                         {activeTab === 'buy' ? (
-                            <ItemList 
-                                items={buyList} 
-                                itemTemplates={itemTemplates} 
-                                affixes={affixes} 
-                                selectedItem={selectedItem?.item || null} 
-                                onSelectItem={(item) => setSelectedItem({ item, source: 'buy' })}
-                                showPrice={(item: any) => item._isSpecial ? 'buy-special' : 'buy'}
-                            />
+                            <>
+                                {filteredSpecialOffers.length > 0 && (
+                                    <div className="bg-gradient-to-r from-amber-900/30 to-transparent p-3 rounded-lg border border-amber-600/40">
+                                        <h4 className="text-amber-400 font-bold mb-2 flex items-center gap-2 text-sm uppercase tracking-wider">
+                                            <SparklesIcon className="h-4 w-4" /> {t('trader.specialOffer.title')}
+                                        </h4>
+                                        <ItemList 
+                                            items={filteredSpecialOffers} 
+                                            itemTemplates={itemTemplates} 
+                                            affixes={affixes} 
+                                            selectedItem={selectedItem?.item || null} 
+                                            onSelectItem={(item) => handleItemClick(item, 'buy')}
+                                            showPrice={(item: any) => 'buy-special'}
+                                        />
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className="text-gray-400 font-bold mb-2 text-sm uppercase tracking-wider px-2">
+                                        {t('trader.regularWares')}
+                                    </h4>
+                                    <ItemList 
+                                        items={filteredRegularWares} 
+                                        itemTemplates={itemTemplates} 
+                                        affixes={affixes} 
+                                        selectedItem={selectedItem?.item || null} 
+                                        onSelectItem={(item) => handleItemClick(item, 'buy')}
+                                        showPrice={(item: any) => 'buy'}
+                                    />
+                                    {filteredRegularWares.length === 0 && filteredSpecialOffers.length === 0 && (
+                                        <p className="text-gray-500 text-center py-12">Brak przedmiotów.</p>
+                                    )}
+                                </div>
+                            </>
                         ) : (
                             <ItemList 
                                 items={sellList} 
                                 itemTemplates={itemTemplates} 
                                 affixes={affixes} 
                                 selectedItem={selectedItem?.item || null} 
-                                onSelectItem={(item) => setSelectedItem({ item, source: 'sell' })}
+                                selectedIds={selectedSellIds}
+                                onSelectItem={(item) => handleItemClick(item, 'sell')}
                                 showPrice="sell"
                             />
                         )}
-                        {(activeTab === 'buy' ? buyList : sellList).length === 0 && (
-                            <p className="text-gray-500 text-center py-12">Brak przedmiotów.</p>
+                        {activeTab === 'sell' && sellList.length === 0 && (
+                             <p className="text-gray-500 text-center py-12">Brak przedmiotów do sprzedania.</p>
                         )}
                     </div>
                 </div>
 
                 {/* Details Column */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center border border-slate-700/50">
+                    {/* Sell Tab Bulk Actions */}
+                    {activeTab === 'sell' && (
+                        <div className="w-full mb-6 pb-6 border-b border-slate-700/50">
+                             <h4 className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider text-center">{t('trader.bulkSellTitle')}</h4>
+                             <div className="grid grid-cols-2 gap-2 mb-2">
+                                {(Object.values(ItemRarity) as ItemRarity[]).filter(r => r !== ItemRarity.Legendary).map(rarity => (
+                                    <button 
+                                        key={rarity}
+                                        onClick={() => handleSellAllByRarity(rarity)}
+                                        className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-gray-300 rounded border border-slate-600 transition-colors"
+                                    >
+                                        {t('trader.sellAllRarity', { rarity: t(`rarity.${rarity}`) })}
+                                    </button>
+                                ))}
+                             </div>
+                             {selectedSellIds.size > 0 && (
+                                <button 
+                                    onClick={handleSellSelected}
+                                    className="w-full mt-2 py-2 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded shadow-lg transition-all"
+                                >
+                                    {t('trader.sellSelected', { count: selectedSellIds.size })} <span className="font-mono ml-1">({selectedSellValue}g)</span>
+                                </button>
+                             )}
+                        </div>
+                    )}
+
                     {selectedItem && selectedTemplate ? (
                         <div className="w-full flex flex-col h-full">
                             <div className="flex-grow">

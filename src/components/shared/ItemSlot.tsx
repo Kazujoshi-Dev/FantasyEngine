@@ -240,6 +240,17 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
     const finalBorder = meetsRequirements ? border : 'border-red-500';
     
     const borrowedStyle = item.isBorrowed ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : '';
+    // Styling for multiple selections (e.g. in Trader Sell Tab)
+    const selectedStyle = isSelected ? 'bg-amber-700/40 ring-2 ring-amber-500' : `${bg}/50 hover:bg-slate-700/50`;
+    // Fallback for single selection (e.g. inventory/equip) usually uses indigo
+    const singleSelectedStyle = isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`;
+
+    // Determine which style to use. If divProps.className contains specific overrides, those might apply, 
+    // but here we check context indirectly. For now, we'll assume the parent component controls `isSelected` logic
+    // and we just need a generic "active" look. 
+    // However, if we want distinct looks for "Multi-selected for Sell" vs "Single clicked for details", 
+    // we might need a prop like `selectionMode`. 
+    // For this implementation, I will stick to a unified active state but use conditional classes based on usage.
 
     return (
          <div
@@ -247,7 +258,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
             onDragStart={onDragStart}
             {...divProps}
             className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
-                isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
+               isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
             } ${finalBorder} ${shadow} ${borrowedStyle} ${divProps.className || ''}`}
         >
             {template.icon && <img src={template.icon} alt={template.name} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
@@ -284,18 +295,21 @@ interface ItemListProps {
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     selectedItem: ItemInstance | null;
+    selectedIds?: Set<string>; // New prop for multi-select
     onSelectItem: (item: ItemInstance) => void;
     showPrice?: 'buy' | 'sell' | 'buy-special' | ((item: any) => 'buy' | 'sell' | 'buy-special');
     meetsRequirements?: (item: ItemInstance) => boolean;
 }
 
-export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, showPrice, meetsRequirements }) => {
+export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, selectedIds, onSelectItem, showPrice, meetsRequirements }) => {
     return (
         <div className="flex-grow overflow-y-auto pr-2 space-y-1">
             {items.map(item => {
                 const template = itemTemplates.find(t => t.id === item.templateId);
                 if (!template) return null;
-                const isSelected = selectedItem?.uniqueId === item.uniqueId;
+                
+                // Determine selection status: either match single selected item OR be present in selectedIds set
+                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds ? selectedIds.has(item.uniqueId) : false);
                 
                 let price;
                 if (showPrice) {
@@ -312,6 +326,9 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                     const multiplier = priceType === 'buy' ? 2 : priceType === 'buy-special' ? 5 : 1;
                     price = itemValue * multiplier;
                 }
+                
+                // Extra styling for multi-selected items in sell mode
+                const multiSelectClass = (selectedIds && selectedIds.has(item.uniqueId)) ? 'ring-2 ring-amber-500 bg-amber-900/20' : '';
 
                 return (
                     <ItemListItem
@@ -324,6 +341,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixe
                         price={price}
                         showPrimaryStat={false}
                         meetsRequirements={meetsRequirements ? meetsRequirements(item) : true}
+                        className={multiSelectClass}
                     />
                 );
             })}
