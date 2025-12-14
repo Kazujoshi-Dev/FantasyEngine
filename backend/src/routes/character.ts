@@ -219,20 +219,49 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        
+        // 1. Fetch Character & Guild Data (similar to expedition complete to get buffs/buildings)
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings, g.active_buffs
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [req.user.id]);
         
         if (charRes.rows.length === 0) {
              await client.query('ROLLBACK');
              return res.status(404).json({ message: 'Character not found' });
         }
         
-        const character: PlayerCharacter = charRes.rows[0].data;
+        let character: PlayerCharacter = charRes.rows[0].data;
+        const guildBuildings = charRes.rows[0].buildings || {};
+        const guildBuffs = charRes.rows[0].active_buffs || [];
+        
+        // Inject buffs
+        character.activeGuildBuffs = guildBuffs;
 
         if (character.activeExpedition || character.activeTravel) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Cannot heal while busy.' });
         }
 
+        // 2. Fetch Game Data for Calculation
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
+        const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
+
+        // 3. Recalculate Derived Stats (This ensures maxHealth includes +5 items, buffs, etc.)
+        character = calculateDerivedStatsOnServer(
+            character, 
+            gameData.itemTemplates || [], 
+            gameData.affixes || [], 
+            guildBuildings.barracks || 0, 
+            guildBuildings.shrine || 0,
+            gameData.skills || [],
+            character.activeGuildBuffs || []
+        );
+
+        // 4. Apply Heal
         character.stats.currentHealth = character.stats.maxHealth;
         character.stats.currentMana = character.stats.maxMana; 
         character.isResting = false; 
@@ -243,6 +272,7 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
         res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("Heal error:", err);
         res.status(500).json({ message: 'Failed to heal character' });
     } finally {
         client.release();
