@@ -3,13 +3,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
-import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, ItemTemplate, Enemy, ItemRarity } from '../types';
+import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, ItemTemplate, Enemy, ItemRarity, ExpeditionRewardSummary } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { rarityStyles, ItemListItem, ItemDetailsPanel, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { useTranslation } from '../contexts/LanguageContext';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -19,7 +20,7 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Legendary]: ItemRarity.Legendary,
 };
 
-// --- Sub-component: Tower Summary View ---
+// --- Sub-component: Tower Summary View (End Game) ---
 interface TowerSummaryProps {
     outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
     rewards: {
@@ -178,18 +179,21 @@ export const Tower: React.FC = () => {
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
     const [loading, setLoading] = useState(true);
     
-    // Dedicate state for end-game summary. If this is populated, we show the summary view.
+    // State for End Game Summary (Victory/Defeat/Retreat - Final Screen)
     const [endGameSummary, setEndGameSummary] = useState<{
         outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
         rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
     } | null>(null);
+
+    // State for Intermediate Floor Report (Combat Log for current floor)
+    const [floorReport, setFloorReport] = useState<ExpeditionRewardSummary | null>(null);
     
     // Tooltip State for Active Run view
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     const fetchData = useCallback(async () => {
-        // If we are viewing the summary, DO NOT fetch/sync, as it might override the "completed" state with "no run"
-        if (endGameSummary) return;
+        // Block fetching if any modal is open to prevent state jump
+        if (endGameSummary || floorReport) return;
 
         setLoading(true);
         try {
@@ -207,7 +211,7 @@ export const Tower: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [endGameSummary]);
+    }, [endGameSummary, floorReport]);
 
     useEffect(() => {
         fetchData();
@@ -231,30 +235,40 @@ export const Tower: React.FC = () => {
             
             if (res.victory) {
                 if (res.isTowerComplete) {
-                    // Tower Finished! Switch to Summary View
+                    // Tower Finished! Switch to End Game Summary View
                     setEndGameSummary({
                         outcome: 'VICTORY',
                         rewards: res.rewards || { gold: 0, experience: 0, items: [], essences: {} }
                     });
-                    // Locally clear active run so background doesn't try to render it if we switch back
                     setActiveRun(null);
                 } else {
-                    // Just next floor, update state locally
+                    // Intermediate Floor Victory
+                    // 1. Update local state to reflect new floor/hp immediately behind the modal
                     if (activeRun) {
+                        const newFloor = res.currentFloor || activeRun.currentFloor + 1;
                         setActiveRun({
                             ...activeRun,
-                            currentFloor: res.currentFloor || activeRun.currentFloor + 1,
+                            currentFloor: newFloor,
                             currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
                             currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
                             accumulatedRewards: res.rewards
                         });
                         api.getCharacter().then(updateCharacter);
-                    } else {
-                        fetchData();
                     }
+                    
+                    // 2. Show Floor Combat Report
+                    setFloorReport({
+                        isVictory: true,
+                        totalGold: 0, // Not showing looted gold per floor to avoid confusion with stash
+                        totalExperience: 0,
+                        itemsFound: [],
+                        essencesFound: {},
+                        combatLog: res.combatLog,
+                        rewardBreakdown: [{ source: `Ukończono Piętro ${activeRun?.currentFloor}`, gold: 0, experience: 0 }]
+                    });
                 }
             } else {
-                // Defeat. Switch to Summary View (Failure).
+                // Defeat. Switch to End Game Summary View (Failure).
                 setEndGameSummary({
                     outcome: 'DEFEAT',
                     rewards: { gold: 0, experience: 0, items: [], essences: {} }
@@ -283,7 +297,7 @@ export const Tower: React.FC = () => {
 
     const handleCloseSummary = () => {
         setEndGameSummary(null);
-        // Refresh everything to show lobby
+        // Full refresh after end game
         setLoading(true);
         api.getTowers().then(data => {
              if (data.activeRun) {
@@ -309,10 +323,10 @@ export const Tower: React.FC = () => {
 
     // --- MAIN RENDER ---
 
-    if (loading && !endGameSummary) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
+    if (loading && !endGameSummary && !floorReport) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
     if (!character || !gameData) return null;
 
-    // 1. SUMMARY VIEW (Highest Priority)
+    // 1. END GAME SUMMARY (Highest Priority)
     if (endGameSummary) {
         return (
             <ContentPanel title={endGameSummary.outcome === 'VICTORY' ? 'Zwycięstwo!' : 'Koniec Wyprawy'}>
@@ -327,7 +341,7 @@ export const Tower: React.FC = () => {
         );
     }
 
-    // 2. ACTIVE RUN VIEW
+    // 2. ACTIVE RUN VIEW (With potential Floor Report Modal)
     if (activeRun && activeTower) {
         const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
         const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
@@ -338,6 +352,7 @@ export const Tower: React.FC = () => {
 
         return (
             <ContentPanel title={`Wieża Mroku: ${activeTower.name}`}>
+                {/* Tooltip */}
                 {hoveredItem && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
                         <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
@@ -350,6 +365,19 @@ export const Tower: React.FC = () => {
                              />
                         </div>
                     </div>
+                )}
+                
+                {/* Floor Report Modal */}
+                {floorReport && (
+                     <ExpeditionSummaryModal 
+                        reward={floorReport}
+                        onClose={() => setFloorReport(null)}
+                        characterName={character.name}
+                        itemTemplates={gameData.itemTemplates}
+                        affixes={gameData.affixes}
+                        enemies={gameData.enemies}
+                        isHunting={false}
+                    />
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
