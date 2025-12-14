@@ -161,6 +161,7 @@ export const Equipment: React.FC = () => {
     const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance; source: 'equipment' | 'inventory'; fromSlot?: EquipmentSlot } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [hoveredInventoryItem, setHoveredInventoryItem] = useState<ItemInstance | null>(null);
+    const [hoveredEquippedItem, setHoveredEquippedItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     const [hideUnusable, setHideUnusable] = useState(false);
@@ -335,9 +336,11 @@ export const Equipment: React.FC = () => {
                                     <div 
                                         key={slot} 
                                         onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}
-                                        className="relative group"
+                                        className="relative group cursor-help"
                                         onDrop={(e) => handleDrop(e, { slot })}
                                         onDragOver={handleDragOver}
+                                        onMouseEnter={() => setHoveredEquippedItem({ item, template })}
+                                        onMouseLeave={() => setHoveredEquippedItem(null)}
                                     >
                                         <ItemListItem
                                             item={item}
@@ -353,7 +356,6 @@ export const Equipment: React.FC = () => {
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, item, 'equipment', slot)}
                                         />
-                                        <ItemTooltip instance={item} template={template} affixes={gameData.affixes || []} />
                                     </div>
                                 ) : (
                                     <div key={slot} onDrop={(e) => handleDrop(e, { slot })} onDragOver={handleDragOver}>
@@ -457,6 +459,19 @@ export const Equipment: React.FC = () => {
 
             {contextMenu && <ContextMenu {...contextMenu} options={contextMenuOptions} onClose={() => setContextMenu(null)} />}
             {hoveredInventoryItem && <ItemComparisonTooltip hoveredItem={hoveredInventoryItem} character={character} gameData={gameData} />}
+
+            {hoveredEquippedItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none animate-fade-in">
+                    <div className="w-80 bg-slate-900/95 border-2 border-slate-600 rounded-xl shadow-2xl p-4 backdrop-blur-sm pointer-events-auto">
+                         <ItemDetailsPanel 
+                            item={hoveredEquippedItem.item} 
+                            template={hoveredEquippedItem.template} 
+                            affixes={gameData.affixes || []} 
+                            character={character} 
+                         />
+                    </div>
+                </div>
+            )}
 
         </ContentPanel>
     );
