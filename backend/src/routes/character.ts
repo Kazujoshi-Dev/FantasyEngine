@@ -8,8 +8,8 @@ import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
-// GET /character - Fetch Character
-router.get('/character', authenticateToken, async (req: any, res: any) => {
+// GET / - Fetch Character (Mapped from /api/character)
+router.get('/', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         if (result.rows.length === 0) {
@@ -21,8 +21,8 @@ router.get('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /character - Create Character
-router.post('/character', authenticateToken, async (req: any, res: any) => {
+// POST / - Create Character
+router.post('/', authenticateToken, async (req: any, res: any) => {
     const { name, race, startLocationId } = req.body;
     try {
         const existing = await pool.query('SELECT 1 FROM characters WHERE user_id = $1', [req.user.id]);
@@ -64,11 +64,8 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
             learnedSkills: [], activeSkills: []
         };
         
-        // Check for "start" location ID validity if provided
         if (startLocationId) {
-             const locRes = await pool.query("SELECT 1 FROM game_data WHERE key = 'locations' AND data @> $1", [JSON.stringify([{id: startLocationId}])]);
-             // Note: The above query assumes proper JSONB structure, simplified check:
-             // We assume client sends valid ID from gameData.
+             // Optional validation logic
         }
 
         await pool.query('INSERT INTO characters (user_id, data) VALUES ($1, $2)', [req.user.id, JSON.stringify(newCharacter)]);
@@ -78,8 +75,8 @@ router.post('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// PUT /character - Update Character
-router.put('/character', authenticateToken, async (req: any, res: any) => {
+// PUT / - Update Character
+router.put('/', authenticateToken, async (req: any, res: any) => {
     const data = req.body;
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
@@ -98,7 +95,6 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
 
         await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
         
-        // Also update users table for email if present (for auth/recovery purposes)
         if (data.email) {
              try {
                  await pool.query('UPDATE users SET email = $1 WHERE id = $2', [data.email, req.user.id]);
@@ -113,8 +109,8 @@ router.put('/character', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /character/class - Select Class
-router.post('/character/class', authenticateToken, async (req: any, res: any) => {
+// POST /class - Select Class
+router.post('/class', authenticateToken, async (req: any, res: any) => {
     const { characterClass } = req.body;
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
@@ -131,9 +127,9 @@ router.post('/character/class', authenticateToken, async (req: any, res: any) =>
     }
 });
 
-// POST /character/stats - Distribute Points
-router.post('/character/stats', authenticateToken, async (req: any, res: any) => {
-    const { stats } = req.body; // e.g. { strength: 1, agility: 0 ... }
+// POST /stats - Distribute Points
+router.post('/stats', authenticateToken, async (req: any, res: any) => {
+    const { stats } = req.body; 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -168,8 +164,8 @@ router.post('/character/stats', authenticateToken, async (req: any, res: any) =>
     }
 });
 
-// Reset Attributes
-router.post('/character/stats/reset', authenticateToken, async (req: any, res: any) => {
+// POST /stats/reset - Reset Attributes
+router.post('/stats/reset', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -188,11 +184,8 @@ router.post('/character/stats/reset', authenticateToken, async (req: any, res: a
             return res.status(400).json({ message: 'Not enough gold' });
         }
 
-        // Calculate total points to return
-        // 10 base points + (level - 1)
         const totalPoints = 10 + (character.level - 1);
         
-        // Reset stats to 0
         character.stats.strength = 0;
         character.stats.agility = 0;
         character.stats.accuracy = 0;
@@ -221,8 +214,8 @@ router.post('/character/stats/reset', authenticateToken, async (req: any, res: a
     }
 });
 
-// Heal Character
-router.post('/character/heal', authenticateToken, async (req: any, res: any) => {
+// POST /heal - Heal Character
+router.post('/heal', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -256,8 +249,8 @@ router.post('/character/heal', authenticateToken, async (req: any, res: any) => 
     }
 });
 
-// Upgrade Camp
-router.post('/character/camp/upgrade', authenticateToken, async (req: any, res: any) => {
+// POST /camp/upgrade - Upgrade Camp
+router.post('/camp/upgrade', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -298,8 +291,8 @@ router.post('/character/camp/upgrade', authenticateToken, async (req: any, res: 
     }
 });
 
-// Upgrade Treasury (Chest)
-router.post('/character/treasury/upgrade', authenticateToken, async (req: any, res: any) => {
+// POST /treasury/upgrade
+router.post('/treasury/upgrade', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -335,8 +328,8 @@ router.post('/character/treasury/upgrade', authenticateToken, async (req: any, r
     }
 });
 
-// Treasury Deposit/Withdraw
-router.post('/character/treasury/deposit', authenticateToken, async (req: any, res: any) => {
+// POST /treasury/deposit
+router.post('/treasury/deposit', authenticateToken, async (req: any, res: any) => {
     const { amount } = req.body;
     const client = await pool.connect();
     try {
@@ -345,11 +338,6 @@ router.post('/character/treasury/deposit', authenticateToken, async (req: any, r
         const character: PlayerCharacter = charRes.rows[0].data;
         
         if (!character.treasury) character.treasury = { level: 1, gold: 0 };
-        // Capacity logic is in frontend, but good to double check or trust logic/stats.ts? 
-        // We'll trust logic helper if we import it, or just do basic check.
-        // Assuming unlimited capacity for simplicity or re-implementing capacity check
-        // getChestCapacity(level) is available in stats.ts if imported.
-        // Let's just do the transaction.
         
         if (character.resources.gold < amount) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Not enough gold' }); }
         
@@ -362,7 +350,8 @@ router.post('/character/treasury/deposit', authenticateToken, async (req: any, r
     } catch(e) { await client.query('ROLLBACK'); res.status(500).json({message:'Error'}); } finally { client.release(); }
 });
 
-router.post('/character/treasury/withdraw', authenticateToken, async (req: any, res: any) => {
+// POST /treasury/withdraw
+router.post('/treasury/withdraw', authenticateToken, async (req: any, res: any) => {
     const { amount } = req.body;
     const client = await pool.connect();
     try {
@@ -382,8 +371,8 @@ router.post('/character/treasury/withdraw', authenticateToken, async (req: any, 
     } catch(e) { await client.query('ROLLBACK'); res.status(500).json({message:'Error'}); } finally { client.release(); }
 });
 
-// Upgrade Backpack
-router.post('/character/upgrade-backpack', authenticateToken, async (req: any, res: any) => {
+// POST /backpack/upgrade (Standardized path)
+router.post('/backpack/upgrade', authenticateToken, async (req: any, res: any) => {
      const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -418,8 +407,8 @@ router.post('/character/upgrade-backpack', authenticateToken, async (req: any, r
     }
 });
 
-// Upgrade Warehouse
-router.post('/character/warehouse/upgrade', authenticateToken, async (req: any, res: any) => {
+// POST /warehouse/upgrade
+router.post('/warehouse/upgrade', authenticateToken, async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -454,8 +443,8 @@ router.post('/character/warehouse/upgrade', authenticateToken, async (req: any, 
     }
 });
 
-// Warehouse Deposit
-router.post('/character/warehouse/deposit', authenticateToken, async (req: any, res: any) => {
+// POST /warehouse/deposit
+router.post('/warehouse/deposit', authenticateToken, async (req: any, res: any) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -482,8 +471,8 @@ router.post('/character/warehouse/deposit', authenticateToken, async (req: any, 
     } catch(e) { await client.query('ROLLBACK'); res.status(500).json({message:'Error'}); } finally { client.release(); }
 });
 
-// Warehouse Withdraw
-router.post('/character/warehouse/withdraw', authenticateToken, async (req: any, res: any) => {
+// POST /warehouse/withdraw
+router.post('/warehouse/withdraw', authenticateToken, async (req: any, res: any) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -510,8 +499,8 @@ router.post('/character/warehouse/withdraw', authenticateToken, async (req: any,
     } catch(e) { await client.query('ROLLBACK'); res.status(500).json({message:'Error'}); } finally { client.release(); }
 });
 
-// Convert Essence
-router.post('/character/resources/convert', authenticateToken, async (req: any, res: any) => {
+// POST /resources/convert
+router.post('/resources/convert', authenticateToken, async (req: any, res: any) => {
     const { fromType } = req.body;
     const client = await pool.connect();
     try {
@@ -550,8 +539,8 @@ router.post('/character/resources/convert', authenticateToken, async (req: any, 
 });
 
 
-// Equip Item
-router.post('/character/equip', authenticateToken, async (req: any, res: any) => {
+// POST /equip
+router.post('/equip', authenticateToken, async (req: any, res: any) => {
     const { itemId } = req.body;
     const client = await pool.connect();
     try {
@@ -562,7 +551,6 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
         // Fetch Game Data for validation (Slots, etc)
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const itemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
-        // const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
 
         const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
         if (itemIndex === -1) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Item not found in inventory' }); }
@@ -621,8 +609,8 @@ router.post('/character/equip', authenticateToken, async (req: any, res: any) =>
     }
 });
 
-// Unequip Item
-router.post('/character/unequip', authenticateToken, async (req: any, res: any) => {
+// POST /unequip
+router.post('/unequip', authenticateToken, async (req: any, res: any) => {
     const { slot } = req.body;
     const client = await pool.connect();
     try {
@@ -651,8 +639,8 @@ router.post('/character/unequip', authenticateToken, async (req: any, res: any) 
     }
 });
 
-// Character Skills
-router.post('/character/skills/learn', authenticateToken, async (req: any, res: any) => {
+// POST /skills/learn
+router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
     const { skillId } = req.body;
     const client = await pool.connect();
     try {
@@ -669,8 +657,6 @@ router.post('/character/skills/learn', authenticateToken, async (req: any, res: 
              await client.query('ROLLBACK'); return res.status(400).json({ message: 'Already learned' });
         }
 
-        // Validate Costs and Requirements
-        // ... (Assume frontend checks for now or implement full validation here if critical)
         // Deduct cost
         for (const key in skill.cost) {
             if (character.resources[key as keyof typeof character.resources] < skill.cost[key]) {
@@ -688,7 +674,8 @@ router.post('/character/skills/learn', authenticateToken, async (req: any, res: 
     } catch(e) { await client.query('ROLLBACK'); res.status(500).json({message: 'Error'}); } finally { client.release(); }
 });
 
-router.post('/character/skills/toggle', authenticateToken, async (req: any, res: any) => {
+// POST /skills/toggle
+router.post('/skills/toggle', authenticateToken, async (req: any, res: any) => {
     const { skillId, isActive } = req.body;
     const client = await pool.connect();
     try {
@@ -711,8 +698,8 @@ router.post('/character/skills/toggle', authenticateToken, async (req: any, res:
 });
 
 
-// Character Profile (Public)
-router.get('/character/profile/:name', async (req: any, res: any) => {
+// GET /profile/:name (Public Profile)
+router.get('/profile/:name', async (req: any, res: any) => {
     try {
         const result = await pool.query(`
             SELECT c.data->>'name' as name, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
@@ -734,8 +721,8 @@ router.get('/character/profile/:name', async (req: any, res: any) => {
     }
 });
 
-// Get Character Names (for autocomplete)
-router.get('/characters/names', authenticateToken, async (req: any, res: any) => {
+// GET /names (For Autocomplete)
+router.get('/names', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query("SELECT data->>'name' as name FROM characters");
         res.json(result.rows.map(r => r.name));

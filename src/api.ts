@@ -98,14 +98,14 @@ export const api = {
     distributeStatPoints: (stats: any) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
     resetAttributes: () => fetchApi('/character/stats/reset', { method: 'POST' }),
     healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
-    getCharacterNames: () => fetchApi('/characters/names'),
+    getCharacterNames: () => fetchApi('/character/names'), // Fixed path
     getCharacterProfile: (name: string): Promise<PublicCharacterProfile> => fetchApi(`/character/profile/${name}`),
     convertEssence: (fromType: EssenceType): Promise<PlayerCharacter> => fetchApi('/character/resources/convert', { method: 'POST', body: JSON.stringify({ fromType }) }),
     
     // Camp & Inventory
     upgradeCamp: () => fetchApi('/character/camp/upgrade', { method: 'POST' }),
     upgradeChest: () => fetchApi('/character/treasury/upgrade', { method: 'POST' }),
-    upgradeBackpack: (): Promise<PlayerCharacter> => fetchApi('/character/upgrade-backpack', { method: 'POST' }),
+    upgradeBackpack: (): Promise<PlayerCharacter> => fetchApi('/character/backpack/upgrade', { method: 'POST' }), // Fixed path
     chestDeposit: (amount: number): Promise<PlayerCharacter> => fetchApi('/character/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
     chestWithdraw: (amount: number): Promise<PlayerCharacter> => fetchApi('/character/treasury/withdraw', { method: 'POST', body: JSON.stringify({ amount }) }),
     // Warehouse Methods

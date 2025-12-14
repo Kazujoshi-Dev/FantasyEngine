@@ -35,6 +35,8 @@ const OverviewPanel: React.FC = () => {
     const { character, baseCharacter, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [countdown, setCountdown] = useState(REGEN_INTERVAL_SECONDS);
+    const [isHealing, setIsHealing] = useState(false);
+    const [isUpgrading, setIsUpgrading] = useState(false);
 
     if (!character || !baseCharacter) return null;
 
@@ -59,8 +61,30 @@ const OverviewPanel: React.FC = () => {
     const healthPercentage = (currentHealth / maxHealth) * 100;
 
     const onToggleResting = () => api.updateCharacter({ isResting: !isResting }).then(updateCharacter);
-    const onUpgradeCamp = async () => { try { updateCharacter(await api.upgradeCamp()); } catch(e:any) { alert(e.message); }};
-    const onHealToFull = async () => { try { updateCharacter(await api.healCharacter()); } catch(e:any) { alert(e.message); }};
+    
+    const onUpgradeCamp = async () => { 
+        setIsUpgrading(true);
+        try { 
+            const updated = await api.upgradeCamp();
+            updateCharacter(updated); 
+        } catch(e:any) { 
+            alert(e.message); 
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
+    
+    const onHealToFull = async () => { 
+        setIsHealing(true);
+        try { 
+            const updated = await api.healCharacter();
+            updateCharacter(updated); 
+        } catch(e:any) { 
+            alert(e.message); 
+        } finally {
+            setIsHealing(false);
+        }
+    };
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full animate-fade-in">
@@ -107,10 +131,10 @@ const OverviewPanel: React.FC = () => {
                     
                     <button 
                         onClick={onHealToFull} 
-                        disabled={activeExpedition !== null || isTraveling || isResting || currentHealth >= maxHealth} 
+                        disabled={activeExpedition !== null || isTraveling || isResting || currentHealth >= maxHealth || isHealing} 
                         className={`w-full py-2 rounded-lg font-bold text-sm transition-colors duration-200 shadow-md bg-emerald-700 hover:bg-emerald-600 text-white disabled:bg-slate-700 disabled:text-gray-500 disabled:cursor-not-allowed border border-emerald-500/30`}
                     >
-                        {t('camp.healToFull')}
+                        {isHealing ? 'Leczenie...' : t('camp.healToFull')}
                     </button>
 
                     {isResting && (
@@ -177,10 +201,10 @@ const OverviewPanel: React.FC = () => {
                         <div className="mt-6">
                             <button 
                                 onClick={onUpgradeCamp} 
-                                disabled={!canAffordUpgrade || isResting || isTraveling} 
+                                disabled={!canAffordUpgrade || isResting || isTraveling || isUpgrading} 
                                 className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                             >
-                                {t('camp.upgrade')}
+                                {isUpgrading ? 'Ulepszanie...' : t('camp.upgrade')}
                             </button>
                             {isResting && <p className="text-center text-xs text-amber-400 mt-2">{t('camp.mustStopResting')}</p>}
                             {isTraveling && <p className="text-center text-xs text-red-400 mt-2">{t('camp.unavailableDuringTravel')}</p>}
@@ -196,6 +220,7 @@ const TreasuryPanel: React.FC = () => {
     const { character, baseCharacter, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [amount, setAmount] = useState<string>('');
+    const [isUpgrading, setIsUpgrading] = useState(false);
 
     if (!character || !baseCharacter) return null;
 
@@ -230,10 +255,15 @@ const TreasuryPanel: React.FC = () => {
     };
 
     const onUpgradeChest = async () => {
+        setIsUpgrading(true);
         try {
             const updatedChar = await api.upgradeChest();
             updateCharacter(updatedChar);
-        } catch (e: any) { alert(e.message || t('error.title')); }
+        } catch (e: any) { 
+            alert(e.message || t('error.title')); 
+        } finally {
+            setIsUpgrading(false);
+        }
     };
 
     return (
@@ -315,10 +345,10 @@ const TreasuryPanel: React.FC = () => {
                     
                     <button 
                         onClick={onUpgradeChest} 
-                        disabled={!canAffordUpgrade} 
+                        disabled={!canAffordUpgrade || isUpgrading} 
                         className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 shadow-lg disabled:bg-slate-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                     >
-                        {t('camp.upgrade')}
+                        {isUpgrading ? 'Ulepszanie...' : t('camp.upgrade')}
                     </button>
                 </div>
              </div>
@@ -332,6 +362,7 @@ const WarehousePanel: React.FC = () => {
     const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isUpgrading, setIsUpgrading] = useState(false);
     
     if (!character || !baseCharacter || !gameData) return null;
     const { itemTemplates, affixes } = gameData;
@@ -345,10 +376,15 @@ const WarehousePanel: React.FC = () => {
     const canAffordUpgrade = (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
 
     const onUpgradeWarehouse = async () => {
+        setIsUpgrading(true);
         try {
             const updatedChar = await api.upgradeWarehouse();
             updateCharacter(updatedChar);
-        } catch (e: any) { alert(e.message || t('error.title')); }
+        } catch (e: any) { 
+            alert(e.message || t('error.title')); 
+        } finally {
+            setIsUpgrading(false);
+        }
     };
     
     const handleDeposit = async (item: ItemInstance) => {
@@ -418,11 +454,11 @@ const WarehousePanel: React.FC = () => {
                             </div>
                             <button 
                                 onClick={onUpgradeWarehouse} 
-                                disabled={!canAffordUpgrade} 
+                                disabled={!canAffordUpgrade || isUpgrading} 
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm transition-colors disabled:bg-slate-700 disabled:text-gray-500"
                                 title="Zwiększ pojemność magazynu o 3 miejsca"
                             >
-                                Ulepsz (+3 sloty)
+                                {isUpgrading ? '...' : 'Ulepsz (+3 sloty)'}
                             </button>
                         </>
                     )}
@@ -493,6 +529,7 @@ const WarehousePanel: React.FC = () => {
 const BackpackPanel: React.FC = () => {
     const { character, baseCharacter, updateCharacter } = useCharacter();
     const { t } = useTranslation();
+    const [isUpgrading, setIsUpgrading] = useState(false);
     
     if (!character || !baseCharacter) return null;
 
@@ -504,10 +541,15 @@ const BackpackPanel: React.FC = () => {
     const canAffordUpgrade = !isMaxLevel && (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
 
     const onUpgradeBackpack = async () => {
+        setIsUpgrading(true);
         try {
             const updatedChar = await api.upgradeBackpack();
             updateCharacter(updatedChar);
-        } catch (e: any) { alert(e.message || t('error.title')); }
+        } catch (e: any) { 
+            alert(e.message || t('error.title')); 
+        } finally {
+            setIsUpgrading(false);
+        }
     };
 
     return (
@@ -556,7 +598,9 @@ const BackpackPanel: React.FC = () => {
                             </div>
                         </div>
 
-                        <button onClick={onUpgradeBackpack} disabled={!canAffordUpgrade} className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold text-xs text-white disabled:bg-slate-700 disabled:text-gray-500 transition-colors">{t('camp.upgrade')}</button>
+                        <button onClick={onUpgradeBackpack} disabled={!canAffordUpgrade || isUpgrading} className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold text-xs text-white disabled:bg-slate-700 disabled:text-gray-500 transition-colors">
+                            {isUpgrading ? 'Ulepszanie...' : t('camp.upgrade')}
+                        </button>
                     </div>
                 )}
              </div>
