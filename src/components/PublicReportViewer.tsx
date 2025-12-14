@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType, Enemy } from '../types';
-import { ExpeditionSummaryModal } from './components/combat/CombatSummary';
-import { LanguageContext } from './contexts/LanguageContext';
-import { getT } from './i18n';
-import { Language } from './types';
+import { ExpeditionSummaryModal } from './combat/CombatSummary';
+import { LanguageContext } from '../contexts/LanguageContext';
+import { getT } from '../i18n';
+import { Language } from '../types';
 
 interface PublicReportViewerProps {
     reportId: string;
@@ -83,7 +83,7 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
         onClose: handleClose,
         itemTemplates: gameData.itemTemplates,
         affixes: gameData.affixes,
-        enemies: gameData.enemies || [], // @FIX: Pass enemies prop
+        enemies: gameData.enemies || [],
         messageId: type === 'message' ? parseInt(reportId, 10) : null,
         raidId: type === 'raid' ? parseInt(reportId, 10) : null,
         backgroundImage: gameData.settings?.reportBackgroundUrl,

@@ -771,7 +771,6 @@ export interface TraderData {
 export interface PlayerCharacter {
   id?: number; // User ID
   username?: string;
-  // FIX: Added optional email property to align with backend data and resolve type errors.
   email?: string;
   name: string;
   race: Race;

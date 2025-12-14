@@ -24,12 +24,12 @@ import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
-import { PlayerCharacter, GameData, Tab, Race, CharacterClass, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
+import { Tab, Race, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
 
-// Error Boundary Component definition
+// Error Boundary Component to catch crashes and show a readable error instead of white screen
 interface ErrorBoundaryProps {
     children?: ReactNode;
 }
@@ -40,10 +40,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-    constructor(props: ErrorBoundaryProps) {
-        super(props);
-        this.state = { hasError: false, error: null };
-    }
+    state: ErrorBoundaryState = { hasError: false, error: null };
 
     static getDerivedStateFromError(error: Error): ErrorBoundaryState {
         return { hasError: true, error };
@@ -75,7 +72,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const AppContent: React.FC = () => {
-    const { character, derivedCharacter, setCharacter, gameData, setGameData } = useCharacter();
+    const { character, derivedCharacter, setCharacter, gameData, setGameData, updateCharacter } = useCharacter();
     const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
     const [isNewsOpen, setIsNewsOpen] = useState(false);
     const [hasNewNews, setHasNewNews] = useState(false);
@@ -385,7 +382,10 @@ const AppContent: React.FC = () => {
                 {expeditionReport && (
                     <ExpeditionSummaryModal
                         reward={expeditionReport.summary}
-                        onClose={() => setExpeditionReport(null)}
+                        onClose={() => {
+                            api.getCharacter().then(updateCharacter);
+                            setExpeditionReport(null);
+                        }}
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
@@ -406,7 +406,10 @@ const AppContent: React.FC = () => {
                             itemsFound: [],
                             essencesFound: {}
                         }}
-                        onClose={() => setPvpReport(null)}
+                        onClose={() => {
+                            api.getCharacter().then(updateCharacter);
+                            setPvpReport(null);
+                        }}
                         characterName={derivedCharacter.name}
                         itemTemplates={gameData.itemTemplates}
                         affixes={gameData.affixes}
@@ -431,22 +434,16 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [isInitialLoading, setIsInitialLoading] = useState(true);
-    const [loadingMessage, setLoadingMessage] = useState('');
-    const [loadingError, setLoadingError] = useState<string | null>(null);
-
-    // This component will now only handle the top-level loading and auth state.
-    // All other state will be in providers or AppContent.
 
     const handleLoginSuccess = (newToken: string) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);
-        setIsInitialLoading(true); // Trigger re-load inside AppContent
+        setIsInitialLoading(true);
     };
     
     const handleForceLogout = () => {
         localStorage.removeItem('token');
         setToken(null);
-        // No need to clear other states as they will be unmounted.
     };
     
     if (window.location.pathname.startsWith('/report/') || window.location.pathname.startsWith('/raid-report/')) {
@@ -491,7 +488,6 @@ const AppLoader: React.FC<{children: React.ReactNode, onLogout: () => void}> = (
                 ]);
                 
                 if (!gameData || !charData) {
-                    // This could mean no character exists, which AppContent will handle by showing CharacterCreation
                     if (!charData) {
                         setGameData(gameData);
                         setIsLoading(false);
