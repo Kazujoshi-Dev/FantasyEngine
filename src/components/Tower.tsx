@@ -12,6 +12,30 @@ import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName } from './s
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { useTranslation } from '../contexts/LanguageContext';
 
+const EnemyPreview: React.FC<{ floorNumber: number, enemies: Enemy[] }> = ({ floorNumber, enemies }) => {
+    if (enemies.length === 0) return null;
+
+    return (
+        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700 mb-2">
+            <h5 className="text-sm font-bold text-gray-400 mb-2 border-b border-slate-700 pb-1">
+                Piętro {floorNumber} {enemies.length > 1 ? `(Grupa: ${enemies.length})` : ''}
+            </h5>
+            <div className="flex flex-wrap gap-2">
+                {enemies.map((e, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-slate-900/50 px-2 py-1 rounded border border-slate-600">
+                        {e.image ? (
+                             <img src={e.image} className="w-6 h-6 object-cover rounded" />
+                        ) : (
+                             <div className="w-6 h-6 bg-red-900/50 rounded flex items-center justify-center text-xs">Mob</div>
+                        )}
+                        <span className="text-xs font-bold text-gray-200">{e.name}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 export const Tower: React.FC = () => {
     const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
@@ -94,6 +118,17 @@ export const Tower: React.FC = () => {
         api.getCharacter().then(updateCharacter);
     };
 
+    // Helper to get enemies for a specific floor from tower config
+    const getFloorEnemies = useCallback((floorNum: number) => {
+        if (!activeTower || !gameData) return [];
+        const floor = activeTower.floors.find(f => f.floorNumber === floorNum);
+        if (!floor) return [];
+        
+        // Map enemy IDs to full enemy objects
+        return floor.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(e => !!e) as Enemy[];
+    }, [activeTower, gameData]);
+
+
     if (loading) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
     if (!character || !gameData) return null;
 
@@ -104,6 +139,9 @@ export const Tower: React.FC = () => {
         const rewards = activeRun.accumulatedRewards;
         const isFightPending = combatResult === null; // Can fight if no pending result
         
+        const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
+        const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
+
         // Show report modal if open
         if (reportOpen && combatResult) {
              const summary: ExpeditionRewardSummary = {
@@ -140,7 +178,7 @@ export const Tower: React.FC = () => {
                                 <div className="bg-purple-600 h-full transition-all" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-4 mb-6">
                                 <div>
                                     <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-300 font-bold">Zdrowie</span>
@@ -161,10 +199,22 @@ export const Tower: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Enemy Preview Section */}
+                            <div className="mb-4">
+                                <p className="text-xs uppercase font-bold text-gray-500 mb-2">Przeciwnicy</p>
+                                <EnemyPreview floorNumber={activeRun.currentFloor} enemies={currentFloorEnemies} />
+                                {nextFloorEnemies.length > 0 && (
+                                     <div className="mt-4 opacity-75">
+                                         <p className="text-xs uppercase font-bold text-gray-600 mb-1">Następne Piętro (Podgląd)</p>
+                                         <EnemyPreview floorNumber={activeRun.currentFloor + 1} enemies={nextFloorEnemies} />
+                                     </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Actions */}
-                        <div className="space-y-3 mt-8">
+                        <div className="space-y-3 mt-4">
                             <button 
                                 onClick={handleFight}
                                 className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex items-center justify-center gap-3 transition-transform hover:scale-[1.02]"

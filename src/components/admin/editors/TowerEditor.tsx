@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate } from '../../../types';
+import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate, ItemRarity } from '../../../types';
 import { PlusCircleIcon } from '../../icons/PlusCircleIcon';
 import { MinusCircleIcon } from '../../icons/MinusCircleIcon';
 import { CoinsIcon } from '../../icons/CoinsIcon';
@@ -28,7 +28,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         ...tower
     });
     
-    // --- Item Creator State ---
+    // --- Item Creator State (Shared) ---
     const [newItemCategory, setNewItemCategory] = useState<ItemCategory | 'all'>('all');
     const [newItemTemplateId, setNewItemTemplateId] = useState('');
     const [newItemPrefixId, setNewItemPrefixId] = useState('');
@@ -44,7 +44,9 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                 enemies: [],
                 guaranteedReward: { gold: 0, experience: 0 },
                 lootTable: [],
-                resourceLootTable: []
+                resourceLootTable: [],
+                specificItemRewards: [],
+                randomItemRewards: []
             }],
             totalFloors: (prev.floors?.length || 0) + 1
         }));
@@ -88,6 +90,78 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
          updateFloor(floorIndex, { enemies: newEnemies });
     };
 
+    // --- Reward Helpers ---
+    
+    // Essences (Floor specific)
+    const addEssenceToFloor = (floorIndex: number, type: EssenceType) => {
+        const floor = formData.floors![floorIndex];
+        const currentResources = floor.resourceLootTable || [];
+        // Use ResourceDrop structure: { resource, min, max, chance }
+        // For specific rewards, chance should be 100.
+        updateFloor(floorIndex, { 
+            resourceLootTable: [...currentResources, { resource: type, min: 1, max: 1, chance: 100 }]
+        });
+    };
+    
+    const updateEssenceInFloor = (floorIndex: number, resIndex: number, key: string, value: any) => {
+         const floor = formData.floors![floorIndex];
+         const newRes = [...(floor.resourceLootTable || [])];
+         (newRes[resIndex] as any)[key] = value;
+         updateFloor(floorIndex, { resourceLootTable: newRes });
+    };
+    
+    const removeEssenceFromFloor = (floorIndex: number, resIndex: number) => {
+         const floor = formData.floors![floorIndex];
+         const newRes = (floor.resourceLootTable || []).filter((_, i) => i !== resIndex);
+         updateFloor(floorIndex, { resourceLootTable: newRes });
+    };
+
+    // Random Items (Floor specific)
+    const addRandomItemToFloor = (floorIndex: number) => {
+        const floor = formData.floors![floorIndex];
+        const currentRandoms = floor.randomItemRewards || [];
+        updateFloor(floorIndex, {
+            randomItemRewards: [...currentRandoms, { rarity: ItemRarity.Common, chance: 100, amount: 1 }]
+        });
+    };
+    
+    const updateRandomItemInFloor = (floorIndex: number, itemIndex: number, key: string, value: any) => {
+         const floor = formData.floors![floorIndex];
+         const newRandoms = [...(floor.randomItemRewards || [])];
+         (newRandoms[itemIndex] as any)[key] = value;
+         updateFloor(floorIndex, { randomItemRewards: newRandoms });
+    };
+
+    const removeRandomItemFromFloor = (floorIndex: number, itemIndex: number) => {
+         const floor = formData.floors![floorIndex];
+         const newRandoms = (floor.randomItemRewards || []).filter((_, i) => i !== itemIndex);
+         updateFloor(floorIndex, { randomItemRewards: newRandoms });
+    };
+
+    // Specific Items (Floor specific)
+    const addSpecificItemToFloor = (floorIndex: number) => {
+         if (!newItemTemplateId) return;
+         const newItem: ItemInstance = {
+            uniqueId: crypto.randomUUID(),
+            templateId: newItemTemplateId,
+            prefixId: newItemPrefixId || undefined,
+            suffixId: newItemSuffixId || undefined,
+            upgradeLevel: newItemLevel
+        };
+        const floor = formData.floors![floorIndex];
+        updateFloor(floorIndex, {
+            specificItemRewards: [...(floor.specificItemRewards || []), newItem]
+        });
+    };
+    
+    const removeSpecificItemFromFloor = (floorIndex: number, uniqueId: string) => {
+        const floor = formData.floors![floorIndex];
+        updateFloor(floorIndex, {
+            specificItemRewards: (floor.specificItemRewards || []).filter(i => i.uniqueId !== uniqueId)
+        });
+    };
+
+
     // --- Grand Prize Helpers ---
     const updateGrandPrizeEssence = (type: EssenceType, amount: number) => {
         setFormData(prev => {
@@ -107,7 +181,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
     const addGrandPrizeItem = () => {
         if (!newItemTemplateId) return;
         const newItem: ItemInstance = {
-            uniqueId: crypto.randomUUID(), // Temp ID for editor
+            uniqueId: crypto.randomUUID(), 
             templateId: newItemTemplateId,
             prefixId: newItemPrefixId || undefined,
             suffixId: newItemSuffixId || undefined,
@@ -120,10 +194,6 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                 items: [...(prev.grandPrize?.items || []), newItem]
             } as any
         }));
-        // Reset form
-        setNewItemPrefixId('');
-        setNewItemSuffixId('');
-        setNewItemLevel(0);
     };
 
     const removeGrandPrizeItem = (uniqueId: string) => {
@@ -185,6 +255,32 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                     <textarea className="w-full bg-slate-700 p-2 rounded" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                 </div>
             </div>
+
+            {/* ITEM CREATOR TOOL (Shared) */}
+             <div className="bg-slate-800/80 p-3 rounded border border-indigo-500/50">
+                 <p className="text-xs text-indigo-300 mb-2 font-bold uppercase">Narzędzie: Kreator Przedmiotu (Użyj przycisków w sekcjach poniżej aby dodać)</p>
+                 <div className="grid grid-cols-2 gap-2 mb-2">
+                    <select value={newItemCategory} onChange={e => { setNewItemCategory(e.target.value as any); setNewItemTemplateId(''); }} className="bg-slate-700 text-xs p-1 rounded">
+                        <option value="all">Kat: Wszystkie</option>
+                        {Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}
+                    </select>
+                    <select value={newItemTemplateId} onChange={e => setNewItemTemplateId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded">
+                        <option value="">-- Wybierz Bazę --</option>
+                        {filteredTemplates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rarity})</option>)}
+                    </select>
+                 </div>
+                 <div className="grid grid-cols-3 gap-2 mb-2">
+                     <select value={newItemPrefixId} onChange={e => setNewItemPrefixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
+                         <option value="">Prefiks: Brak</option>
+                         {validPrefixes.map(p => <option key={p.id} value={p.id}>{p.name.masculine}</option>)}
+                     </select>
+                     <select value={newItemSuffixId} onChange={e => setNewItemSuffixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
+                         <option value="">Sufiks: Brak</option>
+                         {validSuffixes.map(s => <option key={s.id} value={s.id}>{s.name.masculine}</option>)}
+                     </select>
+                     <input type="number" placeholder="Lvl" min="0" max="10" value={newItemLevel} onChange={e => setNewItemLevel(parseInt(e.target.value)||0)} className="bg-slate-700 text-xs p-1 rounded" />
+                 </div>
+             </div>
             
             {/* Grand Prize Section */}
             <div className="bg-slate-800/50 p-4 rounded-lg border border-amber-600/30">
@@ -217,8 +313,6 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                  {/* Items */}
                  <div>
                      <p className="text-xs text-gray-500 font-bold uppercase mb-2">Przedmioty</p>
-                     
-                     {/* Existing Added Items */}
                      <div className="space-y-2 mb-3">
                          {(formData.grandPrize?.items || []).map((item, idx) => {
                              const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
@@ -234,33 +328,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                              );
                          })}
                      </div>
-
-                     {/* Add Item Form */}
-                     <div className="bg-slate-900/30 p-3 rounded border border-slate-700/50">
-                         <p className="text-xs text-indigo-300 mb-2">Dodaj Przedmiot:</p>
-                         <div className="grid grid-cols-2 gap-2 mb-2">
-                            <select value={newItemCategory} onChange={e => { setNewItemCategory(e.target.value as any); setNewItemTemplateId(''); }} className="bg-slate-700 text-xs p-1 rounded">
-                                <option value="all">Kat: Wszystkie</option>
-                                {Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}
-                            </select>
-                            <select value={newItemTemplateId} onChange={e => setNewItemTemplateId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded">
-                                <option value="">-- Wybierz Bazę --</option>
-                                {filteredTemplates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rarity})</option>)}
-                            </select>
-                         </div>
-                         <div className="grid grid-cols-3 gap-2 mb-2">
-                             <select value={newItemPrefixId} onChange={e => setNewItemPrefixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
-                                 <option value="">Prefiks: Brak</option>
-                                 {validPrefixes.map(p => <option key={p.id} value={p.id}>{p.name.masculine}</option>)}
-                             </select>
-                             <select value={newItemSuffixId} onChange={e => setNewItemSuffixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
-                                 <option value="">Sufiks: Brak</option>
-                                 {validSuffixes.map(s => <option key={s.id} value={s.id}>{s.name.masculine}</option>)}
-                             </select>
-                             <input type="number" placeholder="Lvl" min="0" max="10" value={newItemLevel} onChange={e => setNewItemLevel(parseInt(e.target.value)||0)} className="bg-slate-700 text-xs p-1 rounded" />
-                         </div>
-                         <button type="button" onClick={addGrandPrizeItem} disabled={!newItemTemplateId} className="w-full bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold py-1 rounded">Dodaj Przedmiot do Nagrody</button>
-                     </div>
+                     <button type="button" onClick={addGrandPrizeItem} disabled={!newItemTemplateId} className="bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold py-1 px-3 rounded">Dodaj z Kreatora</button>
                  </div>
             </div>
 
@@ -274,14 +342,14 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                 <div className="space-y-4">
                     {formData.floors?.map((floor, idx) => (
                         <div key={idx} className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <div className="flex justify-between items-center mb-3">
+                            <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
                                 <h5 className="font-bold text-gray-300">Piętro {floor.floorNumber}</h5>
                                 <button type="button" onClick={() => removeFloor(idx)} className="text-red-400 text-xs">Usuń Piętro</button>
                             </div>
                             
                             {/* Enemies */}
                             <div className="mb-3">
-                                <p className="text-xs text-gray-500 mb-1">Przeciwnicy (Suma szans nie musi być 100%, losowanie wagowe)</p>
+                                <p className="text-xs text-gray-500 mb-1 font-bold">Przeciwnicy</p>
                                 {floor.enemies.map((enemy, eIdx) => (
                                     <div key={eIdx} className="flex gap-2 mb-1">
                                         <select 
@@ -305,9 +373,56 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                             </div>
                             
                             {/* Floor Rewards */}
-                            <div className="flex gap-4 text-sm">
-                                 <label>Gwarantowane Złoto: <input type="number" className="w-20 bg-slate-900 p-1 rounded" value={floor.guaranteedReward?.gold} onChange={e => updateFloor(idx, { guaranteedReward: { ...floor.guaranteedReward, gold: parseInt(e.target.value)||0 } as any })} /></label>
-                                 <label>Gwarantowane XP: <input type="number" className="w-20 bg-slate-900 p-1 rounded" value={floor.guaranteedReward?.experience} onChange={e => updateFloor(idx, { guaranteedReward: { ...floor.guaranteedReward, experience: parseInt(e.target.value)||0 } as any })} /></label>
+                            <div className="grid grid-cols-1 gap-3 border-t border-slate-700 pt-2">
+                                <p className="text-xs text-gray-500 font-bold">Nagrody za Piętro (Gwarantowane)</p>
+                                <div className="flex gap-4 text-sm">
+                                     <label>Złoto: <input type="number" className="w-20 bg-slate-900 p-1 rounded" value={floor.guaranteedReward?.gold} onChange={e => updateFloor(idx, { guaranteedReward: { ...floor.guaranteedReward, gold: parseInt(e.target.value)||0 } as any })} /></label>
+                                     <label>XP: <input type="number" className="w-20 bg-slate-900 p-1 rounded" value={floor.guaranteedReward?.experience} onChange={e => updateFloor(idx, { guaranteedReward: { ...floor.guaranteedReward, experience: parseInt(e.target.value)||0 } as any })} /></label>
+                                </div>
+                                
+                                {/* Specific Items */}
+                                <div>
+                                    <p className="text-xs text-gray-400 mb-1">Konkretne Przedmioty (100%):</p>
+                                    {floor.specificItemRewards?.map((item, itemIdx) => (
+                                         <div key={item.uniqueId} className="flex justify-between items-center text-xs bg-slate-900/50 p-1 rounded mb-1">
+                                            <span>{item.templateId ? gameData.itemTemplates.find(t=>t.id===item.templateId)?.name : '???'} (+{item.upgradeLevel})</span>
+                                            <button type="button" onClick={() => removeSpecificItemFromFloor(idx, item.uniqueId)} className="text-red-500">X</button>
+                                         </div>
+                                    ))}
+                                    <button type="button" onClick={() => addSpecificItemToFloor(idx)} disabled={!newItemTemplateId} className="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700">Dodaj z Kreatora</button>
+                                </div>
+
+                                {/* Essences */}
+                                <div>
+                                     <p className="text-xs text-gray-400 mb-1">Esencje:</p>
+                                     {floor.resourceLootTable?.map((res, resIdx) => (
+                                         <div key={resIdx} className="flex gap-2 items-center text-xs mb-1">
+                                             <select value={res.resource} onChange={e => updateEssenceInFloor(idx, resIdx, 'resource', e.target.value)} className="bg-slate-900 p-1 rounded">
+                                                {Object.values(EssenceType).map(et => <option key={et} value={et}>{t(`resources.${et}`)}</option>)}
+                                             </select>
+                                             <input type="number" value={res.min} onChange={e => updateEssenceInFloor(idx, resIdx, 'min', parseInt(e.target.value))} className="w-12 bg-slate-900 p-1 rounded" placeholder="Min"/>
+                                             <input type="number" value={res.max} onChange={e => updateEssenceInFloor(idx, resIdx, 'max', parseInt(e.target.value))} className="w-12 bg-slate-900 p-1 rounded" placeholder="Max"/>
+                                             <button type="button" onClick={() => removeEssenceFromFloor(idx, resIdx)} className="text-red-500">X</button>
+                                         </div>
+                                     ))}
+                                     <button type="button" onClick={() => addEssenceToFloor(idx, EssenceType.Common)} className="text-xs text-sky-400">+ Esencja</button>
+                                </div>
+
+                                {/* Random Items */}
+                                <div>
+                                     <p className="text-xs text-gray-400 mb-1">Losowe Przedmioty:</p>
+                                     {floor.randomItemRewards?.map((rew, rIdx) => (
+                                          <div key={rIdx} className="flex gap-2 items-center text-xs mb-1">
+                                             <select value={rew.rarity} onChange={e => updateRandomItemInFloor(idx, rIdx, 'rarity', e.target.value)} className="bg-slate-900 p-1 rounded">
+                                                {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                                             </select>
+                                             <label>Szansa %: <input type="number" value={rew.chance} onChange={e => updateRandomItemInFloor(idx, rIdx, 'chance', parseInt(e.target.value))} className="w-12 bg-slate-900 p-1 rounded" /></label>
+                                             <label>Ilość: <input type="number" value={rew.amount} onChange={e => updateRandomItemInFloor(idx, rIdx, 'amount', parseInt(e.target.value))} className="w-10 bg-slate-900 p-1 rounded" /></label>
+                                             <button type="button" onClick={() => removeRandomItemFromFloor(idx, rIdx)} className="text-red-500">X</button>
+                                          </div>
+                                     ))}
+                                     <button type="button" onClick={() => addRandomItemToFloor(idx)} className="text-xs text-purple-400">+ Losowy Przedmiot</button>
+                                </div>
                             </div>
                         </div>
                     ))}

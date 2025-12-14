@@ -2,9 +2,9 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry, ExpeditionRewardSummary, ItemInstance, EssenceType, CharacterClass } from '../types.js';
+import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry, ExpeditionRewardSummary, ItemInstance, EssenceType, CharacterClass, ItemRarity, ItemTemplate } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
-import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
+import { simulate1vManyCombat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
@@ -179,30 +179,44 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         charData.stats.currentMana = activeRun.current_mana;
         charData.activeGuildBuffs = charRes.rows[0].active_buffs || [];
         
-        // 2. Prepare Enemy
-        // Select enemy based on chance
-        let selectedEnemyId = floorConfig.enemies[0].enemyId;
-        const rand = Math.random() * 100;
-        let cumulative = 0;
-        for (const e of floorConfig.enemies) {
-            cumulative += e.spawnChance;
-            if (rand < cumulative) {
-                selectedEnemyId = e.enemyId;
-                break;
+        // 2. Prepare Enemy Group
+        const enemiesToFight: Enemy[] = [];
+        
+        if (floorConfig.enemies && floorConfig.enemies.length > 0) {
+            for (const floorEnemy of floorConfig.enemies) {
+                if (Math.random() * 100 <= floorEnemy.spawnChance) {
+                     const template = gameData.enemies.find(e => e.id === floorEnemy.enemyId);
+                     if (template) {
+                         // Create distinct instance
+                         enemiesToFight.push({
+                             ...template,
+                             uniqueId: randomUUID()
+                         });
+                     }
+                }
             }
         }
         
-        const enemyTemplate = gameData.enemies.find(e => e.id === selectedEnemyId);
-        if (!enemyTemplate) throw new Error('Enemy template missing');
+        // Fallback: If luck was bad and no enemies spawned, spawn the first one from config or a default weakling
+        if (enemiesToFight.length === 0 && floorConfig.enemies.length > 0) {
+             const template = gameData.enemies.find(e => e.id === floorConfig.enemies[0].enemyId);
+             if (template) {
+                 enemiesToFight.push({ ...template, uniqueId: randomUUID() });
+             }
+        }
+        
+        if (enemiesToFight.length === 0) throw new Error('Configuration error: No enemies for this floor.');
 
-        // 3. Simulate Combat
+        // 3. Simulate Combat (1 vs Many)
         const derivedChar = calculateDerivedStatsOnServer(charData, gameData.itemTemplates, gameData.affixes, guildBuildings.barracks || 0, guildBuildings.shrine || 0, gameData.skills, charData.activeGuildBuffs);
         // Important: Reset derived HP to database snapshot because calculateDerived sets it to Max if missing or calcs new
         derivedChar.stats.currentHealth = activeRun.current_health;
         derivedChar.stats.currentMana = activeRun.current_mana;
         
-        const combatLog = simulate1v1Combat(derivedChar, enemyTemplate, gameData);
+        const combatLog = simulate1vManyCombat(derivedChar, enemiesToFight, gameData);
+        
         const lastLog = combatLog[combatLog.length - 1];
+        // In 1vMany, victory means player HP > 0 (and logically implies all enemies dead)
         const isVictory = lastLog.playerHealth > 0;
         
         const finalHealth = Math.max(0, Math.floor(lastLog.playerHealth));
@@ -213,20 +227,68 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             // Add rewards to accumulator
             const rewards = activeRun.accumulated_rewards;
             
-            // Enemy Base Rewards
-            const goldGain = Math.floor(Math.random() * (enemyTemplate.rewards.maxGold - enemyTemplate.rewards.minGold + 1)) + enemyTemplate.rewards.minGold;
-            const xpGain = Math.floor(Math.random() * (enemyTemplate.rewards.maxExperience - enemyTemplate.rewards.minExperience + 1)) + enemyTemplate.rewards.minExperience;
+            // A) Base Rewards from Enemies
+            for (const enemy of enemiesToFight) {
+                const goldGain = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
+                const xpGain = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
+                
+                rewards.gold += goldGain;
+                rewards.experience += xpGain;
+                
+                // Add Enemy Drops to accumulated loot? Usually simpler to stick to floor rewards, 
+                // but let's allow standard loot table drops from enemies too for extra fun.
+                if (enemy.lootTable) {
+                    for (const drop of enemy.lootTable) {
+                         if (Math.random() * 100 < drop.chance) {
+                            rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
+                        }
+                    }
+                }
+            }
             
-            rewards.gold += goldGain;
-            rewards.experience += xpGain;
-            
-            // Floor Config Rewards
+            // B) Floor Config Rewards - Guaranteed Gold/XP
             if (floorConfig.guaranteedReward) {
                 rewards.gold += (floorConfig.guaranteedReward.gold || 0);
                 rewards.experience += (floorConfig.guaranteedReward.experience || 0);
             }
             
-            // Loot generation (Generic logic from expeditions)
+            // C) Floor Config Rewards - Specific Items (With Affixes)
+            if (floorConfig.specificItemRewards) {
+                for (const itemDef of floorConfig.specificItemRewards) {
+                    // Re-create to ensure unique IDs
+                    const newItem = createItemInstance(
+                        itemDef.templateId, 
+                        gameData.itemTemplates, 
+                        gameData.affixes, 
+                        undefined, 
+                        false // Don't randomize
+                    );
+                    newItem.prefixId = itemDef.prefixId;
+                    newItem.suffixId = itemDef.suffixId;
+                    newItem.upgradeLevel = itemDef.upgradeLevel;
+                    newItem.uniqueId = randomUUID();
+                    rewards.items.push(newItem);
+                }
+            }
+
+            // D) Floor Config Rewards - Random Rarity Items
+            if (floorConfig.randomItemRewards) {
+                for (const reward of floorConfig.randomItemRewards) {
+                     for (let i = 0; i < reward.amount; i++) {
+                         if (Math.random() * 100 <= reward.chance) {
+                             // Find valid templates of this rarity
+                             const eligibleTemplates = gameData.itemTemplates.filter(t => t.rarity === reward.rarity);
+                             if (eligibleTemplates.length > 0) {
+                                 const randomTemplate = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
+                                 // Generate random item with affixes
+                                 rewards.items.push(createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes));
+                             }
+                         }
+                     }
+                }
+            }
+
+            // E) Floor Config Rewards - Loot Table (Simple)
             if (floorConfig.lootTable && floorConfig.lootTable.length > 0) {
                  for (const drop of floorConfig.lootTable) {
                     if (Math.random() * 100 < drop.chance) {
@@ -234,6 +296,8 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     }
                 }
             }
+
+            // F) Floor Config Rewards - Resources
              if (floorConfig.resourceLootTable) {
                 for (const drop of floorConfig.resourceLootTable) {
                     if (Math.random() * 100 < drop.chance) {
@@ -262,7 +326,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     // Add Grand Prize Items
                     if (tower.grandPrize.items && tower.grandPrize.items.length > 0) {
                         for (const itemDef of tower.grandPrize.items) {
-                            // Re-generate item to give it a unique ID for the player
                             const newItem = createItemInstance(
                                 itemDef.templateId, 
                                 gameData.itemTemplates, 
@@ -271,12 +334,10 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                                 false 
                             );
                             
-                            // Re-apply specific affixes/upgrade level
                             newItem.prefixId = itemDef.prefixId;
                             newItem.suffixId = itemDef.suffixId;
                             newItem.upgradeLevel = itemDef.upgradeLevel;
-                            
-                            newItem.uniqueId = randomUUID(); // Critical: New ID
+                            newItem.uniqueId = randomUUID(); 
                             rewards.items.push(newItem);
                         }
                     }
@@ -329,7 +390,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 
             } else {
                 // Just update run state AND INCREMENT FLOOR
-                // This automatically moves the player to the next floor upon victory
                 await client.query(
                     "UPDATE tower_runs SET accumulated_rewards = $1, current_health = $2, current_mana = $3, current_floor = current_floor + 1 WHERE id = $4",
                     [JSON.stringify(rewards), finalHealth, finalMana, activeRun.id]
