@@ -1,112 +1,113 @@
 
 import React, { useState, useEffect } from 'react';
-import { api } from '../../../api';
-import { AdminCharacterInfo } from '../../../types';
+import { AdminCharacterInfo, PlayerCharacter, GameData } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
+import { CharacterInspectorModal } from '../editors/CharacterInspectorModal';
+import { api } from '../../../api';
 
-export const UsersTab: React.FC<{ gameData: any }> = () => {
-    const { t } = useTranslation();
-    const [users, setUsers] = useState<AdminCharacterInfo[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+interface UsersTabProps {
+  gameData: GameData;
+}
 
-    const fetchUsers = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getAllCharacters();
-            setUsers(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+export const UsersTab: React.FC<UsersTabProps> = ({ gameData }) => {
+  const { t } = useTranslation();
+  const [characters, setCharacters] = useState<AdminCharacterInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inspectingChar, setInspectingChar] = useState<AdminCharacterInfo | null>(null);
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
+  const fetchUsers = async () => {
+      setLoading(true);
+      try {
+          const data = await api.getAllCharacters();
+          setCharacters(data);
+      } catch (e) {
+          console.error("Failed to fetch characters for admin", e);
+      } finally {
+          setLoading(false);
+      }
+  };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('Czy na pewno chcesz usunąć tego użytkownika i postać? Ta operacja jest nieodwracalna.')) return;
-        try {
-            await api.deleteCharacter(id); // Effectively deletes user cascade
-            fetchUsers();
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
+  useEffect(() => {
+      fetchUsers();
+  }, []);
 
-    const handleUpdateGold = async (id: number) => {
-        const amount = prompt('Nowa ilość złota:');
-        if (amount === null) return;
-        try {
-            await api.updateCharacterGold(id, parseInt(amount));
-            fetchUsers();
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-    
-    const handleHeal = async (id: number) => {
-        try {
-            await api.adminHealCharacter(id);
-            alert('Postać uleczona.');
-        } catch (e: any) {
-            alert(e.message);
-        }
-    }
+  const handleDeleteCharacter = async (id: number) => {
+      try {
+          await api.deleteCharacter(id);
+          setCharacters(prev => prev.filter(c => c.user_id !== id));
+          if (inspectingChar?.user_id === id) setInspectingChar(null);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
 
-    const filteredUsers = users.filter(u => 
-        u.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        u.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const renderText = (val: any) => {
+      if (typeof val === 'string' || typeof val === 'number') return val;
+      return 'N/A';
+  };
 
-    return (
-        <div className="h-full flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-                <input 
-                    type="text" 
-                    placeholder="Szukaj użytkownika..." 
-                    className="bg-slate-800 border border-slate-600 rounded p-2 text-white w-64"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                />
-                <button onClick={fetchUsers} className="text-sm text-indigo-400 hover:text-indigo-300">Odśwież</button>
-            </div>
-            
-            <div className="flex-grow overflow-auto border border-slate-700 rounded-lg">
-                <table className="w-full text-left text-sm text-gray-300">
-                    <thead className="bg-slate-800 text-gray-400 sticky top-0">
-                        <tr>
-                            <th className="p-3">ID</th>
-                            <th className="p-3">Login</th>
-                            <th className="p-3">Postać</th>
-                            <th className="p-3">Rasa/Klasa</th>
-                            <th className="p-3">Poziom</th>
-                            <th className="p-3">Złoto</th>
-                            <th className="p-3 text-right">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-700/50">
-                        {loading ? <tr><td colSpan={7} className="p-4 text-center">Ładowanie...</td></tr> : 
-                         filteredUsers.map(u => (
-                            <tr key={u.user_id} className="hover:bg-slate-800/30">
-                                <td className="p-3 font-mono text-xs">{u.user_id}</td>
-                                <td className="p-3">{u.username}</td>
-                                <td className="p-3 font-bold text-white">{u.name}</td>
-                                <td className="p-3">{u.race} {u.characterClass ? `/ ${u.characterClass}` : ''}</td>
-                                <td className="p-3">{u.level}</td>
-                                <td className="p-3 font-mono text-amber-400">{u.gold}</td>
-                                <td className="p-3 text-right space-x-2">
-                                    <button onClick={() => handleHeal(u.user_id)} className="text-green-400 hover:text-green-300 text-xs px-2 py-1 border border-green-900 rounded">Ulecz</button>
-                                    <button onClick={() => handleUpdateGold(u.user_id)} className="text-amber-400 hover:text-amber-300 text-xs px-2 py-1 border border-amber-900 rounded">Złoto</button>
-                                    <button onClick={() => handleDelete(u.user_id)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-red-900 rounded">Usuń</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+  return (
+    <>
+      {inspectingChar && (
+        <CharacterInspectorModal 
+          characterInfo={inspectingChar}
+          gameData={gameData}
+          onClose={() => setInspectingChar(null)}
+          onHealCharacter={api.adminHealCharacter}
+          onRegenerateCharacterEnergy={api.regenerateCharacterEnergy}
+          onResetCharacterStats={api.resetCharacterStats}
+          onResetCharacterProgress={api.resetCharacterProgress}
+          onDeleteCharacter={handleDeleteCharacter}
+          onChangeUserPassword={api.changeUserPassword}
+          onInspectCharacter={api.inspectCharacter}
+          onDeleteCharacterItem={api.deleteCharacterItem}
+          onUpdateCharacterGold={api.updateCharacterGold}
+        />
+      )}
+      <div className="animate-fade-in">
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-2xl font-bold text-indigo-400">{t('admin.manageCharacters')}</h3>
+            <button onClick={fetchUsers} className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded">Odśwież</button>
         </div>
-    );
+        
+        {loading ? <p>Ładowanie...</p> : characters.length === 0 ? (
+          <p className="text-gray-500">{t('admin.noCharacters')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider">
+                <tr>
+                  <th className="p-3">ID</th>
+                  <th className="p-3">{t('admin.owner')}</th>
+                  <th className="p-3">{t('admin.general.name')}</th>
+                  <th className="p-3">{t('statistics.level')}</th>
+                  <th className="p-3">{t('resources.gold')}</th>
+                  <th className="p-3 text-right">Akcje</th>
+                </tr>
+              </thead>
+              <tbody>
+                {characters.map(char => (
+                  <tr key={char.user_id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
+                    <td className="p-3">{char.user_id}</td>
+                    <td className="p-3">{renderText(char.username)}</td>
+                    <td className="p-3 font-semibold">{renderText(char.name)}</td>
+                    <td className="p-3">{char.level ?? 0}</td>
+                    <td className="p-3 font-mono">{(char.gold ?? 0).toLocaleString()}</td>
+                    <td className="p-3 text-right">
+                      <button 
+                        onClick={() => setInspectingChar(char)}
+                        className="px-3 py-1 text-xs rounded bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Zarządzaj
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
 };

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameData } from '../types';
+import { GameData, ItemRarity, EquipmentSlot, CharacterClass, Race, MagicAttackType, ItemCategory, SkillType, SkillCategory, QuestType, EssenceType } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
 
@@ -9,15 +9,15 @@ import { GeneralTab } from './admin/tabs/GeneralTab';
 import { UsersTab } from './admin/tabs/UsersTab';
 import { TriviaTab } from './admin/tabs/TriviaTab';
 import { GenericAdminTab } from './admin/GenericAdminTab';
+import { FieldDefinition } from './admin/SchemaForm';
 
-// --- Placeholders for unimplemented specific tabs to prevent crashes ---
+// --- Placeholders for unimplemented specific tabs ---
 const PlaceholderTab: React.FC<{name: string}> = ({name}) => (
     <div className="flex items-center justify-center h-full text-gray-500 p-4 border border-dashed border-gray-700 rounded-lg">
-        Zakładka {name} jest w trakcie budowy lub używa widoku generycznego (sprawdź kod).
+        Zakładka {name} jest w trakcie budowy lub używa widoku generycznego.
     </div>
 );
 
-// Specific stubs for complex features we haven't built dedicated UIs for yet
 const ItemCreatorTab = (props: any) => <PlaceholderTab name="ItemCreator" />;
 const PvpTab = (props: any) => <PlaceholderTab name="Pvp" />;
 const ItemInspectorTab = (props: any) => <PlaceholderTab name="ItemInspector" />;
@@ -36,7 +36,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
-  // Defensive check for gameData
   const safeGameData: GameData = gameData || {
       locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], settings: { language: 'pl' as any }
   };
@@ -48,14 +47,71 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
       onGameDataUpdate('settings', newSettings);
   };
 
+  // --- Field Definitions for Forms ---
+  
+  const commonItemFields: Record<string, FieldDefinition> = {
+      rarity: {
+          type: 'select',
+          options: Object.values(ItemRarity).map(v => ({ value: v, label: v }))
+      },
+      slot: {
+          type: 'select',
+          options: [...Object.values(EquipmentSlot), 'consumable', 'ring'].map(v => ({ value: v, label: v }))
+      },
+      category: {
+          type: 'select',
+          options: Object.values(ItemCategory).map(v => ({ value: v, label: v }))
+      },
+      gender: {
+          type: 'select',
+          options: [
+              { value: 'Masculine', label: 'Męski' },
+              { value: 'Feminine', label: 'Żeński' },
+              { value: 'Neuter', label: 'Nijaki' }
+          ]
+      },
+      magicAttackType: {
+          type: 'select',
+          options: Object.values(MagicAttackType).map(v => ({ value: v, label: v }))
+      }
+  };
+
+  const questFields: Record<string, FieldDefinition> = {
+      objective: { type: 'select', label: 'Cel główny (Obiekt złożony)', readonly: true }, // Complex object, managed via tree
+  };
+
+  const skillFields: Record<string, FieldDefinition> = {
+      type: {
+          type: 'select',
+          options: Object.values(SkillType).map(v => ({ value: v, label: v }))
+      },
+      category: {
+          type: 'select',
+          options: Object.values(SkillCategory).map(v => ({ value: v, label: v }))
+      }
+  };
+
+  const ritualFields: Record<string, FieldDefinition> = {
+      // Add if needed
+  };
+
+  const affixFields: Record<string, FieldDefinition> = {
+      type: {
+          type: 'select',
+          options: [
+              { value: 'Prefix', label: 'Prefix' },
+              { value: 'Suffix', label: 'Suffix' }
+          ]
+      }
+  };
+
   const renderActiveTab = () => {
     switch (adminTab) {
-      // Specialized Tabs
       case 'general': return <GeneralTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onForceTraderRefresh={() => api.getTraderInventory(true)} onSendGlobalMessage={api.sendGlobalMessage} />;
       case 'users': return <UsersTab gameData={safeGameData} />;
       case 'trivia': return <TriviaTab gameData={safeGameData} />;
       
-      // Generic Data Tabs (Powered by GenericAdminTab)
+      // Generic Data Tabs with Smart Forms
       case 'locations': 
           return <GenericAdminTab data={safeGameData.locations} dataKey="locations" onUpdate={onGameDataUpdate} title="Lokacje" displayField="name" />;
       case 'expeditions': 
@@ -63,19 +119,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
       case 'enemies': 
           return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => !e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Wrogowie" displayField="name" />;
       case 'bosses': 
-          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Bossowie" displayField="name" />;
+          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Bossowie" displayField="name" newItemTemplate={{isBoss: true}} />;
       case 'items': 
-          return <GenericAdminTab data={safeGameData.itemTemplates} dataKey="itemTemplates" onUpdate={onGameDataUpdate} title="Przedmioty" displayField="name" />;
+          return <GenericAdminTab data={safeGameData.itemTemplates} dataKey="itemTemplates" onUpdate={onGameDataUpdate} title="Przedmioty" displayField="name" fieldDefinitions={commonItemFields} />;
       case 'affixes': 
-          return <GenericAdminTab data={safeGameData.affixes} dataKey="affixes" onUpdate={onGameDataUpdate} title="Afiksy" displayField="name.masculine" />;
+          return <GenericAdminTab data={safeGameData.affixes} dataKey="affixes" onUpdate={onGameDataUpdate} title="Afiksy" displayField="name.masculine" fieldDefinitions={affixFields} />;
       case 'quests': 
-          return <GenericAdminTab data={safeGameData.quests} dataKey="quests" onUpdate={onGameDataUpdate} title="Zadania" displayField="name" />;
+          return <GenericAdminTab data={safeGameData.quests} dataKey="quests" onUpdate={onGameDataUpdate} title="Zadania" displayField="name" fieldDefinitions={questFields} />;
       case 'university': 
-          return <GenericAdminTab data={safeGameData.skills} dataKey="skills" onUpdate={onGameDataUpdate} title="Umiejętności" displayField="name" />;
+          return <GenericAdminTab data={safeGameData.skills} dataKey="skills" onUpdate={onGameDataUpdate} title="Umiejętności" displayField="name" fieldDefinitions={skillFields} />;
       case 'rituals': 
-          return <GenericAdminTab data={safeGameData.rituals || []} dataKey="rituals" onUpdate={onGameDataUpdate} title="Rytuały" displayField="name" />;
+          return <GenericAdminTab data={safeGameData.rituals || []} dataKey="rituals" onUpdate={onGameDataUpdate} title="Rytuały" displayField="name" fieldDefinitions={ritualFields} />;
       
-      // Placeholders / Pending Implementation
       case 'guilds': return <PlaceholderTab name="Gildie" />;
       case 'hunting': return <PlaceholderTab name="Polowania" />;
       case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
