@@ -1,22 +1,29 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Guild, Ritual, EssenceType } from '../../types';
 import { api } from '../../api';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { StarIcon } from '../icons/StarIcon';
 import { rarityStyles } from '../shared/ItemSlot';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ guild, onUpdate }) => {
+    const { t } = useTranslation();
     const { gameData } = useCharacter();
     if (!gameData) return null;
     
     const rituals: Ritual[] = gameData.rituals || [];
     const altarLevel = guild.buildings?.altar || 0;
-    const activeBuffs = guild.activeBuffs || [];
+    
+    // Sort active buffs by expiration time
+    const activeBuffs = useMemo(() => {
+        return [...(guild.activeBuffs || [])].sort((a, b) => a.expiresAt - b.expiresAt);
+    }, [guild.activeBuffs]);
 
-    const handleSacrifice = async (ritualId: number) => {
+    const handleSacrifice = async (ritualId: string) => {
         if (!confirm('Czy na pewno chcesz wykonać ten rytuał? Koszt zostanie pobrany ze skarbca gildii.')) return;
         try {
+            // FIXED: Don't cast to Number(), ritual IDs are UUID strings
             await api.performAltarSacrifice(ritualId);
             onUpdate();
         } catch(e: any) { alert(e.message); }
@@ -29,6 +36,20 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
         [EssenceType.Rare]: rarityStyles['Rare'],
         [EssenceType.Epic]: rarityStyles['Epic'],
         [EssenceType.Legendary]: rarityStyles['Legendary'],
+    };
+
+    const formatStatName = (key: string) => {
+        if (key === 'expBonus') return 'Bonus Doświadczenia (%)';
+        return t(`statistics.${key}`);
+    };
+
+    const getCostLabel = (type: string) => {
+        if (type === 'gold') return t('resources.gold');
+        // Check if it's a valid EssenceType to avoid TS errors or runtime undefined
+        if (Object.values(EssenceType).includes(type as EssenceType)) {
+            return t(`resources.${type}`);
+        }
+        return type;
     };
 
     return (
@@ -51,7 +72,9 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                                     <p className="text-xs text-purple-200">Pozostało: {timeLeft} min</p>
                                 </div>
                                 <div className="text-right text-xs text-gray-300">
-                                    {Object.entries(buff.stats).map(([k,v]) => <div key={k}>{k}: +{v}</div>)}
+                                    {Object.entries(buff.stats).map(([k,v]) => (
+                                        <div key={k}>{formatStatName(k)}: +{v}</div>
+                                    ))}
                                 </div>
                             </div>
                         )
@@ -83,7 +106,9 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                                 <div className="space-y-1">
                                     {ritual.cost.map((c, i) => (
                                         <div key={i} className="flex justify-between text-xs">
-                                            <span className={c.type === 'gold' ? 'text-amber-400' : essenceToRarityMap[c.type as EssenceType]?.text}>{c.type === 'gold' ? 'Złoto' : c.type}</span>
+                                            <span className={c.type === 'gold' ? 'text-amber-400' : essenceToRarityMap[c.type as EssenceType]?.text}>
+                                                {getCostLabel(c.type)}
+                                            </span>
                                             <span className={`font-mono font-bold ${(guild.resources[c.type as keyof typeof guild.resources] || 0) >= c.amount ? 'text-green-400' : 'text-red-400'}`}>
                                                 {c.amount}
                                             </span>
@@ -93,7 +118,7 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                             </div>
 
                             <button 
-                                onClick={() => handleSacrifice(Number(ritual.id))} // Assuming ID matches index or logic
+                                onClick={() => handleSacrifice(ritual.id)}
                                 disabled={!isUnlocked || isActive}
                                 className={`w-full py-2 rounded font-bold transition-colors ${isActive ? 'bg-green-900/50 text-green-400 cursor-default' : 'bg-purple-700 hover:bg-purple-600 text-white'}`}
                             >

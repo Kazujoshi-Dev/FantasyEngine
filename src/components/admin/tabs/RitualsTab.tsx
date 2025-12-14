@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GameData, Ritual } from '../../../types';
 import { RitualEditor } from '../editors/RitualEditor';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -13,6 +13,13 @@ export const RitualsTab: React.FC<RitualsTabProps> = ({ gameData, onGameDataUpda
     const { t } = useTranslation();
     const [editingRitual, setEditingRitual] = useState<Partial<Ritual> | null>(null);
     const rituals = gameData.rituals || [];
+
+    const sortedRituals = useMemo(() => {
+        return [...rituals].sort((a, b) => {
+            if (a.tier !== b.tier) return a.tier - b.tier;
+            return a.name.localeCompare(b.name);
+        });
+    }, [rituals]);
 
     const handleSave = (ritual: Ritual) => {
         let updatedRituals = [...rituals];
@@ -64,11 +71,11 @@ export const RitualsTab: React.FC<RitualsTabProps> = ({ gameData, onGameDataUpda
                 />
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    {rituals.length === 0 && <p className="text-gray-500 text-center py-8">Brak zdefiniowanych rytuałów.</p>}
+                    {sortedRituals.length === 0 && <p className="text-gray-500 text-center py-8">Brak zdefiniowanych rytuałów.</p>}
                     
                     {/* Group by Tier */}
                     {[1, 2, 3, 4, 5].map(tier => {
-                        const tierRituals = rituals.filter(r => r.tier === tier);
+                        const tierRituals = sortedRituals.filter(r => r.tier === tier);
                         if (tierRituals.length === 0) return null;
 
                         return (
