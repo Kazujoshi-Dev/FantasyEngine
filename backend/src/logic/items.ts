@@ -97,7 +97,7 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     const prefixAffix = affixes.find(a => a.id === item.prefixId);
     const suffixAffix = affixes.find(a => a.id === item.suffixId);
     
-    let genderKey: keyof Affix['name'] = 'masculine';
+    let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
         genderKey = 'feminine';
     } else if (template.gender === GrammaticalGender.Neuter) {
@@ -107,6 +107,7 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     const getName = (affix: Affix | undefined) => {
         if (!affix) return '';
         if (typeof affix.name === 'string') return affix.name;
+        // TS should infer affix.name is the object here
         return affix.name[genderKey] || affix.name.masculine || '';
     };
 

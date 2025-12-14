@@ -19,7 +19,7 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
     const suffixAffix = safeAffixes.find(a => a.id === item.suffixId);
     
-    let genderKey: keyof Affix['name'] = 'masculine';
+    let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
         genderKey = 'feminine';
     } else if (template.gender === GrammaticalGender.Neuter) {
@@ -87,7 +87,7 @@ export const ItemDetailsPanel: React.FC<{
     const suffix = safeAffixes.find(a => a.id === item.suffixId);
     const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
     
-    let genderKey: keyof Affix['name'] = 'masculine';
+    let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
         genderKey = 'feminine';
     } else if (template.gender === GrammaticalGender.Neuter) {
