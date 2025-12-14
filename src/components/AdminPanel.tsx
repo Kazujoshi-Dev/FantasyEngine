@@ -28,20 +28,21 @@ import { DuplicationAuditTab } from './admin/tabs/DuplicationAuditTab';
 import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
 import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
+import { TowersTab } from './admin/tabs/TowersTab';
 
 interface AdminPanelProps {
   gameData: GameData;
   onGameDataUpdate: (key: string, data: any) => void;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor' | 'towers';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpdate }) => {
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
   const safeGameData: GameData = gameData || {
-      locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], settings: { language: 'pl' as any }
+      locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], towers: [], settings: { language: 'pl' as any }
   };
   
   const settings = safeGameData.settings;
@@ -77,6 +78,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
           return <UniversityTab skills={safeGameData.skills} onGameDataUpdate={onGameDataUpdate} />;
       case 'rituals': 
           return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
+      case 'towers': 
+          return <TowersTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       
       // Zakładki Zarządzania Systemami
       case 'guilds': return <GuildsTab />;
@@ -100,6 +103,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
     { id: 'users', label: 'Użytkownicy' },
     { id: 'locations', label: 'Lokacje' },
     { id: 'expeditions', label: 'Wyprawy' },
+    { id: 'towers', label: 'Wieże Mroku' },
     { id: 'enemies', label: 'Wrogowie' },
     { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },

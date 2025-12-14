@@ -1,5 +1,6 @@
 
-import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType, GlobalStats } from './types';
+
+import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType, GlobalStats, Tower, ActiveTowerRun } from './types';
 
 const API_URL = '/api';
 
@@ -121,6 +122,13 @@ export const api = {
     completeExpedition: () => fetchApi('/expedition/complete', { method: 'POST' }),
     cancelExpedition: () => fetchApi('/expedition/cancel', { method: 'POST' }),
     
+    // Towers (Wieża Mroku)
+    getTowers: () => fetchApi('/towers'),
+    startTower: (towerId: string) => fetchApi('/towers/start', { method: 'POST', body: JSON.stringify({ towerId }) }),
+    fightTower: () => fetchApi('/towers/fight', { method: 'POST' }),
+    continueTower: () => fetchApi('/towers/continue', { method: 'POST' }),
+    retreatTower: () => fetchApi('/towers/retreat', { method: 'POST' }),
+
     // Items
     buyItem: (itemId: string) => fetchApi('/trader/buy', { method: 'POST', body: JSON.stringify({ itemId }) }),
     sellItems: (itemIds: string[]) => fetchApi('/trader/sell', { method: 'POST', body: JSON.stringify({ itemIds }) }),

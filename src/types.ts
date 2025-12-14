@@ -1,4 +1,5 @@
 
+
 export enum Tab {
   Statistics,
   Equipment,
@@ -18,6 +19,7 @@ export enum Tab {
   University,
   Hunting,
   Guild,
+  Tower, // New
 }
 
 export enum Race {
@@ -757,6 +759,53 @@ export interface GuildRaid {
 }
 // --- End Guild System Types ---
 
+// --- Tower System Types ---
+export interface TowerFloor {
+    floorNumber: number;
+    enemies: ExpeditionEnemy[]; // Use existing spawnChance interface
+    guaranteedReward?: {
+        gold: number;
+        experience: number;
+    };
+    lootTable?: LootDrop[];
+    resourceLootTable?: ResourceDrop[];
+}
+
+export interface Tower {
+    id: string;
+    name: string;
+    description: string;
+    locationId: string;
+    totalFloors: number;
+    floors: TowerFloor[];
+    grandPrize?: {
+        gold: number;
+        experience: number;
+        items?: ItemInstance[]; // Or templates to generate
+        essences?: Partial<Record<EssenceType, number>>;
+    };
+    isActive: boolean;
+}
+
+export type TowerRunStatus = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'RETREATED';
+
+export interface ActiveTowerRun {
+    id: number;
+    userId: number;
+    towerId: string;
+    currentFloor: number;
+    currentHealth: number;
+    currentMana: number;
+    accumulatedRewards: {
+        gold: number;
+        experience: number;
+        items: ItemInstance[];
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    status: TowerRunStatus;
+}
+// --- End Tower System Types ---
+
 export interface TraderInventoryData {
     regularItems: ItemInstance[];
     specialOfferItems: ItemInstance[];
@@ -854,6 +903,7 @@ export interface GameData {
     affixes: Affix[];
     skills: Skill[];
     rituals?: Ritual[]; // Added rituals to GameData
+    towers?: Tower[]; // Added towers
     settings: GameSettings;
 }
 

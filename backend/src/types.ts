@@ -19,6 +19,7 @@ export enum Tab {
   University,
   Hunting,
   Guild,
+  Tower,
 }
 
 export enum Race {
@@ -312,19 +313,16 @@ export interface CharacterCamp {
     level: number;
 }
 
-// Deprecated
 export interface CharacterChest {
     level: number;
     gold: number;
 }
 
-// New
 export interface CharacterTreasury {
     level: number;
     gold: number;
 }
 
-// New
 export interface CharacterWarehouse {
     level: number;
     items: ItemInstance[];
@@ -822,6 +820,53 @@ export interface GameSettings {
     sidebarOrder?: Tab[];
 }
 
+// --- Tower System Types ---
+export interface TowerFloor {
+    floorNumber: number;
+    enemies: ExpeditionEnemy[]; // Use existing spawnChance interface
+    guaranteedReward?: {
+        gold: number;
+        experience: number;
+    };
+    lootTable?: LootDrop[];
+    resourceLootTable?: ResourceDrop[];
+}
+
+export interface Tower {
+    id: string;
+    name: string;
+    description: string;
+    locationId: string;
+    totalFloors: number;
+    floors: TowerFloor[];
+    grandPrize?: {
+        gold: number;
+        experience: number;
+        items?: ItemInstance[]; // Or templates to generate
+        essences?: Partial<Record<EssenceType, number>>;
+    };
+    isActive: boolean;
+}
+
+export type TowerRunStatus = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'RETREATED';
+
+export interface ActiveTowerRun {
+    id: number;
+    userId: number;
+    towerId: string;
+    currentFloor: number;
+    currentHealth: number;
+    currentMana: number;
+    accumulatedRewards: {
+        gold: number;
+        experience: number;
+        items: ItemInstance[];
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    status: TowerRunStatus;
+}
+// --- End Tower System Types ---
+
 export interface GameData {
     locations: Location[];
     expeditions: Expedition[];
@@ -831,6 +876,7 @@ export interface GameData {
     affixes: Affix[];
     skills: Skill[];
     rituals?: Ritual[];
+    towers?: Tower[]; // Added towers
     settings: GameSettings;
 }
 
@@ -991,4 +1037,13 @@ export interface PublicGuildProfile {
     createdAt: string;
     isPublic: boolean;
     minLevel: number;
+}
+
+export interface GlobalStats {
+    totalPlayers: number;
+    totalGoldInEconomy: number;
+    raceCounts: Record<string, number>;
+    classCounts: Record<string, number>;
+    topItems: { id: string, count: number }[];
+    topAffixes: { id: string, count: number }[];
 }

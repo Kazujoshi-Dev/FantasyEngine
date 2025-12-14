@@ -22,6 +22,7 @@ import { Options } from './components/Options';
 import { University } from './components/University';
 import { Hunting } from './components/Hunting';
 import { Guild } from './components/Guild';
+import { Tower } from './components/Tower'; // Import Tower
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { api } from './api';
 import { Tab, Race, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
@@ -330,6 +331,7 @@ const AppContent: React.FC = () => {
                         {activeTab === Tab.Statistics && <Statistics />}
                         {activeTab === Tab.Equipment && <Equipment />}
                         {activeTab === Tab.Expedition && <ExpeditionComponent onCompletion={handleExpeditionCompletion} />}
+                        {activeTab === Tab.Tower && <Tower />}
                         {activeTab === Tab.Camp && <Camp />}
                         {activeTab === Tab.Location && <Location />}
                         {activeTab === Tab.Resources && <Resources />}

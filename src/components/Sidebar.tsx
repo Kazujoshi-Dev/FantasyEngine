@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -40,6 +39,26 @@ interface SidebarProps {
     settings?: GameSettings;
 }
 
+export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
+    const { t } = useTranslation();
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+            <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 max-w-2xl w-full mx-4 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
+                <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('news.title')}</h3>
+                <div className="prose prose-invert max-w-none max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-gray-300 custom-scrollbar p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                    {content || "Brak nowych ogłoszeń."}
+                </div>
+                <div className="mt-6 text-right">
+                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-white font-bold transition-colors">{t('news.close')}</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
     activeTab,
     setActiveTab,
@@ -59,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
         { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
         { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
+        { tab: Tab.Tower, icon: IconMap, label: 'Wieża Mroku' },
         { tab: Tab.Hunting, icon: CrossIcon, label: t('sidebar.hunting') },
         { tab: Tab.Quests, icon: QuestIcon, label: t('sidebar.quests') },
         { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
@@ -81,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Default sorting if not provided in settings
     const defaultOrder = [
-        Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Hunting, Tab.Quests,
+        Tab.Statistics, Tab.Equipment, Tab.Expedition, Tab.Tower, Tab.Hunting, Tab.Quests,
         Tab.Camp, Tab.Location, Tab.Guild, Tab.University, Tab.Resources,
         Tab.Ranking, Tab.Messages, Tab.Tavern, Tab.Market, Tab.Trader,
         Tab.Blacksmith, Tab.Options, Tab.Admin
@@ -89,7 +109,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const sortedMenuItems = [...menuItems].sort((a, b) => {
         const order = settings?.sidebarOrder || defaultOrder;
-        return order.indexOf(a.tab) - order.indexOf(b.tab);
+        // If a new tab is not in settings order yet, append it at the end
+        const indexA = order.indexOf(a.tab);
+        const indexB = order.indexOf(b.tab);
+        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
     });
 
     const sidebarStyle = settings?.sidebarBackgroundUrl 
@@ -224,31 +247,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
         </>
-    );
-};
-
-export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
-    const { t } = useTranslation();
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-white">{t('news.title')}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
-                        ✕
-                    </button>
-                </div>
-                <div className="p-6 overflow-y-auto prose prose-invert max-w-none">
-                    <div dangerouslySetInnerHTML={{ __html: content }} />
-                </div>
-                <div className="p-4 border-t border-slate-700 flex justify-end">
-                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">
-                        {t('news.close')}
-                    </button>
-                </div>
-            </div>
-        </div>
     );
 };

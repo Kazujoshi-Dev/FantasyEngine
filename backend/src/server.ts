@@ -37,6 +37,7 @@ import publicRoutes from './routes/public.js';
 import guildRoutes from './routes/guilds.js';
 import questRoutes from './routes/quests.js';
 import expeditionRoutes from './routes/expedition.js';
+import towerRoutes from './routes/towers.js';
 
 
 dotenv.config();
@@ -114,7 +115,8 @@ app.use('/api/hunting', huntingRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/guilds', guildRoutes);
 app.use('/api/quests', questRoutes); 
-app.use('/api/expedition', expeditionRoutes); // Register expedition routes
+app.use('/api/expedition', expeditionRoutes); 
+app.use('/api/towers', towerRoutes); // Register tower routes
 app.use('/api', characterRoutes); // Broad catch-all for character-related fallback
 
 // ===================================================================================

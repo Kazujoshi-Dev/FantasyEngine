@@ -332,6 +332,22 @@ export const initializeDatabase = async (retries = 5, delay = 5000) => {
                     );
                 `);
 
+                // Tower Runs (New)
+                await client.query(`
+                    CREATE TABLE IF NOT EXISTS tower_runs (
+                        id SERIAL PRIMARY KEY,
+                        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        tower_id VARCHAR(255) NOT NULL,
+                        current_floor INT NOT NULL DEFAULT 1,
+                        current_health INT NOT NULL,
+                        current_mana INT NOT NULL,
+                        accumulated_rewards JSONB DEFAULT '{}',
+                        status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                `);
+
                 client.release();
                 console.log('Database schema initialization completed.');
                 return; 
