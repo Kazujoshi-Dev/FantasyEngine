@@ -8,7 +8,7 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
-import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemTooltip, ItemDetailsPanel } from './shared/ItemSlot';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -206,10 +206,12 @@ export const Tower: React.FC = () => {
                 {hoveredItem && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
                         <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                             <ItemTooltip 
-                                instance={hoveredItem.item} 
+                             <ItemDetailsPanel 
+                                item={hoveredItem.item} 
                                 template={hoveredItem.template} 
                                 affixes={gameData.affixes} 
+                                size="small"
+                                compact={true}
                              />
                         </div>
                     </div>
@@ -343,10 +345,12 @@ export const Tower: React.FC = () => {
             {hoveredItem && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
                     <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                         <ItemTooltip 
-                            instance={hoveredItem.item} 
+                         <ItemDetailsPanel 
+                            item={hoveredItem.item} 
                             template={hoveredItem.template} 
                             affixes={gameData.affixes} 
+                            size="small"
+                            compact={true}
                          />
                     </div>
                 </div>
