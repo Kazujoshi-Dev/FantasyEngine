@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
-import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, CombatLogEntry, ExpeditionRewardSummary, ItemTemplate, Enemy, ItemRarity } from '../types';
+import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, ItemTemplate, Enemy, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
-import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel } from './shared/ItemSlot';
-import { ExpeditionSummaryModal } from './combat/CombatSummary';
+import { StarIcon } from './icons/StarIcon';
+import { rarityStyles, ItemListItem, ItemDetailsPanel, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { useTranslation } from '../contexts/LanguageContext';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
@@ -18,6 +18,133 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Epic]: ItemRarity.Epic,
     [EssenceType.Legendary]: ItemRarity.Legendary,
 };
+
+// --- Sub-component: Tower Summary View ---
+interface TowerSummaryProps {
+    outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
+    rewards: {
+        gold: number;
+        experience: number;
+        items: ItemInstance[];
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    onClose: () => void;
+    itemTemplates: ItemTemplate[];
+    affixes: any[];
+}
+
+const TowerSummaryView: React.FC<TowerSummaryProps> = ({ outcome, rewards, onClose, itemTemplates, affixes }) => {
+    const { t } = useTranslation();
+    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+
+    const title = outcome === 'VICTORY' ? 'Wieża Ukończona!' : outcome === 'RETREAT' ? 'Ucieczka z Wieży' : 'Porażka';
+    const titleColor = outcome === 'VICTORY' ? 'text-green-400' : outcome === 'RETREAT' ? 'text-amber-400' : 'text-red-500';
+    const subTitle = outcome === 'DEFEAT' 
+        ? 'Twoja wyprawa kończy się tutaj. Straciłeś wszystkie zgromadzone łupy.'
+        : 'Oto łupy, które udało Ci się wynieść z Wieży Mroku.';
+
+    return (
+        <div className="flex flex-col h-full items-center justify-center animate-fade-in p-4">
+             {/* Tooltip Overlay */}
+             {hoveredItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
+                         <ItemDetailsPanel 
+                            item={hoveredItem.item} 
+                            template={hoveredItem.template} 
+                            affixes={affixes} 
+                            size="small"
+                            compact={true}
+                         />
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-slate-900/80 border border-slate-700 p-8 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col items-center">
+                <h2 className={`text-4xl font-extrabold ${titleColor} mb-2 uppercase tracking-wider`}>{title}</h2>
+                <p className="text-gray-400 mb-8 text-center">{subTitle}</p>
+
+                {outcome !== 'DEFEAT' && (
+                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        {/* Resources Column */}
+                        <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
+                            <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                                <StarIcon className="h-5 w-5 text-yellow-400"/> Zasoby
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded">
+                                    <span className="text-gray-400 font-bold">{t('resources.gold')}</span>
+                                    <span className="text-amber-400 font-mono text-xl">{rewards.gold.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded">
+                                    <span className="text-gray-400 font-bold">Doświadczenie</span>
+                                    <span className="text-sky-400 font-mono text-xl">{rewards.experience.toLocaleString()} XP</span>
+                                </div>
+                                {Object.entries(rewards.essences).map(([key, amount]) => {
+                                     const type = key as EssenceType;
+                                     const rarity = essenceToRarityMap[type];
+                                     const style = rarityStyles[rarity];
+                                     return (
+                                        <div key={key} className={`flex justify-between items-center bg-slate-900/50 p-3 rounded border-l-4 ${style.border}`}>
+                                            <span className={`${style.text} font-bold text-sm`}>{t(`resources.${type}`)}</span>
+                                            <span className="text-white font-mono font-bold">x{amount as number}</span>
+                                        </div>
+                                     )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Items Column */}
+                        <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 flex flex-col">
+                            <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                                <ShieldIcon className="h-5 w-5 text-indigo-400"/> Przedmioty ({rewards.items.length})
+                            </h3>
+                            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar max-h-[300px]">
+                                {rewards.items.length === 0 ? (
+                                    <p className="text-gray-500 italic text-center py-10">Brak przedmiotów.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {rewards.items.map((item) => {
+                                            const template = itemTemplates.find(t => t.id === item.templateId);
+                                            if (!template) return null;
+                                            return (
+                                                <div 
+                                                    key={item.uniqueId} 
+                                                    className="relative group cursor-help bg-slate-900/80 p-1 rounded hover:bg-slate-800 transition-colors"
+                                                    onMouseEnter={() => setHoveredItem({ item, template })}
+                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                >
+                                                    <ItemListItem 
+                                                        item={item} 
+                                                        template={template} 
+                                                        affixes={affixes} 
+                                                        isSelected={false} 
+                                                        onClick={()=>{}} 
+                                                        showPrimaryStat={false} 
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <button 
+                    onClick={onClose}
+                    className="px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-105"
+                >
+                    Wróć do Miasta
+                </button>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main Component ---
 
 const EnemyPreview: React.FC<{ floorNumber: number, enemies: Enemy[] }> = ({ floorNumber, enemies }) => {
     if (enemies.length === 0) return null;
@@ -51,16 +178,18 @@ export const Tower: React.FC = () => {
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
     const [loading, setLoading] = useState(true);
     
-    // Explicit state for the end-game summary. If this is not null, the modal is shown.
-    const [summaryData, setSummaryData] = useState<ExpeditionRewardSummary | null>(null);
+    // Dedicate state for end-game summary. If this is populated, we show the summary view.
+    const [endGameSummary, setEndGameSummary] = useState<{
+        outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
+        rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
+    } | null>(null);
     
-    // Tooltip State
+    // Tooltip State for Active Run view
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     const fetchData = useCallback(async () => {
-        // Do not fetch/refresh if we are viewing the summary report. 
-        // This prevents the background from switching to "Lobby" or "Active Run" prematurely.
-        if (summaryData) return; 
+        // If we are viewing the summary, DO NOT fetch/sync, as it might override the "completed" state with "no run"
+        if (endGameSummary) return;
 
         setLoading(true);
         try {
@@ -78,7 +207,7 @@ export const Tower: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [summaryData]); // Dependency on summaryData ensures we don't fetch when it's open
+    }, [endGameSummary]);
 
     useEffect(() => {
         fetchData();
@@ -102,47 +231,35 @@ export const Tower: React.FC = () => {
             
             if (res.victory) {
                 if (res.isTowerComplete) {
-                    // Tower Finished! Show summary.
-                    const summary: ExpeditionRewardSummary = {
-                        isVictory: true,
-                        totalGold: res.rewards?.gold || 0,
-                        totalExperience: res.rewards?.experience || 0,
-                        itemsFound: res.rewards?.items || [],
-                        essencesFound: res.rewards?.essences || {},
-                        combatLog: res.combatLog,
-                        rewardBreakdown: [{ source: `Ukończono Wieżę: ${activeTower?.name}`, gold: res.rewards?.gold || 0, experience: res.rewards?.experience || 0 }]
-                    };
-                    setSummaryData(summary);
+                    // Tower Finished! Switch to Summary View
+                    setEndGameSummary({
+                        outcome: 'VICTORY',
+                        rewards: res.rewards || { gold: 0, experience: 0, items: [], essences: {} }
+                    });
+                    // Locally clear active run so background doesn't try to render it if we switch back
+                    setActiveRun(null);
                 } else {
-                    // Just next floor, update state locally to reflect changes immediately
+                    // Just next floor, update state locally
                     if (activeRun) {
                         setActiveRun({
                             ...activeRun,
                             currentFloor: res.currentFloor || activeRun.currentFloor + 1,
-                            // Assume rewards accumulator is updated on backend, we could sync it or just wait
                             currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
                             currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
-                            accumulatedRewards: res.rewards // Update pending rewards
+                            accumulatedRewards: res.rewards
                         });
-                        // Also update character bar stats
                         api.getCharacter().then(updateCharacter);
                     } else {
-                        // Fallback sync
                         fetchData();
                     }
                 }
             } else {
-                // Defeat. Show summary (failure).
-                const summary: ExpeditionRewardSummary = {
-                    isVictory: false,
-                    totalGold: 0,
-                    totalExperience: 0,
-                    itemsFound: [],
-                    essencesFound: {},
-                    combatLog: res.combatLog,
-                    rewardBreakdown: []
-                };
-                setSummaryData(summary);
+                // Defeat. Switch to Summary View (Failure).
+                setEndGameSummary({
+                    outcome: 'DEFEAT',
+                    rewards: { gold: 0, experience: 0, items: [], essences: {} }
+                });
+                setActiveRun(null);
             }
         } catch (e: any) {
             alert(e.message);
@@ -153,40 +270,20 @@ export const Tower: React.FC = () => {
         if (!confirm('Czy na pewno chcesz uciec z wieży? Zabierzesz ze sobą wszystkie zgromadzone dotąd łupy.')) return;
         try {
             const res = await api.retreatTower();
-            // Construct success summary from retreat data
-            const summary: ExpeditionRewardSummary = {
-                isVictory: true,
-                totalGold: res.rewards?.gold || 0,
-                totalExperience: res.rewards?.experience || 0,
-                itemsFound: res.rewards?.items || [],
-                essencesFound: res.rewards?.essences || {},
-                combatLog: [{ // Synthetic log
-                    turn: 0,
-                    attacker: 'System',
-                    defender: 'Gracz',
-                    action: 'Ucieczka z Wieży zakończona sukcesem.',
-                    playerHealth: activeRun?.currentHealth || 0,
-                    playerMana: activeRun?.currentMana || 0,
-                    enemyHealth: 0,
-                    enemyMana: 0
-                }],
-                rewardBreakdown: [{ source: 'Ucieczka z Wieży (Zgromadzone Łupy)', gold: res.rewards?.gold || 0, experience: res.rewards?.experience || 0 }]
-            };
-            setSummaryData(summary);
-            
-            // We do NOT clear activeRun here explicitly. We let the modal blocking logic prevent fetching.
-            // When modal closes, we will refresh and the backend will say "no run".
+            setEndGameSummary({
+                outcome: 'RETREAT',
+                rewards: res.rewards || { gold: 0, experience: 0, items: [], essences: {} }
+            });
+            setActiveRun(null);
             api.getCharacter().then(updateCharacter);
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    const handleCloseReport = () => {
-        setSummaryData(null);
-        // Now that we closed the report, we MUST refresh the state.
-        // If the run ended, the backend will return null for activeRun, returning us to Lobby.
-        // We set loading to true to smooth the transition.
+    const handleCloseSummary = () => {
+        setEndGameSummary(null);
+        // Refresh everything to show lobby
         setLoading(true);
         api.getTowers().then(data => {
              if (data.activeRun) {
@@ -202,54 +299,36 @@ export const Tower: React.FC = () => {
         });
     };
 
-    // Helper to get enemies for a specific floor from tower config
     const getFloorEnemies = useCallback((floorNum: number) => {
         if (!activeTower || !gameData) return [];
         const floor = activeTower.floors.find(f => f.floorNumber === floorNum);
         if (!floor) return [];
-        
-        // Map enemy IDs to full enemy objects
         return floor.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(e => !!e) as Enemy[];
     }, [activeTower, gameData]);
 
 
-    if (loading) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
+    // --- MAIN RENDER ---
+
+    if (loading && !endGameSummary) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
     if (!character || !gameData) return null;
 
-    // --- Render Logic ---
-    
-    // 1. Tooltip Overlay (Global for this component)
-    const tooltipOverlay = hoveredItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-            <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                    <ItemDetailsPanel 
-                    item={hoveredItem.item} 
-                    template={hoveredItem.template} 
-                    affixes={gameData.affixes} 
-                    size="small"
-                    compact={true}
-                    />
-            </div>
-        </div>
-    );
+    // 1. SUMMARY VIEW (Highest Priority)
+    if (endGameSummary) {
+        return (
+            <ContentPanel title={endGameSummary.outcome === 'VICTORY' ? 'Zwycięstwo!' : 'Koniec Wyprawy'}>
+                <TowerSummaryView 
+                    outcome={endGameSummary.outcome}
+                    rewards={endGameSummary.rewards}
+                    onClose={handleCloseSummary}
+                    itemTemplates={gameData.itemTemplates}
+                    affixes={gameData.affixes}
+                />
+            </ContentPanel>
+        );
+    }
 
-    // 2. Summary Modal Overlay
-    const summaryOverlay = summaryData && (
-        <ExpeditionSummaryModal 
-            reward={summaryData}
-            onClose={handleCloseReport}
-            characterName={character.name}
-            itemTemplates={gameData.itemTemplates}
-            affixes={gameData.affixes}
-            enemies={gameData.enemies}
-        />
-    );
-
-    // 3. Main Content
-    let content = null;
-
+    // 2. ACTIVE RUN VIEW
     if (activeRun && activeTower) {
-        // --- Active Run View ---
         const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
         const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
         const rewards = activeRun.accumulatedRewards;
@@ -257,130 +336,148 @@ export const Tower: React.FC = () => {
         const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
         const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
 
-        content = (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
-                
-                {/* Left: Status & Progress */}
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-purple-900/50 flex flex-col justify-between">
-                    <div>
-                        <h3 className="text-2xl font-bold text-white mb-2">Piętro {activeRun.currentFloor} <span className="text-gray-500 text-lg">/ {activeTower.totalFloors}</span></h3>
-                        <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden mb-6 border border-slate-600">
-                            <div className="bg-purple-600 h-full transition-all" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
-                        </div>
-
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-gray-300 font-bold">Zdrowie</span>
-                                    <span className="text-white">{activeRun.currentHealth} / {character.stats.maxHealth}</span>
-                                </div>
-                                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                                    <div className="bg-red-600 h-full transition-all" style={{ width: `${hpPercent}%` }}></div>
-                                </div>
-                                <p className="text-xs text-red-400 mt-1 italic">Zdrowie nie regeneruje się automatycznie!</p>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-gray-300 font-bold">Mana</span>
-                                    <span className="text-white">{activeRun.currentMana} / {character.stats.maxMana}</span>
-                                </div>
-                                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                                    <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Enemy Preview Section */}
-                        <div className="mb-4">
-                            <p className="text-xs uppercase font-bold text-gray-500 mb-2">Przeciwnicy</p>
-                            <EnemyPreview floorNumber={activeRun.currentFloor} enemies={currentFloorEnemies} />
-                            {nextFloorEnemies.length > 0 && (
-                                    <div className="mt-4 opacity-75">
-                                        <p className="text-xs uppercase font-bold text-gray-600 mb-1">Następne Piętro (Podgląd)</p>
-                                        <EnemyPreview floorNumber={activeRun.currentFloor + 1} enemies={nextFloorEnemies} />
-                                    </div>
-                            )}
+        return (
+            <ContentPanel title={`Wieża Mroku: ${activeTower.name}`}>
+                {hoveredItem && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                        <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
+                             <ItemDetailsPanel 
+                                item={hoveredItem.item} 
+                                template={hoveredItem.template} 
+                                affixes={gameData.affixes} 
+                                size="small"
+                                compact={true}
+                             />
                         </div>
                     </div>
+                )}
 
-                    {/* Actions */}
-                    <div className="space-y-3 mt-4">
-                        <button 
-                            onClick={handleFight}
-                            className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex items-center justify-center gap-3 transition-transform hover:scale-[1.02]"
-                        >
-                            <SwordsIcon className="h-6 w-6"/> WALCZ
-                        </button>
-                        
-                        <button 
-                            onClick={handleRetreat}
-                            className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200 font-semibold border border-slate-500"
-                        >
-                            Uciekaj z Łupami
-                        </button>
-                    </div>
-                </div>
-
-                {/* Right: Loot Stash */}
-                <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-amber-900/30 flex flex-col">
-                    <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
-                        <CoinsIcon className="h-6 w-6"/> Zgromadzone Łupy
-                    </h3>
-                    <p className="text-sm text-gray-400 mb-4">
-                        Te przedmioty trafią do Ciebie <strong>tylko</strong> jeśli uciekniesz lub ukończysz wieżę. Porażka oznacza ich utratę.
-                    </p>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
                     
-                    <div className="flex gap-4 mb-4 text-lg font-mono bg-slate-800/50 p-3 rounded-lg">
-                        <span className="text-amber-400 font-bold flex items-center gap-1">{rewards.gold} <span className="text-xs text-gray-500">Złota</span></span>
-                        <span className="text-sky-400 font-bold flex items-center gap-1">{rewards.experience} <span className="text-xs text-gray-500">XP</span></span>
+                    {/* Left: Status & Progress */}
+                    <div className="bg-slate-900/40 p-6 rounded-xl border border-purple-900/50 flex flex-col justify-between">
+                        <div>
+                            <h3 className="text-2xl font-bold text-white mb-2">Piętro {activeRun.currentFloor} <span className="text-gray-500 text-lg">/ {activeTower.totalFloors}</span></h3>
+                            <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden mb-6 border border-slate-600">
+                                <div className="bg-purple-600 h-full transition-all" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
+                            </div>
+
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="text-gray-300 font-bold">Zdrowie</span>
+                                        <span className="text-white">{activeRun.currentHealth} / {character.stats.maxHealth}</span>
+                                    </div>
+                                    <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                                        <div className="bg-red-600 h-full transition-all" style={{ width: `${hpPercent}%` }}></div>
+                                    </div>
+                                    <p className="text-xs text-red-400 mt-1 italic">Zdrowie nie regeneruje się automatycznie!</p>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="text-gray-300 font-bold">Mana</span>
+                                        <span className="text-white">{activeRun.currentMana} / {character.stats.maxMana}</span>
+                                    </div>
+                                    <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                                        <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Enemy Preview Section */}
+                            <div className="mb-4">
+                                <p className="text-xs uppercase font-bold text-gray-500 mb-2">Przeciwnicy</p>
+                                <EnemyPreview floorNumber={activeRun.currentFloor} enemies={currentFloorEnemies} />
+                                {nextFloorEnemies.length > 0 && (
+                                     <div className="mt-4 opacity-75">
+                                         <p className="text-xs uppercase font-bold text-gray-600 mb-1">Następne Piętro (Podgląd)</p>
+                                         <EnemyPreview floorNumber={activeRun.currentFloor + 1} enemies={nextFloorEnemies} />
+                                     </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="space-y-3 mt-4">
+                            <button 
+                                onClick={handleFight}
+                                className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex items-center justify-center gap-3 transition-transform hover:scale-[1.02]"
+                            >
+                                <SwordsIcon className="h-6 w-6"/> WALCZ
+                            </button>
+                            
+                            <button 
+                                onClick={handleRetreat}
+                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200 font-semibold border border-slate-500"
+                            >
+                                Uciekaj z Łupami
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex-grow overflow-y-auto pr-2 space-y-2 bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
-                        {rewards.items.length === 0 && Object.keys(rewards.essences).length === 0 && <p className="text-gray-500 text-center py-8">Pusty worek.</p>}
+                    {/* Right: Loot Stash */}
+                    <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-amber-900/30 flex flex-col">
+                        <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
+                            <CoinsIcon className="h-6 w-6"/> Zgromadzone Łupy
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                            Te przedmioty trafią do Ciebie <strong>tylko</strong> jeśli uciekniesz lub ukończysz wieżę. Porażka oznacza ich utratę.
+                        </p>
                         
-                        {/* Essences */}
-                        {Object.entries(rewards.essences).map(([key, amount]) => {
-                            const type = key as EssenceType;
-                            const rarity = essenceToRarityMap[type];
-                            const style = rarityStyles[rarity];
-                            return (
-                                <div key={key} className={`flex justify-between items-center bg-slate-800 p-2 rounded border ${style.border}`}>
-                                    <span className={`text-sm ${style.text} font-bold`}>{t(`resources.${type}`)}</span>
-                                    <span className={`font-mono font-bold ${style.text}`}>x{amount as number}</span>
-                                </div>
-                            );
-                        })}
+                        <div className="flex gap-4 mb-4 text-lg font-mono bg-slate-800/50 p-3 rounded-lg">
+                            <span className="text-amber-400 font-bold flex items-center gap-1">{rewards.gold} <span className="text-xs text-gray-500">Złota</span></span>
+                            <span className="text-sky-400 font-bold flex items-center gap-1">{rewards.experience} <span className="text-xs text-gray-500">XP</span></span>
+                        </div>
 
-                        {/* Items */}
-                        {rewards.items.map((item: ItemInstance) => {
-                            const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                            if (!template) return null;
-                            return (
-                                <div 
-                                    key={item.uniqueId} 
-                                    className="relative group cursor-help"
-                                    onMouseEnter={() => setHoveredItem({ item, template })}
-                                    onMouseLeave={() => setHoveredItem(null)}
-                                >
-                                    <ItemListItem 
-                                        item={item} 
-                                        template={template} 
-                                        affixes={gameData.affixes} 
-                                        isSelected={false} 
-                                        onClick={()=>{}} 
-                                        showPrimaryStat={false} 
-                                    />
-                                </div>
-                            );
-                        })}
+                        <div className="flex-grow overflow-y-auto pr-2 space-y-2 bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                            {rewards.items.length === 0 && Object.keys(rewards.essences).length === 0 && <p className="text-gray-500 text-center py-8">Pusty worek.</p>}
+                            
+                            {/* Essences */}
+                            {Object.entries(rewards.essences).map(([key, amount]) => {
+                                const type = key as EssenceType;
+                                const rarity = essenceToRarityMap[type];
+                                const style = rarityStyles[rarity];
+                                return (
+                                    <div key={key} className={`flex justify-between items-center bg-slate-800 p-2 rounded border ${style.border}`}>
+                                        <span className={`text-sm ${style.text} font-bold`}>{t(`resources.${type}`)}</span>
+                                        <span className={`font-mono font-bold ${style.text}`}>x{amount as number}</span>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Items */}
+                            {rewards.items.map((item: ItemInstance) => {
+                                const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+                                if (!template) return null;
+                                return (
+                                    <div 
+                                        key={item.uniqueId} 
+                                        className="relative group cursor-help"
+                                        onMouseEnter={() => setHoveredItem({ item, template })}
+                                        onMouseLeave={() => setHoveredItem(null)}
+                                    >
+                                        <ItemListItem 
+                                            item={item} 
+                                            template={template} 
+                                            affixes={gameData.affixes} 
+                                            isSelected={false} 
+                                            onClick={()=>{}} 
+                                            showPrimaryStat={false} 
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
-            </div>
+            </ContentPanel>
         );
-    } else {
-        // --- Lobby View ---
-        content = (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+    }
+
+    // 3. LOBBY VIEW
+    return (
+        <ContentPanel title="Wieża Mroku">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
                 {towers.length === 0 && <p className="text-gray-500 col-span-full text-center py-12">Brak wież w tej lokacji.</p>}
                 {towers.map(tower => (
                     <div key={tower.id} className="bg-slate-800/80 border border-purple-500/30 p-6 rounded-xl shadow-lg hover:border-purple-500 transition-colors flex flex-col relative overflow-hidden group">
@@ -447,14 +544,6 @@ export const Tower: React.FC = () => {
                     </div>
                 ))}
             </div>
-        );
-    }
-    
-    return (
-        <ContentPanel title={activeRun && activeTower ? `Wieża Mroku: ${activeTower.name}` : "Wieża Mroku"}>
-            {summaryOverlay}
-            {tooltipOverlay}
-            {content}
         </ContentPanel>
     );
 };
