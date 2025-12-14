@@ -3,14 +3,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
-import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, CombatLogEntry, ExpeditionRewardSummary, ItemTemplate, Enemy } from '../types';
+import { Tower as TowerType, ActiveTowerRun, ItemInstance, EssenceType, CombatLogEntry, ExpeditionRewardSummary, ItemTemplate, Enemy, ItemRarity } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
-import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { useTranslation } from '../contexts/LanguageContext';
+
+const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+    [EssenceType.Common]: ItemRarity.Common,
+    [EssenceType.Uncommon]: ItemRarity.Uncommon,
+    [EssenceType.Rare]: ItemRarity.Rare,
+    [EssenceType.Epic]: ItemRarity.Epic,
+    [EssenceType.Legendary]: ItemRarity.Legendary,
+};
 
 const EnemyPreview: React.FC<{ floorNumber: number, enemies: Enemy[] }> = ({ floorNumber, enemies }) => {
     if (enemies.length === 0) return null;
@@ -43,8 +51,13 @@ export const Tower: React.FC = () => {
     const [activeRun, setActiveRun] = useState<ActiveTowerRun | null>(null);
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
     const [loading, setLoading] = useState(true);
-    const [combatResult, setCombatResult] = useState<{ victory: boolean, combatLog: CombatLogEntry[], rewards?: any } | null>(null);
+    
+    // Combat Result now includes 'rewards' which works for both Fight (completion) and Retreat
+    const [combatResult, setCombatResult] = useState<{ victory: boolean, combatLog: CombatLogEntry[], rewards?: any, isTowerComplete?: boolean } | null>(null);
     const [reportOpen, setReportOpen] = useState(false);
+    
+    // Tooltip State
+    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -88,8 +101,8 @@ export const Tower: React.FC = () => {
             setReportOpen(true);
             
             if (res.victory) {
-                // If victory, update active run state locally or re-fetch
-                // We'll re-fetch in handleCloseReport if continue
+                // If victory but NOT complete, we remain in tower view
+                // If complete, report will show and onClose will clear state
             } else {
                 // Defeat - cleared
                 setActiveRun(null);
@@ -103,8 +116,28 @@ export const Tower: React.FC = () => {
     const handleRetreat = async () => {
         if (!confirm('Czy na pewno chcesz uciec z wieży? Zabierzesz ze sobą wszystkie zgromadzone dotąd łupy.')) return;
         try {
-            await api.retreatTower();
-            fetchData();
+            const res = await api.retreatTower();
+            // Mock a "victory" result to show the summary modal with gathered loot
+            setCombatResult({
+                victory: true,
+                combatLog: [{
+                    turn: 0,
+                    attacker: 'System',
+                    defender: 'Gracz',
+                    action: 'Ucieczka z Wieży zakończona sukcesem.',
+                    playerHealth: activeRun?.currentHealth || 0,
+                    playerMana: activeRun?.currentMana || 0,
+                    enemyHealth: 0,
+                    enemyMana: 0
+                }],
+                rewards: res.rewards,
+                isTowerComplete: true // Treat retreat as completion for modal purposes
+            });
+            setReportOpen(true);
+            
+            // Clear local state immediately as backend is done
+            setActiveRun(null);
+            setActiveTower(null);
             api.getCharacter().then(updateCharacter);
         } catch (e: any) {
             alert(e.message);
@@ -113,6 +146,7 @@ export const Tower: React.FC = () => {
 
     const handleCloseReport = () => {
         setReportOpen(false);
+        setCombatResult(null);
         // After fight, refresh state to reflect new floor or completion
         fetchData();
         api.getCharacter().then(updateCharacter);
@@ -137,7 +171,6 @@ export const Tower: React.FC = () => {
         const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
         const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
         const rewards = activeRun.accumulatedRewards;
-        const isFightPending = combatResult === null; // Can fight if no pending result
         
         const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
         const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
@@ -146,12 +179,14 @@ export const Tower: React.FC = () => {
         if (reportOpen && combatResult) {
              const summary: ExpeditionRewardSummary = {
                 isVictory: combatResult.victory,
-                totalGold: 0, // In tower, rewards accumulate, this is just for report display
-                totalExperience: 0,
-                itemsFound: [],
-                essencesFound: {},
+                totalGold: combatResult.rewards?.gold || 0, 
+                totalExperience: combatResult.rewards?.experience || 0,
+                itemsFound: combatResult.rewards?.items || [],
+                essencesFound: combatResult.rewards?.essences || {},
                 combatLog: combatResult.combatLog,
-                rewardBreakdown: [],
+                rewardBreakdown: combatResult.isTowerComplete 
+                    ? [{ source: `Ukończono/Ucieczka z Wieży: ${activeTower.name}`, gold: combatResult.rewards?.gold || 0, experience: combatResult.rewards?.experience || 0 }] 
+                    : [],
              };
              
              return (
@@ -168,6 +203,18 @@ export const Tower: React.FC = () => {
 
         return (
             <ContentPanel title={`Wieża Mroku: ${activeTower.name}`}>
+                {hoveredItem && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                        <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
+                             <ItemTooltip 
+                                instance={hoveredItem.item} 
+                                template={hoveredItem.template} 
+                                affixes={gameData.affixes} 
+                             />
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
                     
                     {/* Left: Status & Progress */}
@@ -249,27 +296,38 @@ export const Tower: React.FC = () => {
                             {rewards.items.length === 0 && Object.keys(rewards.essences).length === 0 && <p className="text-gray-500 text-center py-8">Pusty worek.</p>}
                             
                             {/* Essences */}
-                            {Object.entries(rewards.essences).map(([key, amount]) => (
-                                <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-600">
-                                    <span className="text-sm text-white">{t(`resources.${key}`)}</span>
-                                    <span className="font-mono font-bold text-green-400">x{amount as number}</span>
-                                </div>
-                            ))}
+                            {Object.entries(rewards.essences).map(([key, amount]) => {
+                                const type = key as EssenceType;
+                                const rarity = essenceToRarityMap[type];
+                                const style = rarityStyles[rarity];
+                                return (
+                                    <div key={key} className={`flex justify-between items-center bg-slate-800 p-2 rounded border ${style.border}`}>
+                                        <span className={`text-sm ${style.text} font-bold`}>{t(`resources.${type}`)}</span>
+                                        <span className={`font-mono font-bold ${style.text}`}>x{amount as number}</span>
+                                    </div>
+                                );
+                            })}
 
                             {/* Items */}
                             {rewards.items.map((item: ItemInstance) => {
                                 const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                                 if (!template) return null;
                                 return (
-                                    <ItemListItem 
+                                    <div 
                                         key={item.uniqueId} 
-                                        item={item} 
-                                        template={template} 
-                                        affixes={gameData.affixes} 
-                                        isSelected={false} 
-                                        onClick={()=>{}} 
-                                        showPrimaryStat={false} 
-                                    />
+                                        className="relative group cursor-help"
+                                        onMouseEnter={() => setHoveredItem({ item, template })}
+                                        onMouseLeave={() => setHoveredItem(null)}
+                                    >
+                                        <ItemListItem 
+                                            item={item} 
+                                            template={template} 
+                                            affixes={gameData.affixes} 
+                                            isSelected={false} 
+                                            onClick={()=>{}} 
+                                            showPrimaryStat={false} 
+                                        />
+                                    </div>
                                 );
                             })}
                         </div>
@@ -282,6 +340,18 @@ export const Tower: React.FC = () => {
     // --- Lobby View ---
     return (
         <ContentPanel title="Wieża Mroku">
+            {hoveredItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
+                         <ItemTooltip 
+                            instance={hoveredItem.item} 
+                            template={hoveredItem.template} 
+                            affixes={gameData.affixes} 
+                         />
+                    </div>
+                </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
                 {towers.length === 0 && <p className="text-gray-500 col-span-full text-center py-12">Brak wież w tej lokacji.</p>}
                 {towers.map(tower => (
@@ -302,8 +372,8 @@ export const Tower: React.FC = () => {
                              <div className="bg-amber-900/20 p-3 rounded border border-amber-700/30 mb-4 relative z-10">
                                  <p className="text-xs text-amber-500 font-bold uppercase mb-1">Nagroda Główna</p>
                                  <div className="flex gap-4 text-sm font-mono mb-2">
-                                     <span className="text-amber-300">{tower.grandPrize.gold}g</span>
-                                     <span className="text-sky-300">{tower.grandPrize.experience}xp</span>
+                                     <span className="text-amber-300">{tower.grandPrize.gold} złota</span>
+                                     <span className="text-sky-300">{tower.grandPrize.experience} doświadczenia</span>
                                  </div>
                                  
                                  {/* Display Essence Rewards */}
@@ -311,14 +381,14 @@ export const Tower: React.FC = () => {
                                      <div className="text-xs text-gray-300 space-y-1 mb-2">
                                          {Object.entries(tower.grandPrize.essences).map(([key, amount]) => (
                                              <div key={key} className="flex justify-between">
-                                                 <span>{t(`resources.${key}`)}</span>
+                                                 <span className={`${rarityStyles[essenceToRarityMap[key as EssenceType]].text}`}>{t(`resources.${key}`)}</span>
                                                  <span className="font-bold text-white">x{amount as number}</span>
                                              </div>
                                          ))}
                                      </div>
                                  )}
 
-                                 {/* Display Item Rewards */}
+                                 {/* Display Item Rewards with Tooltips */}
                                  {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
                                      <div className="space-y-1">
                                          {tower.grandPrize.items.map((item, idx) => {
@@ -327,7 +397,12 @@ export const Tower: React.FC = () => {
                                              const fullName = getGrammaticallyCorrectFullName(item, tmpl, gameData.affixes);
                                              const color = rarityStyles[tmpl.rarity].text;
                                              return (
-                                                 <p key={idx} className={`text-xs ${color} truncate`}>
+                                                 <p 
+                                                    key={idx} 
+                                                    className={`text-xs ${color} truncate cursor-help hover:underline`}
+                                                    onMouseEnter={() => setHoveredItem({ item, template: tmpl })}
+                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                 >
                                                      {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
                                                  </p>
                                              );
