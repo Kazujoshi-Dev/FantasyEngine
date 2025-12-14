@@ -23,6 +23,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
         objective: {
             type: QuestType.Kill,
             amount: 1,
+            targetId: '', // Ensure targetId is initialized for type safety
             ...quest.objective
         },
         rewards: {
@@ -44,9 +45,11 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
     const handleObjectiveChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         const isNumeric = name === 'amount';
-        const newObjective = { ...(formData.objective || { type: QuestType.Kill, amount: 0 }), [name]: isNumeric ? parseInt(value, 10) || 0 : value };
+        const newObjective = { ...(formData.objective || { type: QuestType.Kill, amount: 0, targetId: '' }), [name]: isNumeric ? parseInt(value, 10) || 0 : value } as any;
+        
+        // If type changes, clear targetId as it might be invalid for new type
         if (name === 'type') {
-            delete newObjective.targetId;
+            newObjective.targetId = '';
         }
         setFormData(prev => ({ ...prev, objective: newObjective }));
     };

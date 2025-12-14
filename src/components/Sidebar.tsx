@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Locking logic for Tower Run
     const isLocked = !!playerCharacter.activeTowerRun;
 
-    const menuItems = [
+    const menuItems: { tab: Tab; icon: any; label: string; notification?: boolean }[] = [
         { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
         { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
         { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },

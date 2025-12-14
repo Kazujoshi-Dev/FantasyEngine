@@ -3,7 +3,8 @@ import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, Grammat
 import { randomUUID } from 'crypto';
 
 // Helper for luck-based rolls
-const rollValueWithLuck = (minMax: { min: number; max: number } | undefined, luck: number = 0): number | undefined => {
+const rollValueWithLuck = (minMax: number | { min: number; max: number } | undefined, luck: number = 0): number | undefined => {
+    if (typeof minMax === 'number') return minMax;
     if (minMax === undefined || minMax === null) return undefined;
     const min = Math.min(minMax.min, minMax.max);
     const max = Math.max(minMax.min, minMax.max);
@@ -37,7 +38,7 @@ export const rollAffixStats = (affix: Affix, luck: number = 0): RolledAffixStats
         }
     }
     
-    const otherStatKeys: (keyof Omit<Affix, 'id'|'name'|'type'|'requiredLevel'|'requiredStats'|'spawnChances'|'statsBonus'|'value'>)[] = [
+    const otherStatKeys: string[] = [
         'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
         'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
         'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
@@ -72,7 +73,7 @@ export const rollTemplateStats = (template: ItemTemplate, luck: number = 0): Rol
         }
     }
     
-    const otherStatKeys: (keyof Omit<RolledAffixStats, 'statsBonus' | 'attacksPerRoundBonus' | 'dodgeChanceBonus'>)[] = [
+    const otherStatKeys: string[] = [
         'damageMin', 'damageMax', 'armorBonus',
         'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
         'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',

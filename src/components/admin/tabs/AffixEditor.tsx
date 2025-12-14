@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Affix, AffixType, ItemCategory, CharacterStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -9,15 +10,27 @@ export const AffixEditor: React.FC<{
   isEditing: boolean;
 }> = ({ affix, onSave, onCancel, isEditing }) => {
     const { t } = useTranslation();
+    
+    // Normalize name to object format
+    const initialName = typeof affix.name === 'string' 
+        ? { masculine: affix.name, feminine: affix.name, neuter: affix.name }
+        : affix.name || { masculine: '', feminine: '', neuter: '' };
+
     const [formData, setFormData] = useState<Partial<Affix>>({ 
-        name: { masculine: '', feminine: '', neuter: '' }, 
         spawnChances: {}, 
         statsBonus: {},
-        ...affix 
+        ...affix,
+        name: initialName
     });
 
-    const handleNameChange = (gender: keyof Affix['name'], value: string) => {
-        setFormData(prev => ({ ...prev, name: { ...(prev.name as any), [gender]: value }}));
+    const handleNameChange = (gender: keyof Exclude<Affix['name'], string>, value: string) => {
+        setFormData(prev => {
+            const currentName = prev.name as Exclude<Affix['name'], string>;
+            return { 
+                ...prev, 
+                name: { ...currentName, [gender]: value }
+            };
+        });
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +86,7 @@ export const AffixEditor: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const names = formData.name as Affix['name'];
+        const names = formData.name as Exclude<Affix['name'], string>;
         if (!names?.masculine) {
             alert(t('admin.affix.nameRequired'));
             return;
@@ -128,15 +141,18 @@ export const AffixEditor: React.FC<{
         );
     };
     
+    // Helper to safely access name properties
+    const currentNames = formData.name as Exclude<Affix['name'], string>;
+
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400">{isEditing ? t('admin.affix.edit') : t('admin.affix.create')} ({formData.type})</h3>
 
             <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('admin.general.name')}</legend>
-                <div><label>{t('admin.affix.nameMasculine')}:<input type="text" value={formData.name?.masculine} onChange={e => handleNameChange('masculine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('admin.affix.nameFeminine')}:<input type="text" value={formData.name?.feminine} onChange={e => handleNameChange('feminine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('admin.affix.nameNeuter')}:<input type="text" value={formData.name?.neuter} onChange={e => handleNameChange('neuter', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('admin.affix.nameMasculine')}:<input type="text" value={currentNames?.masculine || ''} onChange={e => handleNameChange('masculine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('admin.affix.nameFeminine')}:<input type="text" value={currentNames?.feminine || ''} onChange={e => handleNameChange('feminine', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('admin.affix.nameNeuter')}:<input type="text" value={currentNames?.neuter || ''} onChange={e => handleNameChange('neuter', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </fieldset>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

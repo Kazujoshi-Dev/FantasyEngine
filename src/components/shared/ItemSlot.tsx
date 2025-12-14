@@ -6,7 +6,7 @@ import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; // For +level display
 import { ShieldIcon } from '../icons/ShieldIcon';
 
-export const rarityStyles: Record<ItemRarity, { border: string; bg: string; shadow: string; text: string; }> = {
+export const rarityStyles = {
     [ItemRarity.Common]: { border: 'border-slate-700', bg: 'bg-slate-800', shadow: 'shadow-none', text: 'text-gray-300' },
     [ItemRarity.Uncommon]: { border: 'border-green-700', bg: 'bg-green-950', shadow: 'shadow-md shadow-green-500/10', text: 'text-green-400' },
     [ItemRarity.Rare]: { border: 'border-sky-700', bg: 'bg-sky-950', shadow: 'shadow-md shadow-sky-500/10', text: 'text-sky-400' },
@@ -29,7 +29,7 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     const getName = (affix: Affix | undefined) => {
         if (!affix) return '';
         if (typeof affix.name === 'string') return affix.name;
-        return affix.name[genderKey] || affix.name.masculine || '';
+        return (affix.name as any)[genderKey] || affix.name.masculine || '';
     };
 
     const prefixName = getName(prefixAffix);
@@ -97,7 +97,7 @@ export const ItemDetailsPanel: React.FC<{
     const getName = (affix: Affix | undefined) => {
         if (!affix) return '';
         if (typeof affix.name === 'string') return affix.name;
-        return affix.name[genderKey] || affix.name.masculine || '';
+        return (affix.name as any)[genderKey] || affix.name.masculine || '';
     };
 
     const prefixName = getName(prefix);

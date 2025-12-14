@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate, ItemRarity } from '../../../types';
+import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate, ItemRarity, Affix } from '../../../types';
 import { PlusCircleIcon } from '../../icons/PlusCircleIcon';
 import { MinusCircleIcon } from '../../icons/MinusCircleIcon';
 import { CoinsIcon } from '../../icons/CoinsIcon';
@@ -234,6 +234,8 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         onSave(formData as Tower);
     };
 
+    const getAffixName = (a: Affix) => typeof a.name === 'string' ? a.name : a.name.masculine;
+
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
             <h3 className="text-xl font-bold text-purple-400">Edytor Wieży</h3>
@@ -272,11 +274,11 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                  <div className="grid grid-cols-3 gap-2 mb-2">
                      <select value={newItemPrefixId} onChange={e => setNewItemPrefixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
                          <option value="">Prefiks: Brak</option>
-                         {validPrefixes.map(p => <option key={p.id} value={p.id}>{p.name.masculine}</option>)}
+                         {validPrefixes.map(p => <option key={p.id} value={p.id}>{getAffixName(p)}</option>)}
                      </select>
                      <select value={newItemSuffixId} onChange={e => setNewItemSuffixId(e.target.value)} className="bg-slate-700 text-xs p-1 rounded" disabled={!newItemTemplateId}>
                          <option value="">Sufiks: Brak</option>
-                         {validSuffixes.map(s => <option key={s.id} value={s.id}>{s.name.masculine}</option>)}
+                         {validSuffixes.map(s => <option key={s.id} value={s.id}>{getAffixName(s)}</option>)}
                      </select>
                      <input type="number" placeholder="Lvl" min="0" max="10" value={newItemLevel} onChange={e => setNewItemLevel(parseInt(e.target.value)||0)} className="bg-slate-700 text-xs p-1 rounded" />
                  </div>
