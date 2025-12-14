@@ -105,6 +105,13 @@ const AppContent: React.FC = () => {
         window.location.reload(); // Force a full reload to clear all state
     }, []);
 
+    // Force redirect to Tower if run is active
+    useEffect(() => {
+        if (character?.activeTowerRun && activeTab !== Tab.Tower) {
+            setActiveTab(Tab.Tower);
+        }
+    }, [character?.activeTowerRun, activeTab]);
+
     // --- HEARTBEAT SYSTEM ---
     useEffect(() => {
         if (!api.getAuthToken()) return;

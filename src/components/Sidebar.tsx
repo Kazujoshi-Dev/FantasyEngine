@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -73,6 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const { t } = useTranslation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+    // Locking logic for Tower Run
+    const isLocked = !!playerCharacter.activeTowerRun;
 
     const menuItems = [
         { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
@@ -187,28 +191,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         </div>
                     </div>
+                    
+                    {/* Locked Warning */}
+                    {isLocked && (
+                        <div className="p-3 bg-red-900/30 border-y border-red-900/50 text-center">
+                            <span className="text-xs text-red-400 font-bold uppercase animate-pulse">
+                                Jesteś w Wieży Mroku!
+                            </span>
+                        </div>
+                    )}
 
                     {/* Menu Items */}
                     <div className="flex-1 overflow-y-auto py-4 space-y-1 px-3 custom-scrollbar">
                         {sortedMenuItems.map((item) => {
-                            const Icon = item.icon || InfoIcon; // Fallback icon
+                            const Icon = item.icon || InfoIcon;
+                            const isTowerTab = item.tab === Tab.Tower;
+                            // Allow Settings/Admin even if locked? Or strict lock? Strict lock except tower.
+                            // Maybe Chat (Tavern) allowed? Let's be strict for now.
+                            const isDisabled = isLocked && !isTowerTab; 
+
                             return (
                                 <button
                                     key={item.tab}
-                                    onClick={() => { setActiveTab(item.tab); setIsMobileMenuOpen(false); }}
+                                    onClick={() => { 
+                                        if (!isDisabled) {
+                                            setActiveTab(item.tab); 
+                                            setIsMobileMenuOpen(false); 
+                                        }
+                                    }}
+                                    disabled={isDisabled}
                                     className={`
                                         w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
                                         ${activeTab === item.tab 
                                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
-                                            : 'text-gray-400 hover:bg-slate-800 hover:text-white'
+                                            : isDisabled 
+                                                ? 'text-gray-600 cursor-not-allowed opacity-50'
+                                                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
                                         }
                                     `}
                                 >
                                     <div className="flex items-center">
-                                        <Icon className={`h-5 w-5 mr-3 ${activeTab === item.tab ? 'text-white' : 'text-gray-500'}`} />
+                                        <Icon className={`h-5 w-5 mr-3 ${activeTab === item.tab ? 'text-white' : (isDisabled ? 'text-gray-600' : 'text-gray-500')}`} />
                                         {item.label}
+                                        {isDisabled && item.tab !== Tab.Tower && <span className="ml-2 text-[10px] text-red-500">(Zablokowane)</span>}
                                     </div>
-                                    {item.notification && (
+                                    {item.notification && !isDisabled && (
                                         <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                                     )}
                                 </button>

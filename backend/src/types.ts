@@ -795,6 +795,7 @@ export interface PlayerCharacter {
   avatarUrl?: string;
   rentalTax?: number;
   windowBackgroundUrl?: string;
+  activeTowerRun?: ActiveTowerRun | null;
 }
 
 export interface TraderSettings {

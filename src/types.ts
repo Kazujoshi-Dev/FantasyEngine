@@ -865,6 +865,7 @@ export interface PlayerCharacter {
   avatarUrl?: string;
   rentalTax?: number;
   windowBackgroundUrl?: string;
+  activeTowerRun?: ActiveTowerRun | null; // Added field for locking UI
 }
 
 export interface TraderSettings {

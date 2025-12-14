@@ -8,11 +8,13 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
-import { rarityStyles, ItemListItem } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
+import { useTranslation } from '../contexts/LanguageContext';
 
 export const Tower: React.FC = () => {
     const { character, gameData, updateCharacter } = useCharacter();
+    const { t } = useTranslation();
     const [towers, setTowers] = useState<TowerType[]>([]);
     const [activeRun, setActiveRun] = useState<ActiveTowerRun | null>(null);
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
@@ -85,34 +87,11 @@ export const Tower: React.FC = () => {
         }
     };
 
-    const handleContinue = async () => {
-        try {
-            const res = await api.continueTower();
-            setActiveRun(res.activeRun);
-            setCombatResult(null); // Clear previous result
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-    
     const handleCloseReport = () => {
         setReportOpen(false);
-        if (combatResult?.victory) {
-            // Check if completed (currentFloor >= total)
-            const isCompleted = activeRun && activeTower && activeRun.currentFloor >= activeTower.totalFloors;
-            if (isCompleted) {
-                fetchData(); // Reset to lobby
-                api.getCharacter().then(updateCharacter);
-            } else {
-                // Not completed, just refresh run state to see rewards in stash
-                fetchData();
-                api.getCharacter().then(updateCharacter); // Update HP snapshot
-            }
-        } else {
-             // Defeat - already handled
-             fetchData();
-             api.getCharacter().then(updateCharacter);
-        }
+        // After fight, refresh state to reflect new floor or completion
+        fetchData();
+        api.getCharacter().then(updateCharacter);
     };
 
     if (loading) return <ContentPanel title="Wieża Mroku"><p className="text-gray-500">Ładowanie...</p></ContentPanel>;
@@ -145,8 +124,6 @@ export const Tower: React.FC = () => {
                     itemTemplates={gameData.itemTemplates}
                     affixes={gameData.affixes}
                     enemies={gameData.enemies}
-                    // For tower reports, we might want to show loot gained THIS turn, but backend sends accumulated. 
-                    // Let's rely on the combat log for now.
                  />
              );
         }
@@ -194,7 +171,6 @@ export const Tower: React.FC = () => {
                             >
                                 <SwordsIcon className="h-6 w-6"/> WALCZ
                             </button>
-                            {/* Can only continue if combat result exists and victory - handled by modal close logic actually */}
                             
                             <button 
                                 onClick={handleRetreat}
@@ -225,7 +201,7 @@ export const Tower: React.FC = () => {
                             {/* Essences */}
                             {Object.entries(rewards.essences).map(([key, amount]) => (
                                 <div key={key} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-600">
-                                    <span className="text-sm text-white">{key}</span>
+                                    <span className="text-sm text-white">{t(`resources.${key}`)}</span>
                                     <span className="font-mono font-bold text-green-400">x{amount as number}</span>
                                 </div>
                             ))}
@@ -275,10 +251,39 @@ export const Tower: React.FC = () => {
                         {tower.grandPrize && (
                              <div className="bg-amber-900/20 p-3 rounded border border-amber-700/30 mb-4 relative z-10">
                                  <p className="text-xs text-amber-500 font-bold uppercase mb-1">Nagroda Główna</p>
-                                 <div className="flex gap-4 text-sm font-mono">
+                                 <div className="flex gap-4 text-sm font-mono mb-2">
                                      <span className="text-amber-300">{tower.grandPrize.gold}g</span>
                                      <span className="text-sky-300">{tower.grandPrize.experience}xp</span>
                                  </div>
+                                 
+                                 {/* Display Essence Rewards */}
+                                 {tower.grandPrize.essences && Object.keys(tower.grandPrize.essences).length > 0 && (
+                                     <div className="text-xs text-gray-300 space-y-1 mb-2">
+                                         {Object.entries(tower.grandPrize.essences).map(([key, amount]) => (
+                                             <div key={key} className="flex justify-between">
+                                                 <span>{t(`resources.${key}`)}</span>
+                                                 <span className="font-bold text-white">x{amount as number}</span>
+                                             </div>
+                                         ))}
+                                     </div>
+                                 )}
+
+                                 {/* Display Item Rewards */}
+                                 {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
+                                     <div className="space-y-1">
+                                         {tower.grandPrize.items.map((item, idx) => {
+                                             const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
+                                             if (!tmpl) return null;
+                                             const fullName = getGrammaticallyCorrectFullName(item, tmpl, gameData.affixes);
+                                             const color = rarityStyles[tmpl.rarity].text;
+                                             return (
+                                                 <p key={idx} className={`text-xs ${color} truncate`}>
+                                                     {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                                 </p>
+                                             );
+                                         })}
+                                     </div>
+                                 )}
                              </div>
                         )}
 

@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, CharacterStats, EquipmentSlot, ItemInstance, EssenceType, CharacterClass, ItemRarity, GameData, ItemTemplate, Affix } from '../types.js';
+import { PlayerCharacter, CharacterStats, EquipmentSlot, ItemInstance, EssenceType, CharacterClass, ItemRarity, GameData, ItemTemplate, Affix, ActiveTowerRun } from '../types.js';
 import { getCampUpgradeCost, getChestUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getWarehouseCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
@@ -11,12 +11,43 @@ const router = express.Router();
 // GET / - Fetch Character (Mapped from /api/character)
 router.get('/', authenticateToken, async (req: any, res: any) => {
     try {
-        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
-        if (result.rows.length === 0) {
-            return res.json(null);
+        const client = await pool.connect();
+        try {
+            const result = await client.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
+            if (result.rows.length === 0) {
+                return res.json(null);
+            }
+            const charData = result.rows[0].data;
+
+            // Fetch active tower run if exists
+            const towerRes = await client.query(
+                "SELECT * FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'",
+                [req.user.id]
+            );
+
+            if (towerRes.rows.length > 0) {
+                const row = towerRes.rows[0];
+                const activeTowerRun: ActiveTowerRun = {
+                    id: row.id,
+                    userId: row.user_id,
+                    towerId: row.tower_id,
+                    currentFloor: row.current_floor,
+                    currentHealth: row.current_health,
+                    currentMana: row.current_mana,
+                    accumulatedRewards: row.accumulated_rewards,
+                    status: row.status
+                };
+                charData.activeTowerRun = activeTowerRun;
+            } else {
+                charData.activeTowerRun = null;
+            }
+
+            res.json(charData);
+        } finally {
+            client.release();
         }
-        res.json(result.rows[0].data);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Failed to fetch character' });
     }
 });
@@ -240,6 +271,13 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
         
         // Important: activeGuildBuffs are usually transient or need re-injection for calc
         character.activeGuildBuffs = guildBuffs;
+
+        // Check tower run
+        const towerRes = await client.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
+        if (towerRes.rows.length > 0) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Cannot heal inside the Tower.' });
+        }
 
         if (character.activeExpedition || character.activeTravel) {
             await client.query('ROLLBACK');

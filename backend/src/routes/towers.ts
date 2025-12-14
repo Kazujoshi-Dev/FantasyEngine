@@ -123,7 +123,6 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         );
 
         const row = insertRes.rows[0];
-        // Fix: Map snake_case from DB to camelCase for frontend
         const activeRun: ActiveTowerRun = {
             id: row.id,
             userId: row.user_id,
@@ -264,27 +263,18 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     if (tower.grandPrize.items && tower.grandPrize.items.length > 0) {
                         for (const itemDef of tower.grandPrize.items) {
                             // Re-generate item to give it a unique ID for the player
-                            // itemDef serves as the "blueprint"
                             const newItem = createItemInstance(
                                 itemDef.templateId, 
                                 gameData.itemTemplates, 
                                 gameData.affixes, 
                                 undefined, 
-                                false // don't re-roll affixes if we want exact? Actually createItemInstance re-rolls.
+                                false 
                             );
                             
-                            // If the grand prize definition has specific affixes/upgrade level, apply them
-                            // but keep the new uniqueId
+                            // Re-apply specific affixes/upgrade level
                             newItem.prefixId = itemDef.prefixId;
                             newItem.suffixId = itemDef.suffixId;
                             newItem.upgradeLevel = itemDef.upgradeLevel;
-                            
-                            // Recalculate stats based on enforced affixes/level if createItemInstance was random
-                            // For simplicity, we assume createItemInstance logic handles stats generation if ids provided,
-                            // but currently createItemInstance generates random if allowed.
-                            // Ideally we should have a 'reconstructItem' helper. 
-                            // Since we don't have one readily exported, we accept random rolls on the affixes stats, 
-                            // or simple push the definition with a new ID.
                             
                             newItem.uniqueId = randomUUID(); // Critical: New ID
                             rewards.items.push(newItem);
@@ -338,9 +328,10 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 );
                 
             } else {
-                // Just update run state
+                // Just update run state AND INCREMENT FLOOR
+                // This automatically moves the player to the next floor upon victory
                 await client.query(
-                    "UPDATE tower_runs SET accumulated_rewards = $1, current_health = $2, current_mana = $3 WHERE id = $4",
+                    "UPDATE tower_runs SET accumulated_rewards = $1, current_health = $2, current_mana = $3, current_floor = current_floor + 1 WHERE id = $4",
                     [JSON.stringify(rewards), finalHealth, finalMana, activeRun.id]
                 );
             }
@@ -371,6 +362,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
 });
 
 // POST /api/towers/continue
+// This endpoint is largely redundant now that fight auto-increments, but kept for manual overrides or specific mechanics if needed later.
 router.post('/continue', authenticateToken, async (req: any, res: any) => {
     const userId = req.user.id;
     try {
