@@ -4,50 +4,26 @@ import { GameData } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
 
-// Imports of existing tabs
+// Tab Imports
+import { GeneralTab } from './admin/tabs/GeneralTab';
+import { UsersTab } from './admin/tabs/UsersTab';
 import { TriviaTab } from './admin/tabs/TriviaTab';
-// Placeholder imports for potentially missing tabs - in a real scenario these files must exist
-// Since I cannot create 20 files in one go, I will assume the structure is correct OR provide fallback UI for missing tabs if I could dynamic import.
-// For now, I will include the imports as if they exist, to satisfy the build system assuming the user restored them or I will recreate critical ones in subsequent prompts if they fail.
-// Given the error was specific to CharacterCreation, these might actually exist on the user's disk from previous steps. 
-// If they don't, the build will fail again, and I will fix them one by one.
+import { GenericAdminTab } from './admin/GenericAdminTab';
 
-// To be safe against "Module not found", I will comment out imports for tabs that were NOT listed in the "existing files" of the prompt
-// and replace them with simple placeholders in this file. 
-// EXCEPT TriviaTab which I saw.
+// --- Placeholders for unimplemented specific tabs to prevent crashes ---
+const PlaceholderTab: React.FC<{name: string}> = ({name}) => (
+    <div className="flex items-center justify-center h-full text-gray-500 p-4 border border-dashed border-gray-700 rounded-lg">
+        Zakładka {name} jest w trakcie budowy lub używa widoku generycznego (sprawdź kod).
+    </div>
+);
 
-// Actually, `src/components/admin/tabs/TriviaTab.tsx` was listed.
-// I will create simple placeholder components for the others INSIDE this file to guarantee build success.
-
-// --- Placeholders for missing tabs to ensure build passes ---
-const PlaceholderTab: React.FC<{name: string}> = ({name}) => <div className="text-gray-500 p-4">Tab {name} loaded (Content pending restoration).</div>;
-
-// If you have the files, uncomment these imports and remove the placeholders below.
-// import { GeneralTab } from './admin/tabs/GeneralTab';
-// import { UsersTab } from './admin/tabs/UsersTab';
-// ... etc
-
-// -- Temporary implementations to make App.tsx valid --
-const GeneralTab = (props: any) => <PlaceholderTab name="General" />;
-const UsersTab = (props: any) => <PlaceholderTab name="Users" />;
-const LocationsTab = (props: any) => <PlaceholderTab name="Locations" />;
-const ExpeditionsTab = (props: any) => <PlaceholderTab name="Expeditions" />;
-const EnemiesTab = (props: any) => <PlaceholderTab name="Enemies" />;
-const BossesTab = (props: any) => <PlaceholderTab name="Bosses" />;
-const ItemsTab = (props: any) => <PlaceholderTab name="Items" />;
+// Specific stubs for complex features we haven't built dedicated UIs for yet
 const ItemCreatorTab = (props: any) => <PlaceholderTab name="ItemCreator" />;
-const AffixesTab = (props: any) => <PlaceholderTab name="Affixes" />;
-const QuestsTab = (props: any) => <PlaceholderTab name="Quests" />;
 const PvpTab = (props: any) => <PlaceholderTab name="Pvp" />;
 const ItemInspectorTab = (props: any) => <PlaceholderTab name="ItemInspector" />;
 const DuplicationAuditTab = (props: any) => <PlaceholderTab name="DuplicationAudit" />;
 const OrphanAuditTab = (props: any) => <PlaceholderTab name="OrphanAudit" />;
 const DataIntegrityTab = (props: any) => <PlaceholderTab name="DataIntegrity" />;
-const UniversityTab = (props: any) => <PlaceholderTab name="University" />;
-const HuntingTab = (props: any) => <PlaceholderTab name="Hunting" />;
-const RitualsTab = (props: any) => <PlaceholderTab name="Rituals" />;
-const GuildsTab = (props: any) => <PlaceholderTab name="Guilds" />;
-
 
 interface AdminPanelProps {
   gameData: GameData;
@@ -60,6 +36,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
+  // Defensive check for gameData
   const safeGameData: GameData = gameData || {
       locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], settings: { language: 'pl' as any }
   };
@@ -73,21 +50,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
 
   const renderActiveTab = () => {
     switch (adminTab) {
+      // Specialized Tabs
       case 'general': return <GeneralTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onForceTraderRefresh={() => api.getTraderInventory(true)} onSendGlobalMessage={api.sendGlobalMessage} />;
-      case 'trivia': return <TriviaTab gameData={safeGameData} />;
-      case 'guilds': return <GuildsTab />;
-      case 'hunting': return <HuntingTab settings={settings} onSettingsUpdate={handleSettingsUpdate} />;
       case 'users': return <UsersTab gameData={safeGameData} />;
-      case 'locations': return <LocationsTab locations={safeGameData.locations} onGameDataUpdate={onGameDataUpdate} />;
-      case 'expeditions': return <ExpeditionsTab expeditions={safeGameData.expeditions} locations={safeGameData.locations} enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'enemies': return <EnemiesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'bosses': return <BossesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'items': return <ItemsTab itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
+      case 'trivia': return <TriviaTab gameData={safeGameData} />;
+      
+      // Generic Data Tabs (Powered by GenericAdminTab)
+      case 'locations': 
+          return <GenericAdminTab data={safeGameData.locations} dataKey="locations" onUpdate={onGameDataUpdate} title="Lokacje" displayField="name" />;
+      case 'expeditions': 
+          return <GenericAdminTab data={safeGameData.expeditions} dataKey="expeditions" onUpdate={onGameDataUpdate} title="Wyprawy" displayField="name" />;
+      case 'enemies': 
+          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => !e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Wrogowie" displayField="name" />;
+      case 'bosses': 
+          return <GenericAdminTab data={(safeGameData.enemies || []).filter(e => e.isBoss)} dataKey="enemies" onUpdate={onGameDataUpdate} title="Bossowie" displayField="name" />;
+      case 'items': 
+          return <GenericAdminTab data={safeGameData.itemTemplates} dataKey="itemTemplates" onUpdate={onGameDataUpdate} title="Przedmioty" displayField="name" />;
+      case 'affixes': 
+          return <GenericAdminTab data={safeGameData.affixes} dataKey="affixes" onUpdate={onGameDataUpdate} title="Afiksy" displayField="name.masculine" />;
+      case 'quests': 
+          return <GenericAdminTab data={safeGameData.quests} dataKey="quests" onUpdate={onGameDataUpdate} title="Zadania" displayField="name" />;
+      case 'university': 
+          return <GenericAdminTab data={safeGameData.skills} dataKey="skills" onUpdate={onGameDataUpdate} title="Umiejętności" displayField="name" />;
+      case 'rituals': 
+          return <GenericAdminTab data={safeGameData.rituals || []} dataKey="rituals" onUpdate={onGameDataUpdate} title="Rytuały" displayField="name" />;
+      
+      // Placeholders / Pending Implementation
+      case 'guilds': return <PlaceholderTab name="Gildie" />;
+      case 'hunting': return <PlaceholderTab name="Polowania" />;
       case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
-      case 'affixes': return <AffixesTab affixes={safeGameData.affixes} onGameDataUpdate={onGameDataUpdate} />;
-      case 'quests': return <QuestsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
-      case 'university': return <UniversityTab skills={safeGameData.skills} onGameDataUpdate={onGameDataUpdate} />;
-      case 'rituals': return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       case 'pvp': return <PvpTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onResetAllPvpCooldowns={api.resetAllPvpCooldowns} />;
       case 'itemInspector': return <ItemInspectorTab gameData={safeGameData} />;
       case 'dataIntegrity': return <DataIntegrityTab />;
@@ -100,24 +91,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
   const ADMIN_TABS: { id: AdminTab, label: string }[] = [
     { id: 'general', label: 'Ogólne' },
     { id: 'users', label: 'Użytkownicy' },
-    { id: 'guilds', label: 'Gildie' },
     { id: 'locations', label: 'Lokacje' },
     { id: 'expeditions', label: 'Wyprawy' },
     { id: 'enemies', label: 'Wrogowie' },
     { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },
-    { id: 'itemCreator', label: 'Kreator' },
+    { id: 'affixes', label: 'Afiksy' },
     { id: 'quests', label: 'Zadania' },
     { id: 'university', label: 'Umiejętności' },
     { id: 'rituals', label: 'Rytuały' },
-    { id: 'affixes', label: 'Afiksy' },
-    { id: 'hunting', label: 'Polowania' },
-    { id: 'pvp', label: 'PvP' },
-    { id: 'itemInspector', label: 'Inspektor' },
-    { id: 'dataIntegrity', label: 'Kondycja' },
-    { id: 'duplicationAudit', label: 'Duplikaty' },
-    { id: 'orphanAudit', label: 'Sieroty' },
     { id: 'trivia', label: 'Info' },
+    { id: 'itemCreator', label: 'Kreator (Wkrótce)' },
+    { id: 'pvp', label: 'PvP (Wkrótce)' },
+    { id: 'dataIntegrity', label: 'Audyty' },
   ];
 
   return (
@@ -126,7 +112,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
             {t('admin.title')}
         </h2>
         
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-4 flex-shrink-0">
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-4 flex-shrink-0 max-h-32 overflow-y-auto">
             {ADMIN_TABS.map(tab => (
                 <button
                     key={tab.id}
