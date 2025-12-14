@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ItemInstance, ItemRarity, EquipmentSlot } from '../types';
-import { ItemList, ItemDetailsPanel } from './shared/ItemSlot';
+import { ItemList, ItemDetailsPanel, rarityStyles, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { HandshakeIcon } from './icons/HandshakeIcon';
 import { api } from '../api';
@@ -139,12 +139,22 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                 }
                 return newSet;
             });
-            // Update preview to show the last clicked item
+            // Update preview to show the last clicked item if selecting, 
+            // BUT if we are deselecting the currently viewed item, we might want to switch view or keep it.
+            // For simplicity, we just set it as "last interacted".
             setSelectedItem({ item, source: 'sell' });
         } else {
             // In Buy mode, single selection
             setSelectedItem({ item, source: 'buy' });
         }
+    };
+
+    const handleDeselectOne = (uniqueId: string) => {
+        setSelectedSellIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(uniqueId);
+            return newSet;
+        });
     };
 
     const getSellPrice = (item: ItemInstance) => {
@@ -198,17 +208,14 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
     const selectedTemplate = selectedItem ? itemTemplates.find(t => t.id === selectedItem.item.templateId) : null;
     
     // Calculate total value of selected sell items
+    const selectedItemsList = useMemo(() => {
+        if (activeTab !== 'sell') return [];
+        return character.inventory.filter(i => selectedSellIds.has(i.uniqueId));
+    }, [selectedSellIds, character.inventory, activeTab]);
+
     const selectedSellValue = useMemo(() => {
-        let total = 0;
-        if (activeTab === 'sell') {
-            character.inventory.forEach(item => {
-                if (selectedSellIds.has(item.uniqueId)) {
-                    total += getSellPrice(item);
-                }
-            });
-        }
-        return total;
-    }, [selectedSellIds, character.inventory, activeTab, gameData]);
+        return selectedItemsList.reduce((sum, item) => sum + getSellPrice(item), 0);
+    }, [selectedItemsList, gameData]);
 
     const selectedPrice = selectedItem 
         ? (selectedItem.source === 'buy' 
@@ -217,6 +224,9 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
         : 0;
 
     const canAfford = selectedItem?.source === 'buy' && character.resources.gold >= selectedPrice;
+
+    // Determine what to render in the right column
+    const isMultiSellMode = activeTab === 'sell' && selectedSellIds.size > 1;
 
     return (
         <ContentPanel title={t('trader.title')}>
@@ -322,8 +332,11 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
 
                 {/* Details Column */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center border border-slate-700/50">
-                    {/* Sell Tab Bulk Actions */}
-                    {activeTab === 'sell' && (
+                    
+                    {/* Sell Tab: Bulk Sell Buttons (Only show when not in multi-select summary view for cleaner UI, or always?) 
+                        Let's keep them always visible in Sell tab as shortcuts.
+                    */}
+                    {activeTab === 'sell' && !isMultiSellMode && (
                         <div className="w-full mb-6 pb-6 border-b border-slate-700/50">
                              <h4 className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider text-center">{t('trader.bulkSellTitle')}</h4>
                              <div className="grid grid-cols-2 gap-2 mb-2">
@@ -337,18 +350,67 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                                     </button>
                                 ))}
                              </div>
-                             {selectedSellIds.size > 0 && (
-                                <button 
-                                    onClick={handleSellSelected}
-                                    className="w-full mt-2 py-2 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded shadow-lg transition-all"
-                                >
-                                    {t('trader.sellSelected', { count: selectedSellIds.size })} <span className="font-mono ml-1">({selectedSellValue}g)</span>
-                                </button>
-                             )}
                         </div>
                     )}
 
-                    {selectedItem && selectedTemplate ? (
+                    {/* CONTENT AREA: Multi-Select Summary OR Single Item Detail OR Empty */}
+                    
+                    {isMultiSellMode ? (
+                        /* MULTI-SELECT SUMMARY VIEW */
+                        <div className="w-full flex flex-col h-full animate-fade-in">
+                            <h3 className="text-xl font-bold text-gray-200 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
+                                <span>Podsumowanie</span>
+                                <span className="text-sm font-normal text-gray-400">Wybrano: {selectedSellIds.size}</span>
+                            </h3>
+                            
+                            <div className="flex-grow overflow-y-auto pr-2 space-y-2 mb-4 custom-scrollbar">
+                                {selectedItemsList.map(item => {
+                                    const template = itemTemplates.find(t => t.id === item.templateId);
+                                    if (!template) return null;
+                                    const price = getSellPrice(item);
+                                    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+                                    const { text: rarityColor } = rarityStyles[template.rarity];
+
+                                    return (
+                                        <div key={item.uniqueId} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain bg-slate-900 rounded" />
+                                                <span className={`text-sm font-medium truncate ${rarityColor}`}>{fullName}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="font-mono text-amber-400 text-sm">{price}</span>
+                                                <button 
+                                                    onClick={() => handleDeselectOne(item.uniqueId)}
+                                                    className="text-gray-500 hover:text-red-400 p-1"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-auto pt-4 border-t border-slate-700">
+                                <div className="flex justify-between items-center mb-4 text-lg">
+                                    <span className="text-gray-300 font-medium">
+                                        {t('trader.totalValue')}:
+                                    </span>
+                                    <span className="font-mono font-bold flex items-center text-amber-400 text-xl">
+                                        {selectedSellValue.toLocaleString()} <CoinsIcon className="h-6 w-6 ml-1"/>
+                                    </span>
+                                </div>
+                                <button 
+                                    onClick={handleSellSelected}
+                                    className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded shadow-lg transition-all transform hover:scale-[1.02]"
+                                >
+                                    {t('trader.sellSelected', { count: selectedSellIds.size })}
+                                </button>
+                            </div>
+                        </div>
+
+                    ) : selectedItem && selectedTemplate ? (
+                        /* SINGLE ITEM DETAIL VIEW */
                         <div className="w-full flex flex-col h-full">
                             <div className="flex-grow">
                                 <ItemDetailsPanel 
@@ -389,6 +451,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                             </div>
                         </div>
                     ) : (
+                        /* EMPTY STATE */
                         <div className="flex flex-col items-center justify-center h-full text-slate-500">
                             <HandshakeIcon className="h-16 w-16 mb-4 opacity-50" />
                             <p>{t('equipment.selectItemPrompt')}</p>
