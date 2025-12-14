@@ -78,6 +78,7 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
         if (race === 'Human') { defaultStats.strength++; defaultStats.agility++; defaultStats.stamina++; defaultStats.intelligence++; }
 
         const newCharacter: PlayerCharacter = {
+            id: 0, // Placeholder ID, DB will generate real one
             name, race, level: 1, experience: 0, experienceToNextLevel: 100,
             stats: defaultStats,
             resources: { gold: 100, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 },

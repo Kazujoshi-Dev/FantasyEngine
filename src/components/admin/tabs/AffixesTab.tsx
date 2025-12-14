@@ -1,4 +1,8 @@
 
+// This file seems to be a duplicate or old location of AffixEditor. 
+// If it is indeed the Tab component that lists affixes, it should import the editor from ../editors/
+// Based on the file content provided in previous turn, it was the TAB component.
+
 import React, { useState, useMemo } from 'react';
 import { GameData, Affix, AffixType } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';

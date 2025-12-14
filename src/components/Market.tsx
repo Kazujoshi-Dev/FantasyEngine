@@ -10,6 +10,7 @@ import { ClockIcon } from './icons/ClockIcon';
 import { StarIcon } from './icons/StarIcon';
 import { ScaleIcon } from './icons/ScaleIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 const CountdownTimer: React.FC<{ until: string, onFinish?: () => void }> = ({ until, onFinish }) => {
     const { t } = useTranslation();
@@ -385,7 +386,7 @@ const CreateListing: React.FC<{
     const { character, gameData, updateCharacter: onCharacterUpdate } = useCharacter();
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ItemInstance | null>(null);
-    const [listingType, setListingType] = useState<ListingType>('buy_now');
+    const [listingType, setListingType] = useState<ListingType>(ListingType.BuyNow);
     const [price, setPrice] = useState<string>('');
     const [duration, setDuration] = useState<number>(8);
     const [currency, setCurrency] = useState<CurrencyType>('gold');
@@ -499,7 +500,7 @@ const CreateListing: React.FC<{
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('market.create.listingType')}</label>
-                                <div className="flex gap-2"><button onClick={() => setListingType('buy_now')} className={`w-full py-2 rounded ${listingType === 'buy_now' ? 'bg-indigo-600' : 'bg-slate-700'}`}>{t('market.create.buyNow')}</button><button onClick={() => setListingType('auction')} className={`w-full py-2 rounded ${listingType === 'auction' ? 'bg-indigo-600' : 'bg-slate-700'}`}>{t('market.create.auction')}</button></div>
+                                <div className="flex gap-2"><button onClick={() => setListingType(ListingType.BuyNow)} className={`w-full py-2 rounded ${listingType === 'buy_now' ? 'bg-indigo-600' : 'bg-slate-700'}`}>{t('market.create.buyNow')}</button><button onClick={() => setListingType(ListingType.Auction)} className={`w-full py-2 rounded ${listingType === 'auction' ? 'bg-indigo-600' : 'bg-slate-700'}`}>{t('market.create.auction')}</button></div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-1">{listingType === 'buy_now' ? t('market.create.price') : t('market.create.startingBid')}</label>

@@ -54,7 +54,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         turn, attacker: playerState.name, defender: enemyState.name, action: 'starts a fight with',
         playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
         enemyHealth: enemyState.currentHealth, enemyMana: enemyState.currentMana,
-        playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats, enemyDescription: enemyState.description
+        playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats as EnemyStats, enemyDescription: enemyState.description
     });
     
     // --- Turn 0: Ranged Weapons Logic ---

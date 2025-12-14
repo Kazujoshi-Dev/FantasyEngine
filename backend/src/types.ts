@@ -1,3 +1,4 @@
+
 export enum Race {
     Human = 'Human',
     Elf = 'Elf',
@@ -161,6 +162,13 @@ export enum MessageType {
 export enum Language {
     PL = 'pl',
     EN = 'en',
+}
+
+export enum TowerRunStatus {
+    IN_PROGRESS = 'IN_PROGRESS',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    RETREATED = 'RETREATED'
 }
 
 export const Tab = {
@@ -653,6 +661,7 @@ export interface CombatLogEntry {
     defender: string;
     action: string;
     damage?: number;
+    bonusDamage?: number;
     isCrit?: boolean;
     damageReduced?: number;
     healthGained?: number;
@@ -665,6 +674,7 @@ export interface CombatLogEntry {
     specialAttackType?: SpecialAttackType;
     shout?: SpecialAttackType;
     aoeDamage?: { target: string, damage: number }[];
+    stunnedPlayer?: string;
     
     playerHealth: number;
     playerMana: number;

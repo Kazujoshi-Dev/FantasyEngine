@@ -80,6 +80,9 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
                 magicDamageMin: defenderWithStats.stats.magicDamageMin,
                 magicDamageMax: defenderWithStats.stats.magicDamageMax,
                 attacksPerTurn: defenderWithStats.stats.attacksPerRound,
+                // Default values for EnemyStats required properties
+                magicAttackChance: 0,
+                magicAttackManaCost: 0,
             },
             rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
             lootTable: [],

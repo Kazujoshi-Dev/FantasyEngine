@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
@@ -81,7 +82,7 @@ export const simulateTeamVsBossCombat = (
         turn, attacker: 'Drużyna', defender: bossState.name, action: 'starts a fight with',
         ...getHealthStateForLog(), 
         playerStats: playersData[0]?.stats, 
-        enemyStats: bossState.stats, 
+        enemyStats: bossState.stats as EnemyStats, 
         enemyDescription: bossData.description,
         partyMemberStats: partyStats
     });

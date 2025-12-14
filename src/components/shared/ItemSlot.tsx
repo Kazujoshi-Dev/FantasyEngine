@@ -26,9 +26,14 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
         genderKey = 'neuter';
     }
     
-    // Handle old affix data that might still be a string for backward compatibility
-    const prefixName = (prefixAffix && typeof prefixAffix.name === 'object') ? prefixAffix.name[genderKey] : (prefixAffix?.name as unknown as string);
-    const suffixName = (suffixAffix && typeof suffixAffix.name === 'object') ? suffixAffix.name[genderKey] : (suffixAffix?.name as unknown as string);
+    const getName = (affix: Affix | undefined) => {
+        if (!affix) return '';
+        if (typeof affix.name === 'string') return affix.name;
+        return affix.name[genderKey] || affix.name.masculine || '';
+    };
+
+    const prefixName = getName(prefixAffix);
+    const suffixName = getName(suffixAffix);
 
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
@@ -89,8 +94,14 @@ export const ItemDetailsPanel: React.FC<{
         genderKey = 'neuter';
     }
     
-    const prefixName = (prefix && typeof prefix.name === 'object') ? prefix.name[genderKey] : (prefix?.name as unknown as string);
-    const suffixName = (suffix && typeof suffix.name === 'object') ? suffix.name[genderKey] : (suffix?.name as unknown as string);
+    const getName = (affix: Affix | undefined) => {
+        if (!affix) return '';
+        if (typeof affix.name === 'string') return affix.name;
+        return affix.name[genderKey] || affix.name.masculine || '';
+    };
+
+    const prefixName = getName(prefix);
+    const suffixName = getName(suffix);
 
     const totalValue = (() => {
         if (!template) return 0;

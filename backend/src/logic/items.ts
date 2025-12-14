@@ -1,3 +1,4 @@
+
 import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, ItemCategory, EquipmentSlot, PlayerCharacter } from '../types.js';
 import { randomUUID } from 'crypto';
 
@@ -44,7 +45,8 @@ export const rollAffixStats = (affix: Affix, luck: number = 0): RolledAffixStats
     ];
     
     for (const key of otherStatKeys) {
-        const value = rollValueWithLuck((affix as any)[key], luck);
+        const val = (affix as any)[key] as { min: number, max: number } | undefined;
+        const value = rollValueWithLuck(val, luck);
         if (value !== undefined) {
             (rolled as any)[key] = value;
         }
@@ -101,8 +103,14 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
         genderKey = 'neuter';
     }
     
-    const prefixName = (prefixAffix && typeof prefixAffix.name === 'object') ? prefixAffix.name[genderKey] : (prefixAffix?.name as unknown as string);
-    const suffixName = (suffixAffix && typeof suffixAffix.name === 'object') ? suffixAffix.name[genderKey] : (suffixAffix?.name as unknown as string);
+    const getName = (affix: Affix | undefined) => {
+        if (!affix) return '';
+        if (typeof affix.name === 'string') return affix.name;
+        return affix.name[genderKey] || affix.name.masculine || '';
+    };
+
+    const prefixName = getName(prefixAffix);
+    const suffixName = getName(suffixAffix);
 
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
