@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -154,8 +153,29 @@ router.post('/equip', authenticateToken, async (req: any, res: any) => {
         }
         let character: PlayerCharacter = charRes.rows[0].data;
 
-        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key = 'itemTemplates'");
-        const itemTemplates: ItemTemplate[] = gameDataRes.rows[0].data;
+        // FETCH ALL NECESSARY DATA FOR STAT CALCULATION
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
+        const itemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
+
+        // FETCH GUILD DATA
+        const guildRes = await client.query(`
+            SELECT g.buildings, g.active_buffs
+            FROM guild_members gm
+            JOIN guilds g ON gm.guild_id = g.id
+            WHERE gm.user_id = $1
+        `, [req.user.id]);
+
+        let barracksLevel = 0;
+        let shrineLevel = 0;
+        let activeBuffs = [];
+
+        if (guildRes.rows.length > 0) {
+            barracksLevel = guildRes.rows[0].buildings?.barracks || 0;
+            shrineLevel = guildRes.rows[0].buildings?.shrine || 0;
+            activeBuffs = guildRes.rows[0].active_buffs || [];
+        }
 
         // 2. Find Item in Inventory
         const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
@@ -177,13 +197,23 @@ router.post('/equip', authenticateToken, async (req: any, res: any) => {
              return res.status(400).json({ message: 'Level requirement not met' });
         }
         if (template.requiredStats) {
-             // We need to check against BASE stats to prevent infinite loop of stat requirements from items
-             // Or check against current stats but ensure we don't unequip things that break this...
-             // For simplicity, we check current stats. 
+             // CALCULATE DERIVED STATS FOR VALIDATION
+             // This ensures equipment bonuses, guild buffs, and skills are counted
+             const characterWithStats = calculateDerivedStatsOnServer(
+                character,
+                itemTemplates,
+                affixes,
+                barracksLevel,
+                shrineLevel,
+                skills,
+                activeBuffs
+             );
+
              for (const stat of Object.keys(template.requiredStats)) {
                 const key = stat as keyof CharacterStats;
                 const reqValue = template.requiredStats[key] || 0;
-                if ((character.stats[key] || 0) < reqValue) {
+                // Use the calculated stats
+                if ((characterWithStats.stats[key] || 0) < reqValue) {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ message: `Requirement for ${stat} not met` });
                 }
