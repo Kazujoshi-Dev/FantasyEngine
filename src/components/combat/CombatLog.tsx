@@ -13,24 +13,78 @@ interface CombatLogRowProps {
 export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, isHunting, huntingMembers }) => {
     const { t } = useTranslation();
     const isPlayerAttacker = log.attacker === characterName || (isHunting && huntingMembers?.some(m => m.characterName === log.attacker));
-    const isPlayerDefender = log.defender === characterName || (isHunting && huntingMembers?.some(m => m.characterName === log.defender));
+    
+    // Helper to extract Health Status for the defender/target of the action
+    const getTargetHealthStatus = (): string => {
+        const targetName = log.defender;
+        if (!targetName) return '';
 
-    let actionText = '';
+        let current = 0;
+        let max = 0;
+        let found = false;
+
+        // 1. Try to find in arrays (Team/Party combat)
+        if (log.allPlayersHealth) {
+            const p = log.allPlayersHealth.find(x => x.name === targetName);
+            if (p) { current = p.currentHealth; max = p.maxHealth; found = true; }
+        }
+        if (!found && log.allEnemiesHealth) {
+            const e = log.allEnemiesHealth.find(x => x.name === targetName);
+            if (e) { current = e.currentHealth; max = e.maxHealth; found = true; }
+        }
+
+        // 2. Fallback for 1v1 (Scalars)
+        if (!found) {
+            // Determine if the target (defender) is the Player side or Enemy side
+            const isTargetPlayerSide = targetName === characterName;
+            
+            if (isTargetPlayerSide) {
+                current = log.playerHealth;
+                // We assume max health might be available in stats if this is the first log, 
+                // but usually log entries don't carry maxHealth in 1v1 scalars. 
+                // We'll just show current HP for simplicity in fallback.
+                if (log.playerStats) max = log.playerStats.maxHealth;
+            } else {
+                current = log.enemyHealth;
+                if (log.enemyStats) max = log.enemyStats.maxHealth;
+            }
+        }
+        
+        // Format
+        const currentDisplay = Math.max(0, Math.floor(current));
+        if (max > 0) {
+            return `(HP: ${currentDisplay}/${max})`;
+        }
+        return `(HP: ${currentDisplay})`;
+    };
+
+    const hpText = getTargetHealthStatus();
+    const hpSpan = <span className="text-gray-500 text-xs ml-1 font-mono">{hpText}</span>;
+
+    let actionText: React.ReactNode = '';
     let textColor = 'text-gray-300';
 
     switch (log.action) {
         case 'starts a fight with':
-            actionText = `${t('expedition.versus')} ${log.defender}`;
+            actionText = <span>{`${t('expedition.versus')} ${log.defender}`}</span>;
             textColor = 'text-amber-400 font-bold text-center my-2';
             break;
         case 'attacks':
             // Display weapon name if available
             const weaponText = log.weaponName ? `(${log.weaponName})` : '';
-            actionText = `${t('expedition.attacks')} ${log.defender} ${weaponText}`;
+            actionText = (
+                <span>
+                    {t('expedition.attacks')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan} {weaponText}
+                </span>
+            );
             break;
         case 'magicAttack':
             const spellName = log.magicAttackType ? t(`item.magic.${log.magicAttackType}`) : 'Magia';
-            actionText = `${t('expedition.casts')} ${spellName} ${t('expedition.on')} ${log.defender}`;
+            actionText = (
+                <span>
+                    {t('expedition.casts')} {spellName} {t('expedition.on')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan}
+                </span>
+            );
             textColor = 'text-purple-300';
             break;
         case 'dodge':
@@ -38,7 +92,7 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             textColor = 'text-blue-300 italic';
             return (
                 <div className={`text-sm ${textColor}`}>
-                    <span className="font-bold">{log.defender}</span> {actionText}
+                    <span className="font-bold">{log.defender}</span> {hpSpan} {actionText}
                 </div>
             );
         case 'death':
@@ -58,14 +112,23 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
                 damage: log.damage,
                 stacks: log.damage // reusing damage field for stacks
             });
-            return <div className="text-xs text-yellow-500 italic text-center">{effectName}</div>;
+            // For effects like burning that deal damage, we might want to show HP too
+            return (
+                <div className="text-xs text-yellow-500 italic text-center">
+                    {effectName} {log.damage && log.damage > 0 ? hpSpan : null}
+                </div>
+            );
         case 'specialAttackLog':
             const specialName = t(`specialAttacks.${log.specialAttackType}`);
             return <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-1 my-1">{log.attacker} używa {specialName}!</div>;
         case 'boss_shout':
             return <div className="text-sm text-red-500 font-serif italic text-center">"{t(`bossShouts.${log.shout}`)}"</div>;
         case 'shaman_power':
-            actionText = `${t('expedition.shamanPower')} ${log.defender}`;
+            actionText = (
+                <span>
+                    {t('expedition.shamanPower')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan}
+                </span>
+            );
             textColor = 'text-blue-400';
             break;
         case 'orc_fury':
@@ -73,7 +136,11 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
         case 'berserker_frenzy':
             return <div className="text-xs text-red-400 italic text-center">{t('expedition.berserkerFrenzyLog', { attacker: log.attacker })}</div>;
         case 'hunter_bonus_shot':
-            actionText = `(Szybki strzał) ${t('expedition.attacks')} ${log.defender}`;
+            actionText = (
+                <span>
+                    (Szybki strzał) {t('expedition.attacks')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan}
+                </span>
+            );
             textColor = 'text-green-300';
             break;
         default:
