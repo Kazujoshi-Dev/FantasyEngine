@@ -2,7 +2,8 @@
 import express from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race } from '../types.js';
+import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -188,6 +189,47 @@ router.post('/characters/:id/heal', async (req: any, res: any) => {
     }
 });
 
+router.post('/characters/:id/regenerate-energy', async (req: any, res: any) => {
+    const userId = req.params.id;
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+            if (charRes.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ message: 'Character not found' });
+            }
+
+            const char: PlayerCharacter = charRes.rows[0].data;
+
+            // Fetch game data to properly calculate max energy
+            const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+            const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+            // Calculate derived stats to ensure maxEnergy is correct based on stats/items
+            const derivedChar = calculateDerivedStatsOnServer(char, itemTemplates, affixes);
+            const maxEnergy = derivedChar.stats.maxEnergy || 10;
+
+            char.stats.currentEnergy = maxEnergy;
+            
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
+            await client.query('COMMIT');
+            
+            res.json({ message: 'Energy regenerated', currentEnergy: maxEnergy });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error regenerating energy' });
+    }
+});
+
 router.post('/characters/:id/reset-stats', async (req: any, res: any) => {
     try {
         const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.params.id]);
@@ -209,6 +251,70 @@ router.post('/characters/:id/reset-stats', async (req: any, res: any) => {
         res.json({ message: 'Stats reset' });
     } catch (err) {
         res.status(500).json({ message: 'Error' });
+    }
+});
+
+router.post('/characters/:id/reset-progress', async (req: any, res: any) => {
+    try {
+        const userId = req.params.id;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+            if (result.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ message: 'Not found' });
+            }
+            
+            const oldChar = result.rows[0].data;
+            
+            // Hard Reset to default level 1 state
+            const resetChar: PlayerCharacter = {
+                ...oldChar,
+                level: 1,
+                experience: 0,
+                experienceToNextLevel: 100,
+                stats: {
+                    strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1, statPoints: 10,
+                    currentHealth: 50, maxHealth: 50, currentMana: 20, maxMana: 20, currentEnergy: 10, maxEnergy: 10,
+                    minDamage: 1, maxDamage: 2, magicDamageMin: 0, magicDamageMax: 0,
+                    armor: 0, critChance: 0, critDamageModifier: 200, attacksPerRound: 1, dodgeChance: 0, manaRegen: 0,
+                    armorPenetrationPercent: 0, armorPenetrationFlat: 0, lifeStealPercent: 0, lifeStealFlat: 0, manaStealPercent: 0, manaStealFlat: 0
+                },
+                resources: { gold: 100, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 },
+                equipment: { head: null, chest: null, legs: null, feet: null, hands: null, waist: null, neck: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null },
+                inventory: [],
+                activeTravel: null,
+                activeExpedition: null,
+                isResting: false,
+                backpack: { level: 1 },
+                camp: { level: 1 },
+                treasury: { level: 1, gold: 0 },
+                warehouse: { level: 1, items: [] },
+                acceptedQuests: [],
+                questProgress: [],
+                learnedSkills: [],
+                activeSkills: [],
+                pvpWins: 0,
+                pvpLosses: 0,
+                pvpProtectionUntil: 0,
+                characterClass: undefined, // Reset class
+                activeTowerRun: undefined
+            };
+
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(resetChar), userId]);
+            await client.query('COMMIT');
+            
+            res.json({ message: 'Progress hard reset successful' });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error resetting progress' });
     }
 });
 
