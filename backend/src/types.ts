@@ -260,7 +260,7 @@ export interface PlayerCharacter {
     warehouse?: { level: number; items: ItemInstance[] };
     
     acceptedQuests: string[];
-    questProgress: { questId: string; progress: number; completions: number }[];
+    questProgress: PlayerQuestProgress[];
     
     learnedSkills: string[];
     activeSkills: string[];
@@ -269,7 +269,7 @@ export interface PlayerCharacter {
     pvpLosses: number;
     pvpProtectionUntil: number;
     
-    traderData?: { regularItems: ItemInstance[]; specialOfferItems: ItemInstance[]; lastRefresh: number };
+    traderData?: TraderData;
     
     guildId?: number;
     guildBarracksLevel?: number;
@@ -556,6 +556,12 @@ export interface Quest {
     repeatable: number; // 0 = infinite
 }
 
+export interface PlayerQuestProgress {
+    questId: string;
+    progress: number;
+    completions: number;
+}
+
 export interface CombatLogEntry {
     turn: number;
     attacker: string;
@@ -598,13 +604,19 @@ export interface ExpeditionRewardSummary {
     itemsFound: ItemInstance[];
     essencesFound: Partial<Record<EssenceType, number>>;
     combatLog: CombatLogEntry[];
-    rewardBreakdown: { source: string; gold: number; experience: number }[];
+    rewardBreakdown: RewardSource[];
     itemsLostCount?: number;
     encounteredEnemies?: Enemy[];
     
     huntingMembers?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
     bossId?: string;
+}
+
+export interface RewardSource {
+    source: string;
+    gold: number;
+    experience: number;
 }
 
 export interface PvpRewardSummary {
@@ -980,4 +992,15 @@ export interface ItemSearchResult {
         ownerName: string;
         location: string; // 'inventory', 'equipment:head', 'market:123', 'armory:456'
     }[];
+}
+
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface TraderData {
+    lastRefresh: number;
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
 }

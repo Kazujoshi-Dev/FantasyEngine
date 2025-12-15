@@ -260,7 +260,7 @@ export interface PlayerCharacter {
     warehouse?: { level: number; items: ItemInstance[] };
     
     acceptedQuests: string[];
-    questProgress: { questId: string; progress: number; completions: number }[];
+    questProgress: PlayerQuestProgress[];
     
     learnedSkills: string[];
     activeSkills: string[];
@@ -269,7 +269,7 @@ export interface PlayerCharacter {
     pvpLosses: number;
     pvpProtectionUntil: number;
     
-    traderData?: { regularItems: ItemInstance[]; specialOfferItems: ItemInstance[]; lastRefresh: number };
+    traderData?: TraderData;
     
     guildId?: number;
     guildBarracksLevel?: number;
@@ -291,6 +291,8 @@ export interface AdminCharacterInfo {
     name: string;
     level: number;
     gold: number;
+    race?: Race;
+    characterClass?: CharacterClass;
 }
 
 export interface ItemTemplate {
@@ -536,6 +538,9 @@ export interface Skill {
     manaMaintenanceCost?: number;
 }
 
+export interface ItemReward { templateId: string; quantity: number }
+export interface ResourceReward { resource: EssenceType; quantity: number }
+
 export interface Quest {
     id: string;
     name: string;
@@ -549,11 +554,17 @@ export interface Quest {
     rewards: {
         gold: number;
         experience: number;
-        itemRewards: { templateId: string; quantity: number }[];
-        resourceRewards: { resource: EssenceType; quantity: number }[];
+        itemRewards: ItemReward[];
+        resourceRewards: ResourceReward[];
         lootTable?: LootDrop[];
     };
     repeatable: number; // 0 = infinite
+}
+
+export interface PlayerQuestProgress {
+    questId: string;
+    progress: number;
+    completions: number;
 }
 
 export interface CombatLogEntry {
@@ -598,13 +609,19 @@ export interface ExpeditionRewardSummary {
     itemsFound: ItemInstance[];
     essencesFound: Partial<Record<EssenceType, number>>;
     combatLog: CombatLogEntry[];
-    rewardBreakdown: { source: string; gold: number; experience: number }[];
+    rewardBreakdown: RewardSource[];
     itemsLostCount?: number;
     encounteredEnemies?: Enemy[];
     
     huntingMembers?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
     bossId?: string;
+}
+
+export interface RewardSource {
+    source: string;
+    gold: number;
+    experience: number;
 }
 
 export interface PvpRewardSummary {
@@ -616,12 +633,14 @@ export interface PvpRewardSummary {
     defender: PlayerCharacter;
 }
 
+export type MessageType = 'player_message' | 'system' | 'expedition_report' | 'pvp_report' | 'market_notification' | 'guild_invite' | 'raid_report';
+
 export interface Message {
     id: number;
     recipient_id: number;
     sender_id?: number;
     sender_name?: string;
-    message_type: 'player_message' | 'system' | 'expedition_report' | 'pvp_report' | 'market_notification' | 'guild_invite' | 'raid_report';
+    message_type: MessageType;
     subject: string;
     body: any; // JSON
     is_read: boolean;
@@ -980,4 +999,15 @@ export interface ItemSearchResult {
         ownerName: string;
         location: string; // 'inventory', 'equipment:head', 'market:123', 'armory:456'
     }[];
+}
+
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface TraderData {
+    lastRefresh: number;
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
 }

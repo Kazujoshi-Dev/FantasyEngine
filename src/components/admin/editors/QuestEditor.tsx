@@ -56,7 +56,19 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
 
     const handleRewardsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, rewards: { ...(formData.rewards || {gold: 0, experience: 0}), [name]: parseInt(value, 10) || 0 } }));
+        setFormData(prev => {
+            const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+            return { 
+                ...prev, 
+                rewards: { 
+                    ...currentRewards,
+                    itemRewards: currentRewards.itemRewards || [],
+                    resourceRewards: currentRewards.resourceRewards || [],
+                    lootTable: currentRewards.lootTable || [],
+                    [name]: parseInt(value, 10) || 0 
+                } 
+            };
+        });
     };
 
     const handleLocationChange = (locId: string) => {
@@ -67,44 +79,107 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
 
     // --- Item Rewards Handlers ---
     const handleItemRewardChange = <K extends keyof ItemReward>(index: number, key: K, value: ItemReward[K]) => {
-        const rewards = [...(formData.rewards?.itemRewards || [])];
-        rewards[index] = { ...rewards[index], [key]: value };
-        setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), itemRewards: rewards } }));
+        setFormData(prev => {
+             const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+             const rewardsList = [...(currentRewards.itemRewards || [])];
+             rewardsList[index] = { ...rewardsList[index], [key]: value };
+             return { ...prev, rewards: { ...currentRewards, itemRewards: rewardsList, resourceRewards: currentRewards.resourceRewards || [], lootTable: currentRewards.lootTable || [] } };
+        });
     };
-    const addItemReward = () => setFormData(prev => ({
-        ...prev,
-        rewards: {
-            ...(prev.rewards || { gold: 0, experience: 0 }),
-            itemRewards: [...(prev.rewards?.itemRewards || []), { templateId: '', quantity: 1 }]
-        }
-    }));
+    const addItemReward = () => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return {
+            ...prev,
+            rewards: {
+                ...currentRewards,
+                itemRewards: [...(currentRewards.itemRewards || []), { templateId: '', quantity: 1 }],
+                resourceRewards: currentRewards.resourceRewards || [],
+                lootTable: currentRewards.lootTable || []
+            }
+        };
+    });
     
-    const removeItemReward = (index: number) => setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), itemRewards: prev.rewards?.itemRewards?.filter((_, i) => i !== index) } }));
+    const removeItemReward = (index: number) => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return { 
+            ...prev, 
+            rewards: { 
+                ...currentRewards, 
+                itemRewards: currentRewards.itemRewards?.filter((_, i) => i !== index) || [],
+                resourceRewards: currentRewards.resourceRewards || [],
+                lootTable: currentRewards.lootTable || []
+            } 
+        };
+    });
 
     // --- Resource Rewards Handlers ---
     const handleResourceRewardChange = <K extends keyof ResourceReward>(index: number, key: K, value: ResourceReward[K]) => {
-        const rewards = [...(formData.rewards?.resourceRewards || [])];
-        rewards[index] = { ...rewards[index], [key]: value };
-        setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), resourceRewards: rewards } }));
+         setFormData(prev => {
+             const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+             const rewardsList = [...(currentRewards.resourceRewards || [])];
+             rewardsList[index] = { ...rewardsList[index], [key]: value };
+             return { ...prev, rewards: { ...currentRewards, resourceRewards: rewardsList, itemRewards: currentRewards.itemRewards || [], lootTable: currentRewards.lootTable || [] } };
+        });
     };
-    const addResourceReward = () => setFormData(prev => ({
-        ...prev,
-        rewards: {
-            ...(prev.rewards || { gold: 0, experience: 0 }),
-            resourceRewards: [...(prev.rewards?.resourceRewards || []), { resource: EssenceType.Common, quantity: 1 }]
-        }
-    }));
+    const addResourceReward = () => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return {
+            ...prev,
+            rewards: {
+                ...currentRewards,
+                resourceRewards: [...(currentRewards.resourceRewards || []), { resource: EssenceType.Common, quantity: 1 }],
+                itemRewards: currentRewards.itemRewards || [],
+                lootTable: currentRewards.lootTable || []
+            }
+        };
+    });
     
-    const removeResourceReward = (index: number) => setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), resourceRewards: prev.rewards?.resourceRewards?.filter((_, i) => i !== index) } }));
+    const removeResourceReward = (index: number) => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return { 
+            ...prev, 
+            rewards: { 
+                ...currentRewards, 
+                resourceRewards: currentRewards.resourceRewards?.filter((_, i) => i !== index) || [],
+                itemRewards: currentRewards.itemRewards || [],
+                lootTable: currentRewards.lootTable || []
+            } 
+        };
+    });
 
     // --- Loot Table Handlers ---
     const handleLootChange = (index: number, key: keyof LootDrop, value: string) => {
-        const lootTable = [...(formData.rewards?.lootTable || [])];
-        (lootTable[index] as any)[key] = key === 'chance' ? parseInt(value, 10) || 0 : value;
-        setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), lootTable } }));
+         setFormData(prev => {
+             const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+             const lootTable = [...(currentRewards.lootTable || [])];
+             (lootTable[index] as any)[key] = key === 'chance' ? parseInt(value, 10) || 0 : value;
+             return { ...prev, rewards: { ...currentRewards, lootTable, itemRewards: currentRewards.itemRewards || [], resourceRewards: currentRewards.resourceRewards || [] } };
+        });
     };
-    const addLoot = () => handleLootChange((formData.rewards?.lootTable || []).length, 'templateId', '');
-    const removeLoot = (index: number) => setFormData(prev => ({ ...prev, rewards: { ...(prev.rewards || { gold: 0, experience: 0 }), lootTable: prev.rewards?.lootTable?.filter((_, i) => i !== index) } }));
+    const addLoot = () => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return {
+             ...prev,
+             rewards: {
+                 ...currentRewards,
+                 lootTable: [...(currentRewards.lootTable || []), { templateId: '', chance: 0 }],
+                 itemRewards: currentRewards.itemRewards || [],
+                 resourceRewards: currentRewards.resourceRewards || []
+             }
+        };
+    });
+    const removeLoot = (index: number) => setFormData(prev => {
+        const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
+        return { 
+            ...prev, 
+            rewards: { 
+                ...currentRewards, 
+                lootTable: currentRewards.lootTable?.filter((_, i) => i !== index) || [],
+                itemRewards: currentRewards.itemRewards || [],
+                resourceRewards: currentRewards.resourceRewards || []
+            } 
+        };
+    });
 
 
     const handleSubmit = (e: React.FormEvent) => {

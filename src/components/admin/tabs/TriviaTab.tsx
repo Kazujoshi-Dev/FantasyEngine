@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useMemo } from 'react';
 import { GameData, AffixType, Race, CharacterClass, AdminCharacterInfo } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -47,9 +48,9 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
 
             // 2. Ultimate Weapon Logic (Base + Max Prefix + Max Suffix)
             // Only check weapons (items with damage)
-            if (item.damageMax?.max && item.damageMax.max > 0) {
+            if (item.damageMax && item.damageMax > 0) {
                 // Calculate Base Damage at +10 Upgrade (100% bonus)
-                const baseMax = item.damageMax.max;
+                const baseMax = item.damageMax;
                 // Math.round(base * 1.0) represents the +100% bonus from level 10 upgrade
                 const upgradedBaseMax = baseMax + Math.round(baseMax * 1.0);
 

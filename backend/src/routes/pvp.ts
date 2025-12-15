@@ -87,6 +87,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
             lootTable: [],
             resourceLootTable: [],
+            isBoss: false // Mandatory now
         };
 
         const combatLog = simulate1v1Combat(attackerWithStats, defenderAsEnemy, gameData);

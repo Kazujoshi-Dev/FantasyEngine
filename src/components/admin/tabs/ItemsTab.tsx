@@ -82,8 +82,8 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
                             <div className="flex-1">
                                 <p className={`font-semibold ${rarityStyles[item.rarity]?.text || 'text-gray-300'}`}>{item.name}</p>
                                 <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                                    {(item.damageMin || item.damageMax) && <span>DMG: {item.damageMin?.min}-{item.damageMax?.max}</span>}
-                                    {item.armorBonus && <span>ARM: {item.armorBonus.min}-{item.armorBonus.max}</span>}
+                                    {(item.damageMin || item.damageMax) && <span>DMG: {item.damageMin}-{item.damageMax}</span>}
+                                    {item.armorBonus && <span>ARM: {item.armorBonus}</span>}
                                     <span>Lvl: {item.requiredLevel}</span>
                                     <span className="italic">{item.slot}</span>
                                 </div>
