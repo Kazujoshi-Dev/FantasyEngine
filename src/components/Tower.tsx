@@ -1,57 +1,56 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { Tower as TowerType, ActiveTowerRun, ExpeditionRewardSummary } from '../types';
+import { Tower as TowerType, ActiveTowerRun, ExpeditionRewardSummary, ItemTemplate, Affix, Enemy } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { CoinsIcon } from './icons/CoinsIcon';
-import { SwordsIcon } from './icons/SwordsIcon';
+import { StarIcon } from './icons/StarIcon';
+import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 
 export const Tower: React.FC = () => {
-    const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    
+    const { character, gameData, updateCharacter } = useCharacter();
     const [towers, setTowers] = useState<TowerType[]>([]);
-    const [selectedTower, setSelectedTower] = useState<TowerType | null>(null);
     const [activeRun, setActiveRun] = useState<ActiveTowerRun | null>(null);
-    
-    const [report, setReport] = useState<ExpeditionRewardSummary | null>(null);
-    const [isReportOpen, setIsReportOpen] = useState(false);
+    const [currentTower, setCurrentTower] = useState<TowerType | null>(null); // Tower data for active run
+    const [selectedTowerId, setSelectedTowerId] = useState<string | null>(null); // For browsing list
+    const [combatResult, setCombatResult] = useState<ExpeditionRewardSummary | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    const fetchTowers = useCallback(async () => {
+    // Initial fetch
+    useEffect(() => {
+        fetchTowerData();
+    }, []);
+
+    const fetchTowerData = async () => {
+        setLoading(true);
         try {
             const data = await api.getTowers();
             if (data.activeRun) {
                 setActiveRun(data.activeRun);
-                // The API returns the specific tower object if a run exists
-                if (data.tower) setSelectedTower(data.tower);
+                setCurrentTower(data.tower);
             } else {
-                setTowers(data.towers || []);
                 setActiveRun(null);
-                // Don't auto-select if we are just browsing list and didn't select one manually yet
-                if (!selectedTower && data.towers && data.towers.length > 0) {
-                     setSelectedTower(data.towers[0]);
-                }
+                setCurrentTower(null);
+                setTowers(data.towers || []);
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
         }
-    }, [selectedTower]);
+    };
 
-    useEffect(() => {
-        fetchTowers();
-    }, [fetchTowers]);
-
-    const handleStart = async () => {
-        if (!selectedTower) return;
+    const handleStart = async (towerId: string) => {
         try {
-            const res = await api.startTower(selectedTower.id);
-            setActiveRun(res.activeRun);
-            // Refresh character for energy deduction
+            const { activeRun: newRun, tower } = await api.startTower(towerId);
             const char = await api.getCharacter();
             updateCharacter(char);
+            setActiveRun(newRun);
+            setCurrentTower(tower);
         } catch (e: any) {
             alert(e.message);
         }
@@ -59,185 +58,229 @@ export const Tower: React.FC = () => {
 
     const handleFight = async () => {
         try {
-            const res = await api.fightTower();
-            // res: { victory, combatLog, rewards, isTowerComplete, currentFloor }
-            
-            const summary: ExpeditionRewardSummary = {
-                isVictory: res.victory,
+            const result = await api.fightTower();
+            setCombatResult({
+                isVictory: result.victory,
                 totalGold: 0, 
                 totalExperience: 0,
                 itemsFound: [],
                 essencesFound: {},
-                combatLog: res.combatLog,
+                combatLog: result.combatLog,
                 rewardBreakdown: []
-            };
-
-            setReport(summary);
-            setIsReportOpen(true);
-
-            if (res.victory) {
-                if (res.isTowerComplete) {
-                     setActiveRun(null); // Will show list after closing report
-                     fetchTowers();
-                } else {
-                    // Update local active run state
-                    setActiveRun(prev => prev ? {
-                        ...prev,
-                        currentFloor: res.currentFloor,
-                        accumulatedRewards: res.rewards,
-                    } : null);
-                }
-            } else {
-                setActiveRun(null);
-                fetchTowers();
-            }
+            });
             
+            // Update character (health/mana/rewards)
+            const char = await api.getCharacter();
+            updateCharacter(char);
+            
+            // Refresh tower state to sync floors
+            fetchTowerData();
+
         } catch (e: any) {
             alert(e.message);
         }
     };
 
     const handleRetreat = async () => {
-        if (!confirm('Czy na pewno chcesz się wycofać? Otrzymasz zgromadzone nagrody, ale postęp zostanie zresetowany.')) return;
+        if (!confirm('Czy na pewno chcesz się wycofać? Otrzymasz zgromadzone nagrody.')) return;
         try {
             await api.retreatTower();
-            setActiveRun(null);
-            fetchTowers();
             const char = await api.getCharacter();
             updateCharacter(char);
+            fetchTowerData();
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    const handleCloseReport = async () => {
-        setIsReportOpen(false);
-        setReport(null);
-        const char = await api.getCharacter();
-        updateCharacter(char);
-        // If run finished (win or loss), we need to refresh the view to show list again
-        if (!activeRun || (report && !report.isVictory)) {
-            fetchTowers();
-        }
-    };
-
     if (!gameData) return null;
 
-    return (
-        <ContentPanel title="Wieża Mroku">
-            {isReportOpen && report && (
-                <ExpeditionSummaryModal 
-                    reward={report}
-                    onClose={handleCloseReport}
-                    characterName={character?.name || ''}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
-                    enemies={gameData.enemies}
-                />
-            )}
+    // View: List of Towers
+    if (!activeRun) {
+        const selectedTower = towers.find(t => t.id === selectedTowerId);
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
-                {/* Left: Tower List (if no active run) OR Run Stats */}
-                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700 flex flex-col min-h-0">
-                    {activeRun ? (
-                        <>
-                            <h3 className="text-xl font-bold text-amber-400 mb-4">Wyprawa w toku</h3>
-                            <div className="space-y-4">
-                                <div className="bg-slate-800 p-3 rounded">
-                                    <p className="text-sm text-gray-400">Piętro</p>
-                                    <p className="text-2xl font-bold text-white">{activeRun.currentFloor} <span className="text-sm text-gray-500">/ {selectedTower?.totalFloors}</span></p>
+        return (
+            <ContentPanel title="Wieża Mroku">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[75vh]">
+                    {/* List */}
+                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700 overflow-y-auto">
+                        <h3 className="text-xl font-bold text-indigo-400 mb-4">Dostępne Wieże</h3>
+                        <div className="space-y-2">
+                            {towers.map(tower => (
+                                <div 
+                                    key={tower.id} 
+                                    onClick={() => setSelectedTowerId(tower.id)}
+                                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${selectedTowerId === tower.id ? 'bg-indigo-900/40 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                                >
+                                    <h4 className="font-bold text-white">{tower.name}</h4>
+                                    <p className="text-xs text-gray-400">{tower.totalFloors} Pięter</p>
                                 </div>
-                                <div className="bg-slate-800 p-3 rounded">
-                                    <p className="text-sm text-gray-400">Zgromadzone Złoto</p>
-                                    <p className="text-xl font-mono text-amber-400">{activeRun.accumulatedRewards?.gold || 0}</p>
-                                </div>
-                                 <div className="bg-slate-800 p-3 rounded">
-                                    <p className="text-sm text-gray-400">Zgromadzone Przedmioty</p>
-                                    <p className="text-xl font-mono text-indigo-400">{activeRun.accumulatedRewards?.items?.length || 0}</p>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <h3 className="text-xl font-bold text-indigo-400 mb-4">Dostępne Wieże</h3>
-                            <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                                {towers.map(tower => (
-                                    <button 
-                                        key={tower.id}
-                                        onClick={() => setSelectedTower(tower)}
-                                        className={`w-full text-left p-3 rounded border transition-colors ${selectedTower?.id === tower.id ? 'bg-indigo-900/50 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
-                                    >
-                                        <p className="font-bold text-white">{tower.name}</p>
-                                        <p className="text-xs text-gray-400">{tower.totalFloors} Pięter</p>
-                                    </button>
-                                ))}
-                                {towers.length === 0 && <p className="text-gray-500 text-center">Brak dostępnych wież w tej lokacji.</p>}
-                            </div>
-                        </>
-                    )}
-                </div>
+                            ))}
+                            {towers.length === 0 && <p className="text-gray-500 text-center">Brak dostępnych wież w tej lokacji.</p>}
+                        </div>
+                    </div>
 
-                {/* Center & Right: Tower Details / Action Area */}
-                <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col relative overflow-hidden">
-                    {selectedTower ? (
-                        <>
-                             {/* Background Image Effect */}
-                            {selectedTower.image && (
-                                <div className="absolute inset-0 z-0 pointer-events-none">
-                                    <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover opacity-20" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
-                                </div>
-                            )}
-                            
-                            <div className="relative z-10 flex flex-col h-full">
-                                <h2 className="text-3xl font-bold text-white mb-2">{selectedTower.name}</h2>
-                                <p className="text-gray-400 italic mb-6">{selectedTower.description}</p>
-                                
-                                {activeRun ? (
-                                    <div className="mt-auto space-y-4">
-                                        <div className="p-4 bg-black/40 rounded border border-slate-600 text-center">
-                                            <p className="text-lg text-white mb-2">Przygotuj się do walki na piętrze {activeRun.currentFloor}!</p>
-                                        </div>
-                                        <div className="flex gap-4">
-                                            <button onClick={handleRetreat} className="flex-1 py-3 bg-red-900/80 hover:bg-red-800 text-red-100 font-bold rounded border border-red-700">
-                                                Wycofaj się
-                                            </button>
-                                            <button onClick={handleFight} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg shadow-indigo-500/20">
-                                                <SwordsIcon className="h-5 w-5 inline-block mr-2" />
-                                                Walcz!
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-auto">
-                                        <div className="p-4 bg-slate-800/50 rounded mb-4">
-                                            <h4 className="font-bold text-amber-400 mb-2">Nagroda Główna</h4>
-                                            <div className="flex gap-4 text-sm">
-                                                <span className="flex items-center text-amber-300"><CoinsIcon className="h-4 w-4 mr-1"/> {selectedTower.grandPrize?.gold || 0}</span>
-                                                <span className="flex items-center text-sky-300">XP {selectedTower.grandPrize?.experience || 0}</span>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={handleStart} 
-                                            disabled={character?.activeExpedition !== null || character?.activeTravel !== null || character?.isResting}
-                                            className="w-full py-4 bg-green-700 hover:bg-green-600 text-white font-bold rounded text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Wkrocz do Wieży
-                                        </button>
-                                        {(character?.activeExpedition || character?.activeTravel || character?.isResting) && (
-                                            <p className="text-center text-red-400 text-sm mt-2">Twoja postać jest zajęta.</p>
-                                        )}
+                    {/* Details */}
+                    <div className="md:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col relative overflow-hidden">
+                        {selectedTower ? (
+                            <>
+                                {/* Background Image Effect */}
+                                {selectedTower.image && (
+                                    <div className="absolute inset-0 z-0 pointer-events-none">
+                                        <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover opacity-20" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
                                     </div>
                                 )}
+
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <h2 className="text-3xl font-bold text-white mb-2">{selectedTower.name}</h2>
+                                    <p className="text-gray-300 italic mb-6">{selectedTower.description}</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        <div className="bg-slate-800/80 p-4 rounded-lg border border-slate-600">
+                                            <p className="text-xs text-gray-400 uppercase tracking-widest">Piętra</p>
+                                            <p className="text-2xl font-bold text-white">{selectedTower.totalFloors}</p>
+                                        </div>
+                                        <div className="bg-slate-800/80 p-4 rounded-lg border border-slate-600">
+                                            <p className="text-xs text-gray-400 uppercase tracking-widest">Główna Nagroda</p>
+                                            <div className="flex items-center gap-2">
+                                                {selectedTower.grandPrize.gold > 0 && <span className="text-amber-400 font-bold flex items-center"><CoinsIcon className="h-4 w-4 mr-1"/> {selectedTower.grandPrize.gold}</span>}
+                                                {selectedTower.grandPrize.items.length > 0 && <span className="text-purple-400 font-bold flex items-center"><StarIcon className="h-4 w-4 mr-1"/> Przedmioty</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-auto">
+                                        <button 
+                                            onClick={() => handleStart(selectedTower.id)}
+                                            className="w-full py-4 bg-red-700 hover:bg-red-600 text-white font-bold text-xl rounded-lg shadow-lg shadow-red-900/20 transition-all transform hover:scale-[1.02]"
+                                        >
+                                            Wejdź do Wieży
+                                        </button>
+                                        <p className="text-center text-xs text-gray-500 mt-2">Wymaga energii. Postęp jest zapisywany co piętro.</p>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                                Wybierz wieżę, aby zobaczyć szczegóły.
                             </div>
-                        </>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-gray-500">
-                            Wybierz wieżę z listy.
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            </div>
-        </ContentPanel>
-    );
+            </ContentPanel>
+        );
+    }
+
+    // View: Active Run
+    if (activeRun && currentTower) {
+        const floorConfig = currentTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
+        const progressPercent = ((activeRun.currentFloor - 1) / currentTower.totalFloors) * 100;
+        
+        return (
+            <ContentPanel title={`Wieża: ${currentTower.name}`}>
+                {combatResult && (
+                    <ExpeditionSummaryModal 
+                        reward={combatResult} 
+                        onClose={() => setCombatResult(null)} 
+                        characterName={character?.name || ''}
+                        itemTemplates={gameData.itemTemplates}
+                        affixes={gameData.affixes}
+                        enemies={gameData.enemies}
+                        isHunting={true} 
+                    />
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
+                    {/* Left: Status */}
+                    <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col gap-6">
+                        <div>
+                            <p className="text-sm text-gray-400 uppercase tracking-widest mb-1">Postęp</p>
+                            <div className="flex justify-between items-end mb-2">
+                                <span className="text-3xl font-bold text-white">Piętro {activeRun.currentFloor}</span>
+                                <span className="text-lg text-gray-500">/ {currentTower.totalFloors}</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                                <div className="bg-purple-600 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-600">
+                                <p className="text-xs text-gray-400 mb-1">Twoje Zdrowie (w Wieży)</p>
+                                <p className="text-xl font-bold text-green-400">{activeRun.currentHealth} HP</p>
+                                <p className="text-xs text-gray-500 mt-1">Obrażenia są trwałe pomiędzy piętrami.</p>
+                            </div>
+                            
+                            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-600">
+                                <p className="text-xs text-gray-400 mb-1">Zgromadzone Nagrody</p>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-300">Złoto:</span>
+                                        <span className="text-amber-400 font-mono">{activeRun.accumulatedRewards.gold}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-300">XP:</span>
+                                        <span className="text-sky-400 font-mono">{activeRun.accumulatedRewards.experience}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-300">Przedmioty:</span>
+                                        <span className="text-white font-mono">{activeRun.accumulatedRewards.items.length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-auto">
+                            <button 
+                                onClick={handleRetreat}
+                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-gray-200 font-bold rounded-lg transition-colors border border-slate-500"
+                            >
+                                Wycofaj się (Zabierz nagrody)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Right: Action */}
+                    <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-purple-900/30 flex flex-col relative overflow-hidden">
+                         {currentTower.image && (
+                            <div className="absolute inset-0 z-0 pointer-events-none opacity-10">
+                                <img src={currentTower.image} className="w-full h-full object-cover" alt="Tower Background" />
+                            </div>
+                        )}
+
+                        <div className="relative z-10 flex flex-col h-full justify-center items-center text-center">
+                            <CrossedSwordsIcon className="h-24 w-24 text-red-500 mb-6 opacity-80" />
+                            
+                            <h3 className="text-3xl font-bold text-white mb-2">Piętro {activeRun.currentFloor}</h3>
+                            {floorConfig?.enemies && floorConfig.enemies.length > 0 && (
+                                <p className="text-gray-400 mb-8">
+                                    Przeciwnicy: <span className="text-red-400 font-bold">{floorConfig.enemies.length}</span> (Szansa na Bossa: {floorConfig.enemies.some(e => {
+                                        const en = gameData.enemies.find(x => x.id === e.enemyId);
+                                        return en?.isBoss;
+                                    }) ? 'Wysoka' : 'Niska'})
+                                </p>
+                            )}
+
+                            <button 
+                                onClick={handleFight}
+                                disabled={(character?.stats?.currentEnergy || 0) < (floorConfig?.energyCost || 0)}
+                                className="px-12 py-4 bg-red-700 hover:bg-red-600 text-white font-bold text-2xl rounded-full shadow-xl shadow-red-900/40 transition-transform transform hover:scale-105 disabled:bg-slate-700 disabled:shadow-none disabled:transform-none"
+                            >
+                                WALCZ
+                            </button>
+                            
+                            {floorConfig?.energyCost && floorConfig.energyCost > 0 && (
+                                <p className="mt-4 text-sky-400 font-bold flex items-center justify-center gap-2">
+                                    Koszt: {floorConfig.energyCost} Energii
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </ContentPanel>
+        );
+    }
+
+    return null;
 };
