@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -98,24 +99,61 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
         onSave(formData as Enemy);
     };
 
+    const getImageUrl = (url: string | undefined): string | undefined => {
+        if (!url) return undefined;
+        if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
+        const uploadsIndex = url.indexOf('uploads/');
+        if (uploadsIndex > -1) {
+            return `/api/${url.substring(uploadsIndex)}`;
+        }
+        return url;
+    };
+
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400">{isEditing ? t('admin.enemy.edit') : t('admin.enemy.create')}</h3>
             
             {/* Basic Info */}
-            <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-            <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-            <div>
-                <label className="flex items-center gap-2 mt-2 cursor-pointer">
-                    <input
-                        name="isBoss"
-                        type="checkbox"
-                        checked={formData.isBoss || false}
+            <div className="space-y-4">
+                <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                
+                {/* Image URL Input */}
+                <div>
+                     <label className="block text-sm font-medium text-gray-300 mb-1">Portret (URL)</label>
+                     <input
+                        type="text"
+                        name="image"
+                        value={formData.image || ''}
                         onChange={handleChange}
-                        className="form-checkbox h-5 w-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
+                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
+                        placeholder="https://example.com/image.png"
                     />
-                    <span className="text-amber-400 font-bold">{t('admin.enemy.isBoss')}</span>
-                </label>
+                    {formData.image && (
+                        <div className="mt-2">
+                            <p className="text-xs text-gray-400 mb-1">Podgląd:</p>
+                            <img 
+                                src={getImageUrl(formData.image)} 
+                                alt="Enemy Portrait" 
+                                className="w-16 h-16 object-cover rounded-lg border border-slate-600"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                        <input
+                            name="isBoss"
+                            type="checkbox"
+                            checked={formData.isBoss || false}
+                            onChange={handleChange}
+                            className="form-checkbox h-5 w-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
+                        />
+                        <span className="text-amber-400 font-bold">{t('admin.enemy.isBoss')}</span>
+                    </label>
+                </div>
             </div>
 
             {/* Stats */}
