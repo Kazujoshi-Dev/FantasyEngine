@@ -307,6 +307,8 @@ export const getTreasuryUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
+export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
+
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
 // Updated logic: 2x the cost of Treasury

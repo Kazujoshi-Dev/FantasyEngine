@@ -3,7 +3,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ActiveTowerRun } from '../types.js';
-import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost } from '../logic/stats.js';
+import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -222,6 +222,103 @@ router.post('/treasury/upgrade', authenticateToken, async (req: any, res: any) =
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Error' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /treasury/deposit
+router.post('/treasury/deposit', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    const depositAmount = parseInt(amount, 10);
+
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Initialize if missing
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        // Fallback for migration
+        if (character.chest && !character.treasury) character.treasury = character.chest;
+
+        if ((character.resources.gold || 0) < depositAmount) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough gold to deposit' });
+        }
+
+        const capacity = getTreasuryCapacity(character.treasury.level);
+        const currentStored = character.treasury.gold || 0;
+        const spaceLeft = capacity - currentStored;
+
+        if (spaceLeft <= 0) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Treasury is full' });
+        }
+
+        const actualDeposit = Math.min(depositAmount, spaceLeft);
+
+        character.resources.gold -= actualDeposit;
+        character.treasury.gold += actualDeposit;
+        character.chest = character.treasury; // Keep legacy field synced
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Treasury deposit error', err);
+        res.status(500).json({ message: 'Error depositing gold' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /treasury/withdraw
+router.post('/treasury/withdraw', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    const withdrawAmount = parseInt(amount, 10);
+
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // Initialize if missing
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        // Fallback for migration
+        if (character.chest && !character.treasury) character.treasury = character.chest;
+
+        const currentStored = character.treasury.gold || 0;
+
+        if (currentStored < withdrawAmount) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough gold in treasury' });
+        }
+
+        character.treasury.gold -= withdrawAmount;
+        character.resources.gold = (character.resources.gold || 0) + withdrawAmount;
+        character.chest = character.treasury; // Keep legacy field synced
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Treasury withdraw error', err);
+        res.status(500).json({ message: 'Error withdrawing gold' });
     } finally {
         client.release();
     }
