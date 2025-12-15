@@ -74,7 +74,8 @@ export const simulate1vManyCombat = (
     const getHealthState = () => ({
         playerHealth: playerState.currentHealth,
         playerMana: playerState.currentMana,
-        enemyHealth: 0, 
+        // Calculate total health of all enemies instead of hardcoding 0
+        enemyHealth: enemiesState.reduce((sum, e) => sum + Math.max(0, e.currentHealth), 0),
         enemyMana: 0,
         allEnemiesHealth: enemiesState.map(e => ({ 
             uniqueId: e.uniqueId, 
