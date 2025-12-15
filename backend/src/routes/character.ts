@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter } from '../types.js';
+import { PlayerCharacter, ActiveTowerRun } from '../types.js';
 import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost } from '../logic/stats.js';
 
 const router = express.Router();
@@ -10,11 +10,49 @@ const router = express.Router();
 // GET /api/character - Get Character Data
 router.get('/', authenticateToken, async (req: any, res: any) => {
     try {
-        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
-        if (result.rows.length === 0) {
-            return res.json(null); // No character yet
+        const client = await pool.connect();
+        try {
+            // Fetch character data AND check for active tower run in one go
+            const result = await client.query(`
+                SELECT c.data,
+                (
+                    SELECT row_to_json(tr) 
+                    FROM tower_runs tr 
+                    WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS'
+                    LIMIT 1
+                ) as active_tower_run
+                FROM characters c 
+                WHERE c.user_id = $1
+            `, [req.user.id]);
+
+            if (result.rows.length === 0) {
+                return res.json(null); // No character yet
+            }
+
+            const charData: PlayerCharacter = result.rows[0].data;
+            const activeRunDB = result.rows[0].active_tower_run;
+
+            // Inject active tower run into character data if it exists
+            if (activeRunDB) {
+                const mappedRun: ActiveTowerRun = {
+                    id: activeRunDB.id,
+                    userId: activeRunDB.user_id,
+                    towerId: activeRunDB.tower_id,
+                    currentFloor: activeRunDB.current_floor,
+                    currentHealth: activeRunDB.current_health,
+                    currentMana: activeRunDB.current_mana,
+                    accumulatedRewards: activeRunDB.accumulated_rewards,
+                    status: activeRunDB.status
+                };
+                charData.activeTowerRun = mappedRun;
+            } else {
+                charData.activeTowerRun = undefined;
+            }
+
+            res.json(charData);
+        } finally {
+            client.release();
         }
-        res.json(result.rows[0].data);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch character' });

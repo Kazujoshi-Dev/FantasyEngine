@@ -181,6 +181,11 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
     const { bossId, maxMembers, isGuildParty } = req.body;
     
     try {
+        const towerRes = await pool.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
+        if (towerRes.rows.length > 0) {
+            return res.status(400).json({ message: 'Nie możesz polować będąc w Wieży Mroku.' });
+        }
+
         const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [req.user.id]);
         const char: PlayerCharacter = charRes.rows[0].data;
         const hasLoneWolf = (char.learnedSkills || []).includes('lone-wolf');
@@ -254,6 +259,11 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
 router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
     const partyId = req.params.partyId;
     try {
+        const towerRes = await pool.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
+        if (towerRes.rows.length > 0) {
+            return res.status(400).json({ message: 'Nie możesz polować będąc w Wieży Mroku.' });
+        }
+
         const existingParty = await getPartyByMember(req.user.id);
         if (existingParty) return res.status(400).json({ message: 'Jesteś już w grupie.' });
 

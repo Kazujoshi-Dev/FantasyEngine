@@ -37,6 +37,13 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'You must stop resting first.' });
         }
 
+        // New: Check for active tower run
+        const towerRes = await client.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
+        if (towerRes.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Nie możesz wyruszyć na wyprawę będąc w Wieży Mroku.' });
+        }
+
         // 3. Fetch Expedition Data
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
         const expeditions: Expedition[] = gameDataRes.rows[0]?.data || [];
