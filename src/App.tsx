@@ -464,9 +464,14 @@ export const App: React.FC = () => {
     }
 
     if (!token) {
+        // Create default translation instance for Auth screen (defaulting to PL)
+        const tAuth = getT(Language.PL);
+        
         return (
             <ErrorBoundary>
-                <Auth onLoginSuccess={handleLoginSuccess} />
+                <LanguageContext.Provider value={{ lang: Language.PL, t: tAuth }}>
+                    <Auth onLoginSuccess={handleLoginSuccess} />
+                </LanguageContext.Provider>
             </ErrorBoundary>
         );
     }
