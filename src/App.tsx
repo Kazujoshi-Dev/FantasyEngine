@@ -361,6 +361,7 @@ const AppContent: React.FC = () => {
                             <Trader
                                 traderInventory={traderInventory.regularItems}
                                 traderSpecialOfferItems={traderInventory.specialOfferItems}
+                                onItemBought={() => fetchTraderInventory()}
                             />
                         )}
                         {activeTab === Tab.Blacksmith && <Blacksmith />}

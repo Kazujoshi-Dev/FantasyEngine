@@ -13,9 +13,10 @@ import { SparklesIcon } from './icons/SparklesIcon';
 interface TraderProps {
     traderInventory: ItemInstance[];
     traderSpecialOfferItems: ItemInstance[];
+    onItemBought: () => void;
 }
 
-export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOfferItems }) => {
+export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOfferItems, onItemBought }) => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<{ item: ItemInstance; source: 'buy' | 'sell' } | null>(null);
@@ -38,6 +39,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
             const updatedChar = await api.buyItem(item.uniqueId);
             updateCharacter(updatedChar);
             setSelectedItem(null);
+            onItemBought(); // Refresh inventory list
         } catch (e: any) {
             alert(e.message);
         }
