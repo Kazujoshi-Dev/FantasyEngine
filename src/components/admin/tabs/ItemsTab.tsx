@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { ItemTemplate, ItemRarity, EquipmentSlot } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -54,6 +53,14 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
     }).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
   }, [itemTemplates, itemSearch, itemRarityFilter, itemSlotFilter]);
 
+  // Helper to safely render ranges or numbers
+  const renderRange = (val: number | { min: number, max: number } | undefined) => {
+      if (val === undefined || val === null) return null;
+      if (typeof val === 'number') return val;
+      if (val.min === val.max) return val.min;
+      return `${val.min}-${val.max}`;
+  };
+
   return (
     <div className="animate-fade-in">
         <div className="flex justify-between items-center mb-4">
@@ -82,8 +89,8 @@ export const ItemsTab: React.FC<ItemsTabProps> = ({ itemTemplates, onGameDataUpd
                             <div className="flex-1">
                                 <p className={`font-semibold ${rarityStyles[item.rarity]?.text || 'text-gray-300'}`}>{item.name}</p>
                                 <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                                    {(item.damageMin || item.damageMax) && <span>DMG: {item.damageMin}-{item.damageMax}</span>}
-                                    {item.armorBonus && <span>ARM: {item.armorBonus}</span>}
+                                    {(item.damageMin || item.damageMax) && <span>DMG: {renderRange(item.damageMin)}-{renderRange(item.damageMax)}</span>}
+                                    {item.armorBonus && <span>ARM: {renderRange(item.armorBonus)}</span>}
                                     <span>Lvl: {item.requiredLevel}</span>
                                     <span className="italic">{item.slot}</span>
                                 </div>
