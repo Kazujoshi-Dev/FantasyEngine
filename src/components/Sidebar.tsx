@@ -206,9 +206,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {sortedMenuItems.map((item) => {
                             const Icon = item.icon || InfoIcon;
                             const isTowerTab = item.tab === Tab.Tower;
-                            // Allow Settings/Admin even if locked? Or strict lock? Strict lock except tower.
-                            // Maybe Chat (Tavern) allowed? Let's be strict for now.
-                            const isDisabled = isLocked && !isTowerTab; 
+                            const isOptionsTab = item.tab === Tab.Options;
+                            
+                            // Determine if tab is disabled (Strict lock except Tower and Options)
+                            const isDisabled = isLocked && !isTowerTab && !isOptionsTab;
 
                             return (
                                 <button
@@ -225,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         ${activeTab === item.tab 
                                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
                                             : isDisabled 
-                                                ? 'text-gray-600 cursor-not-allowed opacity-50'
+                                                ? 'text-gray-600 cursor-not-allowed opacity-50 bg-slate-900/30'
                                                 : 'text-gray-400 hover:bg-slate-800 hover:text-white'
                                         }
                                     `}
@@ -233,7 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <div className="flex items-center">
                                         <Icon className={`h-5 w-5 mr-3 ${activeTab === item.tab ? 'text-white' : (isDisabled ? 'text-gray-600' : 'text-gray-500')}`} />
                                         {item.label}
-                                        {isDisabled && item.tab !== Tab.Tower && <span className="ml-2 text-[10px] text-red-500">(Zablokowane)</span>}
+                                        {isDisabled && <span className="ml-2 text-[9px] text-red-500/80 font-bold uppercase">(Blokada)</span>}
                                     </div>
                                     {item.notification && !isDisabled && (
                                         <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>

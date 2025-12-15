@@ -105,10 +105,14 @@ const AppContent: React.FC = () => {
         window.location.reload(); // Force a full reload to clear all state
     }, []);
 
-    // Force redirect to Tower if run is active
+    // Force redirect to Tower if run is active (Logic change: Only lock if not in Tower or Options)
     useEffect(() => {
-        if (character?.activeTowerRun && activeTab !== Tab.Tower) {
-            setActiveTab(Tab.Tower);
+        if (character?.activeTowerRun) {
+            // Allow only Tower and Options tabs while in a run
+            const allowedTabs = [Tab.Tower, Tab.Options];
+            if (!allowedTabs.includes(activeTab)) {
+                setActiveTab(Tab.Tower);
+            }
         }
     }, [character?.activeTowerRun, activeTab]);
 
