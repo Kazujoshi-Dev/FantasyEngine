@@ -1,5 +1,3 @@
-
-
 import { PlayerCharacter, GameData, ItemInstance, MarketListing, PvpRewardSummary, ExpeditionRewardSummary, Guild, PublicCharacterProfile, PublicGuildProfile, GuildRole, GuildArmoryItem, AdminCharacterInfo, Message, TavernMessage, GuildChatMessage, RankingPlayer, EssenceType, GlobalStats, Tower, ActiveTowerRun } from './types';
 
 const API_URL = '/api';
@@ -232,7 +230,7 @@ export const api = {
 
     // Hunting
     getHuntingParties: () => fetchApi('/hunting/parties'),
-    createParty: (bossId: string, maxMembers: number) => fetchApi('/hunting/create', { method: 'POST', body: JSON.stringify({ bossId, maxMembers }) }),
+    createParty: (bossId: string, maxMembers: number, isGuildParty: boolean) => fetchApi('/hunting/create', { method: 'POST', body: JSON.stringify({ bossId, maxMembers, isGuildParty }) }),
     joinParty: (partyId: number) => fetchApi(`/hunting/join/${partyId}`, { method: 'POST' }),
     getMyParty: () => fetchApi('/hunting/my-party'),
     leaveParty: () => fetchApi('/hunting/leave', { method: 'POST' }),

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -21,6 +20,7 @@ export const Hunting: React.FC = () => {
     // Form State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
     const [createMembers, setCreateMembers] = useState(3);
+    const [isGuildParty, setIsGuildParty] = useState(false); // New State
     
     const [loading, setLoading] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -31,12 +31,14 @@ export const Hunting: React.FC = () => {
     if (!character || !gameData) return null;
     const { enemies, itemTemplates, affixes } = gameData;
 
-    // Filter for bosses only AND exclude guild bosses
-    const bosses = useMemo(() => enemies.filter(e => e.isBoss && !e.isGuildBoss), [enemies]);
+    // Filter bosses based on toggle state
+    const bosses = useMemo(() => {
+        return enemies.filter(e => e.isBoss && (isGuildParty ? e.isGuildBoss : !e.isGuildBoss));
+    }, [enemies, isGuildParty]);
     
-    // Auto-select first boss
+    // Auto-select first boss when list changes or is empty
     useEffect(() => {
-        if (bosses.length > 0 && !selectedBossId) {
+        if (bosses.length > 0 && (!selectedBossId || !bosses.find(b => b.id === selectedBossId))) {
             setSelectedBossId(bosses[0].id);
         }
     }, [bosses, selectedBossId]);
@@ -92,7 +94,7 @@ export const Hunting: React.FC = () => {
 
     const handleCreate = async () => {
         try {
-            await api.createParty(selectedBossId, createMembers);
+            await api.createParty(selectedBossId, createMembers, isGuildParty);
             await fetchMyParty();
         } catch (e: any) { alert(e.message); }
     };
@@ -350,6 +352,19 @@ export const Hunting: React.FC = () => {
                     <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
                     
                     <div className="space-y-6">
+                        {/* Guild Hunt Toggle */}
+                        {character.guildId && (
+                            <label className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg cursor-pointer border border-slate-700 hover:border-purple-500 transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={isGuildParty} 
+                                    onChange={(e) => setIsGuildParty(e.target.checked)}
+                                    className="form-checkbox h-5 w-5 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
+                                />
+                                <span className={`font-bold ${isGuildParty ? 'text-purple-400' : 'text-gray-300'}`}>Polowanie Gildyjne</span>
+                            </label>
+                        )}
+
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
                             <select 
@@ -360,6 +375,7 @@ export const Hunting: React.FC = () => {
                                 {bosses.map(boss => (
                                     <option key={boss.id} value={boss.id}>{boss.name} (Lvl {boss.stats.maxHealth > 1000 ? 'Boss' : 'Mini'})</option>
                                 ))}
+                                {bosses.length === 0 && <option value="" disabled>Brak dostępnych bossów</option>}
                             </select>
                         </div>
 
@@ -382,11 +398,11 @@ export const Hunting: React.FC = () => {
                         <div className="pt-4">
                             <button 
                                 onClick={handleCreate} 
-                                disabled={character.stats.currentHealth <= 0}
+                                disabled={character.stats.currentHealth <= 0 || !selectedBossId}
                                 title={character.stats.currentHealth <= 0 ? "Nie możesz stworzyć grupy z 0 HP." : ""}
-                                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed"
+                                className={`w-full py-3 ${isGuildParty ? 'bg-purple-700 hover:bg-purple-600' : 'bg-green-600 hover:bg-green-500'} rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed`}
                             >
-                                <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
+                                <UsersIcon className="h-5 w-5"/> {isGuildParty ? 'Utwórz Polowanie Gildyjne' : t('hunting.create')}
                             </button>
                         </div>
                     </div>
@@ -438,7 +454,7 @@ export const Hunting: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-500 italic">
-                            Wybierz bossa z menu po lewej stronie.
+                            {bosses.length > 0 ? 'Wybierz bossa z menu po lewej stronie.' : 'Brak dostępnych bossów w tej kategorii.'}
                         </div>
                     )}
                 </div>

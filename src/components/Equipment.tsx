@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -285,6 +284,7 @@ export const Equipment: React.FC = () => {
     
     const handleDrop = (e: React.DragEvent, target: 'inventory' | { slot: EquipmentSlot }) => {
         e.preventDefault();
+        e.stopPropagation(); // Stop propagation to prevent nested drop zones from firing
         const itemUniqueId = e.dataTransfer.getData('itemUniqueId');
         const source = e.dataTransfer.getData('source') as 'equipment' | 'inventory';
         const fromSlot = e.dataTransfer.getData('fromSlot') as EquipmentSlot;
@@ -311,6 +311,7 @@ export const Equipment: React.FC = () => {
     
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
     };
     
     return (

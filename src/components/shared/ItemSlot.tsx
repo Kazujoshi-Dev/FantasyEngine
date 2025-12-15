@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -283,11 +282,11 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
             draggable="true"
             onDragStart={onDragStart}
             {...divProps}
-            className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 ${
+            className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 select-none ${
                isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
             } ${finalBorder} ${shadow} ${borrowedStyle} ${divProps.className || ''}`}
         >
-            {template.icon && <img src={template.icon} alt={template.name} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
+            {template.icon && <img src={template.icon} alt={template.name} draggable={false} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
             <div className="flex-grow">
                 <p className={`font-semibold ${text} ${!meetsRequirements ? 'text-red-500 line-through' : ''}`}>
                     {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
@@ -305,7 +304,7 @@ export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affi
 };
 
 export const EmptySlotListItem: React.FC<{ slotName: string, onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void }> = ({ slotName, onMouseEnter }) => (
-    <div className={`p-2 rounded-lg border border-slate-800 flex items-center gap-3 bg-slate-900/30`} onMouseEnter={onMouseEnter}>
+    <div className={`p-2 rounded-lg border border-slate-800 flex items-center gap-3 bg-slate-900/30 select-none`} onMouseEnter={onMouseEnter}>
         <div className="w-12 h-12 bg-slate-800/50 rounded-md flex-shrink-0 flex items-center justify-center">
             <ShieldIcon className="h-6 w-6 text-slate-600" />
         </div>
