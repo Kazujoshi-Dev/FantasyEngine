@@ -496,7 +496,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
         setHoveredCombatant(null);
     }, []);
 
-    // @FIX: Add onEnemyLeave callback.
     const onEnemyLeave = useCallback(() => {
         setHoveredCombatant(null);
     }, []);
@@ -617,10 +616,21 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = (pr
                         <div className="col-span-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col h-full overflow-hidden">
                             <div className="flex-grow overflow-y-auto pr-2 space-y-1.5">
                                 {reward.combatLog.map((log, index) => {
-                                    const isNewTurn = index > 0 && reward.combatLog[index - 1].turn !== log.turn;
+                                    const currentTurn = log.turn;
+                                    const prevTurn = index > 0 ? reward.combatLog[index - 1].turn : -1;
+                                    const isNewTurn = currentTurn !== prevTurn;
+
                                     return (
                                         <React.Fragment key={index}>
-                                            {isNewTurn && <div className="border-t border-slate-600/30 my-2"></div>}
+                                            {isNewTurn && (
+                                                <div className="flex items-center gap-4 my-4">
+                                                    <div className="h-px bg-slate-700 flex-grow"></div>
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                                        Runda {currentTurn}
+                                                    </span>
+                                                    <div className="h-px bg-slate-700 flex-grow"></div>
+                                                </div>
+                                            )}
                                             <CombatLogRow log={log} characterName={characterName} isHunting={isHunting || isRaid} huntingMembers={huntingMembers || (isRaid ? [...(huntingMembers || []), ...(opponents || [])] : [])} />
                                         </React.Fragment>
                                     );

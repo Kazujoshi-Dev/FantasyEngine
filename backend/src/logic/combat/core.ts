@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../types.js';
 import { getGrammaticallyCorrectFullName } from '../items.js';
 import { spellRegistry } from './spells/registry.js';
@@ -45,7 +46,11 @@ export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameDat
         const affixes = gameData.affixes || [];
         const template = templates.find(t => t.id === weaponInstance.templateId);
         if (template) {
-            return getGrammaticallyCorrectFullName(weaponInstance, template, affixes);
+            const baseName = getGrammaticallyCorrectFullName(weaponInstance, template, affixes);
+            if (weaponInstance.upgradeLevel && weaponInstance.upgradeLevel > 0) {
+                return `${baseName} +${weaponInstance.upgradeLevel}`;
+            }
+            return baseName;
         }
     }
     return undefined;

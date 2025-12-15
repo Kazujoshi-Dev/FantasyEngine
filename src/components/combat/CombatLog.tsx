@@ -24,7 +24,9 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             textColor = 'text-amber-400 font-bold text-center my-2';
             break;
         case 'attacks':
-            actionText = `${t('expedition.attacks')} ${log.defender}`;
+            // Display weapon name if available
+            const weaponText = log.weaponName ? `(${log.weaponName})` : '';
+            actionText = `${t('expedition.attacks')} ${log.defender} ${weaponText}`;
             break;
         case 'magicAttack':
             const spellName = log.magicAttackType ? t(`item.magic.${log.magicAttackType}`) : 'Magia';
