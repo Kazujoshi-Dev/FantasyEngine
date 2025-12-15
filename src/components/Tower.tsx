@@ -609,9 +609,15 @@ export const Tower: React.FC = () => {
                     const floor1Cost = tower.floors.find(f => f.floorNumber === 1)?.energyCost || 0;
                     return (
                         <div key={tower.id} className="bg-slate-800/80 border border-purple-500/30 p-6 rounded-xl shadow-lg hover:border-purple-500 transition-colors flex flex-col relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <ShieldIcon className="h-32 w-32 text-purple-600" />
-                            </div>
+                            {tower.image ? (
+                                <div className="absolute inset-0 z-0 opacity-20 group-hover:opacity-30 transition-opacity">
+                                    <img src={tower.image} alt={tower.name} className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <ShieldIcon className="h-32 w-32 text-purple-600" />
+                                </div>
+                            )}
                             
                             <h3 className="text-xl font-bold text-white mb-2 relative z-10">{tower.name}</h3>
                             <p className="text-sm text-gray-400 mb-4 flex-grow relative z-10">{tower.description}</p>
@@ -642,7 +648,7 @@ export const Tower: React.FC = () => {
                                          </div>
                                      )}
 
-                                     {/* Display Item Rewards - No Tooltip as requested */}
+                                     {/* Display Item Rewards */}
                                      {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
                                          <div className="space-y-1">
                                              {tower.grandPrize.items.map((item, idx) => {
@@ -661,6 +667,17 @@ export const Tower: React.FC = () => {
                                              })}
                                          </div>
                                      )}
+                                     
+                                     {/* Display Random Rewards */}
+                                      {tower.grandPrize.randomItemRewards && tower.grandPrize.randomItemRewards.length > 0 && (
+                                          <div className="space-y-1 mt-1 border-t border-amber-800/30 pt-1">
+                                              {tower.grandPrize.randomItemRewards.map((reward, idx) => (
+                                                  <p key={idx} className={`text-xs ${rarityStyles[reward.rarity].text} truncate italic`}>
+                                                      Losowy {t(`rarity.${reward.rarity}`)} x{reward.amount}
+                                                  </p>
+                                              ))}
+                                          </div>
+                                      )}
                                  </div>
                             )}
 

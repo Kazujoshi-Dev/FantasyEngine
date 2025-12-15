@@ -23,7 +23,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         locationId: '',
         totalFloors: 0,
         floors: [],
-        grandPrize: { gold: 0, experience: 0, items: [], essences: {} },
+        grandPrize: { gold: 0, experience: 0, items: [], essences: {}, randomItemRewards: [] },
         isActive: true,
         ...tower
     });
@@ -207,6 +207,41 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
             } as any
         }));
     };
+    
+    // Grand Prize Random Items
+    const addGrandPrizeRandomItem = () => {
+        setFormData(prev => ({
+            ...prev,
+            grandPrize: {
+                ...prev.grandPrize,
+                randomItemRewards: [...(prev.grandPrize?.randomItemRewards || []), { rarity: ItemRarity.Common, chance: 100, amount: 1, affixCount: 0 }]
+            } as any
+        }));
+    };
+    
+    const updateGrandPrizeRandomItem = (index: number, key: string, value: any) => {
+        setFormData(prev => {
+            const newRandoms = [...(prev.grandPrize?.randomItemRewards || [])];
+            (newRandoms[index] as any)[key] = value;
+            return {
+                ...prev,
+                grandPrize: {
+                    ...prev.grandPrize,
+                    randomItemRewards: newRandoms
+                } as any
+            };
+        });
+    };
+    
+    const removeGrandPrizeRandomItem = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            grandPrize: {
+                ...prev.grandPrize,
+                randomItemRewards: prev.grandPrize?.randomItemRewards?.filter((_, i) => i !== index) || []
+            } as any
+        }));
+    };
 
     // --- Filter logic for Item Creator ---
     const filteredTemplates = useMemo(() => {
@@ -253,6 +288,10 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                         <option value="">Wybierz...</option>
                         {gameData.locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
+                </div>
+                <div>
+                    <label className="block text-sm text-gray-400">Obrazek (URL)</label>
+                    <input className="w-full bg-slate-700 p-2 rounded" value={formData.image || ''} onChange={e => setFormData({...formData, image: e.target.value})} />
                 </div>
                 <div className="col-span-2">
                     <label className="block text-sm text-gray-400">Opis</label>
@@ -314,9 +353,26 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                      </div>
                  </div>
 
+                 {/* Random Items (Grand Prize) */}
+                 <div className="mb-4">
+                     <p className="text-xs text-gray-500 font-bold uppercase mb-2">Losowe Przedmioty</p>
+                     {formData.grandPrize?.randomItemRewards?.map((rew, rIdx) => (
+                          <div key={rIdx} className="flex gap-2 items-center text-xs mb-1">
+                             <select value={rew.rarity} onChange={e => updateGrandPrizeRandomItem(rIdx, 'rarity', e.target.value)} className="bg-slate-900 p-1 rounded">
+                                {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                             </select>
+                             <label>Szansa %: <input type="number" value={rew.chance} onChange={e => updateGrandPrizeRandomItem(rIdx, 'chance', parseInt(e.target.value))} className="w-12 bg-slate-900 p-1 rounded" /></label>
+                             <label>Ilość: <input type="number" value={rew.amount} onChange={e => updateGrandPrizeRandomItem(rIdx, 'amount', parseInt(e.target.value))} className="w-10 bg-slate-900 p-1 rounded" /></label>
+                             <label>Afiksy (0-2): <input type="number" min="0" max="2" value={rew.affixCount || 0} onChange={e => updateGrandPrizeRandomItem(rIdx, 'affixCount', parseInt(e.target.value))} className="w-10 bg-slate-900 p-1 rounded" /></label>
+                             <button type="button" onClick={() => removeGrandPrizeRandomItem(rIdx)} className="text-red-500">X</button>
+                          </div>
+                     ))}
+                     <button type="button" onClick={addGrandPrizeRandomItem} className="text-xs text-purple-400">+ Losowy Przedmiot</button>
+                 </div>
+
                  {/* Items */}
                  <div>
-                     <p className="text-xs text-gray-500 font-bold uppercase mb-2">Przedmioty</p>
+                     <p className="text-xs text-gray-500 font-bold uppercase mb-2">Konkretne Przedmioty</p>
                      <div className="space-y-2 mb-3">
                          {(formData.grandPrize?.items || []).map((item, idx) => {
                              const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);

@@ -839,11 +839,14 @@ export interface Tower {
     locationId: string;
     totalFloors: number;
     floors: TowerFloor[];
+    image?: string; // Added image support
     grandPrize: {
         gold: number;
         experience: number;
         items: ItemInstance[];
         essences: Partial<Record<EssenceType, number>>;
+        // Added random rewards to grand prize
+        randomItemRewards?: { rarity: ItemRarity; chance: number; amount: number; affixCount?: number }[];
     };
     isActive: boolean;
 }

@@ -409,7 +409,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                         }
                     }
 
-                    // Add Grand Prize Items
+                    // Add Grand Prize Items (Specific)
                     if (tower.grandPrize.items && tower.grandPrize.items.length > 0) {
                         for (const itemDef of tower.grandPrize.items) {
                             const newItem = createItemInstance(
@@ -436,6 +436,54 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                             newItem.uniqueId = randomUUID(); 
                             rewards.items.push(newItem);
                         }
+                    }
+
+                    // Add Grand Prize Items (Random)
+                    if (tower.grandPrize.randomItemRewards) {
+                         for (const reward of tower.grandPrize.randomItemRewards) {
+                             for (let i = 0; i < reward.amount; i++) {
+                                 if (Math.random() * 100 <= reward.chance) {
+                                     const eligibleTemplates = gameData.itemTemplates.filter(t => t.rarity === reward.rarity);
+                                     if (eligibleTemplates.length > 0) {
+                                         const randomTemplate = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
+                                         const newItem = createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes, derivedChar, false);
+                                         
+                                         // Reuse logic for affix counts for random rewards
+                                         const affixCount = reward.affixCount ?? 0;
+                                         if (affixCount > 0) {
+                                              const itemCategory = randomTemplate.category;
+                                              const possiblePrefixes = gameData.affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+                                              const possibleSuffixes = gameData.affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+                                              
+                                              if (affixCount === 2) {
+                                                  if (possiblePrefixes.length > 0) {
+                                                      const p = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+                                                      newItem.prefixId = p.id;
+                                                      newItem.rolledPrefix = rollAffixStats(p, derivedChar.stats.luck);
+                                                  }
+                                                  if (possibleSuffixes.length > 0) {
+                                                      const s = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+                                                      newItem.suffixId = s.id;
+                                                      newItem.rolledSuffix = rollAffixStats(s, derivedChar.stats.luck);
+                                                  }
+                                              } else if (affixCount === 1) {
+                                                  const pickPrefix = Math.random() < 0.5;
+                                                  if (pickPrefix && possiblePrefixes.length > 0) {
+                                                      const p = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+                                                      newItem.prefixId = p.id;
+                                                      newItem.rolledPrefix = rollAffixStats(p, derivedChar.stats.luck);
+                                                  } else if (!pickPrefix && possibleSuffixes.length > 0) {
+                                                      const s = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+                                                      newItem.suffixId = s.id;
+                                                      newItem.rolledSuffix = rollAffixStats(s, derivedChar.stats.luck);
+                                                  }
+                                              }
+                                         }
+                                         rewards.items.push(newItem);
+                                     }
+                                 }
+                             }
+                         }
                     }
                 }
                 
