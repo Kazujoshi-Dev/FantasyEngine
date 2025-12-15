@@ -3,8 +3,8 @@ export enum Race {
     Human = 'Human',
     Elf = 'Elf',
     Orc = 'Orc',
-    Dwarf = 'Dwarf',
     Gnome = 'Gnome',
+    Dwarf = 'Dwarf'
 }
 
 export enum CharacterClass {
@@ -19,7 +19,15 @@ export enum CharacterClass {
     Blacksmith = 'Blacksmith',
     DungeonHunter = 'DungeonHunter',
     Thief = 'Thief',
-    Engineer = 'Engineer',
+    Engineer = 'Engineer'
+}
+
+export enum EssenceType {
+    Common = 'commonEssence',
+    Uncommon = 'uncommonEssence',
+    Rare = 'rareEssence',
+    Epic = 'epicEssence',
+    Legendary = 'legendaryEssence'
 }
 
 export enum ItemRarity {
@@ -27,14 +35,13 @@ export enum ItemRarity {
     Uncommon = 'Uncommon',
     Rare = 'Rare',
     Epic = 'Epic',
-    Legendary = 'Legendary',
+    Legendary = 'Legendary'
 }
 
 export enum ItemCategory {
     Weapon = 'Weapon',
     Armor = 'Armor',
-    Jewelry = 'Jewelry',
-    Consumable = 'Consumable'
+    Jewelry = 'Jewelry'
 }
 
 export enum EquipmentSlot {
@@ -49,15 +56,18 @@ export enum EquipmentSlot {
     Ring2 = 'ring2',
     MainHand = 'mainHand',
     OffHand = 'offHand',
-    TwoHand = 'twoHand',
+    TwoHand = 'twoHand'
 }
 
-export enum EssenceType {
-    Common = 'commonEssence',
-    Uncommon = 'uncommonEssence',
-    Rare = 'rareEssence',
-    Epic = 'epicEssence',
-    Legendary = 'legendaryEssence',
+export enum AffixType {
+    Prefix = 'Prefix',
+    Suffix = 'Suffix'
+}
+
+export enum GrammaticalGender {
+    Masculine = 'Masculine',
+    Feminine = 'Feminine',
+    Neuter = 'Neuter'
 }
 
 export enum MagicAttackType {
@@ -70,64 +80,98 @@ export enum MagicAttackType {
     ArcaneMissile = 'ArcaneMissile',
     LifeDrain = 'LifeDrain',
     MeteorSwarm = 'MeteorSwarm',
-    Earthquake = 'Earthquake',
-}
-
-export enum SkillType {
-    Universal = 'Universal',
-    Racial = 'Racial',
-    Class = 'Class',
-}
-
-export enum SkillCategory {
-    Passive = 'Passive',
-    Active = 'Active',
+    Earthquake = 'Earthquake'
 }
 
 export enum QuestType {
     Kill = 'Kill',
     Gather = 'Gather',
     GatherResource = 'GatherResource',
-    PayGold = 'PayGold',
+    PayGold = 'PayGold'
 }
 
-export enum ListingType {
-    BuyNow = 'buy_now',
-    Auction = 'auction',
+export enum SkillType {
+    Universal = 'Universal',
+    Racial = 'Racial',
+    Class = 'Class'
 }
 
-export type CurrencyType = 'gold' | EssenceType;
-
-export enum PartyStatus {
-    Forming = 'FORMING',
-    Preparing = 'PREPARING',
-    Fighting = 'FIGHTING',
-    Finished = 'FINISHED',
-}
-
-export enum PartyMemberStatus {
-    Leader = 'LEADER',
-    Member = 'MEMBER',
-    Pending = 'PENDING',
+export enum SkillCategory {
+    Passive = 'Passive',
+    Active = 'Active'
 }
 
 export enum GuildRole {
     LEADER = 'LEADER',
     OFFICER = 'OFFICER',
     MEMBER = 'MEMBER',
-    RECRUIT = 'RECRUIT',
+    RECRUIT = 'RECRUIT'
+}
+
+export enum Tab {
+    Statistics = 'Statistics',
+    Equipment = 'Equipment',
+    Expedition = 'Expedition',
+    Quests = 'Quests',
+    Camp = 'Camp',
+    Location = 'Location',
+    Resources = 'Resources',
+    Ranking = 'Ranking',
+    Messages = 'Messages',
+    Trader = 'Trader',
+    Blacksmith = 'Blacksmith',
+    Tavern = 'Tavern',
+    Market = 'Market',
+    Options = 'Options',
+    Admin = 'Admin',
+    University = 'University',
+    Hunting = 'Hunting',
+    Guild = 'Guild',
+    Tower = 'Tower'
+}
+
+export enum Language {
+    PL = 'pl',
+    EN = 'en'
+}
+
+export enum CurrencyType {
+    Gold = 'gold',
+    Common = 'commonEssence',
+    Uncommon = 'uncommonEssence',
+    Rare = 'rareEssence',
+    Epic = 'epicEssence',
+    Legendary = 'legendaryEssence'
+}
+
+export enum ListingType {
+    BuyNow = 'buy_now',
+    Auction = 'auction'
+}
+
+export enum PartyStatus {
+    Forming = 'FORMING',
+    Preparing = 'PREPARING',
+    Fighting = 'FIGHTING',
+    Finished = 'FINISHED'
+}
+
+export enum PartyMemberStatus {
+    Leader = 'LEADER',
+    Member = 'MEMBER',
+    Pending = 'PENDING'
+}
+
+export enum RaidType {
+    RESOURCES = 'RESOURCES',
+    SPARRING = 'SPARRING'
 }
 
 export enum RaidStatus {
     PREPARING = 'PREPARING',
     FIGHTING = 'FIGHTING',
     FINISHED = 'FINISHED',
-    CANCELLED = 'CANCELLED',
-}
-
-export enum RaidType {
-    RESOURCES = 'RESOURCES',
-    SPARRING = 'SPARRING',
+    CANCELLED = 'CANCELLED'
 }
 
 export enum SpecialAttackType {
@@ -135,33 +179,7 @@ export enum SpecialAttackType {
     ArmorPierce = 'ArmorPierce',
     DeathTouch = 'DeathTouch',
     EmpoweredStrikes = 'EmpoweredStrikes',
-    Earthquake = 'Earthquake',
-}
-
-export enum AffixType {
-    Prefix = 'Prefix',
-    Suffix = 'Suffix',
-}
-
-export enum GrammaticalGender {
-    Masculine = 'masculine',
-    Feminine = 'feminine',
-    Neuter = 'neuter',
-}
-
-export enum MessageType {
-    PlayerMessage = 'player_message',
-    System = 'system',
-    MarketNotification = 'market_notification',
-    ExpeditionReport = 'expedition_report',
-    PvpReport = 'pvp_report',
-    RaidReport = 'raid_report',
-    GuildInvite = 'guild_invite',
-}
-
-export enum Language {
-    PL = 'pl',
-    EN = 'en',
+    Earthquake = 'Earthquake'
 }
 
 export enum TowerRunStatus {
@@ -171,29 +189,14 @@ export enum TowerRunStatus {
     RETREATED = 'RETREATED'
 }
 
-export const Tab = {
-    Statistics: 'Statistics',
-    Equipment: 'Equipment',
-    Expedition: 'Expedition',
-    Tower: 'Tower',
-    Hunting: 'Hunting',
-    Quests: 'Quests',
-    Camp: 'Camp',
-    Location: 'Location',
-    Guild: 'Guild',
-    University: 'University',
-    Resources: 'Resources',
-    Ranking: 'Ranking',
-    Messages: 'Messages',
-    Tavern: 'Tavern',
-    Market: 'Market',
-    Trader: 'Trader',
-    Blacksmith: 'Blacksmith',
-    Options: 'Options',
-    Admin: 'Admin',
-} as const;
-
-export type Tab = typeof Tab[keyof typeof Tab];
+export interface CharacterResources {
+    gold: number;
+    commonEssence: number;
+    uncommonEssence: number;
+    rareEssence: number;
+    epicEssence: number;
+    legendaryEssence: number;
+}
 
 export interface CharacterStats {
     strength: number;
@@ -207,27 +210,222 @@ export interface CharacterStats {
     
     currentHealth: number;
     maxHealth: number;
-    currentMana: number;
-    maxMana: number;
     currentEnergy: number;
     maxEnergy: number;
-
+    currentMana: number;
+    maxMana: number;
+    
     minDamage: number;
     maxDamage: number;
     magicDamageMin: number;
     magicDamageMax: number;
+    
     armor: number;
     critChance: number;
     critDamageModifier: number;
     attacksPerRound: number;
     manaRegen: number;
+    dodgeChance: number;
+    
+    armorPenetrationPercent: number;
+    armorPenetrationFlat: number;
     lifeStealPercent: number;
     lifeStealFlat: number;
     manaStealPercent: number;
     manaStealFlat: number;
-    dodgeChance: number;
-    armorPenetrationPercent: number;
-    armorPenetrationFlat: number;
+}
+
+export interface RolledAffixStats {
+    statsBonus?: Partial<CharacterStats>;
+    damageMin?: number;
+    damageMax?: number;
+    attacksPerRoundBonus?: number;
+    dodgeChanceBonus?: number;
+    armorBonus?: number;
+    critChanceBonus?: number;
+    maxHealthBonus?: number;
+    critDamageModifierBonus?: number;
+    armorPenetrationPercent?: number;
+    armorPenetrationFlat?: number;
+    lifeStealPercent?: number;
+    lifeStealFlat?: number;
+    manaStealPercent?: number;
+    manaStealFlat?: number;
+    magicDamageMin?: number;
+    magicDamageMax?: number;
+}
+
+export interface ItemInstance {
+    uniqueId: string;
+    templateId: string;
+    prefixId?: string;
+    suffixId?: string;
+    upgradeLevel?: number;
+    rolledBaseStats?: RolledAffixStats;
+    rolledPrefix?: RolledAffixStats;
+    rolledSuffix?: RolledAffixStats;
+    isBorrowed?: boolean;
+    borrowedFromGuildId?: number;
+    originalOwnerId?: number;
+    originalOwnerName?: string;
+    borrowedAt?: number;
+}
+
+export interface ItemTemplate {
+    id: string;
+    name: string;
+    description: string;
+    slot: EquipmentSlot | 'ring' | 'consumable';
+    category: ItemCategory;
+    rarity: ItemRarity;
+    icon?: string;
+    value: number;
+    requiredLevel: number;
+    gender?: GrammaticalGender;
+    
+    // Base Stats
+    damageMin?: { min: number; max: number };
+    damageMax?: { min: number; max: number };
+    armorBonus?: { min: number; max: number };
+    critChanceBonus?: number;
+    maxHealthBonus?: { min: number; max: number };
+    
+    // Advanced
+    critDamageModifierBonus?: number;
+    armorPenetrationPercent?: number;
+    armorPenetrationFlat?: number;
+    lifeStealPercent?: number;
+    lifeStealFlat?: number;
+    manaStealPercent?: number;
+    manaStealFlat?: number;
+    
+    // Magic
+    isMagical?: boolean;
+    isRanged?: boolean;
+    magicAttackType?: MagicAttackType;
+    manaCost?: { min: number; max: number };
+    magicDamageMin?: { min: number; max: number };
+    magicDamageMax?: { min: number; max: number };
+    
+    attacksPerRound?: number;
+    
+    requiredStats?: Partial<CharacterStats>;
+    statsBonus?: Partial<Record<keyof CharacterStats, { min: number; max: number }>>;
+}
+
+export interface Affix {
+    id: string;
+    name: {
+        masculine: string;
+        feminine: string;
+        neuter: string;
+    } | string;
+    type: AffixType;
+    value: number;
+    requiredLevel?: number;
+    spawnChances: Partial<Record<ItemCategory, number>>;
+    
+    requiredStats?: Partial<CharacterStats>;
+    statsBonus?: Partial<Record<keyof CharacterStats, { min: number; max: number }>>;
+    
+    // Bonuses (Range)
+    damageMin?: { min: number; max: number };
+    damageMax?: { min: number; max: number };
+    attacksPerRoundBonus?: number;
+    dodgeChanceBonus?: number;
+    armorBonus?: { min: number; max: number };
+    critChanceBonus?: number;
+    maxHealthBonus?: { min: number; max: number };
+    critDamageModifierBonus?: { min: number; max: number };
+    armorPenetrationPercent?: { min: number; max: number };
+    armorPenetrationFlat?: { min: number; max: number };
+    lifeStealPercent?: { min: number; max: number };
+    lifeStealFlat?: { min: number; max: number };
+    manaStealPercent?: { min: number; max: number };
+    manaStealFlat?: { min: number; max: number };
+    magicDamageMin?: { min: number; max: number };
+    magicDamageMax?: { min: number; max: number };
+}
+
+export interface PlayerCharacter {
+    id: number;
+    name: string;
+    username?: string;
+    email?: string;
+    description?: string;
+    avatarUrl?: string;
+    race: Race;
+    characterClass?: CharacterClass;
+    level: number;
+    experience: number;
+    experienceToNextLevel: number;
+    
+    stats: CharacterStats;
+    resources: CharacterResources;
+    
+    currentLocationId: string;
+    
+    equipment: {
+        [key in EquipmentSlot]: ItemInstance | null;
+    };
+    inventory: ItemInstance[];
+    
+    activeExpedition?: {
+        expeditionId: string;
+        finishTime: number;
+        enemies: string[];
+        combatLog: CombatLogEntry[];
+        rewards: {
+            gold: number;
+            experience: number;
+        }
+    } | null;
+    
+    activeTravel?: {
+        destinationLocationId: string;
+        finishTime: number;
+    } | null;
+    
+    activeTowerRun?: ActiveTowerRun | null;
+    
+    isResting: boolean;
+    restStartHealth: number;
+    lastRestTime?: number;
+    lastEnergyUpdateTime?: number;
+    
+    camp?: { level: number };
+    treasury?: { level: number, gold: number };
+    chest?: { level: number, gold: number }; // Legacy alias
+    warehouse?: { level: number, items: ItemInstance[] };
+    backpack?: { level: number };
+    
+    questProgress: PlayerQuestProgress[];
+    acceptedQuests: string[];
+    
+    learnedSkills: string[];
+    activeSkills: string[];
+    
+    settings?: GameSettings;
+    
+    pvpWins: number;
+    pvpLosses: number;
+    pvpProtectionUntil: number;
+    
+    traderData?: TraderData;
+    
+    guildId?: number;
+    guildBarracksLevel?: number;
+    guildShrineLevel?: number;
+    activeGuildBuffs?: GuildBuff[];
+
+    freeStatResetUsed?: boolean;
+    windowBackgroundUrl?: string;
+}
+
+export interface PlayerQuestProgress {
+    questId: string;
+    progress: number;
+    completions: number;
 }
 
 export interface EnemyStats {
@@ -239,242 +437,43 @@ export interface EnemyStats {
     critDamageModifier: number;
     agility: number;
     dodgeChance: number;
-    maxMana: number;
-    manaRegen: number;
-    magicDamageMin: number;
-    magicDamageMax: number;
-    magicAttackChance: number;
-    magicAttackManaCost: number;
-    attacksPerTurn: number;
-    
-    magicAttackType?: MagicAttackType;
-    armorPenetrationPercent?: number;
-    armorPenetrationFlat?: number;
-}
-
-export interface RolledAffixStats extends Partial<CharacterStats> {
-    statsBonus?: Partial<CharacterStats>;
-    damageMin?: number;
-    damageMax?: number;
+    maxMana?: number;
+    manaRegen?: number;
     magicDamageMin?: number;
     magicDamageMax?: number;
-    armorBonus?: number;
-    critChanceBonus?: number;
-    maxHealthBonus?: number;
-    critDamageModifierBonus?: number;
+    magicAttackChance?: number;
+    magicAttackManaCost?: number;
+    magicAttackType?: MagicAttackType;
+    attacksPerTurn?: number;
     armorPenetrationPercent?: number;
     armorPenetrationFlat?: number;
-    lifeStealPercent?: number;
-    lifeStealFlat?: number;
-    manaStealPercent?: number;
-    manaStealFlat?: number;
-    attacksPerRoundBonus?: number;
-    dodgeChanceBonus?: number;
-    manaCost?: { min: number, max: number };
-    magicAttackType?: MagicAttackType;
 }
 
-export interface ItemTemplate {
+export interface BossSpecialAttack {
+    type: SpecialAttackType;
+    chance: number; // % per turn
+    uses: number; // Max uses per combat
+}
+
+export interface Enemy {
     id: string;
+    uniqueId?: string;
     name: string;
     description: string;
-    category: ItemCategory;
-    slot: EquipmentSlot | 'ring' | 'consumable';
-    rarity: ItemRarity;
-    icon?: string;
-    value: number;
-    requiredLevel: number;
-    requiredStats?: Partial<CharacterStats>;
-    
-    gender?: GrammaticalGender;
-    
-    statsBonus?: Partial<CharacterStats>;
-    damageMin?: { min: number, max: number };
-    damageMax?: { min: number, max: number };
-    armorBonus?: { min: number, max: number };
-    critChanceBonus?: { min: number, max: number };
-    maxHealthBonus?: { min: number, max: number };
-    critDamageModifierBonus?: { min: number, max: number };
-    armorPenetrationPercent?: { min: number, max: number };
-    armorPenetrationFlat?: { min: number, max: number };
-    lifeStealPercent?: { min: number, max: number };
-    lifeStealFlat?: { min: number, max: number };
-    manaStealPercent?: { min: number, max: number };
-    manaStealFlat?: { min: number, max: number };
-    magicDamageMin?: { min: number, max: number };
-    magicDamageMax?: { min: number, max: number };
-    attacksPerRound?: number;
-    dodgeChanceBonus?: { min: number, max: number };
-    attacksPerRoundBonus?: { min: number, max: number };
-
-    isMagical?: boolean;
-    isRanged?: boolean;
-    magicAttackType?: MagicAttackType;
-    manaCost?: { min: number, max: number };
-}
-
-export interface Affix {
-    id: string;
-    name: { masculine: string, feminine?: string, neuter?: string } | string;
-    type: AffixType;
-    value: number;
-    requiredLevel?: number;
-    requiredStats?: Partial<CharacterStats>;
-    spawnChances: Partial<Record<ItemCategory, number>>;
-    
-    statsBonus?: Partial<Record<keyof CharacterStats, { min: number, max: number }>>;
-    damageMin?: { min: number, max: number };
-    damageMax?: { min: number, max: number };
-    armorBonus?: { min: number, max: number };
-    critChanceBonus?: { min: number, max: number };
-    maxHealthBonus?: { min: number, max: number };
-    critDamageModifierBonus?: { min: number, max: number };
-    armorPenetrationPercent?: { min: number, max: number };
-    armorPenetrationFlat?: { min: number, max: number };
-    lifeStealPercent?: { min: number, max: number };
-    lifeStealFlat?: { min: number, max: number };
-    manaStealPercent?: { min: number, max: number };
-    manaStealFlat?: { min: number, max: number };
-    magicDamageMin?: { min: number, max: number };
-    magicDamageMax?: { min: number, max: number };
-    attacksPerRoundBonus?: { min: number, max: number };
-    dodgeChanceBonus?: { min: number, max: number };
-}
-
-export interface ItemInstance {
-    uniqueId: string;
-    templateId: string;
-    prefixId?: string;
-    suffixId?: string;
-    upgradeLevel?: number;
-    
-    rolledBaseStats?: RolledAffixStats;
-    rolledPrefix?: RolledAffixStats;
-    rolledSuffix?: RolledAffixStats;
-
-    isBorrowed?: boolean;
-    borrowedFromGuildId?: number;
-    originalOwnerId?: number;
-    originalOwnerName?: string;
-    borrowedAt?: number;
-}
-
-export interface CharacterResources {
-    gold: number;
-    [EssenceType.Common]: number;
-    [EssenceType.Uncommon]: number;
-    [EssenceType.Rare]: number;
-    [EssenceType.Epic]: number;
-    [EssenceType.Legendary]: number;
-}
-
-export interface GuildBuff {
-    id: string;
-    name: string;
-    stats: Partial<CharacterStats>;
-    expiresAt: number;
-}
-
-export interface PlayerCharacter {
-    id: number;
-    user_id?: number; 
-    username?: string;
-    name: string;
-    race: Race;
-    characterClass?: CharacterClass;
-    level: number;
-    experience: number;
-    experienceToNextLevel: number;
-    
-    stats: CharacterStats;
-    resources: CharacterResources;
-    
-    inventory: ItemInstance[];
-    equipment: Record<EquipmentSlot, ItemInstance | null>;
-    
-    currentLocationId: string;
-    
-    activeExpedition: {
-        expeditionId: string;
-        finishTime: number;
-        enemies: Enemy[];
-        combatLog: CombatLogEntry[];
-        rewards: { gold: number, experience: number };
-    } | null;
-    
-    activeTravel: {
-        destinationLocationId: string;
-        finishTime: number;
-    } | null;
-
-    activeTowerRun?: ActiveTowerRun | null;
-    
-    isResting: boolean;
-    restStartHealth: number;
-    lastRestTime?: number;
-    lastEnergyUpdateTime?: number;
-    
-    camp: { level: number };
-    treasury?: { level: number, gold: number };
-    chest?: { level: number, gold: number };
-    warehouse?: { level: number, items: ItemInstance[] };
-    backpack?: { level: number };
-    
-    questProgress: PlayerQuestProgress[];
-    acceptedQuests: string[];
-    
-    learnedSkills: string[];
-    activeSkills: string[];
-    
-    pvpWins: number;
-    pvpLosses: number;
-    pvpProtectionUntil: number;
-    
-    guild_id?: number;
-    guildBarracksLevel?: number;
-    guildShrineLevel?: number;
-    activeGuildBuffs?: GuildBuff[];
-    
-    traderData?: TraderData;
-    
-    description?: string;
-    avatarUrl?: string;
-    settings?: {
-        language: Language;
-        sidebarOrder?: Tab[];
-        windowBackgroundUrl?: string;
-    };
-    windowBackgroundUrl?: string;
-    
-    email?: string;
-    freeStatResetUsed?: boolean;
-}
-
-export interface PlayerQuestProgress {
-    questId: string;
-    progress: number;
-    completions: number;
-}
-
-export interface TraderInventoryData {
-    regularItems: ItemInstance[];
-    specialOfferItems: ItemInstance[];
-}
-
-export interface TraderData extends TraderInventoryData {
-    lastRefresh: number;
-}
-
-export interface Location {
-    id: string;
-    name: string;
-    description: string;
-    travelTime: number;
-    travelCost: number;
-    travelEnergyCost: number;
-    availableTabs: Tab[];
-    isStartLocation?: boolean;
     image?: string;
+    stats: EnemyStats;
+    rewards: {
+        minGold: number;
+        maxGold: number;
+        minExperience: number;
+        maxExperience: number;
+    };
+    lootTable?: LootDrop[];
+    resourceLootTable?: ResourceDrop[];
+    isBoss?: boolean;
+    isGuildBoss?: boolean;
+    preparationTimeSeconds?: number;
+    specialAttacks?: BossSpecialAttack[];
 }
 
 export interface LootDrop {
@@ -489,36 +488,6 @@ export interface ResourceDrop {
     chance: number;
 }
 
-export interface BossSpecialAttack {
-    type: SpecialAttackType;
-    chance: number;
-    uses: number;
-}
-
-export interface Enemy {
-    id: string;
-    uniqueId?: string;
-    name: string;
-    description: string;
-    image?: string;
-    
-    stats: EnemyStats;
-    rewards: {
-        minGold: number;
-        maxGold: number;
-        minExperience: number;
-        maxExperience: number;
-    };
-    
-    lootTable: LootDrop[];
-    resourceLootTable: ResourceDrop[];
-    
-    isBoss?: boolean;
-    isGuildBoss?: boolean;
-    preparationTimeSeconds?: number;
-    specialAttacks?: BossSpecialAttack[];
-}
-
 export interface ExpeditionEnemy {
     enemyId: string;
     spawnChance: number;
@@ -529,22 +498,51 @@ export interface Expedition {
     name: string;
     description: string;
     image?: string;
-    locationIds: string[];
     duration: number;
     goldCost: number;
     energyCost: number;
-    
     minBaseGoldReward: number;
     maxBaseGoldReward: number;
     minBaseExperienceReward: number;
     maxBaseExperienceReward: number;
-    
+    locationIds: string[];
     enemies: ExpeditionEnemy[];
+    lootTable?: LootDrop[];
+    resourceLootTable?: ResourceDrop[];
     maxEnemies?: number;
     maxItems?: number;
-    
-    lootTable: LootDrop[];
-    resourceLootTable: ResourceDrop[];
+}
+
+export interface Location {
+    id: string;
+    name: string;
+    description: string;
+    image?: string;
+    travelTime: number;
+    travelCost: number;
+    travelEnergyCost: number;
+    availableTabs?: Tab[];
+    isStartLocation?: boolean;
+}
+
+export interface Quest {
+    id: string;
+    name: string;
+    description: string;
+    locationIds: string[];
+    objective: {
+        type: QuestType;
+        targetId: string;
+        amount: number;
+    };
+    rewards: {
+        gold?: number;
+        experience?: number;
+        itemRewards?: ItemReward[];
+        resourceRewards?: ResourceReward[];
+        lootTable?: LootDrop[];
+    };
+    repeatable: number;
 }
 
 export interface ItemReward {
@@ -557,39 +555,23 @@ export interface ResourceReward {
     quantity: number;
 }
 
-export interface Quest {
-    id: string;
-    name: string;
-    description: string;
-    locationIds: string[];
-    repeatable: number;
-    
-    objective: {
-        type: QuestType;
-        targetId: string;
-        amount: number;
-    };
-    
-    rewards: {
-        gold: number;
-        experience: number;
-        itemRewards?: ItemReward[];
-        resourceRewards?: ResourceReward[];
-        lootTable?: LootDrop[];
-    };
-}
-
-export interface SkillRequirements extends Partial<CharacterStats> {
+export interface SkillRequirements {
     level?: number;
+    strength?: number;
+    agility?: number;
+    accuracy?: number;
+    stamina?: number;
+    intelligence?: number;
+    energy?: number;
 }
 
 export interface SkillCost {
     gold?: number;
-    [EssenceType.Common]?: number;
-    [EssenceType.Uncommon]?: number;
-    [EssenceType.Rare]?: number;
-    [EssenceType.Epic]?: number;
-    [EssenceType.Legendary]?: number;
+    commonEssence?: number;
+    uncommonEssence?: number;
+    rareEssence?: number;
+    epicEssence?: number;
+    legendaryEssence?: number;
 }
 
 export interface Skill {
@@ -600,7 +582,7 @@ export interface Skill {
     category: SkillCategory;
     requirements: SkillRequirements;
     cost: SkillCost;
-    manaMaintenanceCost?: number;
+    manaMaintenanceCost?: number; // For active skills
 }
 
 export interface Ritual {
@@ -609,416 +591,15 @@ export interface Ritual {
     description: string;
     tier: number;
     durationMinutes: number;
-    cost: { type: EssenceType | 'gold', amount: number }[];
-    stats: Partial<CharacterStats & { expBonus?: number }>;
-}
-
-export interface TraderSettings {
-    rarityChances: {
-        [ItemRarity.Common]: number;
-        [ItemRarity.Uncommon]: number;
-        [ItemRarity.Rare]: number;
-    };
-}
-
-export interface GameSettings {
-    language: Language;
-    sidebarOrder?: Tab[];
-    newsContent?: string;
-    newsLastUpdatedAt?: number;
-    
-    logoUrl?: string;
-    windowBackgroundUrl?: string;
-    sidebarBackgroundUrl?: string;
-    reportBackgroundUrl?: string;
-    loginBackground?: string;
-    gameBackground?: string;
-    
-    titleScreen?: {
-        description: string;
-        images: string[];
-    };
-
-    traderSettings?: TraderSettings;
-    pvpProtectionMinutes?: number;
-}
-
-export interface GameData {
-    locations: Location[];
-    expeditions: Expedition[];
-    enemies: Enemy[];
-    itemTemplates: ItemTemplate[];
-    affixes: Affix[];
-    quests: Quest[];
-    skills: Skill[];
-    rituals: Ritual[];
-    towers: Tower[];
-    settings?: GameSettings;
-}
-
-export interface CombatLogEntry {
-    turn: number;
-    attacker: string;
-    defender: string;
-    action: string;
-    damage?: number;
-    isCrit?: boolean;
-    damageReduced?: number;
-    healthGained?: number;
-    manaGained?: number;
-    manaSpent?: number;
-    magicAttackType?: MagicAttackType;
-    weaponName?: string;
-    isDodge?: boolean;
-    effectApplied?: string;
-    specialAttackType?: SpecialAttackType;
-    shout?: SpecialAttackType;
-    aoeDamage?: { target: string, damage: number }[];
-    stunnedPlayer?: string;
-    bonusDamage?: number;
-    
-    playerHealth: number;
-    playerMana: number;
-    enemyHealth: number;
-    enemyMana: number;
-
-    playerStats?: CharacterStats;
-    enemyStats?: EnemyStats;
-    enemyDescription?: string;
-    
-    allPlayersHealth?: { name: string, currentHealth: number, maxHealth: number, currentMana?: number, maxMana?: number }[];
-    allEnemiesHealth?: { uniqueId: string, name: string, currentHealth: number, maxHealth: number }[];
-    
-    partyMemberStats?: Record<string, CharacterStats>;
-}
-
-export interface RewardSource {
-    source: string;
-    gold: number;
-    experience: number;
-}
-
-export interface ExpeditionRewardSummary {
-    isVictory: boolean;
-    totalGold: number;
-    totalExperience: number;
-    itemsFound: ItemInstance[];
-    essencesFound: Partial<Record<EssenceType, number>>;
-    combatLog: CombatLogEntry[];
-    rewardBreakdown: RewardSource[];
-    itemsLostCount?: number;
-    
-    huntingMembers?: PartyMember[];
-    allRewards?: Record<string, any>;
-    bossId?: string;
-    
-    encounteredEnemies?: Enemy[];
-}
-
-export interface PvpRewardSummary {
-    gold: number;
-    experience: number;
-    combatLog: CombatLogEntry[];
-    isVictory: boolean;
-    attacker: PlayerCharacter;
-    defender: PlayerCharacter;
-}
-
-export interface Message {
-    id: number;
-    recipient_id: number;
-    sender_id?: number;
-    sender_name: string;
-    message_type: MessageType;
-    subject: string;
-    body: string | any;
-    is_read: boolean;
-    is_saved: boolean;
-    created_at: string;
-}
-
-export interface TavernMessage {
-    id: number;
-    user_id: number;
-    character_name: string;
-    content: string;
-    created_at: string;
-}
-
-export interface MarketListing {
-    id: number;
-    seller_id: number;
-    seller_name?: string;
-    item_data: ItemInstance;
-    listing_type: ListingType;
-    currency: CurrencyType;
-    buy_now_price?: number;
-    start_bid_price?: number;
-    current_bid_price?: number;
-    highest_bidder_id?: number;
-    highest_bidder_name?: string;
-    created_at: string;
-    expires_at: string;
-    status: 'ACTIVE' | 'SOLD' | 'EXPIRED' | 'CANCELLED' | 'CLAIMED';
-    bid_count?: number;
-}
-
-export interface MarketNotificationBody {
-    type: 'SOLD' | 'BOUGHT' | 'WON' | 'OUTBID' | 'EXPIRED' | 'ITEM_RETURNED';
-    itemName: string;
-    price?: number;
-    currency?: CurrencyType;
-    listingId?: number;
-    item?: ItemInstance;
-}
-
-export interface GuildInviteBody {
-    guildId: number;
-    guildName: string;
-}
-
-export interface PlayerMessageBody {
-    content: string;
-}
-
-export interface Guild {
-    id: number;
-    name: string;
-    tag: string;
-    leaderId: number;
-    description: string;
-    crestUrl: string;
-    resources: CharacterResources;
-    memberCount: number;
-    maxMembers: number;
-    createdAt: string;
-    isPublic: boolean;
-    minLevel: number;
-    rentalTax: number;
-    huntingTax: number;
-    
-    buildings: {
-        headquarters: number;
-        armory: number;
-        barracks: number;
-        scoutHouse: number;
-        shrine: number;
-        altar: number;
-    };
-    
-    activeBuffs: GuildBuff[];
-    
-    members?: GuildMember[];
-    transactions?: GuildTransaction[];
-    chatHistory?: GuildChatMessage[];
-    
-    myRole?: GuildRole;
-}
-
-export interface GuildMember {
-    userId: number;
-    name: string;
-    level: number;
-    race: Race;
-    characterClass: CharacterClass;
-    role: GuildRole;
-    joinedAt: string;
-    isOnline: boolean;
-}
-
-export interface GuildTransaction {
-    id: number;
-    userId: number;
-    characterName: string;
-    type: 'DEPOSIT' | 'WITHDRAW' | 'RENTAL' | 'TAX' | 'LOOT' | 'WAR_LOSS';
-    currency: CurrencyType;
-    amount: number;
-    timestamp: string;
-}
-
-export interface GuildChatMessage {
-    id: number;
-    userId: number;
-    characterName: string;
-    role: GuildRole;
-    content: string;
-    timestamp: string;
-}
-
-export interface GuildArmoryItem {
-    id: number;
-    item: ItemInstance;
-    ownerId: number;
-    ownerName: string;
-    depositedAt: string;
-    
-    borrowedBy?: string;
-    userId?: number;
-}
-
-export interface GuildRaid {
-    id: number;
-    attackerGuildId: number;
-    defenderGuildId: number;
-    status: RaidStatus;
-    type: RaidType;
-    startTime: string;
-    createdAt: string;
-    attackerParticipants: RaidParticipant[];
-    defenderParticipants: RaidParticipant[];
-    winnerGuildId?: number;
-    combatLog?: CombatLogEntry[] | string;
-    loot?: { gold: number, essences: Record<string, number> };
-    
-    attackerGuildName: string;
-    defenderGuildName: string;
-}
-
-export interface RaidParticipant {
-    userId: number;
-    name: string;
-    level: number;
-    race: Race;
-    characterClass: CharacterClass;
-}
-
-export interface HuntingParty {
-    id: number;
-    leaderId: number;
-    leaderName?: string;
-    bossId: string;
-    maxMembers: number;
-    status: PartyStatus;
-    startTime: string | null;
-    createdAt: string;
-    members: PartyMember[];
-    currentMembersCount?: number;
-    
-    guildId?: number;
-    
-    combatLog?: CombatLogEntry[];
-    victory?: boolean;
-    allRewards?: any;
-    myRewards?: any;
-    
-    messageId?: number;
-}
-
-export interface PartyMember {
-    userId: number;
-    characterName: string;
-    level: number;
-    race: Race;
-    characterClass: CharacterClass;
-    status: PartyMemberStatus;
-    stats?: CharacterStats;
-}
-
-export interface AdminCharacterInfo {
-    user_id: number;
-    username: string;
-    name: string;
-    level: number;
-    race: Race;
-    characterClass?: CharacterClass;
-    gold: number;
-}
-
-export interface GlobalStats {
-    totalPlayers: number;
-    totalGoldInEconomy: number;
-    raceCounts: Record<string, number>;
-    classCounts: Record<string, number>;
-    topItems: { id: string, count: number }[];
-    topAffixes: { id: string, count: number }[];
-}
-
-export interface ItemSearchResult {
-    item: ItemInstance;
-    template: ItemTemplate;
-    locations: {
-        userId: number;
-        ownerName: string;
-        location: string;
-    }[];
-}
-
-export interface DuplicationAuditResult {
-    uniqueId: string;
-    itemName: string;
-    templateId: string;
-    instances: {
-        userId: number;
-        ownerName: string;
-        location: string;
-        templateId: string;
-    }[];
-}
-
-export interface OrphanAuditResult {
-    userId: number;
-    characterName: string;
-    orphans: {
-        uniqueId: string;
-        templateId: string;
-        location: string;
-    }[];
-}
-
-export interface RankingPlayer {
-    id: number;
-    name: string;
-    race: Race;
-    characterClass: CharacterClass;
-    level: number;
-    experience: number;
-    pvpWins: number;
-    pvpLosses: number;
-    pvpProtectionUntil: number;
-    isOnline: boolean;
-    guildTag?: string;
-}
-
-export interface GuildRankingEntry {
-    id: number;
-    name: string;
-    tag: string;
-    memberCount: number;
-    totalLevel: number;
-}
-
-export interface PublicCharacterProfile {
-    name: string;
-    race: Race;
-    characterClass: CharacterClass;
-    level: number;
-    experience: number;
-    pvpWins: number;
-    pvpLosses: number;
-    description: string;
-    avatarUrl: string;
-    guildName?: string;
-    guildTag?: string;
-    isOnline: boolean;
-}
-
-export interface PublicGuildProfile {
-    name: string;
-    tag: string;
-    description: string;
-    crestUrl: string;
-    memberCount: number;
-    maxMembers: number;
-    totalLevel: number;
-    leaderName: string;
-    createdAt: string;
-    isPublic: boolean;
-    minLevel: number;
+    cost: { type: EssenceType | 'gold'; amount: number }[];
+    stats: Partial<CharacterStats & { expBonus: number }>;
 }
 
 export interface TowerFloor {
     floorNumber: number;
     enemies: ExpeditionEnemy[]; 
+    energyCost?: number;
+    duration?: number;
     guaranteedReward?: {
         gold: number;
         experience: number;
@@ -1030,6 +611,7 @@ export interface TowerFloor {
         rarity: ItemRarity;
         chance: number;
         amount: number;
+        affixCount?: number;
     }[];
 }
 
@@ -1064,3 +646,415 @@ export interface ActiveTowerRun {
     };
     status: TowerRunStatus;
 }
+
+export interface TraderSettings {
+    rarityChances: Partial<Record<ItemRarity, number>>;
+}
+
+export interface GameSettings {
+    language: Language;
+    newsContent?: string;
+    newsLastUpdatedAt?: number;
+    traderSettings?: TraderSettings;
+    pvpProtectionMinutes?: number;
+    logoUrl?: string;
+    windowBackgroundUrl?: string;
+    sidebarBackgroundUrl?: string;
+    reportBackgroundUrl?: string;
+    loginBackground?: string;
+    gameBackground?: string;
+    sidebarOrder?: Tab[];
+    titleScreen?: {
+        description?: string;
+        images?: string[];
+    }
+}
+
+export interface GameData {
+    locations: Location[];
+    expeditions: Expedition[];
+    enemies: Enemy[];
+    itemTemplates: ItemTemplate[];
+    quests: Quest[];
+    affixes: Affix[];
+    skills: Skill[];
+    rituals: Ritual[];
+    towers: Tower[];
+    settings: GameSettings;
+}
+
+export interface CombatLogEntry {
+    turn: number;
+    attacker: string;
+    defender: string;
+    action: string;
+    damage?: number;
+    isCrit?: boolean;
+    damageReduced?: number;
+    healthGained?: number;
+    manaGained?: number;
+    magicAttackType?: MagicAttackType;
+    weaponName?: string;
+    playerHealth: number;
+    playerMana: number;
+    enemyHealth: number;
+    enemyMana: number;
+    isDodge?: boolean;
+    effectApplied?: string;
+    manaSpent?: number;
+    
+    // Snapshots
+    playerStats?: CharacterStats;
+    enemyStats?: EnemyStats;
+    enemyDescription?: string;
+    
+    // Team/Group context
+    allPlayersHealth?: { name: string; currentHealth: number; maxHealth: number; currentMana?: number; maxMana?: number }[];
+    allEnemiesHealth?: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[];
+    partyMemberStats?: Record<string, CharacterStats>;
+    
+    specialAttackType?: SpecialAttackType;
+    shout?: string;
+    aoeDamage?: { target: string; damage: number }[];
+    stunnedPlayer?: string;
+}
+
+export interface ExpeditionRewardSummary {
+    rewardBreakdown: RewardSource[];
+    totalGold: number;
+    totalExperience: number;
+    combatLog: CombatLogEntry[];
+    isVictory: boolean;
+    itemsFound: ItemInstance[];
+    essencesFound: Partial<Record<EssenceType, number>>;
+    itemsLostCount?: number;
+    
+    huntingMembers?: PartyMember[];
+    allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
+    bossId?: string;
+    encounteredEnemies?: Enemy[];
+}
+
+export interface RewardSource {
+    source: string;
+    gold: number;
+    experience: number;
+}
+
+export interface PartyMember {
+    userId: number;
+    characterName: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+    status: PartyMemberStatus;
+    stats?: CharacterStats; // Snapshot for reports
+}
+
+export interface HuntingParty {
+    id: number;
+    leaderId: number;
+    leaderName?: string; // hydrated
+    bossId: string;
+    maxMembers: number;
+    status: PartyStatus;
+    startTime?: string; // ISO
+    createdAt: string;
+    members: PartyMember[];
+    currentMembersCount?: number; // hydrated
+    combatLog?: CombatLogEntry[];
+    allRewards?: Record<string, any>;
+    myRewards?: any;
+    victory?: boolean;
+    guildId?: number;
+    messageId?: number;
+}
+
+export interface Guild {
+    id: number;
+    name: string;
+    tag: string;
+    description: string;
+    crestUrl?: string;
+    leaderId: number;
+    memberCount: number;
+    maxMembers: number;
+    createdAt: string;
+    minLevel: number;
+    isPublic: boolean;
+    rentalTax: number;
+    huntingTax: number;
+    
+    resources: CharacterResources;
+    buildings: {
+        headquarters: number;
+        armory: number;
+        barracks: number;
+        scoutHouse: number;
+        shrine: number;
+        altar: number;
+    };
+    activeBuffs: GuildBuff[];
+    
+    // Hydrated
+    members?: {
+        userId: number;
+        name: string;
+        level: number;
+        race: Race;
+        characterClass?: CharacterClass;
+        role: GuildRole;
+        joinedAt: string;
+        isOnline: boolean;
+    }[];
+    transactions?: {
+        id: number;
+        userId: number;
+        characterName: string;
+        type: string;
+        currency: string;
+        amount: number;
+        timestamp: string;
+    }[];
+    chatHistory?: GuildChatMessage[];
+    
+    myRole?: GuildRole;
+}
+
+export interface GuildBuff {
+    id: string;
+    name: string;
+    stats: Partial<CharacterStats & { expBonus: number }>;
+    expiresAt: number;
+}
+
+export interface GuildChatMessage {
+    id: number;
+    userId: number;
+    characterName: string;
+    role: GuildRole;
+    content: string;
+    timestamp: string;
+}
+
+export interface GuildArmoryItem {
+    id: number;
+    item: ItemInstance;
+    ownerId: number;
+    ownerName: string;
+    depositedAt: string;
+    borrowedBy?: string;
+    userId?: number;
+}
+
+export interface GuildRaid {
+    id: number;
+    attackerGuildId: number;
+    defenderGuildId: number;
+    status: RaidStatus;
+    type: RaidType;
+    startTime: string;
+    createdAt: string;
+    attackerParticipants: RaidParticipant[];
+    defenderParticipants: RaidParticipant[];
+    winnerGuildId?: number;
+    loot?: {
+        gold: number;
+        essences: Partial<Record<EssenceType, number>>;
+    };
+    combatLog?: CombatLogEntry[] | string; // Can be string from DB
+    
+    // Hydrated
+    attackerGuildName: string;
+    defenderGuildName: string;
+}
+
+export interface RaidParticipant {
+    userId: number;
+    name: string;
+    level: number;
+    race: Race;
+    characterClass?: CharacterClass;
+}
+
+export interface AdminCharacterInfo {
+    user_id: number;
+    username: string;
+    name: string;
+    level: number;
+    gold: number;
+}
+
+export interface TraderInventoryData {
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface TraderData {
+    lastRefresh: number;
+    regularItems: ItemInstance[];
+    specialOfferItems: ItemInstance[];
+}
+
+export interface Message {
+    id: number;
+    recipient_id: number;
+    sender_id?: number;
+    sender_name?: string;
+    message_type: 'system' | 'player_message' | 'battle_report' | 'expedition_report' | 'market_notification' | 'pvp_report' | 'guild_invite' | 'raid_report';
+    subject: string;
+    body: any; // JSON
+    is_read: boolean;
+    is_saved: boolean;
+    created_at: string;
+}
+
+export type MessageType = Message['message_type'];
+
+export interface PlayerMessageBody {
+    content: string;
+}
+
+export interface MarketNotificationBody {
+    type: 'SOLD' | 'BOUGHT' | 'WON' | 'OUTBID' | 'EXPIRED' | 'ITEM_RETURNED' | 'CANCELLED';
+    itemName: string;
+    price?: number;
+    currency?: CurrencyType;
+    item?: ItemInstance;
+    listingId?: number;
+}
+
+export interface GuildInviteBody {
+    guildId: number;
+    guildName: string;
+}
+
+export interface TavernMessage {
+    id: number;
+    user_id: number;
+    character_name: string;
+    content: string;
+    created_at: string;
+}
+
+export interface MarketListing {
+    id: number;
+    seller_id: number;
+    seller_name: string;
+    item_data: ItemInstance;
+    listing_type: ListingType;
+    currency: CurrencyType;
+    buy_now_price?: number;
+    start_bid_price?: number;
+    current_bid_price?: number;
+    highest_bidder_id?: number;
+    highest_bidder_name?: string;
+    created_at: string;
+    expires_at: string;
+    status: 'ACTIVE' | 'SOLD' | 'EXPIRED' | 'CANCELLED' | 'CLAIMED';
+    bid_count: number;
+}
+
+export interface RankingPlayer {
+    id: number;
+    name: string;
+    race: Race;
+    characterClass?: CharacterClass;
+    level: number;
+    experience: number;
+    pvpWins: number;
+    pvpLosses: number;
+    pvpProtectionUntil: number;
+    isOnline: boolean;
+    guildTag?: string;
+}
+
+export interface GuildRankingEntry {
+    id: number;
+    name: string;
+    tag: string;
+    memberCount: number;
+    totalLevel: number;
+}
+
+export interface GlobalStats {
+    totalPlayers: number;
+    totalGoldInEconomy: number;
+    raceCounts: Record<string, number>;
+    classCounts: Record<string, number>;
+    topItems: { id: string, count: number }[];
+    topAffixes: { id: string, count: number }[];
+}
+
+export interface PublicCharacterProfile {
+    name: string;
+    race: Race;
+    characterClass?: CharacterClass;
+    level: number;
+    experience: number;
+    pvpWins: number;
+    pvpLosses: number;
+    description?: string;
+    avatarUrl?: string;
+    guildName?: string;
+    guildTag?: string;
+    isOnline: boolean;
+}
+
+export interface PublicGuildProfile {
+    id: number;
+    name: string;
+    tag: string;
+    description: string;
+    crestUrl?: string;
+    leaderName: string;
+    memberCount: number;
+    maxMembers: number;
+    totalLevel: number;
+    createdAt: string;
+    isPublic: boolean;
+    minLevel: number;
+}
+
+export interface PvpRewardSummary {
+    gold: number;
+    experience: number;
+    combatLog: CombatLogEntry[];
+    isVictory: boolean;
+    attacker: PlayerCharacter;
+    defender: PlayerCharacter;
+}
+
+export interface ItemSearchResult {
+    item: ItemInstance;
+    template: ItemTemplate;
+    locations: {
+        userId: number;
+        ownerName: string;
+        location: string;
+    }[];
+}
+
+export interface DuplicationAuditResult {
+    uniqueId: string;
+    itemName: string;
+    templateId: string;
+    instances: {
+        userId: number;
+        ownerName: string;
+        location: string;
+        templateId: string;
+    }[];
+}
+
+export interface OrphanAuditResult {
+    userId: number;
+    characterName: string;
+    orphans: {
+        uniqueId: string;
+        templateId: string;
+        location: string;
+    }[];
+}
+
+export type Key = string | number | symbol;

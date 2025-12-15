@@ -42,6 +42,8 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
             floors: [...(prev.floors || []), { 
                 floorNumber: (prev.floors?.length || 0) + 1, 
                 enemies: [],
+                energyCost: 0,
+                duration: 0,
                 guaranteedReward: { gold: 0, experience: 0 },
                 lootTable: [],
                 resourceLootTable: [],
@@ -121,7 +123,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         const floor = formData.floors![floorIndex];
         const currentRandoms = floor.randomItemRewards || [];
         updateFloor(floorIndex, {
-            randomItemRewards: [...currentRandoms, { rarity: ItemRarity.Common, chance: 100, amount: 1 }]
+            randomItemRewards: [...currentRandoms, { rarity: ItemRarity.Common, chance: 100, amount: 1, affixCount: 0 }]
         });
     };
     
@@ -349,6 +351,16 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                                 <button type="button" onClick={() => removeFloor(idx)} className="text-red-400 text-xs">Usuń Piętro</button>
                             </div>
                             
+                            {/* Costs */}
+                             <div className="flex gap-4 mb-3 border-b border-slate-700/50 pb-3">
+                                <label className="text-xs text-gray-400">Koszt Energii: 
+                                    <input type="number" className="w-16 bg-slate-900 p-1 rounded ml-1 text-white" value={floor.energyCost || 0} onChange={e => updateFloor(idx, { energyCost: parseInt(e.target.value)||0 })} />
+                                </label>
+                                <label className="text-xs text-gray-400">Czas (s): 
+                                    <input type="number" className="w-16 bg-slate-900 p-1 rounded ml-1 text-white" value={floor.duration || 0} onChange={e => updateFloor(idx, { duration: parseInt(e.target.value)||0 })} />
+                                </label>
+                            </div>
+
                             {/* Enemies */}
                             <div className="mb-3">
                                 <p className="text-xs text-gray-500 mb-1 font-bold">Przeciwnicy</p>
@@ -420,6 +432,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                                              </select>
                                              <label>Szansa %: <input type="number" value={rew.chance} onChange={e => updateRandomItemInFloor(idx, rIdx, 'chance', parseInt(e.target.value))} className="w-12 bg-slate-900 p-1 rounded" /></label>
                                              <label>Ilość: <input type="number" value={rew.amount} onChange={e => updateRandomItemInFloor(idx, rIdx, 'amount', parseInt(e.target.value))} className="w-10 bg-slate-900 p-1 rounded" /></label>
+                                             <label>Afiksy (0-2): <input type="number" min="0" max="2" value={rew.affixCount || 0} onChange={e => updateRandomItemInFloor(idx, rIdx, 'affixCount', parseInt(e.target.value))} className="w-10 bg-slate-900 p-1 rounded" /></label>
                                              <button type="button" onClick={() => removeRandomItemFromFloor(idx, rIdx)} className="text-red-500">X</button>
                                           </div>
                                      ))}

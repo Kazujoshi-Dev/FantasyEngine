@@ -2,11 +2,11 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry, ExpeditionRewardSummary, ItemInstance, EssenceType, CharacterClass, ItemRarity, ItemTemplate } from '../types.js';
+import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry, ExpeditionRewardSummary, ItemInstance, EssenceType, CharacterClass, ItemRarity, ItemTemplate, AffixType } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulate1vManyCombat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
-import { createItemInstance } from '../logic/items.js';
+import { createItemInstance, rollAffixStats } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 import { randomUUID } from 'crypto';
 
@@ -103,6 +103,17 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
              await client.query('ROLLBACK');
              return res.status(400).json({ message: 'Wrong location.' });
         }
+
+        // Check and deduct energy for Floor 1
+        const floor1 = tower.floors.find(f => f.floorNumber === 1);
+        if (floor1 && floor1.energyCost && floor1.energyCost > 0) {
+            if (character.stats.currentEnergy < floor1.energyCost) {
+                 await client.query('ROLLBACK');
+                 return res.status(400).json({ message: 'Not enough energy for Floor 1.' });
+            }
+            character.stats.currentEnergy -= floor1.energyCost;
+            await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        }
         
         // 2. Start Run
         // Snapshot current HP/Mana. If full, great. If not, they start damaged.
@@ -171,9 +182,26 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         const floorConfig = tower.floors.find(f => f.floorNumber === activeRun.current_floor);
         if (!floorConfig) throw new Error('Floor config missing');
 
-        const charRes = await client.query('SELECT data, buildings, active_buffs FROM characters c LEFT JOIN guild_members gm ON c.user_id = gm.user_id LEFT JOIN guilds g ON gm.guild_id = g.id WHERE c.user_id = $1', [userId]);
+        const charRes = await client.query('SELECT data, buildings, active_buffs FROM characters c LEFT JOIN guild_members gm ON c.user_id = gm.user_id LEFT JOIN guilds g ON gm.guild_id = g.id WHERE c.user_id = $1 FOR UPDATE OF c', [userId]);
         const charData: PlayerCharacter = charRes.rows[0].data;
         const guildBuildings = charRes.rows[0].buildings || {};
+
+        // Energy Check for Floor 2+ (Floor 1 paid at start, subsequent floors pay here before fighting)
+        // Actually, logic is: User finishes Floor 1 -> Clicks "Fight" (for Floor 2?)
+        // No, current logic: Active Run Floor 1 -> Fight Floor 1 -> Win -> Active Run Floor 2.
+        // So `fight` processes the CURRENT floor.
+        // But we need to pay energy for this floor.
+        // Start pays for floor 1. So if floor > 1, we must pay now.
+        if (activeRun.current_floor > 1 && floorConfig.energyCost && floorConfig.energyCost > 0) {
+             if (charData.stats.currentEnergy < floorConfig.energyCost) {
+                  await client.query('ROLLBACK');
+                  return res.status(400).json({ message: 'Not enough energy for this floor.' });
+             }
+             charData.stats.currentEnergy -= floorConfig.energyCost;
+             // Update energy immediately to prevent free retries if logic fails later
+             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
+        }
+
         // Inject saved HP/Mana state into charData for simulation
         charData.stats.currentHealth = activeRun.current_health;
         charData.stats.currentMana = activeRun.current_mana;
@@ -262,17 +290,28 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                         gameData.itemTemplates, 
                         gameData.affixes, 
                         undefined, 
-                        false // Don't randomize
+                        false // Don't randomize base stats initially, but we need to hydrate affixes
                     );
+                    
                     newItem.prefixId = itemDef.prefixId;
+                    if (newItem.prefixId) {
+                         const aff = gameData.affixes.find(a => a.id === newItem.prefixId);
+                         if (aff) newItem.rolledPrefix = rollAffixStats(aff, derivedChar.stats.luck);
+                    }
+                    
                     newItem.suffixId = itemDef.suffixId;
+                    if (newItem.suffixId) {
+                         const aff = gameData.affixes.find(a => a.id === newItem.suffixId);
+                         if (aff) newItem.rolledSuffix = rollAffixStats(aff, derivedChar.stats.luck);
+                    }
+                    
                     newItem.upgradeLevel = itemDef.upgradeLevel;
                     newItem.uniqueId = randomUUID();
                     rewards.items.push(newItem);
                 }
             }
 
-            // D) Floor Config Rewards - Random Rarity Items
+            // D) Floor Config Rewards - Random Rarity Items with Explicit Affix Counts
             if (floorConfig.randomItemRewards) {
                 for (const reward of floorConfig.randomItemRewards) {
                      for (let i = 0; i < reward.amount; i++) {
@@ -281,9 +320,53 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                              const eligibleTemplates = gameData.itemTemplates.filter(t => t.rarity === reward.rarity);
                              if (eligibleTemplates.length > 0) {
                                  const randomTemplate = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
-                                 // Generate random item with affixes
-                                 // Pass derivedChar to enable luck bonuses
-                                 rewards.items.push(createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes, derivedChar));
+                                 // Force NO affixes initially
+                                 const newItem = createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes, derivedChar, false);
+                                 
+                                 // Manually roll affixes based on count
+                                 const affixCount = reward.affixCount ?? 0;
+                                 if (affixCount > 0) {
+                                     const itemCategory = randomTemplate.category;
+                                     const possiblePrefixes = gameData.affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
+                                     const possibleSuffixes = gameData.affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+                                     
+                                     if (affixCount === 2) {
+                                         // Force both if available
+                                         if (possiblePrefixes.length > 0) {
+                                             const p = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+                                             newItem.prefixId = p.id;
+                                             newItem.rolledPrefix = rollAffixStats(p, derivedChar.stats.luck);
+                                         }
+                                         if (possibleSuffixes.length > 0) {
+                                             const s = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+                                             newItem.suffixId = s.id;
+                                             newItem.rolledSuffix = rollAffixStats(s, derivedChar.stats.luck);
+                                         }
+                                     } else if (affixCount === 1) {
+                                         // Randomly pick prefix OR suffix
+                                         const pickPrefix = Math.random() < 0.5;
+                                         if (pickPrefix && possiblePrefixes.length > 0) {
+                                             const p = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+                                             newItem.prefixId = p.id;
+                                             newItem.rolledPrefix = rollAffixStats(p, derivedChar.stats.luck);
+                                         } else if (!pickPrefix && possibleSuffixes.length > 0) {
+                                             const s = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+                                             newItem.suffixId = s.id;
+                                             newItem.rolledSuffix = rollAffixStats(s, derivedChar.stats.luck);
+                                         } else if (pickPrefix && possibleSuffixes.length > 0) {
+                                              // Fallback if wanted prefix but none available
+                                             const s = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
+                                             newItem.suffixId = s.id;
+                                             newItem.rolledSuffix = rollAffixStats(s, derivedChar.stats.luck);
+                                         } else if (!pickPrefix && possiblePrefixes.length > 0) {
+                                              const p = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
+                                             newItem.prefixId = p.id;
+                                             newItem.rolledPrefix = rollAffixStats(p, derivedChar.stats.luck);
+                                         }
+                                     }
+                                 }
+
+                                 rewards.items.push(newItem);
                              }
                          }
                      }
@@ -338,7 +421,17 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                             );
                             
                             newItem.prefixId = itemDef.prefixId;
+                            if (newItem.prefixId) {
+                                 const aff = gameData.affixes.find(a => a.id === newItem.prefixId);
+                                 if (aff) newItem.rolledPrefix = rollAffixStats(aff, derivedChar.stats.luck);
+                            }
+
                             newItem.suffixId = itemDef.suffixId;
+                            if (newItem.suffixId) {
+                                 const aff = gameData.affixes.find(a => a.id === newItem.suffixId);
+                                 if (aff) newItem.rolledSuffix = rollAffixStats(aff, derivedChar.stats.luck);
+                            }
+                            
                             newItem.upgradeLevel = itemDef.upgradeLevel;
                             newItem.uniqueId = randomUUID(); 
                             rewards.items.push(newItem);

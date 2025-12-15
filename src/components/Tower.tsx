@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
@@ -8,6 +8,8 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { StarIcon } from './icons/StarIcon';
+import { BoltIcon } from './icons/BoltIcon';
+import { ClockIcon } from './icons/ClockIcon';
 import { rarityStyles, ItemListItem, ItemDetailsPanel, getGrammaticallyCorrectFullName } from './shared/ItemSlot';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
@@ -179,6 +181,10 @@ export const Tower: React.FC = () => {
     const [activeTower, setActiveTower] = useState<TowerType | null>(null);
     const [loading, setLoading] = useState(true);
     
+    // Duration simulation state
+    const [isMoving, setIsMoving] = useState(false);
+    const [progress, setProgress] = useState(0);
+
     // State for End Game Summary (Victory/Defeat/Retreat - Final Screen)
     const [endGameSummary, setEndGameSummary] = useState<{
         outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
@@ -223,8 +229,14 @@ export const Tower: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleStart = async (towerId: string) => {
+    const handleStart = async (towerId: string, floorOneCost: number) => {
         if (!confirm('Czy na pewno chcesz wejść do Wieży? Pamiętaj: zdrowie się nie regeneruje, a porażka oznacza utratę łupów!')) return;
+        
+        if (character!.stats.currentEnergy < floorOneCost) {
+            alert('Brak energii.');
+            return;
+        }
+
         try {
             const res = await api.startTower(towerId);
             setActiveRun(res.activeRun);
@@ -235,14 +247,13 @@ export const Tower: React.FC = () => {
         }
     };
 
-    const handleFight = async () => {
+    const performFight = async () => {
         try {
             const res = await api.fightTower();
             
             if (res.victory) {
                 // Update local state to reflect new floor/hp immediately behind the modal
                 if (activeRun) {
-                    // If tower complete, backend keeps floor at max or handles it, but locally we might want to just show current
                     const newFloor = res.currentFloor || activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);
                     setActiveRun({
                         ...activeRun,
@@ -255,16 +266,14 @@ export const Tower: React.FC = () => {
                 }
 
                 if (res.isTowerComplete) {
-                    // 1. Prepare final summary data but queue it
                     setPendingFinalVictory({
                         outcome: 'VICTORY',
                         rewards: res.rewards || { gold: 0, experience: 0, items: [], essences: {} }
                     });
                     
-                    // 2. Show the combat report for the FINAL boss first
                     setFloorReport({
                         isVictory: true,
-                        totalGold: 0, // Don't show confusing total gold here, show in final summary
+                        totalGold: 0, 
                         totalExperience: 0,
                         itemsFound: [], 
                         essencesFound: {},
@@ -273,10 +282,9 @@ export const Tower: React.FC = () => {
                     });
 
                 } else {
-                    // Intermediate Floor Victory
                     setFloorReport({
                         isVictory: true,
-                        totalGold: 0, // Not showing looted gold per floor to avoid confusion with stash
+                        totalGold: 0, 
                         totalExperience: 0,
                         itemsFound: [],
                         essencesFound: {},
@@ -285,14 +293,11 @@ export const Tower: React.FC = () => {
                     });
                 }
             } else {
-                // DEFEAT
-                // 1. Queue the Defeat Summary so it shows AFTER the user closes the combat report
                 setPendingFinalVictory({
                     outcome: 'DEFEAT',
                     rewards: { gold: 0, experience: 0, items: [], essences: {} }
                 });
 
-                // 2. Show the Combat Report (Defeat)
                 setFloorReport({
                     isVictory: false,
                     totalGold: 0,
@@ -305,6 +310,36 @@ export const Tower: React.FC = () => {
             }
         } catch (e: any) {
             alert(e.message);
+        } finally {
+            setIsMoving(false);
+            setProgress(0);
+        }
+    };
+
+    const handleFightClick = (floorCost: number, durationSeconds: number) => {
+        if (character!.stats.currentEnergy < floorCost) {
+            alert('Brak energii.');
+            return;
+        }
+
+        if (durationSeconds > 0) {
+            setIsMoving(true);
+            const interval = 100; // ms
+            const steps = (durationSeconds * 1000) / interval;
+            let currentStep = 0;
+
+            const timer = setInterval(() => {
+                currentStep++;
+                const newProgress = Math.min((currentStep / steps) * 100, 100);
+                setProgress(newProgress);
+
+                if (currentStep >= steps) {
+                    clearInterval(timer);
+                    performFight();
+                }
+            }, interval);
+        } else {
+            performFight();
         }
     };
 
@@ -386,8 +421,13 @@ export const Tower: React.FC = () => {
         const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
         const rewards = activeRun.accumulatedRewards;
         
+        const currentFloorConfig = activeTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
         const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
         const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
+        
+        const floorCost = currentFloorConfig?.energyCost || 0;
+        const floorDuration = currentFloorConfig?.duration || 0;
+        const canAfford = character.stats.currentEnergy >= floorCost;
 
         return (
             <ContentPanel title={`Wieża Mroku: ${activeTower.name}`}>
@@ -449,6 +489,10 @@ export const Tower: React.FC = () => {
                                         <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
                                     </div>
                                 </div>
+                                 <div className="bg-slate-800/50 p-2 rounded flex justify-between items-center text-sm border border-slate-700/50">
+                                    <span className="text-gray-400 flex items-center gap-1"><BoltIcon className="h-4 w-4 text-sky-400"/> Twoja Energia</span>
+                                    <span className={`font-mono font-bold ${canAfford ? 'text-white' : 'text-red-500'}`}>{character.stats.currentEnergy}</span>
+                                </div>
                             </div>
                             
                             {/* Enemy Preview Section */}
@@ -466,16 +510,31 @@ export const Tower: React.FC = () => {
 
                         {/* Actions */}
                         <div className="space-y-3 mt-4">
-                            <button 
-                                onClick={handleFight}
-                                className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex items-center justify-center gap-3 transition-transform hover:scale-[1.02]"
-                            >
-                                <SwordsIcon className="h-6 w-6"/> WALCZ
-                            </button>
+                            {isMoving ? (
+                                <div className="w-full py-4 bg-slate-800 rounded-lg border border-slate-600 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-slate-700/50 flex items-center justify-center text-gray-300 text-sm font-bold z-10">
+                                        PRZECHODZENIE... {Math.round(progress)}%
+                                    </div>
+                                    <div className="h-full bg-indigo-900 transition-all duration-100 ease-linear" style={{ width: `${progress}%` }}></div>
+                                </div>
+                            ) : (
+                                 <button 
+                                    onClick={() => handleFightClick(floorCost, floorDuration)}
+                                    disabled={!canAfford}
+                                    className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex flex-col items-center justify-center gap-1 transition-transform hover:scale-[1.02] disabled:bg-slate-700 disabled:border-slate-600 disabled:text-gray-500"
+                                >
+                                    <div className="flex items-center gap-2"><SwordsIcon className="h-6 w-6"/> WALCZ</div>
+                                    <div className="text-xs font-normal opacity-80 flex gap-3">
+                                        <span>Koszt: {floorCost} En</span>
+                                        {floorDuration > 0 && <span>Czas: {floorDuration}s</span>}
+                                    </div>
+                                </button>
+                            )}
                             
                             <button 
                                 onClick={handleRetreat}
-                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200 font-semibold border border-slate-500"
+                                disabled={isMoving}
+                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200 font-semibold border border-slate-500 disabled:opacity-50"
                             >
                                 Uciekaj z Łupami
                             </button>
@@ -546,70 +605,75 @@ export const Tower: React.FC = () => {
         <ContentPanel title="Wieża Mroku">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
                 {towers.length === 0 && <p className="text-gray-500 col-span-full text-center py-12">Brak wież w tej lokacji.</p>}
-                {towers.map(tower => (
-                    <div key={tower.id} className="bg-slate-800/80 border border-purple-500/30 p-6 rounded-xl shadow-lg hover:border-purple-500 transition-colors flex flex-col relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <ShieldIcon className="h-32 w-32 text-purple-600" />
-                        </div>
-                        
-                        <h3 className="text-xl font-bold text-white mb-2 relative z-10">{tower.name}</h3>
-                        <p className="text-sm text-gray-400 mb-4 flex-grow relative z-10">{tower.description}</p>
-                        
-                        <div className="space-y-2 mb-6 text-sm relative z-10">
-                            <p className="flex justify-between"><span className="text-gray-500">Piętra:</span> <span className="text-white font-bold">{tower.totalFloors}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500">Lokacja:</span> <span className="text-indigo-300">{gameData.locations.find(l => l.id === tower.locationId)?.name}</span></p>
-                        </div>
-                        
-                        {tower.grandPrize && (
-                             <div className="bg-amber-900/20 p-3 rounded border border-amber-700/30 mb-4 relative z-10">
-                                 <p className="text-xs text-amber-500 font-bold uppercase mb-1">Nagroda Główna</p>
-                                 <div className="flex gap-4 text-sm font-mono mb-2">
-                                     <span className="text-amber-300">{tower.grandPrize.gold} złota</span>
-                                     <span className="text-sky-300">{tower.grandPrize.experience} doświadczenia</span>
+                {towers.map(tower => {
+                    const floor1Cost = tower.floors.find(f => f.floorNumber === 1)?.energyCost || 0;
+                    return (
+                        <div key={tower.id} className="bg-slate-800/80 border border-purple-500/30 p-6 rounded-xl shadow-lg hover:border-purple-500 transition-colors flex flex-col relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <ShieldIcon className="h-32 w-32 text-purple-600" />
+                            </div>
+                            
+                            <h3 className="text-xl font-bold text-white mb-2 relative z-10">{tower.name}</h3>
+                            <p className="text-sm text-gray-400 mb-4 flex-grow relative z-10">{tower.description}</p>
+                            
+                            <div className="space-y-2 mb-6 text-sm relative z-10">
+                                <p className="flex justify-between"><span className="text-gray-500">Piętra:</span> <span className="text-white font-bold">{tower.totalFloors}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Koszt Wejścia:</span> <span className="text-sky-400 font-bold">{floor1Cost} Energii</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Lokacja:</span> <span className="text-indigo-300">{gameData.locations.find(l => l.id === tower.locationId)?.name}</span></p>
+                            </div>
+                            
+                            {tower.grandPrize && (
+                                 <div className="bg-amber-900/20 p-3 rounded border border-amber-700/30 mb-4 relative z-10">
+                                     <p className="text-xs text-amber-500 font-bold uppercase mb-1">Nagroda Główna</p>
+                                     <div className="flex gap-4 text-sm font-mono mb-2">
+                                         <span className="text-amber-300">{tower.grandPrize.gold} złota</span>
+                                         <span className="text-sky-300">{tower.grandPrize.experience} doświadczenia</span>
+                                     </div>
+                                     
+                                     {/* Display Essence Rewards */}
+                                     {tower.grandPrize.essences && Object.keys(tower.grandPrize.essences).length > 0 && (
+                                         <div className="text-xs text-gray-300 space-y-1 mb-2">
+                                             {Object.entries(tower.grandPrize.essences).map(([key, amount]) => (
+                                                 <div key={key} className="flex justify-between">
+                                                     <span className={`${rarityStyles[essenceToRarityMap[key as EssenceType]].text}`}>{t(`resources.${key}`)}</span>
+                                                     <span className="font-bold text-white">x{amount as number}</span>
+                                                 </div>
+                                             ))}
+                                         </div>
+                                     )}
+
+                                     {/* Display Item Rewards - No Tooltip as requested */}
+                                     {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
+                                         <div className="space-y-1">
+                                             {tower.grandPrize.items.map((item, idx) => {
+                                                 const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
+                                                 if (!tmpl) return null;
+                                                 const fullName = getGrammaticallyCorrectFullName(item, tmpl, gameData.affixes);
+                                                 const color = rarityStyles[tmpl.rarity].text;
+                                                 return (
+                                                     <p 
+                                                        key={idx} 
+                                                        className={`text-xs ${color} truncate`}
+                                                     >
+                                                         {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
+                                                     </p>
+                                                 );
+                                             })}
+                                         </div>
+                                     )}
                                  </div>
-                                 
-                                 {/* Display Essence Rewards */}
-                                 {tower.grandPrize.essences && Object.keys(tower.grandPrize.essences).length > 0 && (
-                                     <div className="text-xs text-gray-300 space-y-1 mb-2">
-                                         {Object.entries(tower.grandPrize.essences).map(([key, amount]) => (
-                                             <div key={key} className="flex justify-between">
-                                                 <span className={`${rarityStyles[essenceToRarityMap[key as EssenceType]].text}`}>{t(`resources.${key}`)}</span>
-                                                 <span className="font-bold text-white">x{amount as number}</span>
-                                             </div>
-                                         ))}
-                                     </div>
-                                 )}
+                            )}
 
-                                 {/* Display Item Rewards - No Tooltip as requested */}
-                                 {tower.grandPrize.items && tower.grandPrize.items.length > 0 && (
-                                     <div className="space-y-1">
-                                         {tower.grandPrize.items.map((item, idx) => {
-                                             const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
-                                             if (!tmpl) return null;
-                                             const fullName = getGrammaticallyCorrectFullName(item, tmpl, gameData.affixes);
-                                             const color = rarityStyles[tmpl.rarity].text;
-                                             return (
-                                                 <p 
-                                                    key={idx} 
-                                                    className={`text-xs ${color} truncate`}
-                                                 >
-                                                     {fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}
-                                                 </p>
-                                             );
-                                         })}
-                                     </div>
-                                 )}
-                             </div>
-                        )}
-
-                        <button 
-                            onClick={() => handleStart(tower.id)}
-                            className="w-full py-3 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded-lg shadow-md transition-all relative z-10"
-                        >
-                            Wejdź do Wieży
-                        </button>
-                    </div>
-                ))}
+                            <button 
+                                onClick={() => handleStart(tower.id, floor1Cost)}
+                                disabled={character.stats.currentEnergy < floor1Cost}
+                                className="w-full py-3 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded-lg shadow-md transition-all relative z-10 disabled:bg-slate-700 disabled:text-gray-500"
+                            >
+                                {character.stats.currentEnergy < floor1Cost ? 'Brak Energii' : 'Wejdź do Wieży'}
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         </ContentPanel>
     );
