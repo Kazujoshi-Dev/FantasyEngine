@@ -2,8 +2,9 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ActiveTowerRun } from '../types.js';
-import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity } from '../logic/stats.js';
+import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats } from '../types.js';
+import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
@@ -132,6 +133,175 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
         await client.query('ROLLBACK');
         console.error("Create Character Error:", err);
         res.status(500).json({ message: 'Failed to create character.' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /character/equip
+router.post('/equip', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Fetch Character & Metadata
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates: ItemTemplate[] = gameDataRes.rows[0].data;
+
+        // 2. Find Item in Inventory
+        const inventoryIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (inventoryIndex === -1) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Item not found in inventory' });
+        }
+        const itemToEquip = character.inventory[inventoryIndex];
+        const template = itemTemplates.find(t => t.id === itemToEquip.templateId);
+
+        if (!template) {
+             await client.query('ROLLBACK');
+             return res.status(500).json({ message: 'Item template data missing' });
+        }
+
+        // 3. Validation
+        if (character.level < template.requiredLevel) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Level requirement not met' });
+        }
+        if (template.requiredStats) {
+             // We need to check against BASE stats to prevent infinite loop of stat requirements from items
+             // Or check against current stats but ensure we don't unequip things that break this...
+             // For simplicity, we check current stats. 
+             for (const stat of Object.keys(template.requiredStats)) {
+                const key = stat as keyof CharacterStats;
+                const reqValue = template.requiredStats[key] || 0;
+                if ((character.stats[key] || 0) < reqValue) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ message: `Requirement for ${stat} not met` });
+                }
+             }
+        }
+
+        // 4. Determine Target Slot
+        let targetSlot: EquipmentSlot | null = null;
+        if (template.slot === 'ring') {
+            // Logic for rings: Fill Ring1 first, then Ring2. If both full, swap Ring1.
+            if (!character.equipment.ring1) targetSlot = EquipmentSlot.Ring1;
+            else if (!character.equipment.ring2) targetSlot = EquipmentSlot.Ring2;
+            else targetSlot = EquipmentSlot.Ring1; // Default swap
+        } else if (template.slot === 'consumable') {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Cannot equip consumables' });
+        } else {
+            targetSlot = template.slot as EquipmentSlot;
+        }
+
+        if (!targetSlot) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Invalid slot' });
+        }
+
+        // 5. Handle Slot Conflicts (Two Handed vs One Handed)
+        const itemsToUnequip: ItemInstance[] = [];
+
+        if (targetSlot === EquipmentSlot.TwoHand) {
+            // Unequip MainHand and OffHand if present
+            if (character.equipment.mainHand) itemsToUnequip.push(character.equipment.mainHand);
+            if (character.equipment.offHand) itemsToUnequip.push(character.equipment.offHand);
+            character.equipment.mainHand = null;
+            character.equipment.offHand = null;
+        } else if (targetSlot === EquipmentSlot.MainHand || targetSlot === EquipmentSlot.OffHand) {
+            // Unequip TwoHand if present
+             if (character.equipment.twoHand) {
+                itemsToUnequip.push(character.equipment.twoHand);
+                character.equipment.twoHand = null;
+            }
+        }
+        
+        // Handle standard swap
+        if (character.equipment[targetSlot]) {
+            itemsToUnequip.push(character.equipment[targetSlot]!);
+        }
+
+        // 6. Execute Swap
+        // Remove item from inventory
+        character.inventory.splice(inventoryIndex, 1);
+        
+        // Add unequipped items to inventory
+        for (const unequipped of itemsToUnequip) {
+            character.inventory.push(unequipped);
+        }
+
+        // Equip new item
+        character.equipment[targetSlot] = itemToEquip;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+
+        // Return updated character (stats will be recalculated on next GET or we can calc here, 
+        // but typically client refreshes or we return raw data and client recalcs)
+        // Ideally, we should run `calculateDerivedStatsOnServer` before returning to ensure frontend gets fresh stats immediately.
+        
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("Equip Error:", err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /character/unequip
+router.post('/unequip', authenticateToken, async (req: any, res: any) => {
+    const { slot } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+        let character: PlayerCharacter = charRes.rows[0].data;
+        
+        // Check if slot has item
+        const itemToUnequip = character.equipment[slot as EquipmentSlot];
+        if (!itemToUnequip) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Slot is empty' });
+        }
+
+        // Check Backpack Capacity
+        const capacity = getBackpackCapacity(character);
+        if (character.inventory.length >= capacity) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Inventory is full' });
+        }
+
+        // Execute Unequip
+        character.equipment[slot as EquipmentSlot] = null;
+        character.inventory.push(itemToUnequip);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("Unequip Error:", err);
+        res.status(500).json({ message: err.message });
     } finally {
         client.release();
     }
