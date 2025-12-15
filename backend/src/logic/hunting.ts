@@ -136,6 +136,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         for (const userId of Object.keys(rawCharactersMap).map(Number)) {
             // Static data for bonus checks
             const staticChar = rawCharactersMap[userId];
+            // We need the fully derived character (including luck) to pass to item generation
+            const derivedChar = playerCombatants.find(pc => pc.id === userId);
 
             // Re-fetch FRESH character data with lock to prevent race conditions (health overwrite)
             const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
@@ -184,7 +186,8 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 for (const drop of combinedLootTable) {
                     if (Math.random() * 100 < drop.chance) {
                         if ((char.inventory || []).length + itemsFound.length < backpackCap) {
-                            itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || []));
+                            // Passing derivedChar here ensures Luck stat is used for upgrades
+                            itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || [], derivedChar));
                         }
                     }
                 }
@@ -229,11 +232,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             
             // Druid post-combat heal
             if (staticChar.characterClass === CharacterClass.Druid) {
-                // Use recalculation or simple percentage on current stats
-                // To be safe, we assume current maxHealth on object is somewhat valid, or fetch fresh stats.
-                // For safety, let's use the derived combat char maxHealth for calculation ratio.
-                const combatChar = playerCombatants.find(pc => pc.id === userId);
-                const maxHealth = combatChar?.stats.maxHealth || char.stats.maxHealth;
+                const maxHealth = derivedChar?.stats.maxHealth || char.stats.maxHealth;
                 char.stats.currentHealth = Math.min(maxHealth, char.stats.currentHealth + maxHealth * 0.5);
             }
             

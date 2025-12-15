@@ -1,5 +1,4 @@
 
-
 export default {
     loading: 'Ładowanie przygody...',
     error: {
@@ -89,12 +88,14 @@ export default {
         stamina: 'Wytrzymałość',
         intelligence: 'Inteligencja',
         energy: 'Energia',
+        luck: 'Szczęście',
         strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Nie wpływa na obrażenia broni dystansowej ani magicznej.',
         agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku w walce oraz szansę na unik.',
         accuracyDesc: 'Zwiększa szansę na trafienie krytyczne.',
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
         intelligenceDesc: 'Zwiększa maksymalną manę (+10 na punkt) i regenerację many w walce (+2 na turę na punkt). Zwiększa również obrażenia magiczne.',
         energyDesc: 'Zwiększa maksymalną energię. Używana do akcji takich jak wyprawy i podróże. Regeneruje się o 1 punkt na godzinę.',
+        luckDesc: 'Zwiększa szansę na znalezienie przedmiotów lepszej jakości (rzadkości), szansę na drop przedmiotów ulepszonych (+X) oraz inne zdarzenia losowe.',
         cancelChanges: 'Anuluj',
         save: 'Zapisz Zmiany',
         reset: {
@@ -741,29 +742,6 @@ export default {
         title: 'Nowości i Ogłoszenia',
         content: 'Treść ogłoszenia',
         close: 'Zamknij'
-    },
-    options: {
-        title: 'Opcje',
-        languageSettings: 'Ustawienia Języka',
-        language: 'Język Gry',
-        save: 'Zapisz',
-        saveSuccess: 'Zapisano!',
-        profile: {
-            title: 'Profil Postaci',
-            avatarUrl: 'URL Awaitara',
-            description: 'Opis Postaci',
-            descriptionPlaceholder: 'Napisz coś o swojej postaci...',
-        },
-        security: {
-            title: 'Bezpieczeństwo',
-            changePassword: 'Zmień Hasło',
-            oldPassword: 'Stare Hasło',
-            newPassword: 'Nowe Hasło',
-            confirmPassword: 'Potwierdź Nowe Hasło',
-            passwordsDoNotMatch: 'Hasła nie są identyczne.',
-            passwordTooShort: 'Hasło musi mieć co najmniej 6 znaków.',
-            passwordChanged: 'Hasło zostało zmienione pomyślnie.',
-        }
     },
     languages: {
         pl: 'Polski',

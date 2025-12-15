@@ -240,7 +240,8 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 if (enemy.lootTable) {
                     for (const drop of enemy.lootTable) {
                          if (Math.random() * 100 < drop.chance) {
-                            rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
+                             // Pass derivedChar to enable luck bonuses
+                            rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes, derivedChar));
                         }
                     }
                 }
@@ -281,7 +282,8 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                              if (eligibleTemplates.length > 0) {
                                  const randomTemplate = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
                                  // Generate random item with affixes
-                                 rewards.items.push(createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes));
+                                 // Pass derivedChar to enable luck bonuses
+                                 rewards.items.push(createItemInstance(randomTemplate.id, gameData.itemTemplates, gameData.affixes, derivedChar));
                              }
                          }
                      }
@@ -292,7 +294,8 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             if (floorConfig.lootTable && floorConfig.lootTable.length > 0) {
                  for (const drop of floorConfig.lootTable) {
                     if (Math.random() * 100 < drop.chance) {
-                        rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes));
+                        // Pass derivedChar to enable luck bonuses
+                        rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes, derivedChar));
                     }
                 }
             }
