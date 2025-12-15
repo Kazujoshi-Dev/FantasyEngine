@@ -184,8 +184,8 @@ export const Tower: React.FC = () => {
                              {/* Background Image Effect */}
                             {selectedTower.image && (
                                 <div className="absolute inset-0 z-0 pointer-events-none">
-                                    <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover opacity-20" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
+                                    <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover opacity-10" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
                                 </div>
                             )}
                             
