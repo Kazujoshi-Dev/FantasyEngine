@@ -666,7 +666,7 @@ export const Tower: React.FC = () => {
                             {/* Background Image Effect */}
                             {selectedTower.image && (
                                 <div className="absolute inset-0 z-0 pointer-events-none">
-                                    <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover mix-blend-overlay opacity-10" />
+                                    <img src={selectedTower.image} alt={selectedTower.name} className="w-full h-full object-cover mix-blend-overlay opacity-80" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/10 to-transparent"></div>
                                 </div>
                             )}
