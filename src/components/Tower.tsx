@@ -185,9 +185,9 @@ export const Tower: React.FC = () => {
         rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
     } | null>(null);
 
-    // Queue for final victory if we want to show combat report first
+    // Queue for final game state (Victory or Defeat) to show AFTER combat log
     const [pendingFinalVictory, setPendingFinalVictory] = useState<{
-        outcome: 'VICTORY';
+        outcome: 'VICTORY' | 'DEFEAT';
         rewards: { gold: number, experience: number, items: ItemInstance[], essences: any };
     } | null>(null);
 
@@ -285,12 +285,23 @@ export const Tower: React.FC = () => {
                     });
                 }
             } else {
-                // Defeat. Switch to End Game Summary View (Failure).
-                setEndGameSummary({
+                // DEFEAT
+                // 1. Queue the Defeat Summary so it shows AFTER the user closes the combat report
+                setPendingFinalVictory({
                     outcome: 'DEFEAT',
                     rewards: { gold: 0, experience: 0, items: [], essences: {} }
                 });
-                setActiveRun(null);
+
+                // 2. Show the Combat Report (Defeat)
+                setFloorReport({
+                    isVictory: false,
+                    totalGold: 0,
+                    totalExperience: 0,
+                    itemsFound: [],
+                    essencesFound: {},
+                    combatLog: res.combatLog,
+                    rewardBreakdown: [] 
+                });
             }
         } catch (e: any) {
             alert(e.message);
@@ -315,7 +326,7 @@ export const Tower: React.FC = () => {
     const handleCloseFloorReport = () => {
         setFloorReport(null);
         
-        // If we have a pending victory summary (end of tower), show it now
+        // If we have a pending summary (Victory or Defeat), show it now
         if (pendingFinalVictory) {
             setEndGameSummary(pendingFinalVictory);
             setPendingFinalVictory(null);
