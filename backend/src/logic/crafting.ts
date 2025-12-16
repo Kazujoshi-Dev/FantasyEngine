@@ -153,9 +153,30 @@ export const performCraft = (
     newItem.crafterName = character.name;
 
     // -- Blacksmith Bonus: Masterwork Finish --
-    // 25% chance to craft item with +1 upgrade level immediately
-    if (character.characterClass === CharacterClass.Blacksmith && Math.random() < 0.25) {
-        newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
+    // Base: 25% chance to craft item with +1 upgrade level immediately
+    // Advanced Crafting Skill (Kowal only): Chance for +2 or +3
+    if (character.characterClass === CharacterClass.Blacksmith) {
+        const hasAdvancedCrafting = (character.learnedSkills || []).includes('advanced-crafting');
+        const roll = Math.random();
+
+        if (hasAdvancedCrafting) {
+            // Advanced Logic:
+            // 5% chance for +3
+            // 15% chance for +2 (Cumulative 20%)
+            // 30% chance for +1 (Cumulative 50% for any upgrade)
+            if (roll < 0.05) {
+                newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 3;
+            } else if (roll < 0.20) {
+                newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 2;
+            } else if (roll < 0.50) {
+                newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
+            }
+        } else {
+            // Base Logic: 25% chance for +1
+            if (roll < 0.25) {
+                newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
+            }
+        }
     }
 
     // Add to Inventory

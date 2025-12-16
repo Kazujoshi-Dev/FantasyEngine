@@ -184,6 +184,44 @@ export const initializeDatabase = async (retries = 5, delay = 5000) => {
                         data JSONB NOT NULL
                     );
                 `);
+
+                // Migracja: Dodanie skilla 'Zaawansowane Rzemiosło' do bazy danych
+                try {
+                    const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
+                    let skills = skillsRes.rows[0]?.data || [];
+                    const advancedCraftingId = 'advanced-crafting';
+                    
+                    if (!skills.find((s: any) => s.id === advancedCraftingId)) {
+                        console.log("MIGRATING DATA: Adding 'Zaawansowane Rzemiosło' skill...");
+                        const newSkill = {
+                            id: advancedCraftingId,
+                            name: 'Zaawansowane Rzemiosło',
+                            description: 'Mistrzowskie opanowanie młota i kowadła. Podczas wytwarzania przedmiotów, jako Kowal, masz szansę na stworzenie przedmiotu ulepszonego od razu do poziomu +2 lub +3.',
+                            type: 'Class',
+                            category: 'Passive',
+                            requirements: {
+                                strength: 20,
+                                agility: 15,
+                                stamina: 10,
+                                intelligence: 10,
+                                luck: 25
+                            },
+                            cost: {
+                                gold: 15000,
+                                epicEssence: 5,
+                                legendaryEssence: 1
+                            }
+                        };
+                        skills.push(newSkill);
+                        await client.query(
+                            "INSERT INTO game_data (key, data) VALUES ('skills', $1) ON CONFLICT (key) DO UPDATE SET data = $1",
+                            [JSON.stringify(skills)]
+                        );
+                        console.log("MIGRATION SUCCESS: 'Zaawansowane Rzemiosło' skill added.");
+                    }
+                } catch (skillErr) {
+                    console.error("Migration Error (Adding Skills):", skillErr);
+                }
                 
                 // Market Tables
                 await client.query(`
