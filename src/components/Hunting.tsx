@@ -10,11 +10,12 @@ import { UsersIcon } from './icons/UsersIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { ShieldIcon } from './icons/ShieldIcon';
 
 export const Hunting: React.FC = () => {
     const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT'>('DASHBOARD');
+    const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT' | 'GUILD_REDIRECT'>('DASHBOARD');
     const [parties, setParties] = useState<any[]>([]);
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
     
@@ -65,11 +66,16 @@ export const Hunting: React.FC = () => {
                     setServerTimeOffset(new Date(serverTime).getTime() - Date.now());
                 }
                 
+                // Redirect if it's a guild party
+                if (party.guildId) {
+                    setView('GUILD_REDIRECT');
+                    return;
+                }
+                
                 if (party.status === PartyStatus.Forming || party.status === PartyStatus.Preparing) {
                     setView('LOBBY');
                 } else if (party.status === PartyStatus.Fighting || party.status === PartyStatus.Finished) {
                     setView('COMBAT');
-                    // Automatically open report if finished and just loaded
                     if (party.status === PartyStatus.Finished) {
                         setReportModalOpen(true);
                     }
@@ -85,11 +91,10 @@ export const Hunting: React.FC = () => {
         fetchMyParty();
         fetchParties();
         
-        // Poll for party status updates
         lobbyPollInterval.current = setInterval(() => {
             fetchMyParty();
             if(view === 'DASHBOARD') fetchParties();
-        }, 3000); // Slightly slower poll to reduce load with dual fetching
+        }, 3000);
 
         return () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
@@ -137,7 +142,7 @@ export const Hunting: React.FC = () => {
     const handleCancel = async () => {
         try {
             await api.cancelParty();
-            await fetchMyParty(); // Refresh the party state
+            await fetchMyParty(); 
         } catch (e: any) {
             alert(e.message);
         }
@@ -145,13 +150,8 @@ export const Hunting: React.FC = () => {
 
     const selectedBoss = useMemo(() => bosses.find(b => b.id === selectedBossId), [bosses, selectedBossId]);
 
-    // Calculate Scaled Stats for Display
     const scaledBossStats = useMemo(() => {
         if (!selectedBoss) return null;
-        
-        // Scaling Logic (Must match backend logic in hunting.ts)
-        // 1-2 Players: Base Stats (1.0x)
-        // 3+ Players: +70% HP per player > 2, +10% DMG per player > 2
         const healthMult = 1 + Math.max(0, createMembers - 2) * 0.7;
         const damageMult = 1 + Math.max(0, createMembers - 2) * 0.1;
 
@@ -164,9 +164,7 @@ export const Hunting: React.FC = () => {
 
     const estimatedRewards = useMemo(() => {
         if (!selectedBoss) return null;
-        // Dynamic bonus multiplier based on party size (matches backend logic)
         const bonusMult = 1.0 + (createMembers * 0.3);
-
         return {
             minGold: Math.floor(selectedBoss.rewards.minGold * bonusMult),
             maxGold: Math.floor(selectedBoss.rewards.maxGold * bonusMult),
@@ -175,7 +173,6 @@ export const Hunting: React.FC = () => {
         }
     }, [selectedBoss, createMembers]);
 
-    // Report data preparation
     const reportData = useMemo(() => {
         if (!myParty) return null;
         return {
@@ -192,6 +189,22 @@ export const Hunting: React.FC = () => {
         };
     }, [myParty, selectedBoss]);
 
+    // --- RENDER: Guild Redirect ---
+    if (view === 'GUILD_REDIRECT') {
+        return (
+            <ContentPanel title={t('hunting.title')}>
+                <div className="flex flex-col items-center justify-center h-[50vh] text-center p-6 bg-slate-900/40 rounded-xl border border-purple-500/30">
+                    <ShieldIcon className="h-24 w-24 text-purple-500 mb-4 opacity-50 animate-pulse" />
+                    <h3 className="text-2xl font-bold text-white mb-2">Trwa Polowanie Gildyjne</h3>
+                    <p className="text-gray-400 mb-6 max-w-md">
+                        Jesteś członkiem aktywnego polowania gildyjnego. Zarządzanie drużyną i podgląd walki znajdują się teraz w zakładce <strong>Gildia</strong>.
+                    </p>
+                    {/* Note: We don't link directly, user must navigate via sidebar */}
+                </div>
+            </ContentPanel>
+        );
+    }
+
     // --- RENDER: Combat View ---
     if (view === 'COMBAT' && myParty) {
         return (
@@ -199,9 +212,7 @@ export const Hunting: React.FC = () => {
                 <ExpeditionSummaryModal 
                     reward={reportData!}
                     onClose={() => {
-                        // CRITICAL FIX: Refresh character data after combat to update Health Bar
                         api.getCharacter().then(updateCharacter);
-                        
                         if (myParty.status === PartyStatus.Finished) {
                             api.leaveParty().then(() => {
                                 setMyParty(null);
@@ -231,7 +242,6 @@ export const Hunting: React.FC = () => {
         const boss = gameData.enemies.find(e => e.id === myParty.bossId);
         const acceptedMembers = myParty.members.filter(m => m.status !== PartyMemberStatus.Pending);
         const pendingMembers = myParty.members.filter(m => m.status === PartyMemberStatus.Pending);
-        const isFull = acceptedMembers.length >= myParty.maxMembers;
         
         let statusText = t(`hunting.status.${myParty.status}`);
         let timerText = '';
@@ -243,14 +253,10 @@ export const Hunting: React.FC = () => {
             const now = Date.now() + serverTimeOffset;
             const diff = Math.ceil((fightStart - now) / 1000);
             
-            if (diff > 0) {
-                timerText = `${diff}s`;
-            } else {
-                timerText = '0s';
-            }
+            if (diff > 0) timerText = `${diff}s`;
+            else timerText = '0s';
         }
         
-        // Calculate scaled stats for lobby view based on maxMembers of the party
         const lobbyHealthMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.7;
         const lobbyDamageMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.1;
         const lobbyMaxHealth = boss ? Math.floor(boss.stats.maxHealth * lobbyHealthMult) : 0;
@@ -278,7 +284,6 @@ export const Hunting: React.FC = () => {
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <h3 className="text-lg font-bold text-indigo-400">{t('hunting.members')} ({acceptedMembers.length}/{myParty.maxMembers})</h3>
-                                {myParty.autoJoin && <span className="text-xs text-green-400 font-bold uppercase border border-green-600 px-1 rounded">Otwarta</span>}
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">{t('hunting.statusLabel')}: <span className="text-white font-bold">{statusText}</span></p>
