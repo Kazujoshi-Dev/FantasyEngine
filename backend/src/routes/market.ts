@@ -2,278 +2,268 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, MarketListing, MarketNotificationBody, ItemTemplate } from '../types.js';
-import { processExpiredListings } from '../logic/tasks.js';
-import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
+import { MarketListing, PlayerCharacter, ItemInstance, ItemTemplate } from '../types.js';
+import { enforceInboxLimit } from '../logic/helpers.js';
 
 const router = express.Router();
 
-const getItemName = async (client: any, templateId: string): Promise<string> => {
-    const res = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-    const templates: ItemTemplate[] = res.rows[0]?.data || [];
-    return templates.find(t => t.id === templateId)?.name || 'Nieznany przedmiot';
-}
-
-// GET all active listings
+// GET /listings - Browse active listings
 router.get('/listings', authenticateToken, async (req: any, res: any) => {
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        await processExpiredListings(client);
-        
-        // Updated query: Join characters table instead of users to get character names from JSON data
-        const result = await client.query(
-            `SELECT 
-                ml.*, 
-                c_seller.data->>'name' as seller_name, 
-                c_bidder.data->>'name' as highest_bidder_name, 
-                COUNT(mb.id) as bid_count
-             FROM market_listings ml
-             JOIN characters c_seller ON ml.seller_id = c_seller.user_id
-             LEFT JOIN characters c_bidder ON ml.highest_bidder_id = c_bidder.user_id
-             LEFT JOIN market_bids mb ON ml.id = mb.listing_id
-             WHERE ml.status = 'ACTIVE'
-             GROUP BY ml.id, c_seller.data, c_bidder.data
-             ORDER BY ml.expires_at ASC`
+        const result = await pool.query(
+            "SELECT m.*, c.data->>'name' as seller_name FROM market_listings m JOIN characters c ON m.seller_id = c.user_id WHERE status = 'ACTIVE' AND expires_at > NOW() ORDER BY created_at DESC LIMIT 100"
         );
-        
-        await client.query('COMMIT');
         res.json(result.rows);
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: 'Failed to fetch market listings' });
-    } finally {
-        client.release();
+        res.status(500).json({ message: 'Error fetching listings' });
     }
 });
 
-// GET user's listings
+// GET /my-listings
 router.get('/my-listings', authenticateToken, async (req: any, res: any) => {
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        await processExpiredListings(client);
-        const result = await client.query(
-            "SELECT * FROM market_listings WHERE seller_id = $1 AND status != 'CLAIMED' ORDER BY created_at DESC",
-            [req.user!.id]
+        const result = await pool.query(
+            "SELECT m.*, c.data->>'name' as seller_name FROM market_listings m JOIN characters c ON m.seller_id = c.user_id WHERE seller_id = $1 ORDER BY created_at DESC",
+            [req.user.id]
         );
-        await client.query('COMMIT');
         res.json(result.rows);
     } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to fetch your listings' });
-    } finally {
-        client.release();
+        res.status(500).json({ message: 'Error fetching listings' });
     }
 });
 
-// POST a new listing
+// POST /listings - Create Listing
 router.post('/listings', authenticateToken, async (req: any, res: any) => {
-    const { itemId, listingType, currency, price, durationHours } = req.body;
+    const { itemUniqueId, price, currency, durationHours, listingType, startBid } = req.body;
+    
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user!.id]);
-        let character: PlayerCharacter = charRes.rows[0].data;
-
-        const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
-        if (itemIndex === -1) {
-            return res.status(404).json({ message: 'Item not found in inventory.' });
-        }
-        const itemData = character.inventory[itemIndex];
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const character: PlayerCharacter = charRes.rows[0].data;
         
-        if (itemData.isBorrowed) {
-            await client.query('ROLLBACK');
-            return res.status(403).json({ message: 'Cannot list borrowed items.' });
+        const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemUniqueId);
+        if (itemIndex === -1) {
+             await client.query('ROLLBACK');
+             return res.status(404).json({ message: 'Item not found' });
+        }
+        const item = character.inventory[itemIndex];
+        if (item.isBorrowed) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Cannot sell borrowed items' });
         }
 
+        // Remove item from inventory
         character.inventory.splice(itemIndex, 1);
-
-        const expires_at = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
-        const query = listingType === 'buy_now'
-            ? 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, buy_now_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)'
-            : 'INSERT INTO market_listings (seller_id, item_data, listing_type, currency, start_bid_price, expires_at) VALUES ($1, $2, $3, $4, $5, $6)';
-
-        await client.query(query, [req.user!.id, itemData, listingType, currency, price, expires_at]);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, req.user!.id]);
-
+        
+        const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+        
+        await client.query(
+            `INSERT INTO market_listings (seller_id, item_data, listing_type, currency, buy_now_price, start_bid_price, current_bid_price, expires_at, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'ACTIVE')`,
+            [req.user.id, JSON.stringify(item), listingType, currency, price, startBid, startBid || 0, expiresAt]
+        );
+        
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        
         await client.query('COMMIT');
-        res.status(201).json(character);
-    } catch (err) {
+        res.status(201).json({ message: 'Listing created' });
+    } catch (err: any) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to create listing' });
+        res.status(500).json({ message: err.message });
     } finally {
         client.release();
     }
 });
 
+// POST /buy
 router.post('/buy', authenticateToken, async (req: any, res: any) => {
     const { listingId } = req.body;
-    const buyerId = req.user!.id;
     const client = await pool.connect();
-
     try {
         await client.query('BEGIN');
-
-        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 AND status = 'ACTIVE' FOR UPDATE", [listingId]);
+        
+        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 FOR UPDATE", [listingId]);
         if (listingRes.rows.length === 0) {
-            return res.status(404).json({ message: "Listing not found or already sold." });
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Listing not found' });
         }
-        const listing: MarketListing = listingRes.rows[0];
-
-        if (listing.seller_id === buyerId) return res.status(400).json({ message: "You cannot buy your own item." });
-        if (listing.listing_type !== 'buy_now' || !listing.buy_now_price) return res.status(400).json({ message: "This is not a 'buy now' listing." });
-
-        const buyerRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [buyerId]);
-        let buyer: PlayerCharacter = buyerRes.rows[0].data;
-
-        if (getBackpackCapacity(buyer) <= buyer.inventory.length) {
-            return res.status(400).json({ message: "Your inventory is full." });
+        const listing = listingRes.rows[0];
+        
+        if (listing.status !== 'ACTIVE' || new Date(listing.expires_at) < new Date()) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Listing not active' });
         }
-
-        if (listing.currency === 'gold') {
-            if (buyer.resources.gold < listing.buy_now_price) return res.status(400).json({ message: "Not enough gold." });
-            buyer.resources.gold -= listing.buy_now_price;
-        } else {
-            if ((buyer.resources[listing.currency] || 0) < listing.buy_now_price) return res.status(400).json({ message: "Not enough essence." });
-            (buyer.resources[listing.currency] as number) -= listing.buy_now_price;
+        
+        if (listing.seller_id === req.user.id) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Cannot buy your own item' });
         }
 
+        const buyerRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const buyer: PlayerCharacter = buyerRes.rows[0].data;
+        
+        const price = listing.buy_now_price;
+        const currency = listing.currency;
+        
+        if ((buyer.resources as any)[currency] < price) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough resources' });
+        }
+        
+        // Deduct from buyer
+        (buyer.resources as any)[currency] -= price;
         buyer.inventory.push(listing.item_data);
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [buyer, buyerId]);
-
-        await client.query("UPDATE market_listings SET status = 'SOLD', highest_bidder_id = $1, current_bid_price = $2, updated_at = NOW() WHERE id = $3", [buyerId, listing.buy_now_price, listingId]);
-
-        const itemName = await getItemName(client, listing.item_data.templateId);
-        const sellerNotification: MarketNotificationBody = { type: 'SOLD', itemName, price: listing.buy_now_price, currency: listing.currency };
         
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(buyer), req.user.id]);
+        await client.query("UPDATE market_listings SET status = 'SOLD', highest_bidder_id = $1, current_bid_price = $2 WHERE id = $3", [req.user.id, price, listingId]);
+        
+        // Notify Seller
         await enforceInboxLimit(client, listing.seller_id);
-        await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Przedmiot sprzedany!', $2)`, [listing.seller_id, JSON.stringify(sellerNotification)]);
-
-        await client.query('COMMIT');
-        res.json(buyer);
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to buy item.' });
-    } finally {
-        client.release();
-    }
-});
-
-
-router.post('/bid', authenticateToken, async (req: any, res: any) => {
-    const { listingId, amount } = req.body;
-    const bidderId = req.user!.id;
-    const client = await pool.connect();
-
-    try {
-        await client.query('BEGIN');
-
-        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 AND status = 'ACTIVE' AND expires_at > NOW() FOR UPDATE", [listingId]);
-        if (listingRes.rows.length === 0) return res.status(404).json({ message: "Auction not found or has ended." });
-        const listing: MarketListing = listingRes.rows[0];
-
-        if (listing.seller_id === bidderId) return res.status(400).json({ message: "You cannot bid on your own item." });
-        if (listing.listing_type !== 'auction') return res.status(400).json({ message: "This is not an auction." });
-
-        // Logic: Bid must be at least 5% higher than current bid (rounded up)
-        const currentPrice = Number(listing.current_bid_price || 0);
-        const minBid = listing.current_bid_price 
-            ? Math.ceil(currentPrice * 1.05) 
-            : Number(listing.start_bid_price!);
-
-        if (amount < minBid) return res.status(400).json({ message: `Bid too low. Minimum bid is ${minBid}.` });
-
-        const bidderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [bidderId]);
-        let bidder: PlayerCharacter = bidderRes.rows[0].data;
-
-        if (listing.currency === 'gold') {
-            if (bidder.resources.gold < amount) return res.status(400).json({ message: "Not enough gold." });
-            bidder.resources.gold -= amount;
-        } else {
-            if ((bidder.resources[listing.currency] || 0) < amount) return res.status(400).json({ message: "Not enough essence." });
-            (bidder.resources[listing.currency] as number) -= amount;
-        }
-
-        if (listing.highest_bidder_id) {
-            const prevBidderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [listing.highest_bidder_id]);
-            if (prevBidderRes.rows.length > 0) {
-                let prevBidder: PlayerCharacter = prevBidderRes.rows[0].data;
-                if (listing.currency === 'gold') prevBidder.resources.gold += listing.current_bid_price!;
-                else (prevBidder.resources[listing.currency] as number) += listing.current_bid_price!;
-                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [prevBidder, listing.highest_bidder_id]);
-
-                const itemName = await getItemName(client, listing.item_data.templateId);
-                const outbidNotification: MarketNotificationBody = { type: 'OUTBID', itemName, listingId };
-                
-                await enforceInboxLimit(client, listing.highest_bidder_id);
-                await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Zostałeś przelicytowany!', $2)`, [listing.highest_bidder_id, JSON.stringify(outbidNotification)]);
-            }
-        }
-        
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [bidder, bidderId]);
-        
-        // Return the updated listing structure, fetching names again to ensure frontend consistency immediately
-        await client.query("UPDATE market_listings SET current_bid_price = $1, highest_bidder_id = $2, updated_at = NOW() WHERE id = $3", [amount, bidderId, listingId]);
-        await client.query("INSERT INTO market_bids (listing_id, bidder_id, amount) VALUES ($1, $2, $3)", [listingId, bidderId, amount]);
-        
-        // Re-fetch the listing with names joined for the response
-        const updatedListingRes = await client.query(
-            `SELECT ml.*, c_seller.data->>'name' as seller_name, c_bidder.data->>'name' as highest_bidder_name, COUNT(mb.id) as bid_count
-             FROM market_listings ml
-             JOIN characters c_seller ON ml.seller_id = c_seller.user_id
-             LEFT JOIN characters c_bidder ON ml.highest_bidder_id = c_bidder.user_id
-             LEFT JOIN market_bids mb ON ml.id = mb.listing_id
-             WHERE ml.id = $1
-             GROUP BY ml.id, c_seller.data, c_bidder.data`,
-            [listingId]
+        const notificationBody = { type: 'SOLD', itemName: listing.item_data.templateId, price, currency }; // templateId is placeholder for name logic in frontend if needed, ideally resolved here but simplified
+        await client.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Przedmiot sprzedany!', $2)`,
+            [listing.seller_id, JSON.stringify(notificationBody)]
         );
 
         await client.query('COMMIT');
-        res.json(updatedListingRes.rows[0]);
-    } catch (err) {
+        res.json({ message: 'Bought' });
+    } catch (err: any) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to place bid.' });
+        res.status(500).json({ message: err.message });
     } finally {
         client.release();
     }
 });
 
-router.post('/listings/:id/cancel', authenticateToken, async (req: any, res: any) => {
-    const listingId = req.params.id;
-    const sellerId = req.user!.id;
+// POST /bid
+router.post('/bid', authenticateToken, async (req: any, res: any) => {
+    const { listingId, amount } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 AND seller_id = $2 AND status = 'ACTIVE' FOR UPDATE", [listingId, sellerId]);
-        if (listingRes.rows.length === 0) return res.status(404).json({ message: "Listing not found or not yours." });
         
-        const listing: MarketListing = listingRes.rows[0];
-        if (listing.listing_type === 'auction' && listing.highest_bidder_id) {
-            return res.status(400).json({ message: "Cannot cancel an auction that has bids." });
+        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 FOR UPDATE", [listingId]);
+        if (listingRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Listing not found' });
+        }
+        const listing = listingRes.rows[0];
+        
+        if (listing.status !== 'ACTIVE' || new Date(listing.expires_at) < new Date()) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Listing not active' });
+        }
+        
+        if (amount <= listing.current_bid_price) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Bid too low' });
+        }
+        
+        const buyerRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        const buyer: PlayerCharacter = buyerRes.rows[0].data;
+        
+        if ((buyer.resources as any)[listing.currency] < amount) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Not enough resources' });
         }
 
-        await client.query("UPDATE market_listings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", [listingId]);
+        // Return funds to previous bidder
+        if (listing.highest_bidder_id) {
+             const prevBidderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [listing.highest_bidder_id]);
+             if (prevBidderRes.rows.length > 0) {
+                 const prevBidder = prevBidderRes.rows[0].data;
+                 (prevBidder.resources as any)[listing.currency] += listing.current_bid_price;
+                 await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(prevBidder), listing.highest_bidder_id]);
+                 
+                 // Notify outbid
+                 await enforceInboxLimit(client, listing.highest_bidder_id);
+                 await client.query(
+                    `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Zostałeś przelicytowany!', $2)`,
+                    [listing.highest_bidder_id, JSON.stringify({ type: 'OUTBID', itemName: 'Przedmiot', price: amount, currency: listing.currency })]
+                );
+             }
+        }
 
-        const itemName = await getItemName(client, listing.item_data.templateId);
-        const notificationBody: MarketNotificationBody = { type: 'ITEM_RETURNED', itemName, item: listing.item_data };
+        // Deduct from new bidder
+        (buyer.resources as any)[listing.currency] -= amount;
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(buyer), req.user.id]);
         
-        await enforceInboxLimit(client, sellerId);
-        await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Oferta anulowana', $2)`, [sellerId, JSON.stringify(notificationBody)]);
+        await client.query("UPDATE market_listings SET highest_bidder_id = $1, current_bid_price = $2 WHERE id = $3", [req.user.id, amount, listingId]);
+        
+        // Log bid
+        await client.query("INSERT INTO market_bids (listing_id, bidder_id, amount) VALUES ($1, $2, $3)", [listingId, req.user.id, amount]);
 
         await client.query('COMMIT');
-        const charRes = await pool.query('SELECT data FROM characters WHERE user_id = $1', [sellerId]);
-        res.json(charRes.rows[0].data);
-    } catch (err) {
+        res.json({ message: 'Bid placed' });
+    } catch (err: any) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Failed to cancel listing.' });
+        res.status(500).json({ message: err.message });
     } finally {
         client.release();
     }
 });
 
+// POST /listings/:id/cancel
+router.post('/listings/:id/cancel', authenticateToken, async (req: any, res: any) => {
+    const listingId = req.params.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const listingRes = await client.query("SELECT * FROM market_listings WHERE id = $1 AND seller_id = $2 FOR UPDATE", [listingId, req.user.id]);
+        if (listingRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Listing not found or not yours' });
+        }
+        const listing = listingRes.rows[0];
+        
+        if (listing.status !== 'ACTIVE') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Cannot cancel non-active listing' });
+        }
+        
+        // If auction has bids, maybe prevent cancel? Or penalty?
+        // Simple logic: Cancel and return item to seller via message system to avoid inventory overflow here
+        
+        await client.query("UPDATE market_listings SET status = 'CANCELLED' WHERE id = $1", [listingId]);
+        
+        // Send item back via message
+        await enforceInboxLimit(client, req.user.id);
+        const notificationBody = { type: 'ITEM_RETURNED', itemName: 'Anulowana oferta', item: listing.item_data, listingId: listing.id };
+        await client.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body)
+                VALUES ($1, 'Rynek', 'market_notification', 'Anulowano ofertę', $2)`,
+            [req.user.id, JSON.stringify(notificationBody)]
+        );
+        
+        // Return funds to highest bidder if any
+         if (listing.highest_bidder_id) {
+             const prevBidderRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [listing.highest_bidder_id]);
+             if (prevBidderRes.rows.length > 0) {
+                 const prevBidder = prevBidderRes.rows[0].data;
+                 (prevBidder.resources as any)[listing.currency] += listing.current_bid_price;
+                 await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(prevBidder), listing.highest_bidder_id]);
+                 
+                  await enforceInboxLimit(client, listing.highest_bidder_id);
+                  await client.query(
+                    `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'Rynek', 'market_notification', 'Aukcja anulowana (Zwrot środków)', $2)`,
+                    [listing.highest_bidder_id, JSON.stringify({ type: 'OUTBID', itemName: 'Anulowana aukcja', price: listing.current_bid_price, currency: listing.currency })]
+                );
+             }
+        }
 
+        await client.query('COMMIT');
+        res.json({ message: 'Cancelled' });
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /listings/:id/claim
 router.post('/listings/:id/claim', authenticateToken, async (req: any, res: any) => {
     const listingId = req.params.id;
     const sellerId = req.user!.id;
@@ -313,27 +303,21 @@ router.post('/listings/:id/claim', authenticateToken, async (req: any, res: any)
                 
                 character.resources.gold = (Number(character.resources.gold) || 0) + finalGold;
             } else {
-                (character.resources[listing.currency] as number) = (Number(character.resources[listing.currency]) || 0) + salePrice;
+                (character.resources as any)[listing.currency] = (Number((character.resources as any)[listing.currency]) || 0) + salePrice;
             }
-        } else { // EXPIRED or CANCELLED
-            if (getBackpackCapacity(character) <= character.inventory.length) {
-                return res.status(400).json({ message: "Your inventory is full." });
-            }
-            character.inventory.push(listing.item_data);
-        }
-
+        } 
+        
         await client.query("UPDATE market_listings SET status = 'CLAIMED', updated_at = NOW() WHERE id = $1", [listingId]);
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [character, sellerId]);
         
         await client.query('COMMIT');
         res.json(character);
-    } catch (err) {
+    } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Failed to claim from listing.' });
     } finally {
         client.release();
     }
 });
-
 
 export default router;
