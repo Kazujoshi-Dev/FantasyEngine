@@ -520,6 +520,7 @@ export interface SkillRequirements {
     stamina?: number;
     intelligence?: number;
     energy?: number;
+    luck?: number; // Added for Advanced Crafting requirement
 }
 
 export interface SkillCost {

@@ -1,4 +1,5 @@
 
+
 import { EssenceType, ItemRarity, PlayerCharacter, GameData, ItemTemplate, EquipmentSlot, CharacterClass, ItemInstance, CraftingSettings } from '../types.js';
 import { createItemInstance, rollAffixStats, rollTemplateStats } from './items.js';
 import { getBackpackCapacity } from './helpers.js';

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -22,7 +23,7 @@ export const University: React.FC = () => {
     const skills = gameData.skills || [];
 
     // Define the display order for requirements
-    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
+    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
     const handleLearnSkill = async (skillId: string) => {
         try {
@@ -110,13 +111,20 @@ export const University: React.FC = () => {
         if (mainTab === 'universal') {
             if (universalSubTab === 'passive') {
                 const passiveSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Passive);
-                if (passiveSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{passiveSkills.map(renderSkill)}</div>;
+                // Also include class skills in passive list for now to ensure visibility as discussed
+                const classPassiveSkills = skills.filter(s => s.type === SkillType.Class && s.category === SkillCategory.Passive);
+                const combined = [...passiveSkills, ...classPassiveSkills];
+                
+                if (combined.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{combined.map(renderSkill)}</div>;
             }
             if (universalSubTab === 'active') {
                  const activeSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Active);
-                 if (activeSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeSkills.map(renderSkill)}</div>;
+                 const classActiveSkills = skills.filter(s => s.type === SkillType.Class && s.category === SkillCategory.Active);
+                 const combined = [...activeSkills, ...classActiveSkills];
+
+                 if (combined.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{combined.map(renderSkill)}</div>;
             }
         }
         return <p className="text-gray-500">{t('university.underConstruction')}</p>;
