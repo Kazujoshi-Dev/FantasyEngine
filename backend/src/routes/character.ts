@@ -932,12 +932,20 @@ router.post('/convert-essence', authenticateToken, async (req: any, res: any) =>
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        // Validate input type
+        if (!Object.values(EssenceType).includes(fromType)) {
+             await client.query('ROLLBACK');
+             return res.status(400).json({ message: 'Invalid essence type' });
+        }
+        const eType = fromType as EssenceType;
+
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
         
         // Map types to next tier
         const tiers: EssenceType[] = [EssenceType.Common, EssenceType.Uncommon, EssenceType.Rare, EssenceType.Epic, EssenceType.Legendary];
-        const fromIndex = tiers.indexOf(fromType);
+        const fromIndex = tiers.indexOf(eType);
         
         if (fromIndex === -1 || fromIndex >= tiers.length - 1) {
              await client.query('ROLLBACK');
@@ -955,9 +963,9 @@ router.post('/convert-essence', authenticateToken, async (req: any, res: any) =>
             [EssenceType.Epic]: 1000,
             [EssenceType.Legendary]: 0
         };
-        const goldCost = costs[fromType];
+        const goldCost = costs[eType];
         
-        if ((character.resources[fromType] || 0) < 5) {
+        if ((character.resources[eType] || 0) < 5) {
              await client.query('ROLLBACK');
              return res.status(400).json({ message: 'Not enough essence' });
         }
@@ -966,7 +974,7 @@ router.post('/convert-essence', authenticateToken, async (req: any, res: any) =>
              return res.status(400).json({ message: 'Not enough gold' });
         }
         
-        character.resources[fromType] -= 5;
+        character.resources[eType] -= 5;
         character.resources[toType] = (character.resources[toType] || 0) + 1;
         character.resources.gold -= goldCost;
         
