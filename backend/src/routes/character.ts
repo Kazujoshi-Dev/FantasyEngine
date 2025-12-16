@@ -14,9 +14,11 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
         const client = await pool.connect();
         try {
             // Fetch character data AND check for active tower run AND guild info in one go
+            // Added JOIN users to fetch email
             const result = await client.query(`
                 SELECT 
                     c.data,
+                    u.email,
                     g.buildings,
                     g.active_buffs,
                     g.id as guild_id,
@@ -27,6 +29,7 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
                         LIMIT 1
                     ) as active_tower_run
                 FROM characters c 
+                JOIN users u ON c.user_id = u.id
                 LEFT JOIN guild_members gm ON c.user_id = gm.user_id
                 LEFT JOIN guilds g ON gm.guild_id = g.id
                 WHERE c.user_id = $1
@@ -39,6 +42,11 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
             const row = result.rows[0];
             const charData: PlayerCharacter = row.data;
             const activeRunDB = row.active_tower_run;
+
+            // Inject Email from users table
+            if (row.email) {
+                charData.email = row.email;
+            }
 
             // Inject Guild Data for Stat Calculation
             if (row.guild_id) {
