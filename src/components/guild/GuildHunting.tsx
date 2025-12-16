@@ -58,6 +58,15 @@ export const GuildHunting: React.FC = () => {
         } catch(e: any) { alert(e.message); }
     };
     
+    const disbandParty = async () => {
+        if(!confirm('Czy na pewno chcesz rozwiązać grupę?')) return;
+        try {
+            await api.leaveParty(); // Leaving as leader disbands the party
+            alert('Grupa rozwiązana.');
+            fetchParties();
+        } catch(e: any) { alert(e.message); }
+    };
+    
     const handleCreate = async () => {
         if (!character) return;
         try {
@@ -204,6 +213,8 @@ export const GuildHunting: React.FC = () => {
                     {parties.length === 0 && <p className="text-gray-500 text-center py-12 italic">Brak aktywnych polowań w gildii.</p>}
                     {parties.map(p => {
                         const boss = gameData.enemies.find(e => e.id === p.bossId);
+                        const isLeader = character.id === p.leaderId;
+                        
                         return (
                             <div key={p.id} className="bg-slate-800 p-4 rounded-lg border border-purple-500/30 hover:border-purple-500 transition-colors">
                                 <div className="flex justify-between items-start mb-3">
@@ -215,13 +226,23 @@ export const GuildHunting: React.FC = () => {
                                         </h4>
                                         <p className="text-xs text-gray-400 mt-1">Lider: {p.leaderName}</p>
                                     </div>
-                                    <button 
-                                        onClick={() => joinParty(p.id)} 
-                                        disabled={character.stats.currentHealth <= 0}
-                                        className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-white shadow transition-colors disabled:bg-slate-600"
-                                    >
-                                        Dołącz
-                                    </button>
+                                    
+                                    {isLeader ? (
+                                        <button 
+                                            onClick={disbandParty}
+                                            className="px-4 py-1.5 bg-red-800 hover:bg-red-700 rounded text-xs font-bold text-white shadow transition-colors"
+                                        >
+                                            Rozwiąż
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={() => joinParty(p.id)} 
+                                            disabled={character.stats.currentHealth <= 0}
+                                            className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-white shadow transition-colors disabled:bg-slate-600"
+                                        >
+                                            Dołącz
+                                        </button>
+                                    )}
                                 </div>
                                 
                                 <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden mb-2">

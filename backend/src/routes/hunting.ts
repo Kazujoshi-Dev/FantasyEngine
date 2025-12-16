@@ -262,7 +262,7 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
     const partyId = req.params.partyId;
     try {
         const towerRes = await pool.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
-        if (towerRes.rows.length === 0) {
+        if (towerRes.rows.length > 0) {
             return res.status(400).json({ message: 'Nie możesz polować będąc w Wieży Mroku.' });
         }
 
