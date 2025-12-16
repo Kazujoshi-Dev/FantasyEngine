@@ -2,8 +2,9 @@
 import express from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race, EssenceType } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { enforceInboxLimit } from '../logic/helpers.js';
 
 const router = express.Router();
 
@@ -695,6 +696,91 @@ router.post('/audit/fix-attributes', async (req: any, res: any) => {
     }
 });
 
+router.get('/audit/orphans', async (req: any, res: any) => {
+    try {
+        const result = await pool.query('SELECT user_id, data FROM characters');
+        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates = gameDataRes.rows[0]?.data || [];
+        const templateIds = new Set(itemTemplates.map((t: any) => t.id));
+
+        const orphans = [];
+
+        for (const row of result.rows) {
+            const char = row.data;
+            const charOrphans = [];
+
+            // Check Inventory
+            (char.inventory || []).forEach((item: any) => {
+                if (item && item.templateId && !templateIds.has(item.templateId)) {
+                    charOrphans.push({ uniqueId: item.uniqueId, templateId: item.templateId, location: 'inventory' });
+                }
+            });
+
+            // Check Equipment
+            for (const key in (char.equipment || {})) {
+                 const item = char.equipment[key];
+                 if (item && item.templateId && !templateIds.has(item.templateId)) {
+                     charOrphans.push({ uniqueId: item.uniqueId, templateId: item.templateId, location: `equipment:${key}` });
+                 }
+            }
+
+            if (charOrphans.length > 0) {
+                orphans.push({ userId: row.user_id, characterName: char.name, orphans: charOrphans });
+            }
+        }
+        res.json(orphans);
+    } catch(err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/resolve-orphans', async (req: any, res: any) => {
+    try {
+        await pool.query('BEGIN');
+        const result = await pool.query('SELECT user_id, data FROM characters FOR UPDATE');
+        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const itemTemplates = gameDataRes.rows[0]?.data || [];
+        const templateIds = new Set(itemTemplates.map((t: any) => t.id));
+
+        let itemsRemoved = 0;
+        let charactersAffected = 0;
+
+        for (const row of result.rows) {
+            let char = row.data;
+            let modified = false;
+
+            // Clean Inventory
+            const originalInvSize = (char.inventory || []).length;
+            char.inventory = (char.inventory || []).filter((item: any) => item && item.templateId && templateIds.has(item.templateId));
+            if (char.inventory.length !== originalInvSize) {
+                itemsRemoved += (originalInvSize - char.inventory.length);
+                modified = true;
+            }
+
+            // Clean Equipment
+            for (const key in (char.equipment || {})) {
+                 const item = char.equipment[key];
+                 if (item && item.templateId && !templateIds.has(item.templateId)) {
+                     char.equipment[key] = null;
+                     itemsRemoved++;
+                     modified = true;
+                 }
+            }
+            
+            if (modified) {
+                 await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), row.user_id]);
+                 charactersAffected++;
+            }
+        }
+        
+        await pool.query('COMMIT');
+        res.json({ itemsRemoved, charactersAffected });
+    } catch(err: any) {
+        await pool.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // ==========================================
 //               GUILDS
 // ==========================================
@@ -781,6 +867,70 @@ router.delete('/characters/:userId/items/:uniqueId', async (req: any, res: any) 
     }
 });
 
+// Find item by ID
+router.get('/items/find/:id', async (req: any, res: any) => {
+    const uniqueId = req.params.id;
+    try {
+        const result = await pool.query('SELECT user_id, data FROM characters');
+        const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates = gameDataRes.rows[0]?.data || [];
+
+        let foundItem = null;
+        let foundTemplate = null;
+        const locations: any[] = [];
+
+        for (const row of result.rows) {
+            const char = row.data;
+            const userId = row.user_id;
+
+            // Check Inventory
+            const invItem = (char.inventory || []).find((i: any) => i.uniqueId === uniqueId);
+            if (invItem) {
+                foundItem = invItem;
+                locations.push({ userId, ownerName: char.name, location: 'inventory' });
+            }
+
+            // Check Equipment
+            for (const key in (char.equipment || {})) {
+                 const eqItem = char.equipment[key];
+                 if (eqItem?.uniqueId === uniqueId) {
+                     foundItem = eqItem;
+                     locations.push({ userId, ownerName: char.name, location: `equipment:${key}` });
+                 }
+            }
+        }
+
+        // Check Market
+        const marketRes = await pool.query(`SELECT m.id, m.seller_id, m.item_data, c.data->>'name' as name FROM market_listings m JOIN characters c ON m.seller_id = c.user_id WHERE status = 'ACTIVE'`);
+        marketRes.rows.forEach(row => {
+            const item = row.item_data;
+            if (item?.uniqueId === uniqueId) {
+                foundItem = item;
+                locations.push({ userId: row.seller_id, ownerName: row.name, location: `market:${row.id}` });
+            }
+        });
+
+        // Check Guild Armory
+        const armoryRes = await pool.query(`SELECT id, item_data, owner_id FROM guild_armory_items`);
+        for (const row of armoryRes.rows) {
+             const item = row.item_data;
+             if (item?.uniqueId === uniqueId) {
+                 foundItem = item;
+                 locations.push({ userId: row.owner_id, ownerName: 'Guild', location: `armory:${row.id}` });
+             }
+        }
+
+        if (foundItem) {
+             foundTemplate = templates.find((t: any) => t.id === foundItem.templateId);
+             res.json({ item: foundItem, template: foundTemplate, locations });
+        } else {
+             res.status(404).json({ message: 'Item not found' });
+        }
+    } catch(err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Soft Reset
 router.post('/characters/:id/soft-reset', async (req: any, res: any) => {
     try {
@@ -809,6 +959,143 @@ router.post('/hunting/reset', async (req: any, res: any) => {
         res.json({ message: 'All hunting parties cleared.' });
     } catch (err) {
         res.status(500).json({ message: 'Error' });
+    }
+});
+
+// Wipe Game Data
+router.post('/wipe-game-data', async (req: any, res: any) => {
+    try {
+        await pool.query('BEGIN');
+        await pool.query('TRUNCATE TABLE characters CASCADE');
+        await pool.query('TRUNCATE TABLE messages CASCADE');
+        await pool.query('TRUNCATE TABLE market_listings CASCADE');
+        await pool.query('TRUNCATE TABLE market_bids CASCADE');
+        await pool.query('TRUNCATE TABLE tavern_messages CASCADE');
+        await pool.query('TRUNCATE TABLE hunting_parties CASCADE');
+        await pool.query('TRUNCATE TABLE guilds CASCADE');
+        await pool.query('TRUNCATE TABLE guild_members CASCADE');
+        await pool.query('TRUNCATE TABLE guild_chat CASCADE');
+        await pool.query('TRUNCATE TABLE guild_armory_items CASCADE');
+        await pool.query('TRUNCATE TABLE guild_bank_history CASCADE');
+        await pool.query('TRUNCATE TABLE guild_raids CASCADE');
+        await pool.query('TRUNCATE TABLE tower_runs CASCADE');
+        await pool.query('COMMIT');
+        res.json({ message: 'Game data wiped successfully. Users preserved.' });
+    } catch (err: any) {
+        await pool.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Global Message
+router.post('/global-message', async (req: any, res: any) => {
+    const { subject, content } = req.body;
+    try {
+        const usersRes = await pool.query('SELECT user_id FROM characters');
+        const userIds = usersRes.rows.map(r => r.user_id);
+        
+        // This could be slow for many users, batch insert would be better but simple loop for now
+        for (const uid of userIds) {
+             await enforceInboxLimit(pool, uid);
+             await pool.query(
+                `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'system', $2, $3)`,
+                [uid, subject, JSON.stringify({ content })]
+            );
+        }
+        res.json({ message: 'Sent' });
+    } catch(err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PvP Reset Cooldowns
+router.post('/pvp/reset-cooldowns', async (req: any, res: any) => {
+    try {
+        await pool.query("UPDATE characters SET data = jsonb_set(data, '{pvpProtectionUntil}', '0')");
+        res.json({ message: 'Cooldowns reset' });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DB Editor Routes
+router.get('/db/tables', async (req: any, res: any) => {
+    try {
+        const result = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        `);
+        res.json(result.rows.map(r => r.table_name));
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.get('/db/table/:name', async (req: any, res: any) => {
+    const { name } = req.params;
+    const page = parseInt(req.query.page || '1');
+    const limit = parseInt(req.query.limit || '20');
+    const offset = (page - 1) * limit;
+
+    try {
+        // Validate table name to prevent injection
+        const validTablesRes = await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`);
+        const validTables = validTablesRes.rows.map(r => r.table_name);
+        if (!validTables.includes(name)) return res.status(400).json({ message: 'Invalid table name' });
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM ${name}`);
+        const total = parseInt(countRes.rows[0].count);
+
+        const dataRes = await pool.query(`SELECT * FROM ${name} LIMIT $1 OFFSET $2`, [limit, offset]);
+        res.json({ rows: dataRes.rows, total });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.put('/db/table/:name', async (req: any, res: any) => {
+    const { name } = req.params;
+    const row = req.body;
+    
+    try {
+        // Simple update logic based on primary key. 
+        // Need to identify PK dynamically or hardcode per table.
+        let pk = 'id';
+        if (name === 'characters') pk = 'user_id';
+        if (name === 'sessions') pk = 'token';
+        if (name === 'game_data') pk = 'key';
+
+        const id = row[pk];
+        if (!id) return res.status(400).json({ message: 'Primary key missing in row data' });
+        
+        // Construct SET clause
+        const keys = Object.keys(row).filter(k => k !== pk);
+        const setClause = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => {
+             const val = row[k];
+             return typeof val === 'object' && val !== null ? JSON.stringify(val) : val;
+        });
+        
+        await pool.query(`UPDATE ${name} SET ${setClause} WHERE ${pk} = $1`, [id, ...values]);
+        res.json({ message: 'Updated' });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.delete('/db/table/:name/:id', async (req: any, res: any) => {
+    const { name, id } = req.params;
+    try {
+         let pk = 'id';
+        if (name === 'characters') pk = 'user_id';
+        if (name === 'sessions') pk = 'token';
+        if (name === 'game_data') pk = 'key';
+
+        await pool.query(`DELETE FROM ${name} WHERE ${pk} = $1`, [id]);
+        res.json({ message: 'Deleted' });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
     }
 });
 

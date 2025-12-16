@@ -1,6 +1,7 @@
+
 import express from 'express';
 import { pool } from '../db.js';
-import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry } from '../types.js';
+import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry, PublicCharacterProfile } from '../types.js';
 
 const router = express.Router();
 
@@ -127,6 +128,46 @@ router.get('/raid/:id', async (req, res) => {
     } catch (err) {
         console.error(`Error fetching public raid report ${id}:`, err);
         res.status(500).json({ message: 'Failed to fetch raid data.' });
+    }
+});
+
+// GET /api/public/profile/:name - Get public character profile
+router.get('/profile/:name', async (req, res) => {
+    const { name } = req.params;
+    try {
+        const result = await pool.query(`
+            SELECT 
+                c.data->>'name' as name,
+                (c.data->>'level')::int as level,
+                c.data->>'race' as race,
+                c.data->>'characterClass' as "characterClass",
+                (c.data->>'experience')::bigint as experience,
+                (c.data->>'pvpWins')::int as "pvpWins",
+                (c.data->>'pvpLosses')::int as "pvpLosses",
+                c.data->>'avatarUrl' as "avatarUrl",
+                c.data->>'description' as "description",
+                g.name as "guildName",
+                g.tag as "guildTag",
+                EXISTS (
+                    SELECT 1 
+                    FROM sessions s 
+                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes'
+                ) as "isOnline"
+            FROM characters c
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.data->>'name' = $1
+        `, [name]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Character not found' });
+        }
+
+        const profile: PublicCharacterProfile = result.rows[0];
+        res.json(profile);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch profile' });
     }
 });
 

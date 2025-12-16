@@ -8,6 +8,7 @@ import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
+import { ShieldIcon } from './icons/ShieldIcon'; // Import ShieldIcon
 import { useCharacter } from '@/contexts/CharacterContext';
 
 export const Hunting: React.FC = () => {
@@ -46,10 +47,38 @@ export const Hunting: React.FC = () => {
     const fetchParties = async () => {
         setLoading(true);
         try {
-            const data = await api.getHuntingParties();
-            setParties(data);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+            // Fetch Public Parties
+            const publicParties = await api.getHuntingParties();
+            
+            let guildParties = [];
+            // Fetch Guild Parties if user is in a guild
+            if (character.guildId) {
+                try {
+                    guildParties = await api.getGuildHuntingParties();
+                } catch (e) {
+                    console.error("Failed to fetch guild parties", e);
+                }
+            }
+
+            // Merge and tag them
+            const combined = [
+                ...publicParties.map((p: any) => ({ ...p, isGuild: false })),
+                ...guildParties.map((p: any) => ({ ...p, isGuild: true }))
+            ];
+            
+            // Sort by creation (newest first) or maybe put Guild ones on top?
+            // Let's sort Guild first, then by ID desc
+            combined.sort((a, b) => {
+                if (a.isGuild !== b.isGuild) return a.isGuild ? -1 : 1;
+                return b.id - a.id;
+            });
+
+            setParties(combined);
+        } catch (e) { 
+            console.error(e); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     const fetchMyParty = async () => {
@@ -85,7 +114,7 @@ export const Hunting: React.FC = () => {
         lobbyPollInterval.current = setInterval(() => {
             fetchMyParty();
             if(view === 'DASHBOARD') fetchParties();
-        }, 2000);
+        }, 3000); // Slightly slower poll to reduce load with dual fetching
 
         return () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
@@ -475,15 +504,19 @@ export const Hunting: React.FC = () => {
                         )}
                         {parties.map(party => {
                             const boss = gameData.enemies.find(e => e.id === party.bossId);
+                            const isGuildParty = party.isGuild; // Added in fetchParties
                             return (
-                                <div key={party.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
+                                <div key={party.id} className={`bg-slate-800 p-3 rounded-lg border ${isGuildParty ? 'border-purple-500/50' : 'border-slate-700'} hover:border-indigo-500 transition-colors`}>
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center overflow-hidden">
                                                 {boss?.image ? <img src={boss.image} className="w-full h-full object-cover"/> : <CrossedSwordsIcon className="h-4 w-4 text-gray-500"/>}
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
+                                                <div className="flex items-center gap-2">
+                                                     <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
+                                                     {isGuildParty && <span className="text-[10px] bg-purple-900/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-700 uppercase font-bold flex items-center gap-1"><ShieldIcon className="h-2.5 w-2.5"/> Gildia</span>}
+                                                </div>
                                                 <p className="text-xs text-gray-400">Lider: {party.leaderName}</p>
                                             </div>
                                         </div>
