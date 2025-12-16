@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { Guild, EspionageEntry, EssenceType } from '../../types';
@@ -94,13 +94,24 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
     };
 
     const renderResources = (res: any) => {
-        if (!res) return <span className="text-gray-500">Brak danych</span>;
+        // Safe parsing logic for double-serialized JSON or missing data
+        let data = res;
+        if (!data) return <span className="text-gray-500">Brak danych (Błąd szpiega)</span>;
         
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                console.error("Failed to parse espionage result:", e);
+                return <span className="text-red-500">Błąd danych</span>;
+            }
+        }
+
         return (
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 <div className="flex justify-between">
                     <span className="text-amber-400">Złoto:</span>
-                    <span className="font-mono text-white">{res.gold?.toLocaleString() ?? '?'}</span>
+                    <span className="font-mono text-white">{data.gold?.toLocaleString() ?? '0'}</span>
                 </div>
                 {Object.values(EssenceType).map(e => {
                     // Filter based on building level
@@ -114,7 +125,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                     return (
                          <div key={e} className="flex justify-between">
                             <span className={rarityStyle.text}>{t(`resources.${e}`)}:</span>
-                            <span className="font-mono text-white">{res[e] !== undefined ? res[e] : '?'}</span>
+                            <span className="font-mono text-white">{data[e] !== undefined ? data[e] : '0'}</span>
                         </div>
                     );
                 })}
@@ -122,6 +133,11 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
             </div>
         );
     };
+
+    // Cost calculation logic
+    const selectedTargetData = useMemo(() => targets.find(t => t.id === selectedTarget), [targets, selectedTarget]);
+    const missionCost = selectedTargetData ? (selectedTargetData.total_level * 125) : 0;
+    const canAfford = (guild.resources.gold || 0) >= missionCost;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh] animate-fade-in">
@@ -143,23 +159,53 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              >
                                  <option value="">{t('guild.espionage.selectTarget')}</option>
                                  {targets.map(t => (
-                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name}</option>
+                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Lvl: {t.total_level})</option>
                                  ))}
                              </select>
                         </div>
                         
-                        <div className="text-sm text-gray-400 space-y-1 bg-slate-800/50 p-3 rounded border border-slate-700">
-                             <p><strong>{t('guild.espionage.cost')}:</strong> {t('guild.espionage.costFormula')}</p>
-                             <p><strong>{t('guild.espionage.duration')}:</strong> {getDuration()} min</p>
-                             <p className="text-xs italic mt-2">
-                                 {spyLevel === 1 ? t('guild.espionage.level1Info') : spyLevel === 2 ? t('guild.espionage.level2Info') : t('guild.espionage.level3Info')}
-                             </p>
+                        <div className="text-sm space-y-3 bg-slate-800/50 p-4 rounded border border-slate-700">
+                             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+                                 <span className="text-gray-400 font-medium">{t('guild.espionage.duration')}:</span>
+                                 <span className="text-white font-bold">{getDuration()} min</span>
+                             </div>
+
+                             {selectedTargetData ? (
+                                 <div className="space-y-1">
+                                     <div className="flex justify-between items-center">
+                                         <span className="text-gray-400">{t('guild.espionage.targetSumLevels')}:</span>
+                                         <span className="text-white">{selectedTargetData.total_level}</span>
+                                     </div>
+                                     <div className="flex justify-between items-center">
+                                         <span className="text-gray-400">{t('guild.espionage.costBase')}:</span>
+                                         <span className="text-gray-500">125 <CoinsIcon className="h-3 w-3 inline text-amber-500"/></span>
+                                     </div>
+                                     <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-700/50">
+                                         <span className="text-gray-300 font-bold">{t('guild.espionage.cost')}:</span>
+                                         <span className={`font-mono font-bold flex items-center gap-1 ${canAfford ? 'text-amber-400' : 'text-red-500'}`}>
+                                             {missionCost.toLocaleString()} <CoinsIcon className="h-4 w-4"/>
+                                         </span>
+                                     </div>
+                                     {!canAfford && (
+                                         <p className="text-xs text-red-400 text-right mt-1">
+                                             Brak złota w skarbcu ({guild.resources.gold.toLocaleString()})
+                                         </p>
+                                     )}
+                                 </div>
+                             ) : (
+                                 <p className="text-gray-500 text-xs italic text-center">{t('guild.espionage.selectTargetHint')}</p>
+                             )}
+
+                             <div className="bg-slate-900/50 p-2 rounded text-xs text-gray-400 mt-2">
+                                 <p className="font-bold text-gray-300 mb-1">Dostępne informacje:</p>
+                                 <p>{spyLevel === 1 ? t('guild.espionage.level1Info') : spyLevel === 2 ? t('guild.espionage.level2Info') : t('guild.espionage.level3Info')}</p>
+                             </div>
                         </div>
 
                         <button 
                             onClick={handleSendSpy} 
-                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies}
-                            className="w-full py-3 bg-emerald-700 hover:bg-emerald-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700 disabled:text-gray-500"
+                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies || !canAfford}
+                            className="w-full py-3 bg-emerald-700 hover:bg-emerald-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700 disabled:text-gray-500 transition-all hover:scale-[1.02]"
                         >
                             {loading ? '...' : t('guild.espionage.sendSpy')}
                         </button>
@@ -174,6 +220,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              <div key={spy.id} className="bg-slate-800 p-3 rounded border border-slate-600 flex justify-between items-center">
                                  <div>
                                      <span className="font-bold text-emerald-300">{spy.targetGuildName}</span>
+                                     <p className="text-xs text-gray-500 mt-0.5">Koszt: {spy.cost}g</p>
                                  </div>
                                  <div className="flex items-center gap-2">
                                      <ClockIcon className="h-4 w-4 text-gray-400"/>
