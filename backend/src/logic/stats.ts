@@ -326,7 +326,7 @@ export const getBackpackUpgradeCost = (level: number) => {
 };
 
 export const getWarehouseCapacity = (level: number) => {
-    return 5 + ((level - 1) * 3);
+    return 5 + ((level - 1) * 5);
 };
 
 export const getTreasuryCapacity = (level: number) => {
