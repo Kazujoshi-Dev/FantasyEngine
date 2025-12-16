@@ -1,6 +1,6 @@
 
 import { Language } from './types';
-import pl from './i18n/locales/pl';
+import pl from './i18n/locales/pl/index';
 
 const resources: Record<Language, any> = {
     [Language.PL]: pl,
