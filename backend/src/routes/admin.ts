@@ -2,7 +2,7 @@
 import express from 'express';
 import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race, EssenceType } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race, EssenceType, ItemInstance } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
 
@@ -875,7 +875,7 @@ router.get('/items/find/:id', async (req: any, res: any) => {
         const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         const templates = gameDataRes.rows[0]?.data || [];
 
-        let foundItem = null;
+        let foundItem: ItemInstance | null = null;
         let foundTemplate = null;
         const locations: any[] = [];
 
@@ -921,7 +921,7 @@ router.get('/items/find/:id', async (req: any, res: any) => {
         }
 
         if (foundItem) {
-             foundTemplate = templates.find((t: any) => t.id === foundItem.templateId);
+             foundTemplate = templates.find((t: any) => t.id === foundItem!.templateId);
              res.json({ item: foundItem, template: foundTemplate, locations });
         } else {
              res.status(404).json({ message: 'Item not found' });

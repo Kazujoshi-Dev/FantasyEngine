@@ -827,8 +827,11 @@ router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
         // (Simplified check - full check should match frontend logic)
         
         // Check Costs
-        for (const key in skill.cost) {
-            const costVal = skill.cost[key];
+        const costs = skill.cost as Record<string, number>;
+        for (const key in costs) {
+            const costVal = costs[key];
+            if (!costVal) continue;
+            
             const resourceKey = key as keyof typeof character.resources;
             if ((character.resources[resourceKey] || 0) < costVal) {
                  await client.query('ROLLBACK');
@@ -837,10 +840,12 @@ router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
         }
         
         // Deduct
-        for (const key in skill.cost) {
-            const costVal = skill.cost[key];
+        for (const key in costs) {
+            const costVal = costs[key];
+            if (!costVal) continue;
+            
             const resourceKey = key as keyof typeof character.resources;
-            (character.resources[resourceKey] as number) -= costVal;
+            character.resources[resourceKey] -= costVal;
         }
         
         character.learnedSkills.push(skillId);
