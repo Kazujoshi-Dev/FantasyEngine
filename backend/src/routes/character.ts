@@ -13,16 +13,22 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
     try {
         const client = await pool.connect();
         try {
-            // Fetch character data AND check for active tower run in one go
+            // Fetch character data AND check for active tower run AND guild info in one go
             const result = await client.query(`
-                SELECT c.data,
-                (
-                    SELECT row_to_json(tr) 
-                    FROM tower_runs tr 
-                    WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS'
-                    LIMIT 1
-                ) as active_tower_run
+                SELECT 
+                    c.data,
+                    g.buildings,
+                    g.active_buffs,
+                    g.id as guild_id,
+                    (
+                        SELECT row_to_json(tr) 
+                        FROM tower_runs tr 
+                        WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS'
+                        LIMIT 1
+                    ) as active_tower_run
                 FROM characters c 
+                LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+                LEFT JOIN guilds g ON gm.guild_id = g.id
                 WHERE c.user_id = $1
             `, [req.user.id]);
 
@@ -30,8 +36,23 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
                 return res.json(null); // No character yet
             }
 
-            const charData: PlayerCharacter = result.rows[0].data;
-            const activeRunDB = result.rows[0].active_tower_run;
+            const row = result.rows[0];
+            const charData: PlayerCharacter = row.data;
+            const activeRunDB = row.active_tower_run;
+
+            // Inject Guild Data for Stat Calculation
+            if (row.guild_id) {
+                charData.guildId = row.guild_id;
+                charData.guildBarracksLevel = row.buildings?.barracks || 0;
+                charData.guildShrineLevel = row.buildings?.shrine || 0;
+                charData.activeGuildBuffs = row.active_buffs || [];
+            } else {
+                // Ensure fields are reset if user left guild
+                charData.guildId = undefined;
+                charData.guildBarracksLevel = 0;
+                charData.guildShrineLevel = 0;
+                charData.activeGuildBuffs = [];
+            }
 
             // Inject active tower run into character data if it exists
             if (activeRunDB) {
@@ -698,13 +719,8 @@ router.post('/heal', authenticateToken, async (req: any, res: any) => {
 
         const derivedChar = calculateDerivedStatsOnServer(character, itemTemplates, affixes);
         const maxHealth = derivedChar.stats.maxHealth;
-
-        // Only heal if in camp/resting context logic allows? 
-        // Camp.tsx only calls this via 'healToFull' button which is free but only available in camp?
-        // Actually, let's keep it simple: fully restore health. 
         
         character.stats.currentHealth = maxHealth;
-        // Also restore Mana? Usually yes for full heal.
         character.stats.currentMana = derivedChar.stats.maxMana;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);

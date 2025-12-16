@@ -1,6 +1,6 @@
 
 import { pool } from '../db.js';
-import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats } from '../types.js';
+import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats, GuildBuff } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamVsBossCombat } from './combat/simulations/index.js';
 import { createItemInstance } from './items.js';
@@ -34,7 +34,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
     for (const member of acceptedMembers) {
         // Updated query to fetch guild building data as well
         const res = await client.query(`
-            SELECT c.data, g.buildings 
+            SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
@@ -63,9 +63,11 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             rawCharactersMap[member.userId] = JSON.parse(JSON.stringify(rawChar));
             
             const barracksLevel = res.rows[0].buildings?.barracks || 0;
+            const shrineLevel = res.rows[0].buildings?.shrine || 0;
+            const activeBuffs: GuildBuff[] = res.rows[0].active_buffs || [];
             
-            // Pass barracks level to calculation
-            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || [], barracksLevel, 0, gameData.skills || []);
+            // Pass barracks level, shrine level and active buffs to calculation
+            const combatChar = calculateDerivedStatsOnServer(rawChar, gameData.itemTemplates || [], gameData.affixes || [], barracksLevel, shrineLevel, gameData.skills || [], activeBuffs);
             playerCombatants.push(combatChar);
         }
     }

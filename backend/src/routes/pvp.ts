@@ -2,7 +2,7 @@
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass } from '../types.js';
+import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass, GuildBuff } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
@@ -26,7 +26,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
 
         // Modified queries to fetch guild building info for barracks bonus
         const attackerRes = await client.query(`
-            SELECT c.data, g.buildings 
+            SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
@@ -34,7 +34,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         `, [attackerId]);
 
         const defenderRes = await client.query(`
-            SELECT c.data, g.buildings
+            SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
             LEFT JOIN guilds g ON gm.guild_id = g.id
@@ -47,9 +47,13 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
 
         let attacker: PlayerCharacter = attackerRes.rows[0].data;
         const attackerBarracks = attackerRes.rows[0].buildings?.barracks || 0;
+        const attackerShrine = attackerRes.rows[0].buildings?.shrine || 0;
+        const attackerBuffs: GuildBuff[] = attackerRes.rows[0].active_buffs || [];
 
         let defender: PlayerCharacter = defenderRes.rows[0].data;
         const defenderBarracks = defenderRes.rows[0].buildings?.barracks || 0;
+        const defenderShrine = defenderRes.rows[0].buildings?.shrine || 0;
+        const defenderBuffs: GuildBuff[] = defenderRes.rows[0].active_buffs || [];
 
         // Validation
         if (Math.abs(attacker.level - defender.level) > 3) return res.status(400).json({ message: 'Level difference is too high.' });
@@ -59,8 +63,8 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         attacker.stats.currentEnergy -= 3;
 
         // Apply guild bonuses to stats
-        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks, 0, gameData.skills || []);
-        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks, 0, gameData.skills || []);
+        const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks, attackerShrine, gameData.skills || [], attackerBuffs);
+        const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks, defenderShrine, gameData.skills || [], defenderBuffs);
 
         const defenderAsEnemy: Enemy = {
             id: defenderId.toString(),
