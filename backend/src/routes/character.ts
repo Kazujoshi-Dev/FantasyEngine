@@ -827,28 +827,24 @@ router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
         // (Simplified check - full check should match frontend logic)
         
         // Check Costs
-        const costs = skill.cost || {};
-        
-        // Use explicit loop over entries with type assertion
-        for (const [key, value] of Object.entries(costs)) {
-            const costVal = Number(value);
-            if (!costVal) continue;
-            
-            const resourceKey = key as keyof CharacterResources;
-            
-            if ((character.resources[resourceKey] || 0) < costVal) {
-                 await client.query('ROLLBACK');
-                 return res.status(400).json({ message: `Not enough ${key}` });
+        const costKeys = ['gold', 'commonEssence', 'uncommonEssence', 'rareEssence', 'epicEssence', 'legendaryEssence'] as const;
+
+        for (const key of costKeys) {
+            const costVal = skill.cost[key];
+            if (typeof costVal === 'number' && costVal > 0) {
+                if ((character.resources[key] || 0) < costVal) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ message: `Not enough ${key}` });
+                }
             }
         }
         
         // Deduct
-        for (const [key, value] of Object.entries(costs)) {
-            const costVal = Number(value);
-            if (!costVal) continue;
-            
-            const resourceKey = key as keyof CharacterResources;
-            character.resources[resourceKey] = (character.resources[resourceKey] || 0) - costVal;
+        for (const key of costKeys) {
+             const costVal = skill.cost[key];
+             if (typeof costVal === 'number' && costVal > 0) {
+                 character.resources[key] -= costVal;
+             }
         }
         
         character.learnedSkills.push(skillId);
