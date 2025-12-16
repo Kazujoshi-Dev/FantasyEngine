@@ -48,7 +48,7 @@ export default {
         Berserker: 'Berserker',
         BerserkerDescription: 'Poniżej 30% zdrowia, zyskuje dodatkowy atak na koniec każdej tury.',
         Blacksmith: 'Kowal',
-        BlacksmithDescription: 'Podczas ulepszania przedmiotu, rzut na powodzenie jest wykonywany dwukrotnie, a lepszy wynik jest wybierany (większa szansa na sukces).',
+        BlacksmithDescription: 'Podczas ulepszania przedmiotu, rzut na powodzenie jest wykonywany dwukrotnie, a lepszy wynik jest wybierany. Dodatkowo, podczas wytwarzania przedmiotu ma 25% szans na stworzenie go od razu z poziomem ulepszenia +1.',
         DungeonHunter: 'Łowca Podziemi',
         DungeonHunterDescription: 'Po udanej wyprawie, ma szansę na zdobycie do dwóch dodatkowych przedmiotów.',
         Thief: 'Złodziej',

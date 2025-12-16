@@ -1,6 +1,4 @@
 
-
-
 import { EssenceType, ItemRarity, PlayerCharacter, GameData, ItemTemplate, EquipmentSlot, CharacterClass, ItemInstance, CraftingSettings } from '../types.js';
 import { createItemInstance, rollAffixStats, rollTemplateStats } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
@@ -153,6 +151,12 @@ export const performCraft = (
     
     // -- Set Crafter Name --
     newItem.crafterName = character.name;
+
+    // -- Blacksmith Bonus: Masterwork Finish --
+    // 25% chance to craft item with +1 upgrade level immediately
+    if (character.characterClass === CharacterClass.Blacksmith && Math.random() < 0.25) {
+        newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
+    }
 
     // Add to Inventory
     if (character.inventory.length >= getBackpackCapacity(character)) {
