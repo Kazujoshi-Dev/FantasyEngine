@@ -406,6 +406,8 @@ export interface ItemInstance {
     originalOwnerId?: number;
     originalOwnerName?: string;
     borrowedAt?: number;
+    
+    crafterName?: string; // Added field
 }
 
 export interface EnemyStats {

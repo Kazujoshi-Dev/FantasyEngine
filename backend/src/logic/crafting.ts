@@ -1,5 +1,6 @@
 
 
+
 import { EssenceType, ItemRarity, PlayerCharacter, GameData, ItemTemplate, EquipmentSlot, CharacterClass, ItemInstance, CraftingSettings } from '../types.js';
 import { createItemInstance, rollAffixStats, rollTemplateStats } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
@@ -150,6 +151,9 @@ export const performCraft = (
     const selectedTemplate = possibleTemplates[Math.floor(Math.random() * possibleTemplates.length)];
     const newItem = createItemInstance(selectedTemplate.id, gameData.itemTemplates, gameData.affixes, character);
     
+    // -- Set Crafter Name --
+    newItem.crafterName = character.name;
+
     // Add to Inventory
     if (character.inventory.length >= getBackpackCapacity(character)) {
         throw new Error("Plecak pełny.");

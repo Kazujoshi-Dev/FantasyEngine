@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -219,6 +220,15 @@ export const ItemDetailsPanel: React.FC<{
                     </div>
                 )}
             </div>
+            
+            {/* Crafter Signature */}
+            {item.crafterName && (
+                <div className={`mt-3 pt-2 border-t border-slate-700/50 text-right ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
+                    <span className="text-gray-500">{t('item.createdBy')}: </span>
+                    <span className="text-amber-500 font-bold italic">{item.crafterName}</span>
+                </div>
+            )}
+
             {children && <div className="flex-shrink-0">{children}</div>}
         </div>
     );

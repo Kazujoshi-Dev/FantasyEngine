@@ -131,6 +131,8 @@ export interface ItemInstance {
     originalOwnerId?: number;
     originalOwnerName?: string;
     borrowedAt?: number;
+
+    crafterName?: string; // Name of the character who crafted this item
 }
 
 export interface Affix {

@@ -54,7 +54,7 @@ export default {
         Thief: 'Złodziej',
         ThiefDescription: 'Zdobywa 25% więcej złota z wypraw i pokonanych wrogów.',
         Engineer: 'Inżynier',
-        EngineerDescription: 'Podczas odczarowywania przedmiotu, ma 50% szans na uzyskanie podwójnej ilości esencji.',
+        EngineerDescription: 'Mistrz rzemiosła i ekonomii. Posiada 50% szans na zdobycie podwójnej ilości esencji podczas odczarowywania przedmiotów oraz z łupów na wyprawach. Dodatkowo, koszty wytwarzania i przekuwania ekwipunku są dla niego niższe o 20%.',
     },
     statistics: {
         tabs: {

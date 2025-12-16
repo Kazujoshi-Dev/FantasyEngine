@@ -1,4 +1,5 @@
 
+
 export default {
     item: {
         name: 'Nazwa',
@@ -33,6 +34,7 @@ export default {
         requiredStats: 'Wymagane Statystyki',
         category: 'Kategoria',
         rarity: 'Rzadkość',
+        createdBy: 'Stworzony przez',
         categories: {
             Weapon: 'Broń',
             Armor: 'Pancerz',
