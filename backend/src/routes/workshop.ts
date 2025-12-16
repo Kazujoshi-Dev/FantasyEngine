@@ -24,7 +24,11 @@ router.post('/upgrade', authenticateToken, async (req: any, res: any) => {
              return res.status(400).json({ message: 'Max level reached' });
         }
         
-        const { gold, essences } = getWorkshopUpgradeCost(currentLevel + 1);
+        // Fetch Settings
+        const settingsRes = await client.query("SELECT data FROM game_data WHERE key = 'settings'");
+        const settings = settingsRes.rows[0]?.data;
+
+        const { gold, essences } = getWorkshopUpgradeCost(currentLevel + 1, settings?.crafting);
         
         if (character.resources.gold < gold) {
              await client.query('ROLLBACK');

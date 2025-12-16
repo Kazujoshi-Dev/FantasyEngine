@@ -911,6 +911,26 @@ export interface TraderSettings {
     rarityChances: Partial<Record<ItemRarity, number>>;
 }
 
+export interface ResourceCost {
+    type: EssenceType;
+    amount: number;
+}
+
+export interface CraftingSettings {
+    costs: {
+        [key in ItemRarity]?: {
+            gold: number;
+            essences: ResourceCost[];
+        };
+    };
+    workshopUpgrades: {
+        [level: number]: {
+            gold: number;
+            essences: ResourceCost[];
+        };
+    };
+}
+
 export interface GameSettings {
     language: Language;
     logoUrl?: string;
@@ -928,6 +948,7 @@ export interface GameSettings {
         description: string;
         images: string[];
     };
+    crafting?: CraftingSettings;
 }
 
 export interface GameData {

@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType } from '../types';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings } from '../types';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -315,7 +315,11 @@ export const getWarehouseCapacity = (level: number) => {
     return 5 + ((level - 1) * 3);
 };
 
-export const getWorkshopUpgradeCost = (level: number) => {
+export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
+    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
+        return settings.workshopUpgrades[level];
+    }
+    // Fallback default logic
     const gold = Math.floor(300 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
     if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });

@@ -628,7 +628,8 @@ const WorkshopPanel: React.FC = () => {
     const level = workshop.level;
     const maxLevel = 10;
     const isMaxLevel = level >= maxLevel;
-    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getWorkshopUpgradeCost(level + 1);
+    const settings = gameData.settings?.crafting;
+    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getWorkshopUpgradeCost(level + 1, settings);
     
     const canAffordUpgrade = !isMaxLevel && 
         (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && 
@@ -644,7 +645,7 @@ const WorkshopPanel: React.FC = () => {
     };
 
     // --- CRAFTING ---
-    const craftingCost = calculateCraftingCost(craftingRarity, character);
+    const craftingCost = calculateCraftingCost(craftingRarity, character, settings);
     const canAffordCraft = (character.resources.gold >= craftingCost.gold) && craftingCost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
     
     // Unlock requirements based on rarity
@@ -671,7 +672,7 @@ const WorkshopPanel: React.FC = () => {
 
     // Calculate cost dynamically if item selected
     const reforgeCost = selectedReforgeItem && gameData.itemTemplates 
-        ? calculateReforgeCost(selectedReforgeItem, reforgeTab, character, gameData.itemTemplates.find(t=>t.id===selectedReforgeItem.templateId)!) 
+        ? calculateReforgeCost(selectedReforgeItem, reforgeTab, character, gameData.itemTemplates.find(t=>t.id===selectedReforgeItem.templateId)!, settings) 
         : null;
 
     const canAffordReforge = reforgeCost 

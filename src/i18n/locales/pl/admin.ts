@@ -50,7 +50,8 @@ export default {
             duplicationAudit: 'Audyt Duplikatów',
             orphanAudit: 'Audyt Osieroconych Przedmiotów',
             databaseEditor: 'Edytor Bazy Danych',
-            dataIntegrity: 'Kondycja Bazy Danych'
+            dataIntegrity: 'Kondycja Bazy Danych',
+            crafting: 'Ekonomia Rzemiosła'
         },
         dataIntegrity: {
             title: 'Audyt i Naprawa Danych Postaci',
