@@ -1,34 +1,11 @@
 
-import { EssenceType, Language } from './common';
+import { EssenceType, Language, Race, CharacterClass } from './common';
 import { EquipmentSlot, ItemInstance } from './items';
 import { GuildBuff } from './guild';
 import { PlayerQuestProgress } from './world';
 import { ActiveTowerRun } from './world'; // Circular but needed
 import { CombatLogEntry } from './combat';
 import { TraderData } from './social';
-
-export enum Race {
-    Human = 'Human',
-    Elf = 'Elf',
-    Orc = 'Orc',
-    Gnome = 'Gnome',
-    Dwarf = 'Dwarf'
-}
-
-export enum CharacterClass {
-    Mage = 'Mage',
-    Warrior = 'Warrior',
-    Rogue = 'Rogue',
-    Wizard = 'Wizard',
-    Hunter = 'Hunter',
-    Druid = 'Druid',
-    Shaman = 'Shaman',
-    Berserker = 'Berserker',
-    Blacksmith = 'Blacksmith',
-    DungeonHunter = 'DungeonHunter',
-    Thief = 'Thief',
-    Engineer = 'Engineer'
-}
 
 export interface CharacterStats {
     strength: number;

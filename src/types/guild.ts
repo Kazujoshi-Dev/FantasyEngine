@@ -1,6 +1,6 @@
 
-import { CharacterResources, CharacterStats, Race, CharacterClass } from './character';
-import { CurrencyType, EssenceType } from './common';
+import { CharacterResources, CharacterStats } from './character';
+import { CurrencyType, EssenceType, Race, CharacterClass } from './common';
 import { CombatLogEntry, ItemInstance } from './index';
 
 export enum GuildRole {

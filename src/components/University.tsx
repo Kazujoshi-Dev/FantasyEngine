@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -37,19 +36,29 @@ export const University: React.FC = () => {
     const renderSkill = (skill: Skill) => {
         const isLearned = (character.learnedSkills || []).includes(skill.id);
         
-        // Check requirements
-        const reqsMet = Object.entries(skill.requirements).every(([req, val]) => {
-            const playerVal = req === 'level' 
+        // Check standard stats requirements
+        const statsReqsMet = statOrder.every((req) => {
+             const val = skill.requirements[req];
+             if (val === undefined) return true;
+             
+             const playerVal = req === 'level' 
                 ? character.level 
                 : (character.stats[req as keyof CharacterStats] || 0);
-            return playerVal >= val!;
+            return playerVal >= val;
         });
+
+        // Check Class/Race requirements
+        const reqClass = skill.requirements.characterClass;
+        const reqRace = skill.requirements.race;
+        
+        const classMatch = !reqClass || character.characterClass === reqClass;
+        const raceMatch = !reqRace || character.race === reqRace;
+        
+        const reqsMet = statsReqsMet && classMatch && raceMatch;
 
         const costMet = (Object.entries(skill.cost)).every(([key, costValue]) => {
             if (costValue === undefined) return true;
             const resourceKey = key as keyof SkillCost;
-            // resourceKey maps to CharacterResources keys directly (gold, commonEssence, etc)
-            // CharacterResources has 'gold' and EssenceType values.
             return (character.resources[resourceKey as keyof typeof character.resources] || 0) >= costValue;
         });
 
@@ -62,6 +71,21 @@ export const University: React.FC = () => {
                 <div className="text-xs space-y-2 mb-4">
                     <div>
                         <p className="font-semibold text-gray-400 uppercase tracking-wider">Wymagania</p>
+                        
+                        {reqClass && (
+                            <p className={`flex justify-between ${classMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
+                                <span>Wymagana klasa: {t(`class.${reqClass}`)}</span>
+                                {classMatch ? <span>(OK)</span> : <span>(Brak)</span>}
+                            </p>
+                        )}
+                        
+                        {reqRace && (
+                            <p className={`flex justify-between ${raceMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
+                                <span>Wymagana rasa: {t(`race.${reqRace}`)}</span>
+                                {raceMatch ? <span>(OK)</span> : <span>(Brak)</span>}
+                            </p>
+                        )}
+
                         {statOrder.map(req => {
                             const val = skill.requirements[req];
                             if (val === undefined) return null;
@@ -111,20 +135,25 @@ export const University: React.FC = () => {
         if (mainTab === 'universal') {
             if (universalSubTab === 'passive') {
                 const passiveSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Passive);
-                // Also include class skills in passive list for now to ensure visibility as discussed
-                const classPassiveSkills = skills.filter(s => s.type === SkillType.Class && s.category === SkillCategory.Passive);
-                const combined = [...passiveSkills, ...classPassiveSkills];
-                
-                if (combined.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{combined.map(renderSkill)}</div>;
+                if (passiveSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{passiveSkills.map(renderSkill)}</div>;
             }
             if (universalSubTab === 'active') {
                  const activeSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Active);
-                 const classActiveSkills = skills.filter(s => s.type === SkillType.Class && s.category === SkillCategory.Active);
-                 const combined = [...activeSkills, ...classActiveSkills];
-
-                 if (combined.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{combined.map(renderSkill)}</div>;
+                 if (activeSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeSkills.map(renderSkill)}</div>;
+            }
+        }
+        if (mainTab === 'racial') {
+            if (racialSubTab === 'races') {
+                 const raceSkills = skills.filter(s => s.type === SkillType.Race);
+                 if (raceSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{raceSkills.map(renderSkill)}</div>;
+            }
+             if (racialSubTab === 'classes') {
+                 const classSkills = skills.filter(s => s.type === SkillType.Class);
+                 if (classSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{classSkills.map(renderSkill)}</div>;
             }
         }
         return <p className="text-gray-500">{t('university.underConstruction')}</p>;

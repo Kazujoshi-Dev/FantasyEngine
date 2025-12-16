@@ -42,3 +42,26 @@ export interface ResourceCost {
     type: EssenceType;
     amount: number;
 }
+
+export enum Race {
+    Human = 'Human',
+    Elf = 'Elf',
+    Orc = 'Orc',
+    Gnome = 'Gnome',
+    Dwarf = 'Dwarf'
+}
+
+export enum CharacterClass {
+    Mage = 'Mage',
+    Warrior = 'Warrior',
+    Rogue = 'Rogue',
+    Wizard = 'Wizard',
+    Hunter = 'Hunter',
+    Druid = 'Druid',
+    Shaman = 'Shaman',
+    Berserker = 'Berserker',
+    Blacksmith = 'Blacksmith',
+    DungeonHunter = 'DungeonHunter',
+    Thief = 'Thief',
+    Engineer = 'Engineer'
+}

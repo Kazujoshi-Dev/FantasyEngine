@@ -1,5 +1,4 @@
 
-
 export enum Race {
     Human = 'Human',
     Elf = 'Elf',
@@ -520,7 +519,9 @@ export interface SkillRequirements {
     stamina?: number;
     intelligence?: number;
     energy?: number;
-    luck?: number; // Added for Advanced Crafting requirement
+    luck?: number; 
+    characterClass?: CharacterClass; // Added for Class requirement
+    race?: Race; // Added for Race requirement
 }
 
 export interface SkillCost {

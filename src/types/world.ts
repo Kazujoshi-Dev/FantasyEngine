@@ -1,6 +1,6 @@
 
 
-import { Tab, EssenceType } from './common';
+import { Tab, EssenceType, CharacterClass, Race } from './common';
 import { CharacterStats } from './character';
 import { LootDrop, ResourceDrop, ItemInstance, ItemRarity } from './items';
 
@@ -109,7 +109,9 @@ export interface SkillRequirements {
     stamina?: number;
     intelligence?: number;
     energy?: number;
-    luck?: number; // Added
+    luck?: number; 
+    characterClass?: CharacterClass;
+    race?: Race;
 }
 
 export interface SkillCost {
