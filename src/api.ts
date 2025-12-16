@@ -1,5 +1,5 @@
 
-import { CharacterStats, Race, CharacterClass, EssenceType } from './types';
+import { CharacterStats, Race, CharacterClass, EssenceType, EquipmentSlot, ItemRarity } from './types';
 
 const API_URL = '/api';
 
@@ -116,6 +116,11 @@ export const api = {
     sellItems: (itemIds: string[]) => fetchApi('/trader/sell', { method: 'POST', body: JSON.stringify({ itemIds }) }),
     disenchantItem: (itemId: string) => fetchApi('/blacksmith/disenchant', { method: 'POST', body: JSON.stringify({ itemId }) }),
     upgradeItem: (itemId: string) => fetchApi('/blacksmith/upgrade', { method: 'POST', body: JSON.stringify({ itemId }) }),
+    
+    // Workshop (NEW)
+    upgradeWorkshop: () => fetchApi('/workshop/upgrade', { method: 'POST' }),
+    craftItem: (slot: EquipmentSlot | 'ring' | 'consumable', rarity: ItemRarity) => fetchApi('/workshop/craft', { method: 'POST', body: JSON.stringify({ slot, rarity }) }),
+    reforgeItem: (itemId: string, type: 'values' | 'affixes') => fetchApi('/workshop/reforge', { method: 'POST', body: JSON.stringify({ itemId, type }) }),
 
     // Messages
     getMessages: () => fetchApi('/messages'),

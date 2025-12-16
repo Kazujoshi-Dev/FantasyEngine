@@ -258,6 +258,7 @@ export interface PlayerCharacter {
     chest?: { level: number; gold: number }; // Legacy/Alt
     treasury?: { level: number; gold: number };
     warehouse?: { level: number; items: ItemInstance[] };
+    workshop?: { level: number }; // NEW: Workshop
     
     acceptedQuests: string[];
     questProgress: PlayerQuestProgress[];
@@ -291,7 +292,7 @@ export interface AdminCharacterInfo {
     name: string;
     level: number;
     gold: number;
-    race?: Race;
+    race: Race;
     characterClass?: CharacterClass;
 }
 
@@ -538,8 +539,15 @@ export interface Skill {
     manaMaintenanceCost?: number;
 }
 
-export interface ItemReward { templateId: string; quantity: number }
-export interface ResourceReward { resource: EssenceType; quantity: number }
+export interface ItemReward {
+    templateId: string;
+    quantity: number;
+}
+
+export interface ResourceReward {
+    resource: EssenceType;
+    quantity: number;
+}
 
 export interface Quest {
     id: string;
@@ -798,7 +806,7 @@ export interface HuntingParty {
     guildId?: number;
     leaderName?: string; // Computed
     currentMembersCount?: number; // Computed
-    autoJoin?: boolean; // New field for selective/open party
+    autoJoin?: boolean; // New field
     
     // Client specific
     myRewards?: any;

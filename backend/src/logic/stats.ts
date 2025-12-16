@@ -298,7 +298,6 @@ export const getCampUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// Also exported for ChestPanel backward compatibility or if Chest uses same logic
 export const getTreasuryUpgradeCost = (level: number) => {
     const gold = Math.floor(200 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -307,11 +306,8 @@ export const getTreasuryUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
-
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
-// Updated logic: 2x the cost of Treasury
 export const getWarehouseUpgradeCost = (level: number) => {
     const baseCost = getTreasuryUpgradeCost(level);
     return {
@@ -329,7 +325,19 @@ export const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// Updated Capacity Logic: 5 base + 3 per level
 export const getWarehouseCapacity = (level: number) => {
     return 5 + ((level - 1) * 3);
+};
+
+export const getTreasuryCapacity = (level: number) => {
+    return Math.floor(500 * Math.pow(level, 1.8));
+};
+
+export const getWorkshopUpgradeCost = (level: number) => {
+    const gold = Math.floor(300 * Math.pow(level, 1.6));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
+    return { gold, essences };
 };

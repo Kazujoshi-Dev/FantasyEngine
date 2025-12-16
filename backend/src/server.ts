@@ -18,14 +18,11 @@ import { processPendingRaids } from './logic/guildRaids.js';
 // Import all route handlers
 import authRoutes from './routes/auth.js';
 import gameDataRoutes from './routes/gameData.js';
-// FIX: Remove .js extension for TS resolution if using ts-node or similar in dev, 
-// or ensure the file is compiled. In standard TS setup, importing from source .ts usually omits extension or uses .js if "moduleResolution": "Node16/NodeNext".
-// However, the error 'File ... is not a module' was due to missing export in character.ts. 
-// Assuming character.ts is fixed now, we keep the import consistent with others.
 import characterRoutes from './routes/character.js'; 
 import rankingRoutes from './routes/ranking.js';
 import traderRoutes from './routes/trader.js';
 import blacksmithRoutes from './routes/blacksmith.js';
+import workshopRoutes from './routes/workshop.js'; // NEW
 import pvpRoutes from './routes/pvp.js';
 import messageRoutes from './routes/messages.js';
 import tavernRoutes from './routes/tavern.js';
@@ -106,6 +103,7 @@ app.use('/api/character', characterRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/trader', traderRoutes);
 app.use('/api/blacksmith', blacksmithRoutes);
+app.use('/api/workshop', workshopRoutes); // NEW
 app.use('/api/pvp', pvpRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/tavern', tavernRoutes);
@@ -116,8 +114,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/guilds', guildRoutes);
 app.use('/api/quests', questRoutes); 
 app.use('/api/expedition', expeditionRoutes); 
-app.use('/api/towers', towerRoutes); // Register tower routes
-app.use('/api', characterRoutes); // Broad catch-all for character-related fallback
+app.use('/api/towers', towerRoutes);
+app.use('/api', characterRoutes); 
 
 // ===================================================================================
 //                            SOCKET.IO HANDLING

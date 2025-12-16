@@ -3,7 +3,7 @@ import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, Grammat
 import { randomUUID } from 'crypto';
 
 // Helper for luck-based rolls
-const rollValueWithLuck = (minMax: number | { min: number; max: number } | undefined, luck: number = 0): number | undefined => {
+export const rollValueWithLuck = (minMax: number | { min: number; max: number } | undefined, luck: number = 0): number | undefined => {
     if (typeof minMax === 'number') return minMax;
     if (minMax === undefined || minMax === null) return undefined;
     const min = Math.min(minMax.min, minMax.max);

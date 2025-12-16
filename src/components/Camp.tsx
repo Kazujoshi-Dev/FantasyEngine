@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { EssenceType, ItemRarity, ItemInstance, EquipmentSlot } from '../types';
+import { EssenceType, ItemRarity, ItemInstance, EquipmentSlot, CharacterClass } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { HomeIcon } from './icons/HomeIcon';
 import { ChestIcon } from './icons/ChestIcon';
 import { BriefcaseIcon } from './icons/BriefcaseIcon';
 import { ShieldIcon } from './icons/ShieldIcon';
+import { AnvilIcon } from './icons/AnvilIcon'; // Using Anvil for Workshop
 import { useTranslation } from '../contexts/LanguageContext';
-import { rarityStyles, ItemListItem } from './shared/ItemSlot';
+import { rarityStyles, ItemListItem, ItemDetailsPanel } from './shared/ItemSlot';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
-import { getCampUpgradeCost, getChestUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getWarehouseCapacity } from '../logic/stats';
+import { getCampUpgradeCost, getChestUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getWarehouseCapacity, getWorkshopUpgradeCost } from '../logic/stats';
+import { calculateCraftingCost, calculateReforgeCost } from '../logic/crafting_frontend_helper'; // Helper we'll define below
 
 const REGEN_INTERVAL_SECONDS = 10;
 
@@ -27,7 +29,7 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Legendary]: ItemRarity.Legendary,
 };
 
-type CampTab = 'OVERVIEW' | 'TREASURY' | 'WAREHOUSE' | 'BACKPACK';
+type CampTab = 'OVERVIEW' | 'TREASURY' | 'WAREHOUSE' | 'BACKPACK' | 'WORKSHOP';
 
 // --- Sub-components ---
 
@@ -608,6 +610,301 @@ const BackpackPanel: React.FC = () => {
     );
 };
 
+const WorkshopPanel: React.FC = () => {
+    const { character, baseCharacter, updateCharacter, gameData } = useCharacter();
+    const { t } = useTranslation();
+    const [isUpgrading, setIsUpgrading] = useState(false);
+    const [craftingSlot, setCraftingSlot] = useState<EquipmentSlot | 'ring' | 'consumable'>(EquipmentSlot.MainHand);
+    const [craftingRarity, setCraftingRarity] = useState<ItemRarity>(ItemRarity.Common);
+    const [reforgeTab, setReforgeTab] = useState<'values' | 'affixes'>('values');
+    const [selectedReforgeItem, setSelectedReforgeItem] = useState<ItemInstance | null>(null);
+
+    if (!character || !baseCharacter || !gameData) return null;
+    const { itemTemplates } = gameData;
+    
+    // --- WORKSHOP LEVEL & UPGRADE ---
+    const workshop = character.workshop || { level: 0 };
+    const level = workshop.level;
+    const maxLevel = 10;
+    const isMaxLevel = level >= maxLevel;
+    const upgradeCost = isMaxLevel ? { gold: Infinity, essences: [] } : getWorkshopUpgradeCost(level + 1);
+    
+    const canAffordUpgrade = !isMaxLevel && 
+        (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && 
+        upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
+
+    const onUpgradeWorkshop = async () => {
+        setIsUpgrading(true);
+        try {
+            const updated = await api.upgradeWorkshop();
+            updateCharacter(updated);
+        } catch(e:any) { alert(e.message); }
+        finally { setIsUpgrading(false); }
+    };
+
+    // --- CRAFTING ---
+    const craftingCost = calculateCraftingCost(craftingRarity, character);
+    const canAffordCraft = (character.resources.gold >= craftingCost.gold) && craftingCost.essences.every(e => (character.resources[e.type] || 0) >= e.amount);
+    
+    // Unlock requirements based on rarity
+    const isRarityUnlocked = (r: ItemRarity) => {
+        if (r === ItemRarity.Rare) return level >= 3;
+        if (r === ItemRarity.Epic) return level >= 5;
+        if (r === ItemRarity.Legendary) return level >= 7;
+        return true;
+    };
+
+    const handleCraft = async () => {
+        if (!isRarityUnlocked(craftingRarity)) return alert("Zbyt niski poziom warsztatu.");
+        if (!canAffordCraft) return alert("Niewystarczające zasoby.");
+        try {
+            const updated = await api.craftItem(craftingSlot, craftingRarity);
+            updateCharacter(updated);
+            alert("Przedmiot wytworzony!");
+        } catch(e:any) { alert(e.message); }
+    };
+
+    // --- REFORGING ---
+    const reforgeUnlocked = level >= 10;
+    const backpackItems = character.inventory.filter(i => !i.isBorrowed);
+
+    // Calculate cost dynamically if item selected
+    const reforgeCost = selectedReforgeItem && gameData.itemTemplates 
+        ? calculateReforgeCost(selectedReforgeItem, reforgeTab, character, gameData.itemTemplates.find(t=>t.id===selectedReforgeItem.templateId)!) 
+        : null;
+
+    const canAffordReforge = reforgeCost 
+        ? (character.resources.gold >= reforgeCost.gold && reforgeCost.essences.every(e => (character.resources[e.type] || 0) >= e.amount))
+        : false;
+
+    const handleReforge = async () => {
+        if (!selectedReforgeItem) return;
+        try {
+            const updated = await api.reforgeItem(selectedReforgeItem.uniqueId, reforgeTab);
+            updateCharacter(updated);
+            setSelectedReforgeItem(null); // Deselect to force refresh or just convenience
+            alert("Przedmiot przekuty!");
+        } catch(e:any) { alert(e.message); }
+    };
+
+
+    return (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-full animate-fade-in overflow-y-auto">
+            
+            {/* LEFT COLUMN: STATUS & UPGRADE */}
+            <div className="space-y-6">
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700/30">
+                     <h3 className="text-xl font-bold text-amber-500 mb-4 flex items-center">
+                        <AnvilIcon className="h-6 w-6 mr-2" />
+                        Warsztat Rzemieślnika
+                    </h3>
+                    <div className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center mb-4">
+                        <div>
+                            <p className="text-gray-400 text-xs uppercase">Poziom</p>
+                            <p className="text-3xl font-bold text-white">{level} <span className="text-lg text-gray-500">/ {maxLevel}</span></p>
+                        </div>
+                        <div className="text-right text-xs text-gray-400">
+                            <p>Lvl 3: Rzadkie</p>
+                            <p>Lvl 5: Epickie</p>
+                            <p>Lvl 7: Legendarne</p>
+                            <p>Lvl 10: Przekuwanie</p>
+                        </div>
+                    </div>
+
+                    {!isMaxLevel ? (
+                        <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                             <h4 className="text-sm font-bold text-gray-300 mb-3 border-b border-slate-700 pb-2">{t('camp.upgradeCost')} (Lvl {level + 1})</h4>
+                             <div className="space-y-2 text-sm">
+                                <div className="flex justify-between items-center">
+                                    <span className="flex items-center text-gray-300"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}</span>
+                                    <span className={`font-mono font-bold ${(baseCharacter.resources.gold || 0) >= upgradeCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                                        {(baseCharacter.resources.gold || 0).toLocaleString()} / {upgradeCost.gold.toLocaleString()}
+                                    </span>
+                                </div>
+                                {upgradeCost.essences.map(e => (
+                                    <div key={e.type} className="flex justify-between items-center">
+                                        <span className={`${rarityStyles[essenceToRarityMap[e.type]].text} flex items-center`}>
+                                            {t(`resources.${e.type}`)}
+                                        </span>
+                                        <span className={`font-mono font-bold ${(baseCharacter.resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                            {(baseCharacter.resources[e.type] || 0)} / {e.amount}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <button 
+                                onClick={onUpgradeWorkshop} 
+                                disabled={!canAffordUpgrade || isUpgrading} 
+                                className="w-full mt-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors disabled:bg-slate-700 disabled:cursor-not-allowed"
+                            >
+                                {isUpgrading ? 'Ulepszanie...' : t('camp.upgrade')}
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center p-4 bg-slate-800/30 rounded border border-amber-500/20">
+                            <p className="text-amber-400 font-bold">Maksymalny Poziom Osiągnięty</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* REFORGING PANEL */}
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-purple-500/30 flex flex-col flex-grow">
+                    <h3 className="text-xl font-bold text-purple-400 mb-4 flex items-center justify-between">
+                        <span>Przekuwanie (Reforging)</span>
+                        {!reforgeUnlocked && <span className="text-xs bg-red-900 text-red-200 px-2 py-1 rounded border border-red-700">Wymagany Lvl 10</span>}
+                    </h3>
+                    
+                    {reforgeUnlocked ? (
+                        <>
+                             <div className="flex mb-4 bg-slate-800 rounded p-1">
+                                <button onClick={() => setReforgeTab('values')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'values' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>Oszlifowanie (Wartości)</button>
+                                <button onClick={() => setReforgeTab('affixes')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'affixes' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>Przekucie Magii (Afiksy)</button>
+                            </div>
+                            
+                            <p className="text-xs text-gray-400 mb-4 italic">
+                                {reforgeTab === 'values' ? "Losuje na nowo wartości liczbowe obecnych statystyk. Afiksy pozostają bez zmian." : "Usuwa obecne afiksy i losuje nowe dla tego przedmiotu."}
+                            </p>
+
+                            <div className="flex-grow overflow-y-auto pr-2 max-h-60 mb-4 bg-slate-800/30 rounded p-2 border border-slate-700">
+                                {backpackItems.length === 0 && <p className="text-gray-500 text-center py-4">Pusty plecak.</p>}
+                                {backpackItems.map(item => {
+                                    const tmpl = itemTemplates.find(t=>t.id===item.templateId);
+                                    if(!tmpl) return null;
+                                    return (
+                                        <div 
+                                            key={item.uniqueId} 
+                                            onClick={() => setSelectedReforgeItem(item)}
+                                            className={`p-2 rounded mb-1 cursor-pointer border ${selectedReforgeItem?.uniqueId === item.uniqueId ? 'bg-indigo-900/50 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                                        >
+                                            <ItemListItem item={item} template={tmpl} affixes={gameData.affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} className="border-0 bg-transparent p-0 shadow-none pointer-events-none"/>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {selectedReforgeItem && reforgeCost && (
+                                <div className="border-t border-slate-700 pt-4">
+                                     <div className="flex justify-between items-center text-sm mb-2">
+                                        <span className="text-gray-400">Koszt:</span>
+                                        <div className="flex gap-3">
+                                            <span className="text-amber-400 font-mono">{reforgeCost.gold}g</span>
+                                            {reforgeCost.essences.map(e => <span key={e.type} className={`${rarityStyles[essenceToRarityMap[e.type]].text} font-mono`}>{e.amount}x</span>)}
+                                        </div>
+                                     </div>
+                                     <button 
+                                        onClick={handleReforge}
+                                        disabled={!canAffordReforge}
+                                        className="w-full py-2 bg-purple-700 hover:bg-purple-600 rounded text-white font-bold disabled:bg-slate-700 disabled:cursor-not-allowed"
+                                     >
+                                         Przekuj
+                                     </button>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="flex-grow flex items-center justify-center text-center p-8">
+                             <p className="text-gray-500">Ulepsz warsztat do poziomu 10, aby odblokować.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* RIGHT COLUMN: CRAFTING */}
+            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700/30 flex flex-col">
+                <h3 className="text-xl font-bold text-green-400 mb-6 flex items-center">
+                    <AnvilIcon className="h-6 w-6 mr-2" />
+                    Wytwarzanie (Crafting)
+                </h3>
+                
+                <div className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Kategoria / Slot</label>
+                        <select 
+                            value={craftingSlot} 
+                            onChange={e => setCraftingSlot(e.target.value as any)}
+                            className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
+                        >
+                            <option value={EquipmentSlot.MainHand}>Broń Główna</option>
+                            <option value={EquipmentSlot.OffHand}>Druga Ręka</option>
+                            <option value={EquipmentSlot.TwoHand}>Broń Dwuręczna</option>
+                            <option value={EquipmentSlot.Head}>Hełm</option>
+                            <option value={EquipmentSlot.Chest}>Zbroja</option>
+                            <option value={EquipmentSlot.Legs}>Nogawice</option>
+                            <option value={EquipmentSlot.Feet}>Buty</option>
+                            <option value={EquipmentSlot.Hands}>Rękawice</option>
+                            <option value={EquipmentSlot.Waist}>Pas</option>
+                            <option value={EquipmentSlot.Neck}>Amulet</option>
+                            <option value="ring">Pierścień</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Jakość (Rzadkość)</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {Object.values(ItemRarity).map(r => {
+                                const unlocked = isRarityUnlocked(r);
+                                const style = rarityStyles[r];
+                                return (
+                                    <button 
+                                        key={r}
+                                        onClick={() => setCraftingRarity(r)}
+                                        disabled={!unlocked}
+                                        className={`
+                                            py-2 px-3 rounded border text-xs font-bold transition-all
+                                            ${craftingRarity === r ? `${style.bg} ${style.border} text-white ring-2 ring-white` : 'bg-slate-800 border-slate-700 text-gray-400'}
+                                            ${!unlocked ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-80'}
+                                        `}
+                                    >
+                                        {t(`rarity.${r}`)} {!unlocked && "(Zablokowane)"}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 mt-4">
+                        <h4 className="text-sm font-bold text-gray-300 mb-3 border-b border-slate-700 pb-2">Koszt Wytworzenia</h4>
+                         <div className="space-y-2 text-sm">
+                            <div className="flex justify-between items-center">
+                                <span className="flex items-center text-gray-300"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}</span>
+                                <span className={`font-mono font-bold ${(baseCharacter.resources.gold || 0) >= craftingCost.gold ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(baseCharacter.resources.gold || 0).toLocaleString()} / {craftingCost.gold.toLocaleString()}
+                                </span>
+                            </div>
+                            {craftingCost.essences.map(e => (
+                                <div key={e.type} className="flex justify-between items-center">
+                                    <span className={`${rarityStyles[essenceToRarityMap[e.type]].text} flex items-center`}>
+                                        {t(`resources.${e.type}`)}
+                                    </span>
+                                    <span className={`font-mono font-bold ${(baseCharacter.resources[e.type] || 0) >= e.amount ? 'text-green-400' : 'text-red-400'}`}>
+                                        {(baseCharacter.resources[e.type] || 0)} / {e.amount}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                        {character.characterClass === CharacterClass.Engineer && (
+                            <p className="text-xs text-green-400 mt-2 text-right">Bonus Inżyniera (-20%) aktywny</p>
+                        )}
+                    </div>
+
+                    <button 
+                        onClick={handleCraft} 
+                        disabled={!canAffordCraft || !isRarityUnlocked(craftingRarity)}
+                        className="w-full py-4 bg-green-700 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-lg transition-transform hover:scale-[1.02] disabled:bg-slate-700 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                    >
+                        <AnvilIcon className="h-6 w-6"/> WYTWORZ
+                    </button>
+                    
+                    <p className="text-xs text-gray-500 italic text-center">
+                        * Przedmiot zostanie wylosowany z dostępnej puli dla wybranego slotu i rzadkości. Statystyki i afiksy są losowe.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    );
+};
+
 export const Camp: React.FC = () => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<CampTab>('OVERVIEW');
@@ -621,6 +918,9 @@ export const Camp: React.FC = () => {
                 <div className="flex gap-2 overflow-x-auto">
                     <button onClick={() => setActiveTab('OVERVIEW')} className={`px-4 py-3 border-b-2 transition-colors font-medium flex items-center gap-2 ${activeTab === 'OVERVIEW' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
                         <HomeIcon className="h-4 w-4" /> Przegląd
+                    </button>
+                    <button onClick={() => setActiveTab('WORKSHOP')} className={`px-4 py-3 border-b-2 transition-colors font-medium flex items-center gap-2 ${activeTab === 'WORKSHOP' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
+                        <AnvilIcon className="h-4 w-4" /> Warsztat
                     </button>
                     <button onClick={() => setActiveTab('TREASURY')} className={`px-4 py-3 border-b-2 transition-colors font-medium flex items-center gap-2 ${activeTab === 'TREASURY' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
                         <ChestIcon className="h-4 w-4" /> Skarbiec
@@ -640,6 +940,7 @@ export const Camp: React.FC = () => {
 
             <div className="h-[70vh] overflow-y-auto pr-2">
                 {activeTab === 'OVERVIEW' && <OverviewPanel />}
+                {activeTab === 'WORKSHOP' && <WorkshopPanel />}
                 {activeTab === 'TREASURY' && <TreasuryPanel />}
                 {activeTab === 'WAREHOUSE' && <WarehousePanel />}
                 {activeTab === 'BACKPACK' && <BackpackPanel />}
