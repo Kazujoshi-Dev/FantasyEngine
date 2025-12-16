@@ -242,7 +242,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             while (char.experience >= char.experienceToNextLevel) {
                 char.experience -= char.experienceToNextLevel;
                 char.level += 1;
-                char.stats.statPoints += 1;
+                char.stats.statPoints += 2; // Updated to 2
                 char.experienceToNextLevel = Math.floor(100 * Math.pow(char.level, 1.3));
             }
 

@@ -161,7 +161,7 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
              while (character.experience >= character.experienceToNextLevel) {
                 character.experience -= character.experienceToNextLevel;
                 character.level += 1;
-                character.stats.statPoints += 1;
+                character.stats.statPoints += 2; // Updated to 2
                 character.experienceToNextLevel = Math.floor(100 * Math.pow(character.level, 1.3));
             }
 

@@ -136,7 +136,7 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
             experience: 0,
             experienceToNextLevel: 100,
             stats: {
-                strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1, statPoints: 10,
+                strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1, statPoints: 20,
                 currentHealth: 50, maxHealth: 50, currentMana: 20, maxMana: 20, currentEnergy: 10, maxEnergy: 10,
                 minDamage: 1, maxDamage: 2, magicDamageMin: 0, magicDamageMax: 0,
                 armor: 0, critChance: 0, critDamageModifier: 200, attacksPerRound: 1, dodgeChance: 0, manaRegen: 0,
@@ -801,7 +801,8 @@ router.post('/reset-stats', authenticateToken, async (req: any, res: any) => {
             (character as any).freeStatResetUsed = true;
         }
 
-        const totalPoints = 10 + (character.level - 1);
+        // Updated formula: 20 base + 2 per level (excluding current level 1 which is base)
+        const totalPoints = 20 + (character.level - 1) * 2;
         character.stats.strength = 0;
         character.stats.agility = 0;
         character.stats.accuracy = 0;

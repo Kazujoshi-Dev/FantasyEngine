@@ -137,7 +137,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         while (attacker.experience >= attacker.experienceToNextLevel) {
             attacker.experience -= attacker.experienceToNextLevel;
             attacker.level += 1;
-            attacker.stats.statPoints += 1;
+            attacker.stats.statPoints += 2; // Updated to 2
             attacker.experienceToNextLevel = Math.floor(100 * Math.pow(attacker.level, 1.3));
         }
 

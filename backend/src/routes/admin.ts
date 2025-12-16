@@ -237,8 +237,8 @@ router.post('/characters/:id/reset-stats', async (req: any, res: any) => {
         if (result.rows.length === 0) return res.status(404).json({ message: 'Not found' });
         
         const char = result.rows[0].data;
-        // Reset Logic
-        const totalPoints = 10 + (char.level - 1);
+        // Reset Logic: 20 base + 2 per level (excluding base level 1)
+        const totalPoints = 20 + (char.level - 1) * 2;
         char.stats.strength = 0;
         char.stats.agility = 0;
         char.stats.accuracy = 0;
@@ -276,7 +276,7 @@ router.post('/characters/:id/reset-progress', async (req: any, res: any) => {
                 experience: 0,
                 experienceToNextLevel: 100,
                 stats: {
-                    strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1, statPoints: 10,
+                    strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1, statPoints: 20, // Updated to 20
                     currentHealth: 50, maxHealth: 50, currentMana: 20, maxMana: 20, currentEnergy: 10, maxEnergy: 10,
                     minDamage: 1, maxDamage: 2, magicDamageMin: 0, magicDamageMax: 0,
                     armor: 0, critChance: 0, critDamageModifier: 200, attacksPerRound: 1, dodgeChance: 0, manaRegen: 0,
@@ -334,7 +334,8 @@ router.post('/character/:id/update-details', async (req: any, res: any) => {
             char.experienceToNextLevel = Math.floor(100 * Math.pow(level, 1.3));
             // Recalculate stat points roughly
             const spentPoints = char.stats.strength + char.stats.agility + char.stats.accuracy + char.stats.stamina + char.stats.intelligence + char.stats.energy + char.stats.luck;
-            const totalShouldBe = 10 + (level - 1);
+            // Updated formula: 20 + 2 per level
+            const totalShouldBe = 20 + (level - 1) * 2;
             if (spentPoints > totalShouldBe) {
                 // If level down, force reset stats to avoid negative points
                 char.stats.strength = 0; char.stats.agility = 0; char.stats.accuracy = 0; char.stats.stamina = 0;
@@ -662,7 +663,8 @@ router.post('/audit/fix-attributes', async (req: any, res: any) => {
             if (!char.stats) continue;
 
             const stats = char.stats;
-            const expectedTotalPoints = 10 + (char.level - 1);
+            // Updated Formula: 20 points base + 2 points per level beyond 1st
+            const expectedTotalPoints = 20 + (char.level - 1) * 2;
             
             const strength = Number(stats.strength) || 0;
             const agility = Number(stats.agility) || 0;

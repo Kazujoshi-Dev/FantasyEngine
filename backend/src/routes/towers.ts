@@ -508,7 +508,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                  while (dbChar.experience >= dbChar.experienceToNextLevel) {
                     dbChar.experience -= dbChar.experienceToNextLevel;
                     dbChar.level += 1;
-                    dbChar.stats.statPoints += 1;
+                    dbChar.stats.statPoints += 2; // Updated to 2
                     dbChar.experienceToNextLevel = Math.floor(100 * Math.pow(dbChar.level, 1.3));
                 }
 
@@ -636,7 +636,7 @@ router.post('/retreat', authenticateToken, async (req: any, res: any) => {
         while (dbChar.experience >= dbChar.experienceToNextLevel) {
             dbChar.experience -= dbChar.experienceToNextLevel;
             dbChar.level += 1;
-            dbChar.stats.statPoints += 1;
+            dbChar.stats.statPoints += 2; // Updated to 2
             dbChar.experienceToNextLevel = Math.floor(100 * Math.pow(dbChar.level, 1.3));
         }
 
