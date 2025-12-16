@@ -237,6 +237,17 @@ export const initializeDatabase = async (retries = 5, delay = 5000) => {
                          await client.query("ALTER TABLE hunting_parties ADD COLUMN guild_id INT DEFAULT NULL;");
                     }
                 } catch (e) {}
+
+                // NEW: Auto Join column for hunting_parties
+                try {
+                    const hpAutoJoinCol = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='hunting_parties' AND column_name='auto_join'");
+                    if (hpAutoJoinCol.rowCount === 0) {
+                        console.log("MIGRATING SCHEMA: Adding 'auto_join' to 'hunting_parties'...");
+                        await client.query("ALTER TABLE hunting_parties ADD COLUMN auto_join BOOLEAN DEFAULT FALSE;");
+                    }
+                } catch (e) {
+                    console.error("Migration Error (hunting_parties.auto_join):", e);
+                }
                 
                 // Guilds Table
                 await client.query(`

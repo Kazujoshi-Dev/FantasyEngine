@@ -19,6 +19,7 @@ export const GuildHunting: React.FC = () => {
     // Creation State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
     const [createMembers, setCreateMembers] = useState(3);
+    const [autoJoin, setAutoJoin] = useState(false);
 
     const { enemies } = gameData || { enemies: [] };
 
@@ -61,7 +62,7 @@ export const GuildHunting: React.FC = () => {
         if (!character) return;
         try {
             // isGuildParty = true
-            await api.createParty(selectedBossId, createMembers, true);
+            await api.createParty(selectedBossId, createMembers, true, autoJoin);
             alert('Utworzono polowanie gildyjne! Przejdź do zakładki Polowanie, aby zarządzać.');
             fetchParties();
         } catch (e: any) { alert(e.message); }
@@ -133,6 +134,20 @@ export const GuildHunting: React.FC = () => {
                             </select>
                             <p className="text-xs text-gray-500 mt-2">Większa drużyna = trudniejsza walka i lepsze nagrody.</p>
                         </div>
+                        
+                        <div className="flex items-center gap-2 bg-slate-800/50 p-3 rounded border border-slate-700">
+                             <input 
+                                type="checkbox" 
+                                id="autoJoin" 
+                                checked={autoJoin} 
+                                onChange={(e) => setAutoJoin(e.target.checked)}
+                                className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                            />
+                            <div className="flex flex-col">
+                                <label htmlFor="autoJoin" className="text-sm font-bold text-white cursor-pointer">Otwarta rekrutacja</label>
+                                <span className="text-xs text-gray-400">Członkowie gildii dołączają automatycznie bez akceptacji lidera.</span>
+                            </div>
+                        </div>
 
                         <button 
                             onClick={handleCreate} 
@@ -196,6 +211,7 @@ export const GuildHunting: React.FC = () => {
                                         <h4 className="font-bold text-white flex items-center gap-2">
                                             {boss?.name} 
                                             <span className="text-[10px] bg-purple-900 text-purple-200 px-1.5 rounded border border-purple-700 uppercase">Gildia</span>
+                                            {p.autoJoin && <span className="text-[10px] bg-green-900 text-green-200 px-1.5 rounded border border-green-700 uppercase">Otwarta</span>}
                                         </h4>
                                         <p className="text-xs text-gray-400 mt-1">Lider: {p.leaderName}</p>
                                     </div>

@@ -99,7 +99,7 @@ export const Hunting: React.FC = () => {
     const handleCreate = async () => {
         try {
             // Always false for isGuildParty in public tab
-            await api.createParty(selectedBossId, createMembers, false);
+            await api.createParty(selectedBossId, createMembers, false, false);
             await fetchMyParty();
         } catch (e: any) { alert(e.message); }
     };
@@ -276,7 +276,10 @@ export const Hunting: React.FC = () => {
                     {/* Middle: Members */}
                     <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col md:col-span-2">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-indigo-400">{t('hunting.members')} ({acceptedMembers.length}/{myParty.maxMembers})</h3>
+                            <div>
+                                <h3 className="text-lg font-bold text-indigo-400">{t('hunting.members')} ({acceptedMembers.length}/{myParty.maxMembers})</h3>
+                                {myParty.autoJoin && <span className="text-xs text-green-400 font-bold uppercase border border-green-600 px-1 rounded">Otwarta</span>}
+                            </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">{t('hunting.statusLabel')}: <span className="text-white font-bold">{statusText}</span></p>
                                 {timerText && <p className="text-xl font-mono text-amber-400 animate-pulse">{t('hunting.startsIn')}: {timerText}</p>}
@@ -334,7 +337,7 @@ export const Hunting: React.FC = () => {
                                         Anuluj Wyprawę
                                     </button>
                                 )}
-                                {isLeader && isFull && myParty.status === PartyStatus.Forming && (
+                                {isLeader && acceptedMembers.length >= 2 && myParty.status === PartyStatus.Forming && (
                                     <button onClick={handleStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg animate-pulse">
                                         Rozpocznij
                                     </button>

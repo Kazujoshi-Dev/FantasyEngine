@@ -333,6 +333,7 @@ export const camelizeParty = (dbParty: any): HuntingParty => {
         combatLog: dbParty.combat_log,
         allRewards: dbParty.rewards,
         victory: dbParty.victory,
-        guildId: dbParty.guild_id
+        guildId: dbParty.guild_id,
+        autoJoin: dbParty.auto_join
     };
 };

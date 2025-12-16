@@ -798,6 +798,7 @@ export interface HuntingParty {
     guildId?: number;
     leaderName?: string; // Computed
     currentMembersCount?: number; // Computed
+    autoJoin?: boolean; // New field for selective/open party
     
     // Client specific
     myRewards?: any;

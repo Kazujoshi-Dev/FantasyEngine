@@ -1,3 +1,4 @@
+
 import { CharacterStats, Race, CharacterClass, EssenceType } from './types';
 
 const API_URL = '/api';
@@ -172,7 +173,7 @@ export const api = {
     // Hunting
     getHuntingParties: () => fetchApi('/hunting/parties'),
     getGuildHuntingParties: () => fetchApi('/hunting/guild-parties'),
-    createParty: (bossId: string, maxMembers: number, isGuildParty: boolean) => fetchApi('/hunting/create', { method: 'POST', body: JSON.stringify({ bossId, maxMembers, isGuildParty }) }),
+    createParty: (bossId: string, maxMembers: number, isGuildParty: boolean, autoJoin: boolean) => fetchApi('/hunting/create', { method: 'POST', body: JSON.stringify({ bossId, maxMembers, isGuildParty, autoJoin }) }),
     joinParty: (partyId: number) => fetchApi(`/hunting/join/${partyId}`, { method: 'POST' }),
     getMyParty: () => fetchApi('/hunting/my-party'),
     leaveParty: () => fetchApi('/hunting/leave', { method: 'POST' }),
