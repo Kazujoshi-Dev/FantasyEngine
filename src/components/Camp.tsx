@@ -618,9 +618,10 @@ const WorkshopPanel: React.FC = () => {
     const [craftingRarity, setCraftingRarity] = useState<ItemRarity>(ItemRarity.Common);
     const [reforgeTab, setReforgeTab] = useState<'values' | 'affixes'>('values');
     const [selectedReforgeItem, setSelectedReforgeItem] = useState<ItemInstance | null>(null);
+    const [lastCraftedItem, setLastCraftedItem] = useState<ItemInstance | null>(null);
 
     if (!character || !baseCharacter || !gameData) return null;
-    const { itemTemplates } = gameData;
+    const { itemTemplates, affixes } = gameData;
     
     // --- WORKSHOP LEVEL & UPGRADE ---
     const workshop = character.workshop || { level: 0 };
@@ -658,9 +659,9 @@ const WorkshopPanel: React.FC = () => {
         if (!isRarityUnlocked(craftingRarity)) return alert("Zbyt niski poziom warsztatu.");
         if (!canAffordCraft) return alert("Niewystarczające zasoby.");
         try {
-            const updated = await api.craftItem(craftingSlot, craftingRarity);
-            updateCharacter(updated);
-            alert("Przedmiot wytworzony!");
+            const { character: updatedChar, item } = await api.craftItem(craftingSlot, craftingRarity);
+            updateCharacter(updatedChar);
+            setLastCraftedItem(item);
         } catch(e:any) { alert(e.message); }
     };
 
@@ -776,7 +777,7 @@ const WorkshopPanel: React.FC = () => {
                                             onClick={() => setSelectedReforgeItem(item)}
                                             className={`p-2 rounded mb-1 cursor-pointer border ${selectedReforgeItem?.uniqueId === item.uniqueId ? 'bg-indigo-900/50 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
                                         >
-                                            <ItemListItem item={item} template={tmpl} affixes={gameData.affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} className="border-0 bg-transparent p-0 shadow-none pointer-events-none"/>
+                                            <ItemListItem item={item} template={tmpl} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} className="border-0 bg-transparent p-0 shadow-none pointer-events-none"/>
                                         </div>
                                     )
                                 })}
@@ -898,6 +899,25 @@ const WorkshopPanel: React.FC = () => {
                     <p className="text-xs text-gray-500 italic text-center">
                         * Przedmiot zostanie wylosowany z dostępnej puli dla wybranego slotu i rzadkości. Statystyki i afiksy są losowe.
                     </p>
+
+                    {lastCraftedItem && (
+                        <div className="mt-6 bg-slate-900/80 p-4 border border-green-500/50 rounded-xl shadow-lg shadow-green-500/10 animate-fade-in relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                 <AnvilIcon className="h-24 w-24 text-green-500" />
+                             </div>
+                             <h4 className="text-green-400 font-bold mb-3 flex items-center gap-2 border-b border-green-500/30 pb-2">
+                                <span className="text-xl">✓</span> Wynik Rzemiosła
+                             </h4>
+                             <ItemDetailsPanel 
+                                item={lastCraftedItem} 
+                                template={itemTemplates.find(t => t.id === lastCraftedItem.templateId) || null} 
+                                affixes={affixes} 
+                                character={character} 
+                                size="small"
+                                compact={true}
+                             />
+                        </div>
+                    )}
                 </div>
             </div>
 

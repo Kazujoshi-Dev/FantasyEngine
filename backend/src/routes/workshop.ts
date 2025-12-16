@@ -63,11 +63,13 @@ router.post('/craft', authenticateToken, async (req: any, res: any) => {
         const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 
-        character = performCraft(character, gameData, slot, rarity);
+        const result = performCraft(character, gameData, slot, rarity);
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(result.character), req.user.id]);
         await client.query('COMMIT');
-        res.json(character);
+        
+        // Return both character and the new item
+        res.json({ character: result.character, item: result.item });
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: err.message });

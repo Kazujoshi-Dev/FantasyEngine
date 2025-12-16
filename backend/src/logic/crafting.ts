@@ -86,7 +86,7 @@ export const performCraft = (
     gameData: GameData, 
     slot: EquipmentSlot | 'ring' | 'consumable', 
     rarity: ItemRarity
-): PlayerCharacter => {
+): { character: PlayerCharacter, item: ItemInstance } => {
     
     const workshopLevel = character.workshop?.level || 0;
     
@@ -125,7 +125,7 @@ export const performCraft = (
     }
     character.inventory.push(newItem);
     
-    return character;
+    return { character, item: newItem };
 };
 
 export const performReforge = (
