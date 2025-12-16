@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass } from '../types.js';
+import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources } from '../types.js';
 import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 
@@ -827,12 +827,15 @@ router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
         // (Simplified check - full check should match frontend logic)
         
         // Check Costs
-        const costs = skill.cost as Record<string, number>;
-        for (const key in costs) {
-            const costVal = costs[key];
+        const costs = skill.cost || {};
+        
+        // Use explicit loop over entries with type assertion
+        for (const [key, value] of Object.entries(costs)) {
+            const costVal = Number(value);
             if (!costVal) continue;
             
-            const resourceKey = key as keyof typeof character.resources;
+            const resourceKey = key as keyof CharacterResources;
+            
             if ((character.resources[resourceKey] || 0) < costVal) {
                  await client.query('ROLLBACK');
                  return res.status(400).json({ message: `Not enough ${key}` });
@@ -840,12 +843,12 @@ router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
         }
         
         // Deduct
-        for (const key in costs) {
-            const costVal = costs[key];
+        for (const [key, value] of Object.entries(costs)) {
+            const costVal = Number(value);
             if (!costVal) continue;
             
-            const resourceKey = key as keyof typeof character.resources;
-            character.resources[resourceKey] -= costVal;
+            const resourceKey = key as keyof CharacterResources;
+            character.resources[resourceKey] = (character.resources[resourceKey] || 0) - costVal;
         }
         
         character.learnedSkills.push(skillId);
