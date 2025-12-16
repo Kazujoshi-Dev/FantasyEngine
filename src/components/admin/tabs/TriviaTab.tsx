@@ -1,10 +1,5 @@
 
-
-
-
-
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { GameData, AffixType, Race, CharacterClass, AdminCharacterInfo } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { SparklesIcon } from '../../icons/SparklesIcon';
@@ -12,15 +7,33 @@ import { ShieldIcon } from '../../icons/ShieldIcon';
 import { SwordsIcon } from '../../icons/SwordsIcon';
 import { UsersIcon } from '../../icons/UsersIcon';
 import { BookOpenIcon } from '../../icons/BookOpenIcon';
+import { api } from '../../../api';
 
 interface TriviaTabProps {
     gameData: GameData;
-    allCharacters?: AdminCharacterInfo[];
 }
 
-export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = [] }) => {
+export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData }) => {
     const { t } = useTranslation();
     const { itemTemplates, affixes, enemies, quests, locations, skills } = gameData;
+    
+    const [characters, setCharacters] = useState<AdminCharacterInfo[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch characters on mount
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const data = await api.getAllCharacters();
+                setCharacters(data);
+            } catch (error) {
+                console.error("Failed to fetch characters for trivia:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
     const stats = useMemo(() => {
         let totalCombinations = 0n; 
@@ -88,9 +101,9 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
     const demographics = useMemo(() => {
         const raceCounts: Record<string, number> = {};
         const classCounts: Record<string, number> = {};
-        const totalPlayers = allCharacters.length;
+        const totalPlayers = characters.length;
 
-        allCharacters.forEach(char => {
+        characters.forEach(char => {
             if (char.race) {
                 raceCounts[char.race] = (raceCounts[char.race] || 0) + 1;
             }
@@ -104,7 +117,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
         const sortedClasses = Object.entries(classCounts).sort((a, b) => b[1] - a[1]);
 
         return { sortedRaces, sortedClasses, totalPlayers };
-    }, [allCharacters]);
+    }, [characters]);
 
     const formatNumber = (num: string | number) => {
         return Number(num).toLocaleString('pl-PL');
@@ -151,7 +164,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
                 {/* Demographics - Races */}
                 <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                     <h4 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
-                        <UsersIcon className="h-5 w-5"/> Populacja Ras
+                        <UsersIcon className="h-5 w-5"/> Populacja Ras {isLoading && <span className="text-xs text-gray-500 ml-2">(Ładowanie...)</span>}
                     </h4>
                     <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                         {demographics.sortedRaces.map(([race, count]) => (
@@ -163,14 +176,14 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
                                 {renderProgressBar(count, demographics.totalPlayers, 'bg-amber-500')}
                             </div>
                         ))}
-                         {demographics.sortedRaces.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
+                         {!isLoading && demographics.sortedRaces.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
                     </div>
                 </div>
 
                  {/* Demographics - Classes */}
                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                     <h4 className="text-lg font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                        <BookOpenIcon className="h-5 w-5"/> Populacja Klas
+                        <BookOpenIcon className="h-5 w-5"/> Populacja Klas {isLoading && <span className="text-xs text-gray-500 ml-2">(Ładowanie...)</span>}
                     </h4>
                     <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                         {demographics.sortedClasses.map(([className, count]) => {
@@ -186,7 +199,7 @@ export const TriviaTab: React.FC<TriviaTabProps> = ({ gameData, allCharacters = 
                                 </div>
                             )
                         })}
-                        {demographics.sortedClasses.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
+                        {!isLoading && demographics.sortedClasses.length === 0 && <p className="text-gray-500 text-sm text-center">Brak danych</p>}
                     </div>
                 </div>
 
