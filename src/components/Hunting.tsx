@@ -32,6 +32,9 @@ export const Hunting: React.FC = () => {
     if (!character || !gameData) return null;
     const { enemies, itemTemplates, affixes } = gameData;
 
+    // Check for Lone Wolf skill
+    const hasLoneWolf = (character.learnedSkills || []).includes('lone-wolf');
+
     // Filter bosses: Only NON-GUILD bosses for public hunting
     const bosses = useMemo(() => {
         return enemies.filter(e => e.isBoss && !e.isGuildBoss);
@@ -262,6 +265,9 @@ export const Hunting: React.FC = () => {
         const lobbyMaxHealth = boss ? Math.floor(boss.stats.maxHealth * lobbyHealthMult) : 0;
         const lobbyMinDamage = boss ? Math.floor(boss.stats.minDamage * lobbyDamageMult) : 0;
         const lobbyMaxDamage = boss ? Math.floor(boss.stats.maxDamage * lobbyDamageMult) : 0;
+        
+        // --- FIXED CONDITION: Allow starting if >= 2 OR if solo party (max 1) ---
+        const canStart = acceptedMembers.length >= 2 || (myParty.maxMembers === 1 && acceptedMembers.length === 1);
 
         return (
             <ContentPanel title={t('hunting.title')}>
@@ -342,7 +348,7 @@ export const Hunting: React.FC = () => {
                                         Anuluj Wyprawę
                                     </button>
                                 )}
-                                {isLeader && acceptedMembers.length >= 2 && myParty.status === PartyStatus.Forming && (
+                                {isLeader && canStart && myParty.status === PartyStatus.Forming && (
                                     <button onClick={handleStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg animate-pulse">
                                         Rozpocznij
                                     </button>
@@ -393,19 +399,24 @@ export const Hunting: React.FC = () => {
                                 onChange={(e) => setCreateMembers(parseInt(e.target.value))}
                                 className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                             >
-                                <option value={1}>1 Gracz (Solo)</option>
+                                <option value={1} disabled={!hasLoneWolf}>
+                                    1 Gracz (Solo) {!hasLoneWolf && "- Wymagana umiejętność Samotny Wilk"}
+                                </option>
                                 <option value={2}>2 Graczy</option>
                                 <option value={3}>3 Graczy</option>
                                 <option value={4}>4 Graczy</option>
                                 <option value={5}>5 Graczy (Pełna)</option>
                             </select>
+                            {createMembers === 1 && !hasLoneWolf && (
+                                <p className="text-xs text-red-400 mt-1 font-bold">Wymagana umiejętność: Samotny Wilk</p>
+                            )}
                             <p className="text-xs text-gray-500 mt-2">Większa drużyna = większe nagrody, ale boss jest silniejszy.</p>
                         </div>
 
                         <div className="pt-4">
                             <button 
                                 onClick={handleCreate} 
-                                disabled={character.stats.currentHealth <= 0 || !selectedBossId}
+                                disabled={character.stats.currentHealth <= 0 || !selectedBossId || (createMembers === 1 && !hasLoneWolf)}
                                 title={character.stats.currentHealth <= 0 ? "Nie możesz stworzyć grupy z 0 HP." : ""}
                                 className={`w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed`}
                             >
