@@ -49,7 +49,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
         // Single sell fallback or specific item sell from details
         const template = itemTemplates.find(t => t.id === item.templateId);
         if (template && (template.rarity === ItemRarity.Epic || template.rarity === ItemRarity.Legendary)) {
-            if (!confirm(`Czy na pewno chcesz sprzedać ${template.name}?`)) return;
+            if (!confirm(t('trader.sellConfirm', { name: template.name }))) return;
         }
 
         try {
@@ -82,7 +82,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
         });
 
         if (hasHighValue) {
-            if (!confirm(`Wśród zaznaczonych przedmiotów są przedmioty Epickie lub Legendarne. Czy na pewno chcesz sprzedać ${itemsToSell.length} przedmiotów za ${totalValue} złota?`)) return;
+            if (!confirm(t('trader.sellHighValueConfirm', { count: itemsToSell.length, value: totalValue }))) return;
         }
 
         try {
@@ -273,7 +273,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                             value={filterRarity}
                             onChange={(e) => setFilterRarity(e.target.value as ItemRarity | 'all')}
                         >
-                            <option value="all">Wszystkie Rzadkości</option>
+                            <option value="all">{t('market.browse.filters.all')}</option>
                             {(Object.values(ItemRarity) as string[]).map(r => (
                                 <option key={r} value={r}>{t(`rarity.${r}`)}</option>
                             ))}
@@ -327,7 +327,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                             />
                         )}
                         {activeTab === 'sell' && sellList.length === 0 && (
-                             <p className="text-gray-500 text-center py-12">Brak przedmiotów do sprzedania.</p>
+                             <p className="text-gray-500 text-center py-12">{t('trader.noItemsToSellOfRarity').replace('tej rzadkości ', '')}</p>
                         )}
                     </div>
                 </div>
@@ -335,9 +335,6 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                 {/* Details Column */}
                 <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col items-center border border-slate-700/50">
                     
-                    {/* Sell Tab: Bulk Sell Buttons (Only show when not in multi-select summary view for cleaner UI, or always?) 
-                        Let's keep them always visible in Sell tab as shortcuts.
-                    */}
                     {activeTab === 'sell' && !isMultiSellMode && (
                         <div className="w-full mb-6 pb-6 border-b border-slate-700/50">
                              <h4 className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider text-center">{t('trader.bulkSellTitle')}</h4>
@@ -354,15 +351,13 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                              </div>
                         </div>
                     )}
-
-                    {/* CONTENT AREA: Multi-Select Summary OR Single Item Detail OR Empty */}
                     
                     {isMultiSellMode ? (
                         /* MULTI-SELECT SUMMARY VIEW */
                         <div className="w-full flex flex-col h-full animate-fade-in">
                             <h3 className="text-xl font-bold text-gray-200 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
-                                <span>Podsumowanie</span>
-                                <span className="text-sm font-normal text-gray-400">Wybrano: {selectedSellIds.size}</span>
+                                <span>{t('market.summary')}</span>
+                                <span className="text-sm font-normal text-gray-400">{t('market.selectedCount', { count: selectedSellIds.size })}</span>
                             </h3>
                             
                             <div className="flex-grow overflow-y-auto pr-2 space-y-2 mb-4 custom-scrollbar">

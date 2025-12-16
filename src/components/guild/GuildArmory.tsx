@@ -36,7 +36,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
     const handleDeposit = async (item: ItemInstance, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Czy na pewno chcesz zdeponować ten przedmiot w zbrojowni gildii? Tracisz do niego prawo własności na rzecz gildii.')) return;
+        if (!confirm(t('guild.armory.depositConfirm'))) return;
         try {
             await api.depositToArmory(item.uniqueId);
             onUpdate();
@@ -66,7 +66,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
         const taxRate = guild.rentalTax || 10;
         const tax = Math.ceil(value * (taxRate / 100));
         
-        if (!confirm(`Wypożyczenie kosztuje ${taxRate}% wartości przedmiotu (${tax} złota). Złoto trafi do banku gildii. Kontynuować?`)) return;
+        if (!confirm(t('guild.armory.borrowConfirm', { taxRate, value: tax }))) return;
 
         try {
             await api.borrowFromArmory(armoryId);
@@ -79,7 +79,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
     };
 
     const handleRecall = async (targetUserId: number, itemUniqueId: string) => {
-        if (!confirm('Czy na pewno chcesz wymusić zwrot przedmiotu do zbrojowni?')) return;
+        if (!confirm(t('guild.armory.recallConfirm'))) return;
         try {
             await api.recallFromMember(targetUserId, itemUniqueId);
             const armory = await api.getGuildArmory();
@@ -91,7 +91,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
     const handleDelete = async (armoryId: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Czy na pewno chcesz usunąć ten przedmiot? Ta akcja jest nieodwracalna.')) return;
+        if (!confirm(t('guild.armory.deleteConfirm'))) return;
         try {
             await api.deleteFromArmory(armoryId);
             const armory = await api.getGuildArmory();
@@ -129,14 +129,14 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                     onClick={() => setActiveSubTab('ARMORY')}
                 >
                     <ShieldIcon className="h-4 w-4"/>
-                    Zbrojownia
+                    {t('guild.armory.title')}
                 </button>
                 <button
                     className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 ${activeSubTab === 'BORROWED' ? 'border-b-2 border-amber-500 text-white' : 'text-gray-400 hover:text-gray-200'}`}
                     onClick={() => setActiveSubTab('BORROWED')}
                 >
                     <HandshakeIcon className="h-4 w-4"/>
-                    Wypożyczone ({armoryData.borrowedItems.length})
+                    {t('guild.armory.borrowedItems')} ({armoryData.borrowedItems.length})
                 </button>
             </div>
 
@@ -146,24 +146,24 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                     {/* Guild Armory Contents */}
                     <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><ShieldIcon className="h-5 w-5 text-indigo-400"/> Zasoby Gildii</h3>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><ShieldIcon className="h-5 w-5 text-indigo-400"/> {t('guild.resources')}</h3>
                             <span className="text-sm text-gray-400">{armoryData.armoryItems.length} / {capacity}</span>
                         </div>
                         
                         {/* Filters */}
                         <div className="grid grid-cols-2 gap-2 mb-4 flex-shrink-0">
                             <select className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white" value={filterRarity} onChange={(e) => setFilterRarity(e.target.value as ItemRarity | 'all')}>
-                                <option value="all">Wszystkie Rzadkości</option>
+                                <option value="all">{t('market.browse.filters.all')}</option>
                                 {(Object.values(ItemRarity) as string[]).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
                             </select>
                             <select className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white" value={filterSlot} onChange={(e) => setFilterSlot(e.target.value)}>
-                                <option value="all">Wszystkie Typy</option>
+                                <option value="all">{t('market.browse.filters.all')}</option>
                                 {(Object.values(EquipmentSlot) as string[]).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
                             </select>
                         </div>
 
                         <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                            {filteredItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów spełniających kryteria.</p>}
+                            {filteredItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">{t('guild.armory.empty')}</p>}
                             {filteredItems.map(entry => {
                                 const template = templates.find(t => t.id === entry.item.templateId);
                                 if (!template) return null;
@@ -189,7 +189,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                                 <span className="text-xs text-gray-500">od {entry.ownerName}</span>
                                                 <div className="flex gap-1">
                                                     <button onClick={(e) => handleBorrow(entry.id, entry.item, e)} className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white">
-                                                        Wypożycz ({tax}g)
+                                                        {t('guild.armory.borrow')} ({tax}g)
                                                     </button>
                                                     {isLeader && (
                                                         <button onClick={(e) => handleDelete(entry.id, e)} className="px-2 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white" title="Usuń trwale">
@@ -207,7 +207,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
 
                     {/* My Backpack (Deposit) */}
                     <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[600px]">
-                        <h3 className="text-lg font-bold text-gray-300 mb-4 flex-shrink-0">Mój Plecak (Depozyt)</h3>
+                        <h3 className="text-lg font-bold text-gray-300 mb-4 flex-shrink-0">{t('guild.armory.myBackpack')}</h3>
                         <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                             {myItems.length === 0 && <p className="text-gray-500 text-center text-sm py-4">Brak przedmiotów do zdeponowania.</p>}
                             {myItems.map(item => {
@@ -218,7 +218,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                         <div className="flex justify-between items-center">
                                             <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} />
                                             <button onClick={(e) => handleDeposit(item, e)} className="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold text-white ml-2">
-                                                Zdeponuj
+                                                {t('guild.armory.deposit')}
                                             </button>
                                         </div>
                                     </div>
@@ -232,7 +232,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
             {/* TAB: BORROWED ITEMS */}
             {activeSubTab === 'BORROWED' && (
                 <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col h-[650px] animate-fade-in">
-                    <h3 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2"><HandshakeIcon className="h-5 w-5"/> Lista Wypożyczonych Przedmiotów</h3>
+                    <h3 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2"><HandshakeIcon className="h-5 w-5"/> {t('guild.armory.borrowedItems')}</h3>
                     
                     {/* Table Container with Explicit Scroll */}
                     <div className="overflow-y-auto flex-grow border border-slate-700/50 rounded bg-slate-900/30">
@@ -257,10 +257,6 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                     const isMyItem = entry.ownerId === userId;
                                     const canRecall = canManage || isMyItem;
 
-                                    // If normal user and not their item and not their borrow -> skip rendering? 
-                                    // Usually "Borrowed Items" tab shows everything for transparency, but actions are restricted.
-                                    // Current logic shows all.
-
                                     return (
                                         <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
                                             <td className="p-3 cursor-pointer" onClick={() => template && handleItemClick(entry.item, template)}>
@@ -274,7 +270,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                             <td className="p-3 text-right">
                                                 {canRecall && (
                                                     <button onClick={() => handleRecall(entry.userId!, entry.item.uniqueId)} className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs text-white transition-colors">
-                                                        Wymuś Zwrot
+                                                        {t('guild.armory.recall')}
                                                     </button>
                                                 )}
                                             </td>

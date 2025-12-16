@@ -13,7 +13,7 @@ import { rarityStyles, ItemListItem, ItemDetailsPanel } from './shared/ItemSlot'
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
 import { getCampUpgradeCost, getChestUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getWarehouseCapacity, getWorkshopUpgradeCost } from '../logic/stats';
-import { calculateCraftingCost, calculateReforgeCost } from '../logic/crafting_frontend_helper'; // Helper we'll define below
+import { calculateCraftingCost, calculateReforgeCost } from '../logic/crafting_frontend_helper';
 
 const REGEN_INTERVAL_SECONDS = 10;
 
@@ -283,18 +283,18 @@ const TreasuryPanel: React.FC = () => {
                          <div className="w-full bg-slate-700 rounded-full h-3 relative">
                             <div className="bg-amber-500 h-3 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (chestGold / capacity) * 100)}%` }}></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 text-right">Pojemność: {capacity.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 mt-1 text-right">{t('camp.chestCapacity')}: {capacity.toLocaleString()}</p>
                     </div>
 
                     <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <label className="block text-sm text-gray-400 mb-2">Kwota transakcji</label>
+                        <label className="block text-sm text-gray-400 mb-2">{t('camp.amount')}</label>
                         <div className="flex gap-2 mb-4">
                             <input 
                                 type="number" 
                                 min="1" 
                                 value={amount} 
                                 onChange={e => setAmount(e.target.value)} 
-                                placeholder="Ilość złota..." 
+                                placeholder={t('camp.amount')} 
                                 className="flex-grow bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-amber-500" 
                             />
                             <div className="flex items-center text-amber-400 font-bold bg-slate-900/50 px-3 rounded-lg border border-slate-700">
@@ -303,10 +303,10 @@ const TreasuryPanel: React.FC = () => {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => handleDeposit(Number(amount))} className="py-2 bg-green-700 hover:bg-green-600 rounded text-white font-bold transition-colors">Wpłać</button>
-                            <button onClick={() => handleWithdraw(Number(amount))} className="py-2 bg-amber-700 hover:bg-amber-600 rounded text-white font-bold transition-colors">Wypłać</button>
-                            <button onClick={() => handleDeposit('all')} className="py-2 bg-green-900/60 hover:bg-green-800/60 border border-green-700 rounded text-green-200 text-sm">Wpłać wszystko</button>
-                            <button onClick={() => handleWithdraw('all')} className="py-2 bg-amber-900/60 hover:bg-amber-800/60 border border-amber-700 rounded text-amber-200 text-sm">Wypłać wszystko</button>
+                            <button onClick={() => handleDeposit(Number(amount))} className="py-2 bg-green-700 hover:bg-green-600 rounded text-white font-bold transition-colors">{t('camp.deposit')}</button>
+                            <button onClick={() => handleWithdraw(Number(amount))} className="py-2 bg-amber-700 hover:bg-amber-600 rounded text-white font-bold transition-colors">{t('camp.withdraw')}</button>
+                            <button onClick={() => handleDeposit('all')} className="py-2 bg-green-900/60 hover:bg-green-800/60 border border-green-700 rounded text-green-200 text-sm">{t('camp.depositAll')}</button>
+                            <button onClick={() => handleWithdraw('all')} className="py-2 bg-amber-900/60 hover:bg-amber-800/60 border border-amber-700 rounded text-amber-200 text-sm">{t('camp.withdrawAll')}</button>
                         </div>
                     </div>
                 </div>
@@ -314,13 +314,13 @@ const TreasuryPanel: React.FC = () => {
 
              <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col border border-slate-700/30">
                 <h3 className="text-xl font-bold text-gray-300 mb-6 flex items-center">
-                    Ulepszanie Skarbca
+                    {t('camp.upgradeChest')}
                 </h3>
                 
                 <div className="bg-slate-800/50 p-4 rounded-lg flex-grow">
                     <div className="mb-6">
-                        <p className="text-gray-400 text-sm mb-2">Obecny Poziom: <span className="text-white font-bold text-lg">{chestLevel}</span></p>
-                        <p className="text-gray-400 text-sm">Nowa Pojemność: <span className="text-green-400 font-bold text-lg">{getChestCapacity(chestLevel + 1).toLocaleString()}</span></p>
+                        <p className="text-gray-400 text-sm mb-2">{t('camp.chestLevel')}: <span className="text-white font-bold text-lg">{chestLevel}</span></p>
+                        <p className="text-gray-400 text-sm">{t('camp.nextCapacity')}: <span className="text-green-400 font-bold text-lg">{getChestCapacity(chestLevel + 1).toLocaleString()}</span></p>
                     </div>
 
                     <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 mb-6">
@@ -436,22 +436,22 @@ const WarehousePanel: React.FC = () => {
                 <div>
                      <h3 className="text-xl font-bold text-indigo-400 flex items-center">
                         <BriefcaseIcon className="h-6 w-6 mr-2" />
-                        Magazyn Przedmiotów
+                        {t('camp.warehouse.title')}
                     </h3>
                     <p className="text-sm text-gray-400 mt-1">
-                        Poziom: <span className="text-white font-bold">{warehouseLevel} / {10}</span> | Pojemność: <span className="text-white font-bold">{warehouseItems.length} / {capacity}</span>
-                        {warehouseItems.length >= capacity && <span className="text-red-400 ml-2 font-bold">(PEŁNY)</span>}
+                        {t('camp.level')}: <span className="text-white font-bold">{warehouseLevel} / {10}</span> | {t('camp.backpackCapacity')}: <span className="text-white font-bold">{warehouseItems.length} / {capacity}</span>
+                        {warehouseItems.length >= capacity && <span className="text-red-400 ml-2 font-bold">({t('camp.warehouse.full')})</span>}
                     </p>
                 </div>
                  <div className="flex items-center gap-4">
                     {warehouseLevel >= 10 ? (
                         <div className="text-right">
-                             <p className="text-sm font-bold text-amber-400">Maksymalny Poziom</p>
+                             <p className="text-sm font-bold text-amber-400">{t('camp.warehouse.maxLevel')}</p>
                         </div>
                     ) : (
                         <>
                             <div className="text-right hidden md:block">
-                                <p className="text-xs text-gray-500 uppercase">Koszt Ulepszenia</p>
+                                <p className="text-xs text-gray-500 uppercase">{t('camp.upgradeCost')}</p>
                                 <p className="text-sm font-mono text-amber-400">{upgradeCost.gold.toLocaleString()}g</p>
                             </div>
                             <button 
@@ -460,7 +460,7 @@ const WarehousePanel: React.FC = () => {
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm transition-colors disabled:bg-slate-700 disabled:text-gray-500"
                                 title="Zwiększ pojemność magazynu o 3 miejsca"
                             >
-                                {isUpgrading ? '...' : 'Ulepsz (+3 sloty)'}
+                                {isUpgrading ? '...' : t('camp.warehouse.upgradeAction')}
                             </button>
                         </>
                     )}
@@ -471,26 +471,26 @@ const WarehousePanel: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <input 
                     type="text" 
-                    placeholder="Szukaj po nazwie..." 
+                    placeholder={t('camp.warehouse.searchPlaceholder')}
                     className="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
                 <select className="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none" value={filterRarity} onChange={(e) => setFilterRarity(e.target.value as ItemRarity | 'all')}>
-                    <option value="all">Wszystkie Rzadkości</option>
+                    <option value="all">{t('market.browse.filters.all')}</option>
                     {(Object.values(ItemRarity) as string[]).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
                 </select>
                 <select className="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none" value={filterSlot} onChange={(e) => setFilterSlot(e.target.value)}>
-                    <option value="all">Wszystkie Typy</option>
+                    <option value="all">{t('market.browse.filters.all')}</option>
                     {(Object.values(EquipmentSlot) as string[]).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
                 </select>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
                 <div className="bg-slate-900/40 rounded-xl p-4 border border-indigo-500/30 flex flex-col overflow-hidden">
-                    <p className="text-center font-bold text-indigo-300 mb-3 pb-2 border-b border-indigo-500/30">W Magazynie ({filteredWarehouseItems.length})</p>
+                    <p className="text-center font-bold text-indigo-300 mb-3 pb-2 border-b border-indigo-500/30">{t('camp.warehouse.inWarehouse')} ({filteredWarehouseItems.length})</p>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                        {filteredWarehouseItems.length === 0 && <p className="text-gray-600 text-center text-sm py-8">Magazyn jest pusty.</p>}
+                        {filteredWarehouseItems.length === 0 && <p className="text-gray-600 text-center text-sm py-8">{t('camp.warehouse.emptyWarehouse')}</p>}
                         {filteredWarehouseItems.map(item => {
                              const template = itemTemplates.find(t => t.id === item.templateId);
                              if (!template) return null;
@@ -499,16 +499,16 @@ const WarehousePanel: React.FC = () => {
                                      <div className="flex-grow overflow-hidden">
                                         <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} className="border-0 bg-transparent p-0 hover:bg-transparent shadow-none" />
                                      </div>
-                                     <button onClick={() => handleWithdraw(item)} className="ml-2 px-3 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-xs font-bold text-white whitespace-nowrap">Wyjmij</button>
+                                     <button onClick={() => handleWithdraw(item)} className="ml-2 px-3 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-xs font-bold text-white whitespace-nowrap">{t('camp.warehouse.withdraw')}</button>
                                  </div>
                              )
                         })}
                     </div>
                 </div>
                 <div className="bg-slate-900/40 rounded-xl p-4 border border-green-500/30 flex flex-col overflow-hidden">
-                    <p className="text-center font-bold text-green-300 mb-3 pb-2 border-b border-green-500/30">W Plecaku ({filteredBackpackItems.length})</p>
+                    <p className="text-center font-bold text-green-300 mb-3 pb-2 border-b border-green-500/30">{t('camp.warehouse.inBackpack')} ({filteredBackpackItems.length})</p>
                     <div className="flex-grow overflow-y-auto pr-2 space-y-2">
-                        {filteredBackpackItems.length === 0 && <p className="text-gray-600 text-center text-sm py-8">Plecak jest pusty.</p>}
+                        {filteredBackpackItems.length === 0 && <p className="text-gray-600 text-center text-sm py-8">{t('camp.warehouse.emptyBackpack')}</p>}
                         {filteredBackpackItems.map(item => {
                              const template = itemTemplates.find(t => t.id === item.templateId);
                              if (!template) return null;
@@ -517,7 +517,7 @@ const WarehousePanel: React.FC = () => {
                                      <div className="flex-grow overflow-hidden">
                                         <ItemListItem item={item} template={template} affixes={affixes} isSelected={false} onClick={()=>{}} showPrimaryStat={false} className="border-0 bg-transparent p-0 hover:bg-transparent shadow-none" />
                                      </div>
-                                     <button onClick={() => handleDeposit(item)} className="ml-2 px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white whitespace-nowrap">Schowaj</button>
+                                     <button onClick={() => handleDeposit(item)} className="ml-2 px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded text-xs font-bold text-white whitespace-nowrap">{t('camp.warehouse.deposit')}</button>
                                  </div>
                              )
                         })}
@@ -559,13 +559,13 @@ const BackpackPanel: React.FC = () => {
              <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col justify-center items-center border border-slate-700/30">
                 <BriefcaseIcon className="h-16 w-16 text-indigo-400 mb-4" />
                 <h3 className="text-2xl font-bold text-white mb-2">{t('camp.backpackTitle')}</h3>
-                <p className="text-lg text-gray-400">Poziom: <span className="text-white font-bold">{backpackLevel} / {maxLevel}</span></p>
-                <p className="text-lg text-gray-400">Pojemność: <span className="text-white font-bold">{capacity} przedmiotów</span></p>
+                <p className="text-lg text-gray-400">{t('camp.backpackLevel')}: <span className="text-white font-bold">{backpackLevel} / {maxLevel}</span></p>
+                <p className="text-lg text-gray-400">{t('camp.backpackCapacity')}: <span className="text-white font-bold">{capacity}</span></p>
              </div>
 
              <div className="bg-slate-900/40 p-6 rounded-xl flex flex-col border border-slate-700/30">
                 <h3 className="text-xl font-bold text-gray-300 mb-6 flex items-center">
-                    Ulepszanie Plecaka
+                    {t('camp.upgradeBackpack')}
                 </h3>
 
                 {isMaxLevel ? (
@@ -657,8 +657,8 @@ const WorkshopPanel: React.FC = () => {
     };
 
     const handleCraft = async () => {
-        if (!isRarityUnlocked(craftingRarity)) return alert("Zbyt niski poziom warsztatu.");
-        if (!canAffordCraft) return alert("Niewystarczające zasoby.");
+        if (!isRarityUnlocked(craftingRarity)) return alert(t('camp.workshop.lowLevel'));
+        if (!canAffordCraft) return alert(t('camp.workshop.noResources'));
         try {
             const { character: updatedChar, item } = await api.craftItem(craftingSlot, craftingRarity);
             updateCharacter(updatedChar);
@@ -685,7 +685,7 @@ const WorkshopPanel: React.FC = () => {
             const updated = await api.reforgeItem(selectedReforgeItem.uniqueId, reforgeTab);
             updateCharacter(updated);
             setSelectedReforgeItem(null); // Deselect to force refresh or just convenience
-            alert("Przedmiot przekuty!");
+            alert(t('camp.workshop.reforgeSuccess'));
         } catch(e:any) { alert(e.message); }
     };
 
@@ -698,18 +698,15 @@ const WorkshopPanel: React.FC = () => {
                 <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700/30">
                      <h3 className="text-xl font-bold text-amber-500 mb-4 flex items-center">
                         <AnvilIcon className="h-6 w-6 mr-2" />
-                        Warsztat Rzemieślnika
+                        {t('camp.workshop.title')}
                     </h3>
                     <div className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center mb-4">
                         <div>
-                            <p className="text-gray-400 text-xs uppercase">Poziom</p>
+                            <p className="text-gray-400 text-xs uppercase">{t('camp.level')}</p>
                             <p className="text-3xl font-bold text-white">{level} <span className="text-lg text-gray-500">/ {maxLevel}</span></p>
                         </div>
                         <div className="text-right text-xs text-gray-400">
-                            <p>Lvl 3: Rzadkie</p>
-                            <p>Lvl 5: Epickie</p>
-                            <p>Lvl 7: Legendarne</p>
-                            <p>Lvl 10: Przekuwanie</p>
+                            <p>{t('camp.workshop.levelInfo')}</p>
                         </div>
                     </div>
 
@@ -752,23 +749,23 @@ const WorkshopPanel: React.FC = () => {
                 {/* REFORGING PANEL */}
                 <div className="bg-slate-900/40 p-6 rounded-xl border border-purple-500/30 flex flex-col flex-grow">
                     <h3 className="text-xl font-bold text-purple-400 mb-4 flex items-center justify-between">
-                        <span>Przekuwanie (Reforging)</span>
-                        {!reforgeUnlocked && <span className="text-xs bg-red-900 text-red-200 px-2 py-1 rounded border border-red-700">Wymagany Lvl 10</span>}
+                        <span>{t('camp.workshop.reforgeTitle')}</span>
+                        {!reforgeUnlocked && <span className="text-xs bg-red-900 text-red-200 px-2 py-1 rounded border border-red-700">{t('camp.workshop.reforgeLevelReq')}</span>}
                     </h3>
                     
                     {reforgeUnlocked ? (
                         <>
                              <div className="flex mb-4 bg-slate-800 rounded p-1">
-                                <button onClick={() => setReforgeTab('values')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'values' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>Oszlifowanie (Wartości)</button>
-                                <button onClick={() => setReforgeTab('affixes')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'affixes' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>Przekucie Magii (Afiksy)</button>
+                                <button onClick={() => setReforgeTab('values')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'values' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>{t('camp.workshop.reforgeTabValues')}</button>
+                                <button onClick={() => setReforgeTab('affixes')} className={`flex-1 py-1 text-sm rounded ${reforgeTab === 'affixes' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>{t('camp.workshop.reforgeTabAffixes')}</button>
                             </div>
                             
                             <p className="text-xs text-gray-400 mb-4 italic">
-                                {reforgeTab === 'values' ? "Losuje na nowo wartości liczbowe obecnych statystyk. Afiksy pozostają bez zmian." : "Usuwa obecne afiksy i losuje nowe dla tego przedmiotu."}
+                                {reforgeTab === 'values' ? t('camp.workshop.reforgeValuesDesc') : t('camp.workshop.reforgeAffixesDesc')}
                             </p>
 
                             <div className="flex-grow overflow-y-auto pr-2 max-h-60 mb-4 bg-slate-800/30 rounded p-2 border border-slate-700">
-                                {backpackItems.length === 0 && <p className="text-gray-500 text-center py-4">Pusty plecak.</p>}
+                                {backpackItems.length === 0 && <p className="text-gray-500 text-center py-4">{t('camp.workshop.reforgeEmptyBackpack')}</p>}
                                 {backpackItems.map(item => {
                                     const tmpl = itemTemplates.find(t=>t.id===item.templateId);
                                     if(!tmpl) return null;
@@ -787,7 +784,7 @@ const WorkshopPanel: React.FC = () => {
                             {selectedReforgeItem && reforgeCost && (
                                 <div className="border-t border-slate-700 pt-4">
                                      <div className="flex justify-between items-center text-sm mb-2">
-                                        <span className="text-gray-400">Koszt:</span>
+                                        <span className="text-gray-400">{t('camp.workshop.reforgeCost')}:</span>
                                         <div className="flex gap-3">
                                             <span className="text-amber-400 font-mono">{reforgeCost.gold}g</span>
                                             {reforgeCost.essences.map(e => <span key={e.type} className={`${rarityStyles[essenceToRarityMap[e.type]].text} font-mono`}>{e.amount}x</span>)}
@@ -798,14 +795,14 @@ const WorkshopPanel: React.FC = () => {
                                         disabled={!canAffordReforge}
                                         className="w-full py-2 bg-purple-700 hover:bg-purple-600 rounded text-white font-bold disabled:bg-slate-700 disabled:cursor-not-allowed"
                                      >
-                                         Przekuj
+                                         {t('camp.workshop.reforgeAction')}
                                      </button>
                                 </div>
                             )}
                         </>
                     ) : (
                         <div className="flex-grow flex items-center justify-center text-center p-8">
-                             <p className="text-gray-500">Ulepsz warsztat do poziomu 10, aby odblokować.</p>
+                             <p className="text-gray-500">{t('camp.workshop.reforgeLocked')}</p>
                         </div>
                     )}
                 </div>
@@ -815,33 +812,33 @@ const WorkshopPanel: React.FC = () => {
             <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700/30 flex flex-col">
                 <h3 className="text-xl font-bold text-green-400 mb-6 flex items-center">
                     <AnvilIcon className="h-6 w-6 mr-2" />
-                    Wytwarzanie (Crafting)
+                    {t('camp.workshop.craftingTitle')}
                 </h3>
                 
                 <div className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Kategoria / Slot</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('camp.workshop.categorySlot')}</label>
                         <select 
                             value={craftingSlot} 
                             onChange={e => setCraftingSlot(e.target.value as any)}
                             className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
                         >
-                            <option value={EquipmentSlot.MainHand}>Broń Główna</option>
-                            <option value={EquipmentSlot.OffHand}>Druga Ręka</option>
-                            <option value={EquipmentSlot.TwoHand}>Broń Dwuręczna</option>
-                            <option value={EquipmentSlot.Head}>Hełm</option>
-                            <option value={EquipmentSlot.Chest}>Zbroja</option>
-                            <option value={EquipmentSlot.Legs}>Nogawice</option>
-                            <option value={EquipmentSlot.Feet}>Buty</option>
-                            <option value={EquipmentSlot.Hands}>Rękawice</option>
-                            <option value={EquipmentSlot.Waist}>Pas</option>
-                            <option value={EquipmentSlot.Neck}>Amulet</option>
-                            <option value="ring">Pierścień</option>
+                            <option value={EquipmentSlot.MainHand}>{t('item.slot.mainHand')}</option>
+                            <option value={EquipmentSlot.OffHand}>{t('item.slot.offHand')}</option>
+                            <option value={EquipmentSlot.TwoHand}>{t('item.slot.twoHand')}</option>
+                            <option value={EquipmentSlot.Head}>{t('item.slot.head')}</option>
+                            <option value={EquipmentSlot.Chest}>{t('item.slot.chest')}</option>
+                            <option value={EquipmentSlot.Legs}>{t('item.slot.legs')}</option>
+                            <option value={EquipmentSlot.Feet}>{t('item.slot.feet')}</option>
+                            <option value={EquipmentSlot.Hands}>{t('item.slot.hands')}</option>
+                            <option value={EquipmentSlot.Waist}>{t('item.slot.waist')}</option>
+                            <option value={EquipmentSlot.Neck}>{t('item.slot.neck')}</option>
+                            <option value="ring">{t('item.slot.ring')}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Jakość (Rzadkość)</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('camp.workshop.rarity')}</label>
                         <div className="grid grid-cols-2 gap-2">
                             {Object.values(ItemRarity).map(r => {
                                 const unlocked = isRarityUnlocked(r);
@@ -865,7 +862,7 @@ const WorkshopPanel: React.FC = () => {
                     </div>
 
                     <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 mt-4">
-                        <h4 className="text-sm font-bold text-gray-300 mb-3 border-b border-slate-700 pb-2">Koszt Wytworzenia</h4>
+                        <h4 className="text-sm font-bold text-gray-300 mb-3 border-b border-slate-700 pb-2">{t('camp.workshop.cost')}</h4>
                          <div className="space-y-2 text-sm">
                             <div className="flex justify-between items-center">
                                 <span className="flex items-center text-gray-300"><CoinsIcon className="h-4 w-4 mr-2 text-amber-400" />{t('resources.gold')}</span>
@@ -885,7 +882,7 @@ const WorkshopPanel: React.FC = () => {
                             ))}
                         </div>
                         {character.characterClass === CharacterClass.Engineer && (
-                            <p className="text-xs text-green-400 mt-2 text-right">Bonus Inżyniera (-20%) aktywny</p>
+                            <p className="text-xs text-green-400 mt-2 text-right">{t('camp.workshop.engineerBonus')}</p>
                         )}
                     </div>
 
@@ -894,11 +891,11 @@ const WorkshopPanel: React.FC = () => {
                         disabled={!canAffordCraft || !isRarityUnlocked(craftingRarity)}
                         className="w-full py-4 bg-green-700 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-lg transition-transform hover:scale-[1.02] disabled:bg-slate-700 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                     >
-                        <AnvilIcon className="h-6 w-6"/> WYTWORZ
+                        <AnvilIcon className="h-6 w-6"/> {t('camp.workshop.action')}
                     </button>
                     
                     <p className="text-xs text-gray-500 italic text-center">
-                        * Przedmiot zostanie wylosowany z dostępnej puli dla wybranego slotu i rzadkości. Statystyki i afiksy są losowe.
+                        {t('camp.workshop.disclaimer')}
                     </p>
 
                     {lastCraftedItem && (
@@ -907,7 +904,7 @@ const WorkshopPanel: React.FC = () => {
                                  <AnvilIcon className="h-24 w-24 text-green-500" />
                              </div>
                              <h4 className="text-green-400 font-bold mb-3 flex items-center gap-2 border-b border-green-500/30 pb-2">
-                                <span className="text-xl">✓</span> Wynik Rzemiosła
+                                <span className="text-xl">✓</span> {t('camp.workshop.result')}
                              </h4>
                              <ItemDetailsPanel 
                                 item={lastCraftedItem} 
