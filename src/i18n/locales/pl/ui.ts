@@ -341,7 +341,7 @@ export default {
             howItWorks: {
                 title: 'Jak działa ulepszanie?',
                 statIncrease: 'Każdy poziom zwiększa statystyki bazowe o 10%.',
-                scope: 'Statystyki z afiksów (magiczne) skalują się do poziomu +5.',
+                scope: 'Statystyki z afiksów (magiczne) również rosną o 10% za każdy poziom, jednak ten bonus działa maksymalnie do poziomu +5.',
                 cost: 'Koszt rośnie wraz z poziomem i rzadkością.',
                 chance: 'Szansa powodzenia spada o 10% z każdym poziomem.',
                 failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótce).'
@@ -375,6 +375,13 @@ export default {
             barracksDesc: 'Zwiększa bazowe obrażenia członków gildii o 5% na poziom.',
             scoutHouse: 'Dom Zwiadowcy',
             scoutHouseDesc: 'Pozwala znajdować dodatkowe przedmioty podczas wypraw (+1 na poziom).',
+            shrine: 'Kapliczka Przeznaczenia',
+            shrineDesc: 'Miejsce zadumy zwiększające przychylność losu. Zwiększa atrybut Szczęścia wszystkich członków gildii (+5 na poziom), co wpływa na jakość znajdowanych przedmiotów i sukcesy w rzemiośle.',
+            altar: 'Ołtarz Mroku',
+            altarDesc: 'Mistyczne centrum mocy. Pozwala odprawiać starożytne Rytuały, zapewniające potężne, czasowe wzmocnienia dla wszystkich członków gildii. Wyższy poziom odblokowuje potężniejsze kręgi magii.',
+            spyHideout: 'Kryjówka Szpiegów',
+            spyHideoutDesc: 'Umożliwia wysyłanie szpiegów, aby sprawdzić zasoby innych gildii.',
+            spyHideoutEffect: 'Maks. szpiegów: {count}',
             level: 'Poziom',
             currentEffect: 'Obecny efekt',
             upgrade: 'Ulepsz',
@@ -428,6 +435,29 @@ export default {
             deleteConfirm: 'Czy na pewno chcesz usunąć ten przedmiot? Ta akcja jest nieodwracalna.',
             itemBorrowed: 'Przedmiot wypożyczony',
             itemDeposited: 'Przedmiot zdeponowany'
+        },
+        espionage: {
+            title: 'Szpiegostwo',
+            activeSpies: 'Aktywni Szpiedzy',
+            sendSpy: 'Wyślij Szpiega',
+            target: 'Cel',
+            cost: 'Całkowity Koszt',
+            costBase: 'Koszt bazowy (na poziom)',
+            targetSumLevels: 'Suma poziomów celu',
+            duration: 'Czas trwania',
+            reports: 'Raporty Wywiadu',
+            noActive: 'Brak aktywnych szpiegów.',
+            noReports: 'Brak raportów.',
+            selectTarget: 'Wybierz cel...',
+            selectTargetHint: 'Wybierz gildię z listy, aby obliczyć koszt szpiegostwa.',
+            costFormula: '125g * Suma poziomów gildii',
+            level1Info: 'Poziom 1: Tylko Złoto',
+            level2Info: 'Poziom 2: Złoto + Podst. Esencje',
+            level3Info: 'Poziom 3: Pełny Raport (Wszystkie zasoby)',
+            spySent: 'Szpieg wysłany!',
+            arrivesIn: 'Raport za',
+            reportFrom: 'Raport z',
+            hidden: 'Ukryte (Niski Poziom Budynku)'
         }
     }
 };
