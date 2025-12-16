@@ -1,0 +1,130 @@
+
+import { EssenceType } from './common';
+import { MagicAttackType, ItemInstance, LootDrop, ResourceDrop } from './items';
+import { CharacterStats, PlayerCharacter } from './character';
+import { Enemy, PartyMember } from './index'; // Import from Barrel to avoid direct circular if needed, or specific file
+
+export enum SpecialAttackType {
+    Stun = 'Stun',
+    ArmorPierce = 'ArmorPierce',
+    DeathTouch = 'DeathTouch',
+    EmpoweredStrikes = 'EmpoweredStrikes',
+    Earthquake = 'Earthquake'
+}
+
+export interface EnemyStats {
+    maxHealth: number;
+    minDamage: number;
+    maxDamage: number;
+    armor: number;
+    critChance: number;
+    critDamageModifier: number;
+    agility: number;
+    dodgeChance: number;
+    maxMana: number;
+    manaRegen: number;
+    magicDamageMin: number;
+    magicDamageMax: number;
+    magicAttackChance: number;
+    magicAttackManaCost: number;
+    attacksPerTurn: number;
+    armorPenetrationPercent?: number;
+    armorPenetrationFlat?: number;
+    magicAttackType?: MagicAttackType;
+}
+
+export interface BossSpecialAttack {
+    type: SpecialAttackType;
+    chance: number;
+    uses: number;
+}
+
+export interface Enemy {
+    id: string;
+    uniqueId?: string; // Runtime
+    name: string;
+    description: string;
+    image?: string;
+    isBoss: boolean;
+    isGuildBoss?: boolean;
+    stats: EnemyStats;
+    rewards: {
+        minGold: number;
+        maxGold: number;
+        minExperience: number;
+        maxExperience: number;
+    };
+    lootTable: LootDrop[];
+    resourceLootTable: ResourceDrop[];
+    specialAttacks?: BossSpecialAttack[];
+    preparationTimeSeconds?: number;
+    
+    // Runtime state
+    currentHealth?: number;
+}
+
+export interface CombatLogEntry {
+    turn: number;
+    attacker: string;
+    defender: string;
+    action: string;
+    damage?: number;
+    bonusDamage?: number;
+    isCrit?: boolean;
+    damageReduced?: number;
+    healthGained?: number;
+    manaGained?: number;
+    magicAttackType?: MagicAttackType;
+    weaponName?: string;
+    playerHealth: number;
+    playerMana: number;
+    enemyHealth: number;
+    enemyMana: number;
+    isDodge?: boolean;
+    effectApplied?: string;
+    manaSpent?: number;
+    
+    playerStats?: CharacterStats;
+    enemyStats?: EnemyStats;
+    enemyDescription?: string;
+    
+    allPlayersHealth?: { name: string; currentHealth: number; maxHealth: number; currentMana?: number; maxMana?: number }[];
+    allEnemiesHealth?: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[];
+    partyMemberStats?: Record<string, CharacterStats>;
+    
+    specialAttackType?: SpecialAttackType;
+    shout?: string;
+    aoeDamage?: { target: string; damage: number }[];
+    stunnedPlayer?: string;
+}
+
+export interface RewardSource {
+    source: string;
+    gold: number;
+    experience: number;
+}
+
+export interface ExpeditionRewardSummary {
+    isVictory: boolean;
+    totalGold: number;
+    totalExperience: number;
+    itemsFound: ItemInstance[];
+    essencesFound: Partial<Record<EssenceType, number>>;
+    combatLog: CombatLogEntry[];
+    rewardBreakdown: RewardSource[];
+    itemsLostCount?: number;
+    encounteredEnemies?: Enemy[];
+    
+    huntingMembers?: PartyMember[];
+    allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
+    bossId?: string;
+}
+
+export interface PvpRewardSummary {
+    combatLog: CombatLogEntry[];
+    isVictory: boolean;
+    gold: number;
+    experience: number;
+    attacker: PlayerCharacter;
+    defender: PlayerCharacter;
+}
