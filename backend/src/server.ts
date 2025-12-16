@@ -36,6 +36,7 @@ import guildRoutes from './routes/guilds.js';
 import questRoutes from './routes/quests.js';
 import expeditionRoutes from './routes/expedition.js';
 import towerRoutes from './routes/towers.js';
+import espionageRoutes from './routes/espionage.js'; // NEW
 
 
 dotenv.config();
@@ -116,6 +117,7 @@ app.use('/api/guilds', guildRoutes);
 app.use('/api/quests', questRoutes); 
 app.use('/api/expedition', expeditionRoutes); 
 app.use('/api/towers', towerRoutes);
+app.use('/api/espionage', espionageRoutes); // Register
 app.use('/api', characterRoutes); 
 
 // ===================================================================================

@@ -104,6 +104,7 @@ export const api = {
 
     // PvP
     attackPlayer: (defenderId: number) => fetchApi(`/pvp/attack/${defenderId}`, { method: 'POST' }),
+    spyOnPlayer: (defenderId: number) => fetchApi(`/espionage/${defenderId}`, { method: 'POST' }),
     
     // Ranking
     getRanking: () => fetchApi('/ranking'),

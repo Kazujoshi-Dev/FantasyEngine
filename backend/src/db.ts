@@ -186,52 +186,74 @@ export const initializeDatabase = async (retries = 5, delay = 5000) => {
                     );
                 `);
 
-                // Migracja: Dodanie/Aktualizacja skilla 'Zaawansowane Rzemiosło' do bazy danych
+                // Migracja: Skills (Crafting + Espionage)
                 try {
                     const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
                     let skills = skillsRes.rows[0]?.data || [];
-                    const advancedCraftingId = 'advanced-crafting';
                     
-                    const newSkillData = {
-                        id: advancedCraftingId,
-                        name: 'Zaawansowane Rzemiosło',
-                        description: 'Mistrzowskie opanowanie młota i kowadła. Podczas wytwarzania przedmiotów, jako Kowal, masz szansę na stworzenie przedmiotu ulepszonego od razu do poziomu +2 lub +3.',
-                        type: 'Class',
-                        category: 'Passive',
-                        requirements: {
-                            strength: 20,
-                            agility: 15,
-                            stamina: 10,
-                            intelligence: 10,
-                            luck: 25,
-                            characterClass: CharacterClass.Blacksmith
+                    const skillsToAdd = [
+                        {
+                            id: 'advanced-crafting',
+                            name: 'Zaawansowane Rzemiosło',
+                            description: 'Mistrzowskie opanowanie młota i kowadła. Podczas wytwarzania przedmiotów, jako Kowal, masz szansę na stworzenie przedmiotu ulepszonego od razu do poziomu +2 lub +3.',
+                            type: 'Class',
+                            category: 'Passive',
+                            requirements: {
+                                strength: 20,
+                                agility: 15,
+                                stamina: 10,
+                                intelligence: 10,
+                                luck: 25,
+                                characterClass: CharacterClass.Blacksmith
+                            },
+                            cost: {
+                                gold: 15000,
+                                epicEssence: 5,
+                                legendaryEssence: 1
+                            }
                         },
-                        cost: {
-                            gold: 15000,
-                            epicEssence: 5,
-                            legendaryEssence: 1
+                        {
+                            id: 'espionage-mastery',
+                            name: 'Nauki Szpiegowskie',
+                            description: 'Pozwala na szpiegowanie innych graczy w rankingu, aby poznać ich ekwipunek i zasoby złota. Szansa na sukces zależy od Twojej inteligencji i szczęścia kontra statystyki celu.',
+                            type: 'Universal',
+                            category: 'Passive',
+                            requirements: {
+                                level: 15,
+                                intelligence: 30,
+                                luck: 15
+                            },
+                            cost: {
+                                gold: 10000,
+                                uncommonEssence: 10,
+                                rareEssence: 5
+                            }
                         }
-                    };
-
-                    const existingSkillIndex = skills.findIndex((s: any) => s.id === advancedCraftingId);
+                    ];
                     
-                    if (existingSkillIndex === -1) {
-                        console.log("MIGRATING DATA: Adding 'Zaawansowane Rzemiosło' skill...");
-                        skills.push(newSkillData);
+                    let modified = false;
+
+                    for (const newSkill of skillsToAdd) {
+                        const existingIndex = skills.findIndex((s: any) => s.id === newSkill.id);
+                        if (existingIndex === -1) {
+                            console.log(`MIGRATING DATA: Adding '${newSkill.name}' skill...`);
+                            skills.push(newSkill);
+                            modified = true;
+                        } else {
+                            // Optional: Update definitions if needed (e.g. balance changes)
+                            // skills[existingIndex] = newSkill;
+                            // modified = true;
+                        }
+                    }
+
+                    if (modified) {
                         await client.query(
                             "INSERT INTO game_data (key, data) VALUES ('skills', $1) ON CONFLICT (key) DO UPDATE SET data = $1",
                             [JSON.stringify(skills)]
                         );
-                        console.log("MIGRATION SUCCESS: 'Zaawansowane Rzemiosło' skill added.");
-                    } else {
-                         // Update existing skill to ensure new requirements (luck/class) are present
-                         console.log("MIGRATING DATA: Updating 'Zaawansowane Rzemiosło' skill definition...");
-                         skills[existingSkillIndex] = newSkillData;
-                         await client.query(
-                            "UPDATE game_data SET data = $1 WHERE key = 'skills'",
-                            [JSON.stringify(skills)]
-                        );
+                        console.log("MIGRATION SUCCESS: Skills updated.");
                     }
+
                 } catch (skillErr) {
                     console.error("Migration Error (Adding Skills):", skillErr);
                 }

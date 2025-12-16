@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, RankingPlayer, GuildRankingEntry } from '../types';
+import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult } from '../types';
 import { TrophyIcon } from './icons/TrophyIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
@@ -9,9 +9,11 @@ import { BoltIcon } from './icons/BoltIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
+import { EyeIcon } from './icons/EyeIcon'; // New icon
 import { api } from '../api';
 import { CharacterCard } from './shared/CharacterCard';
 import { GuildCard } from './shared/GuildCard';
+import { SpyReportModal } from './SpyReportModal'; // New Modal
 import { useCharacter } from '@/contexts/CharacterContext';
 
 interface RankingProps {
@@ -51,15 +53,19 @@ const CooldownTimer: React.FC<{ until: number }> = ({ until }) => {
 };
 
 export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, onComposeMessage }) => {
-  const { character: currentPlayer } = useCharacter();
+  const { character: currentPlayer, updateCharacter, gameData } = useCharacter();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'PLAYERS' | 'GUILDS'>('PLAYERS');
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
   
-  // State for Cards
+  // State for Cards & Modals
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
   const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
+  const [spyReport, setSpyReport] = useState<SpyReportResult | null>(null);
+  const [isSpying, setIsSpying] = useState<number | null>(null);
+
+  const hasEspionageSkill = (currentPlayer?.learnedSkills || []).includes('espionage-mastery');
 
   useEffect(() => {
       if (activeTab === 'GUILDS') {
@@ -72,6 +78,35 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   }, [activeTab]);
   
   if (!currentPlayer) return null;
+
+  const handleSpy = async (targetId: number, targetLevel: number) => {
+      const cost = Math.max(100, targetLevel * 50);
+      if (currentPlayer.stats.currentEnergy < 5) {
+          alert('Brak energii (wymagane 5).');
+          return;
+      }
+      if (currentPlayer.resources.gold < cost) {
+          alert(`Brak złota (wymagane ${cost}).`);
+          return;
+      }
+
+      if (!confirm(`Czy na pewno chcesz szpiegować gracza? Koszt: 5 Energii i ${cost} Złota.`)) return;
+
+      setIsSpying(targetId);
+      try {
+          const response = await api.spyOnPlayer(targetId);
+          if (response.updatedCharacter) updateCharacter(response.updatedCharacter);
+          if (response.result.success) {
+              setSpyReport(response.result);
+          } else {
+              alert('Szpiegowanie nie powiodło się! Cel okazał się zbyt sprytny lub miałeś pecha.');
+          }
+      } catch (e: any) {
+          alert(e.message);
+      } finally {
+          setIsSpying(null);
+      }
+  };
 
   const getAttackDisabledReason = (target: RankingPlayer): string | null => {
       if (target.id === currentPlayer.id) return t('pvp.cannotAttackSelf');
@@ -98,6 +133,14 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
           <GuildCard 
             guildId={viewingGuildId} 
             onClose={() => setViewingGuildId(null)} 
+          />
+      )}
+
+      {spyReport && gameData && (
+          <SpyReportModal 
+             report={spyReport}
+             onClose={() => setSpyReport(null)}
+             gameData={gameData}
           />
       )}
       
@@ -175,6 +218,16 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
                                         title={t('messages.compose.title')}
                                     >
                                         <MailIcon className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {hasEspionageSkill && !isCurrentUser && (
+                                     <button
+                                        onClick={() => handleSpy(player.id, player.level)}
+                                        disabled={isSpying === player.id}
+                                        className="ml-2 text-gray-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                        title={`Szpieguj (Koszt: ${Math.max(100, player.level * 50)} złota)`}
+                                    >
+                                        <EyeIcon className="h-4 w-4" />
                                     </button>
                                 )}
                                 {isProtected && !isCurrentUser && <CooldownTimer until={player.pvpProtectionUntil} />}

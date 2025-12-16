@@ -1062,3 +1062,12 @@ export interface EspionageEntry {
     cost: number;
     targetGuildName: string;
 }
+
+export interface SpyReportResult {
+    success: boolean;
+    targetName: string;
+    gold?: number;
+    stats?: CharacterStats;
+    equipment?: Record<EquipmentSlot, ItemInstance | null>;
+    inventoryCount?: number;
+}

@@ -1,6 +1,8 @@
 
 import { CurrencyType } from './common';
 import { ItemInstance } from './items';
+import { CharacterStats } from './character';
+import { EquipmentSlot } from './items';
 
 export type MessageType = 'player_message' | 'system' | 'expedition_report' | 'pvp_report' | 'market_notification' | 'guild_invite' | 'raid_report';
 
@@ -75,4 +77,13 @@ export interface TraderData {
     lastRefresh: number;
     regularItems: ItemInstance[];
     specialOfferItems: ItemInstance[];
+}
+
+export interface SpyReportResult {
+    success: boolean;
+    targetName: string;
+    gold?: number;
+    stats?: CharacterStats;
+    equipment?: Record<EquipmentSlot, ItemInstance | null>;
+    inventoryCount?: number;
 }
