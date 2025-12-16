@@ -828,9 +828,13 @@ router.post('/espionage/start', authenticateToken, async (req: any, res: any) =>
     try {
         await client.query('BEGIN');
         
-        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) throw new Error('Not in guild');
-        const guildId = memberRes.rows[0].guild_id;
+        const { guild_id: guildId, role } = memberRes.rows[0];
+
+        if (role !== GuildRole.LEADER && role !== GuildRole.OFFICER) {
+             throw new Error('Only Leaders and Officers can send spies.');
+        }
         
         if (Number(guildId) === Number(targetGuildId)) throw new Error('Cannot spy on yourself');
 

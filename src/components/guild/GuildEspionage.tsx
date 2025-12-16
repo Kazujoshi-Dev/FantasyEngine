@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
-import { Guild, EspionageEntry, EssenceType } from '../../types';
+import { Guild, EspionageEntry, EssenceType, GuildRole } from '../../types';
 import { EyeIcon } from '../icons/EyeIcon';
 import { ClockIcon } from '../icons/ClockIcon';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -41,6 +41,9 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
     const spyLevel = guild.buildings?.spyHideout || 0;
     const maxSpies = spyLevel;
+    
+    // Permission check
+    const canSpy = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
 
     const fetchData = async () => {
         try {
@@ -155,7 +158,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                                 className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white disabled:opacity-50"
                                 value={selectedTarget}
                                 onChange={e => setSelectedTarget(Number(e.target.value))}
-                                disabled={activeSpies.length >= maxSpies}
+                                disabled={activeSpies.length >= maxSpies || !canSpy}
                              >
                                  <option value="">{t('guild.espionage.selectTarget')}</option>
                                  {targets.map(t => (
@@ -204,11 +207,12 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
                         <button 
                             onClick={handleSendSpy} 
-                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies || !canAfford}
+                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies || !canAfford || !canSpy}
                             className="w-full py-3 bg-emerald-700 hover:bg-emerald-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700 disabled:text-gray-500 transition-all hover:scale-[1.02]"
                         >
                             {loading ? '...' : t('guild.espionage.sendSpy')}
                         </button>
+                        {!canSpy && <p className="text-center text-xs text-red-400 font-bold mt-1">Tylko Lider i Oficerowie mogą wysyłać szpiegów.</p>}
                     </div>
                 </div>
 
