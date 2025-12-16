@@ -1,14 +1,14 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
-import { PlayerCharacter, Enemy, HuntingParty, PartyMemberStatus, PartyStatus, ItemTemplate, Affix, GameData } from '../types';
+import { HuntingParty, PartyMemberStatus, PartyStatus } from '../types';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
-import { ShieldIcon } from './icons/ShieldIcon'; // Import ShieldIcon
 import { useCharacter } from '@/contexts/CharacterContext';
 
 export const Hunting: React.FC = () => {
@@ -21,7 +21,6 @@ export const Hunting: React.FC = () => {
     // Form State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
     const [createMembers, setCreateMembers] = useState(3);
-    const [isGuildParty, setIsGuildParty] = useState(false); // New State
     
     const [loading, setLoading] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -32,10 +31,10 @@ export const Hunting: React.FC = () => {
     if (!character || !gameData) return null;
     const { enemies, itemTemplates, affixes } = gameData;
 
-    // Filter bosses based on toggle state
+    // Filter bosses: Only NON-GUILD bosses for public hunting
     const bosses = useMemo(() => {
-        return enemies.filter(e => e.isBoss && (isGuildParty ? e.isGuildBoss : !e.isGuildBoss));
-    }, [enemies, isGuildParty]);
+        return enemies.filter(e => e.isBoss && !e.isGuildBoss);
+    }, [enemies]);
     
     // Auto-select first boss when list changes or is empty
     useEffect(() => {
@@ -47,33 +46,9 @@ export const Hunting: React.FC = () => {
     const fetchParties = async () => {
         setLoading(true);
         try {
-            // Fetch Public Parties
+            // Fetch Public Parties Only
             const publicParties = await api.getHuntingParties();
-            
-            let guildParties = [];
-            // Fetch Guild Parties if user is in a guild
-            if (character.guildId) {
-                try {
-                    guildParties = await api.getGuildHuntingParties();
-                } catch (e) {
-                    console.error("Failed to fetch guild parties", e);
-                }
-            }
-
-            // Merge and tag them
-            const combined = [
-                ...publicParties.map((p: any) => ({ ...p, isGuild: false })),
-                ...guildParties.map((p: any) => ({ ...p, isGuild: true }))
-            ];
-            
-            // Sort by creation (newest first) or maybe put Guild ones on top?
-            // Let's sort Guild first, then by ID desc
-            combined.sort((a, b) => {
-                if (a.isGuild !== b.isGuild) return a.isGuild ? -1 : 1;
-                return b.id - a.id;
-            });
-
-            setParties(combined);
+            setParties(publicParties);
         } catch (e) { 
             console.error(e); 
         } finally { 
@@ -123,7 +98,8 @@ export const Hunting: React.FC = () => {
 
     const handleCreate = async () => {
         try {
-            await api.createParty(selectedBossId, createMembers, isGuildParty);
+            // Always false for isGuildParty in public tab
+            await api.createParty(selectedBossId, createMembers, false);
             await fetchMyParty();
         } catch (e: any) { alert(e.message); }
     };
@@ -381,18 +357,12 @@ export const Hunting: React.FC = () => {
                     <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
                     
                     <div className="space-y-6">
-                        {/* Guild Hunt Toggle */}
-                        {character.guildId && (
-                            <label className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg cursor-pointer border border-slate-700 hover:border-purple-500 transition-colors">
-                                <input 
-                                    type="checkbox" 
-                                    checked={isGuildParty} 
-                                    onChange={(e) => setIsGuildParty(e.target.checked)}
-                                    className="form-checkbox h-5 w-5 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
-                                />
-                                <span className={`font-bold ${isGuildParty ? 'text-purple-400' : 'text-gray-300'}`}>Polowanie Gildyjne</span>
-                            </label>
-                        )}
+                        <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/30">
+                            <p className="text-xs text-indigo-300">
+                                Tutaj możesz stworzyć <strong>Publiczne Polowanie</strong>. 
+                                Aby stworzyć prywatne polowanie dla gildii, przejdź do zakładki Gildia.
+                            </p>
+                        </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
@@ -429,9 +399,9 @@ export const Hunting: React.FC = () => {
                                 onClick={handleCreate} 
                                 disabled={character.stats.currentHealth <= 0 || !selectedBossId}
                                 title={character.stats.currentHealth <= 0 ? "Nie możesz stworzyć grupy z 0 HP." : ""}
-                                className={`w-full py-3 ${isGuildParty ? 'bg-purple-700 hover:bg-purple-600' : 'bg-green-600 hover:bg-green-500'} rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed`}
+                                className={`w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed`}
                             >
-                                <UsersIcon className="h-5 w-5"/> {isGuildParty ? 'Utwórz Polowanie Gildyjne' : t('hunting.create')}
+                                <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
                             </button>
                         </div>
                     </div>
@@ -504,9 +474,9 @@ export const Hunting: React.FC = () => {
                         )}
                         {parties.map(party => {
                             const boss = gameData.enemies.find(e => e.id === party.bossId);
-                            const isGuildParty = party.isGuild; // Added in fetchParties
+                            // We filtered out guild parties in fetchParties, so only public ones show here
                             return (
-                                <div key={party.id} className={`bg-slate-800 p-3 rounded-lg border ${isGuildParty ? 'border-purple-500/50' : 'border-slate-700'} hover:border-indigo-500 transition-colors`}>
+                                <div key={party.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center overflow-hidden">
@@ -515,7 +485,6 @@ export const Hunting: React.FC = () => {
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                      <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
-                                                     {isGuildParty && <span className="text-[10px] bg-purple-900/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-700 uppercase font-bold flex items-center gap-1"><ShieldIcon className="h-2.5 w-2.5"/> Gildia</span>}
                                                 </div>
                                                 <p className="text-xs text-gray-400">Lider: {party.leaderName}</p>
                                             </div>
