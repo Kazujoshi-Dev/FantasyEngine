@@ -15,6 +15,7 @@ import { GuildHunting } from './guild/GuildHunting';
 import { FormattedText } from './guild/GuildSettings';
 import { GuildRaids } from './guild/GuildRaids';
 import { GuildAltar } from './guild/GuildAltar';
+import { GuildEspionage } from './guild/GuildEspionage';
 import { io, Socket } from 'socket.io-client';
 
 interface GuildProps {
@@ -26,7 +27,7 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
     const [guild, setGuild] = useState<GuildType | null>(null);
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'HUNTING' | 'RAIDS' | 'ALTAR' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
+    const [tab, setTab] = useState<'OVERVIEW' | 'MEMBERS' | 'BUILDINGS' | 'ARMORY' | 'BANK' | 'HUNTING' | 'RAIDS' | 'ALTAR' | 'ESPIONAGE' | 'CHAT' | 'SETTINGS'>('OVERVIEW');
     const [availableGuilds, setAvailableGuilds] = useState<any[]>([]);
     
     // Game Data for Armory display
@@ -213,6 +214,7 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
     }
 
     const isLeader = guild.myRole === GuildRole.LEADER;
+    const hasSpyHideout = (guild.buildings?.spyHideout || 0) > 0;
 
     return (
         <ContentPanel title={`${guild.name} [${guild.tag}]`}>
@@ -223,6 +225,11 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
                 <button onClick={() => setTab('HUNTING')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'HUNTING' ? 'border-purple-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Polowania</button>
                 <button onClick={() => setTab('RAIDS')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'RAIDS' ? 'border-red-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Rajdy</button>
                 <button onClick={() => setTab('ALTAR')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'ALTAR' ? 'border-purple-600 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Ołtarz Mroku</button>
+                
+                {hasSpyHideout && (
+                    <button onClick={() => setTab('ESPIONAGE')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'ESPIONAGE' ? 'border-emerald-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Szpiegostwo</button>
+                )}
+
                 <button onClick={() => setTab('ARMORY')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'ARMORY' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Zbrojownia</button>
                 <button onClick={() => setTab('BANK')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'BANK' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Bank</button>
                 <button onClick={() => setTab('CHAT')} className={`px-4 py-2 border-b-2 transition-colors ${tab === 'CHAT' ? 'border-amber-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Czat</button>
@@ -297,6 +304,8 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
             
             {tab === 'ALTAR' && <GuildAltar guild={guild} onUpdate={fetchGuild} />}
 
+            {tab === 'ESPIONAGE' && hasSpyHideout && <GuildEspionage guild={guild} />}
+
             {/* GuildArmory handles its own scrolling layout */}
             {tab === 'ARMORY' && <GuildArmory guild={guild} character={character} onUpdate={fetchGuild} templates={itemTemplates} affixes={affixes} />}
 
@@ -311,11 +320,6 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
                         messages={guild.chatHistory || []} 
                         onMessageReceived={handleNewChatMessage} 
                     />
-                    {/* Inject socket emit logic into GuildChat form via updating its props or handling here?
-                        Actually, GuildChat displays messages. The input form in GuildChat needs to emit.
-                        I'll modify GuildChat to accept a `onSend` callback OR pass the socket ref. 
-                        Let's fix GuildChat to accept `onSend`.
-                    */}
                     <form 
                         onSubmit={(e) => {
                             e.preventDefault();

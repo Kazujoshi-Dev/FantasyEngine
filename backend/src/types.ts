@@ -1049,3 +1049,16 @@ export interface TraderData {
     regularItems: ItemInstance[];
     specialOfferItems: ItemInstance[];
 }
+
+// Espionage Types
+export interface EspionageEntry {
+    id: number;
+    attackerGuildId: number;
+    defenderGuildId: number;
+    status: 'IN_PROGRESS' | 'COMPLETED';
+    startTime: string;
+    endTime: string;
+    resultSnapshot?: CharacterResources; // If completed
+    cost: number;
+    targetGuildName: string;
+}

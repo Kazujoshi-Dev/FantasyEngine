@@ -54,6 +54,38 @@ export const getBuildingCost = (type: string, level: number): { gold: number, co
         const essenceAmount = 5 + level;
         return { gold, costs: [{ type: EssenceType.Legendary, amount: essenceAmount }] };
     }
+
+    if (type === 'spyHideout') {
+        if (level === 0) { // Upgrade to Level 1
+            return {
+                gold: 15000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 }
+                ]
+            };
+        } else if (level === 1) { // Upgrade to Level 2
+            return {
+                gold: 30000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 },
+                    { type: EssenceType.Epic, amount: 10 }
+                ]
+            };
+        } else if (level === 2) { // Upgrade to Level 3
+            return {
+                gold: 50000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 },
+                    { type: EssenceType.Epic, amount: 10 },
+                    { type: EssenceType.Legendary, amount: 5 }
+                ]
+            };
+        }
+        return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
+    }
     
     // Default fallback
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };

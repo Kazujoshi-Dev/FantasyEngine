@@ -8,7 +8,8 @@ import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { MapIcon } from '../icons/MapIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
-import { StarIcon } from '../icons/StarIcon'; // Using StarIcon as placeholder for Altar if no specific icon
+import { StarIcon } from '../icons/StarIcon';
+import { EyeIcon } from '../icons/EyeIcon';
 import { rarityStyles } from '../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, any> = {
@@ -65,6 +66,38 @@ const getBuildingCost = (type: string, level: number): { gold: number, costs: { 
         const essenceAmount = 5 + level;
         return { gold, costs: [{ type: EssenceType.Legendary, amount: essenceAmount }] };
     }
+    if (type === 'spyHideout') {
+        if (level === 0) { // Upgrade to Level 1
+            return {
+                gold: 15000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 }
+                ]
+            };
+        } else if (level === 1) { // Upgrade to Level 2
+            return {
+                gold: 30000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 },
+                    { type: EssenceType.Epic, amount: 10 }
+                ]
+            };
+        } else if (level === 2) { // Upgrade to Level 3
+            return {
+                gold: 50000,
+                costs: [
+                    { type: EssenceType.Common, amount: 25 },
+                    { type: EssenceType.Rare, amount: 20 },
+                    { type: EssenceType.Epic, amount: 10 },
+                    { type: EssenceType.Legendary, amount: 5 }
+                ]
+            };
+        }
+        return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
+    }
+
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
 }
 
@@ -76,6 +109,7 @@ const BUILDING_DEFINITIONS = [
     { id: 'scoutHouse', icon: MapIcon, color: 'text-green-500', maxLevel: 3 },
     { id: 'shrine', icon: SparklesIcon, color: 'text-purple-400', maxLevel: 5 },
     { id: 'altar', icon: StarIcon, color: 'text-fuchsia-500', maxLevel: 5 },
+    { id: 'spyHideout', icon: EyeIcon, color: 'text-emerald-400', maxLevel: 3 },
 ];
 
 export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
@@ -117,6 +151,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
                 else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
                 else if (def.id === 'altar') effect = level > 0 ? `Odblokowuje Wtajemniczenie poziomu ${level}` : 'Brak efektu';
+                else if (def.id === 'spyHideout') effect = t('guild.buildings.spyHideoutEffect', { count: level });
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">

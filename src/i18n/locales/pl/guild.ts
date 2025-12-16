@@ -24,6 +24,9 @@ export default {
             barracksDesc: 'Zwiększa bazowe obrażenia członków gildii o 5% na poziom.',
             scoutHouse: 'Dom Zwiadowcy',
             scoutHouseDesc: 'Pozwala znajdować dodatkowe przedmioty podczas wypraw (+1 na poziom).',
+            spyHideout: 'Kryjówka Szpiegów',
+            spyHideoutDesc: 'Umożliwia wysyłanie szpiegów, aby sprawdzić zasoby innych gildii.',
+            spyHideoutEffect: 'Maks. szpiegów: {count}',
             level: 'Poziom',
             currentEffect: 'Obecny efekt',
             upgrade: 'Ulepsz',
@@ -75,6 +78,26 @@ export default {
             depositConfirm: 'Czy na pewno chcesz oddać ten przedmiot do gildii? Tracisz go na zawsze.',
             itemBorrowed: 'Przedmiot wypożyczony',
             itemDeposited: 'Przedmiot zdeponowany'
+        },
+        espionage: {
+            title: 'Szpiegostwo',
+            activeSpies: 'Aktywni Szpiedzy',
+            sendSpy: 'Wyślij Szpiega',
+            target: 'Cel',
+            cost: 'Koszt Misji',
+            duration: 'Czas',
+            reports: 'Raporty Wywiadu',
+            noActive: 'Brak aktywnych szpiegów.',
+            noReports: 'Brak raportów.',
+            selectTarget: 'Wybierz cel...',
+            costFormula: '(125g * Suma poziomów gildii)',
+            level1Info: 'Poziom 1: Tylko Złoto (15 min)',
+            level2Info: 'Poziom 2: Złoto + Podst. Esencje (10 min)',
+            level3Info: 'Poziom 3: Pełny Raport (5 min)',
+            spySent: 'Szpieg wysłany!',
+            arrivesIn: 'Raport za',
+            reportFrom: 'Raport z',
+            hidden: 'Ukryte (Niski Poziom Budynku)'
         }
     }
 };

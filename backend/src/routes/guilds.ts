@@ -1133,4 +1133,123 @@ router.post('/raids/join', authenticateToken, async (req: any, res: any) => {
     }
 });
 
+// --- ESPIONAGE ROUTES ---
+
+// GET /api/guilds/espionage - List espionage data
+router.get('/espionage', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
+        const guildId = memberRes.rows[0].guild_id;
+
+        // Fetch Active Spies
+        const activeRes = await client.query(`
+            SELECT ge.id, ge.defender_guild_id as "targetGuildId", ge.start_time as "startTime", ge.end_time as "endTime", ge.cost,
+                   g.name as "targetGuildName"
+            FROM guild_espionage ge
+            JOIN guilds g ON ge.defender_guild_id = g.id
+            WHERE ge.attacker_guild_id = $1 AND ge.status = 'IN_PROGRESS'
+            ORDER BY ge.end_time ASC
+        `, [guildId]);
+
+        // Fetch History
+        const historyRes = await client.query(`
+            SELECT ge.id, ge.defender_guild_id as "targetGuildId", ge.end_time as "endTime", ge.cost, ge.result_snapshot as "result",
+                   g.name as "targetGuildName"
+            FROM guild_espionage ge
+            JOIN guilds g ON ge.defender_guild_id = g.id
+            WHERE ge.attacker_guild_id = $1 AND ge.status = 'COMPLETED'
+            ORDER BY ge.end_time DESC
+            LIMIT 15
+        `, [guildId]);
+
+        res.json({
+            activeSpies: activeRes.rows,
+            history: historyRes.rows
+        });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/guilds/espionage/start - Send a spy
+router.post('/espionage/start', authenticateToken, async (req: any, res: any) => {
+    const { targetGuildId } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Check Permissions & Building
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) { await client.query('ROLLBACK'); return res.status(403).json({ message: 'Not in guild' }); }
+        const { guild_id, role } = memberRes.rows[0];
+
+        // 2. Fetch Guild Data
+        const guildRes = await client.query('SELECT resources, buildings FROM guilds WHERE id = $1 FOR UPDATE', [guild_id]);
+        const guild = guildRes.rows[0];
+        const spyLevel = guild.buildings?.spyHideout || 0;
+
+        if (spyLevel < 1) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: 'Spy Hideout Level 1 required.' });
+        }
+        
+        // Check active spies limit
+        const activeCountRes = await client.query('SELECT COUNT(*) FROM guild_espionage WHERE attacker_guild_id = $1 AND status = \'IN_PROGRESS\'', [guild_id]);
+        if (parseInt(activeCountRes.rows[0].count) >= spyLevel) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: `Maximum active spies reached (${spyLevel}).` });
+        }
+
+        // 3. Calculate Cost
+        // Get sum of levels of target guild members
+        const targetMembersRes = await client.query(
+            `SELECT SUM((c.data->>'level')::int) as sum_levels 
+             FROM guild_members gm 
+             JOIN characters c ON gm.user_id = c.user_id 
+             WHERE gm.guild_id = $1`, 
+            [targetGuildId]
+        );
+        const sumLevels = parseInt(targetMembersRes.rows[0].sum_levels) || 0;
+        const cost = 125 * sumLevels;
+
+        if ((guild.resources.gold || 0) < cost) {
+             await client.query('ROLLBACK'); return res.status(400).json({ message: `Not enough gold in guild bank. Cost: ${cost}g` });
+        }
+
+        // 4. Determine Duration
+        // Lvl 1: 15m, Lvl 2: 10m, Lvl 3: 5m
+        let durationMinutes = 15;
+        if (spyLevel === 2) durationMinutes = 10;
+        if (spyLevel >= 3) durationMinutes = 5;
+        
+        const endTime = new Date(Date.now() + durationMinutes * 60 * 1000);
+
+        // 5. Execute Transaction
+        guild.resources.gold -= cost;
+        await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(guild.resources), guild_id]);
+        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'WITHDRAW', 'gold', $3)`, [guild_id, req.user.id, cost]);
+
+        await client.query(
+            `INSERT INTO guild_espionage (attacker_guild_id, defender_guild_id, status, end_time, cost)
+             VALUES ($1, $2, 'IN_PROGRESS', $3, $4)`,
+            [guild_id, targetGuildId, endTime, cost]
+        );
+
+        await client.query('COMMIT');
+        
+        if (req.io) req.io.to(`guild_${guild_id}`).emit('guild_update');
+        res.json({ message: 'Spy sent successfully' });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+
 export default router;

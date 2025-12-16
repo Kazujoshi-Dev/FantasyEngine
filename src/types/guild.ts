@@ -1,4 +1,3 @@
-
 import { CharacterResources, CharacterStats } from './character';
 import { CurrencyType, EssenceType, Race, CharacterClass } from './common';
 import { CombatLogEntry, ItemInstance } from './index';
@@ -187,4 +186,16 @@ export interface HuntingParty {
     // Client specific
     myRewards?: any;
     messageId?: number;
+}
+
+export interface EspionageEntry {
+    id: number;
+    attackerGuildId: number;
+    defenderGuildId: number;
+    status: 'IN_PROGRESS' | 'COMPLETED';
+    startTime: string;
+    endTime: string;
+    resultSnapshot?: CharacterResources; // If completed
+    cost: number;
+    targetGuildName: string;
 }

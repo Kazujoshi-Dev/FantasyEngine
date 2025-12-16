@@ -386,6 +386,20 @@ export const initializeDatabase = async (retries = 5, delay = 5000) => {
                     );
                 `);
 
+                // Guild Espionage
+                await client.query(`
+                    CREATE TABLE IF NOT EXISTS guild_espionage (
+                        id SERIAL PRIMARY KEY,
+                        attacker_guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                        defender_guild_id INT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+                        status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
+                        start_time TIMESTAMPTZ DEFAULT NOW(),
+                        end_time TIMESTAMPTZ NOT NULL,
+                        result_snapshot JSONB,
+                        cost INT NOT NULL
+                    );
+                `);
+
                  // Tavern Presence
                 await client.query(`
                     CREATE TABLE IF NOT EXISTS tavern_presence (

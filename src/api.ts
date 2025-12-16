@@ -168,6 +168,11 @@ export const api = {
     acceptGuildInvite: (messageId: number) => fetchApi('/guilds/accept-invite', { method: 'POST', body: JSON.stringify({ messageId }) }),
     rejectGuildInvite: (messageId: number) => fetchApi('/guilds/reject-invite', { method: 'POST', body: JSON.stringify({ messageId }) }),
     getGuildProfile: (id: number) => fetchApi(`/guilds/profile/${id}`),
+    
+    // Guild Espionage
+    getEspionage: () => fetchApi('/guilds/espionage'),
+    startEspionage: (targetGuildId: number) => fetchApi('/guilds/espionage/start', { method: 'POST', body: JSON.stringify({ targetGuildId }) }),
+    getGuildTargets: () => fetchApi('/guilds/targets'), // Reused from Raids
 
     // Towers
     getTowers: () => fetchApi('/towers'),

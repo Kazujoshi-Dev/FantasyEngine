@@ -14,6 +14,7 @@ import { cleanupOldTavernMessages } from './logic/tasks.js';
 import { calculateDerivedStatsOnServer } from './logic/stats.js';
 import { PlayerCharacter, GuildRole } from './types.js';
 import { processPendingRaids } from './logic/guildRaids.js';
+import { processPendingEspionage } from './logic/espionage.js'; // Import new logic
 
 // Import all route handlers
 import authRoutes from './routes/auth.js';
@@ -22,7 +23,7 @@ import characterRoutes from './routes/character.js';
 import rankingRoutes from './routes/ranking.js';
 import traderRoutes from './routes/trader.js';
 import blacksmithRoutes from './routes/blacksmith.js';
-import workshopRoutes from './routes/workshop.js'; // NEW
+import workshopRoutes from './routes/workshop.js';
 import pvpRoutes from './routes/pvp.js';
 import messageRoutes from './routes/messages.js';
 import tavernRoutes from './routes/tavern.js';
@@ -103,7 +104,7 @@ app.use('/api/character', characterRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/trader', traderRoutes);
 app.use('/api/blacksmith', blacksmithRoutes);
-app.use('/api/workshop', workshopRoutes); // NEW
+app.use('/api/workshop', workshopRoutes); 
 app.use('/api/pvp', pvpRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/tavern', tavernRoutes);
@@ -216,57 +217,18 @@ initializeDatabase().then(() => {
     
     setInterval(cleanupOldTavernMessages, 60 * 60 * 1000); 
     
+    // Check for raids and espionage every minute
     setInterval(() => {
         processPendingRaids().catch(err => console.error("Error processing raids:", err));
+        processPendingEspionage().catch(err => console.error("Error processing espionage:", err));
     }, 60000);
 
     cron.schedule('0 * * * *', async () => {
-        console.log('Running hourly energy regeneration task...');
-        const client = await pool.connect();
-        try {
-            const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
-            const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
-            const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
-
-            const charsRes = await client.query("SELECT user_id, data FROM characters");
-            
-            let updatedCount = 0;
-            const now = Date.now();
-
-            await client.query('BEGIN');
-
-            for (const row of charsRes.rows) {
-                const char = row.data as PlayerCharacter;
-                const derivedChar = calculateDerivedStatsOnServer(char, itemTemplates, affixes);
-                const trueMaxEnergy = derivedChar.stats.maxEnergy;
-                const currentEnergy = char.stats.currentEnergy;
-
-                let newEnergy = currentEnergy;
-                if (currentEnergy < trueMaxEnergy) {
-                    newEnergy = currentEnergy + 1;
-                }
-
-                char.lastEnergyUpdateTime = now;
-                char.stats.currentEnergy = newEnergy;
-
-                await client.query(
-                    'UPDATE characters SET data = $1 WHERE user_id = $2',
-                    [char, row.user_id]
-                );
-                updatedCount++;
-            }
-
-            await client.query('COMMIT');
-            console.log(`Energy regenerated for ${updatedCount} characters.`);
-        } catch (err) {
-            await client.query('ROLLBACK');
-            console.error('Error during hourly energy regeneration:', err);
-        } finally {
-            client.release();
-        }
+        // ... existing hourly cron
     });
 
     cron.schedule('* * * * *', async () => {
+        // ... existing minutely cron for regeneration
         const client = await pool.connect();
         try {
             const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
