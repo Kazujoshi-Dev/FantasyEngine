@@ -74,20 +74,20 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
 
     const handleLootChange = (index: number, key: keyof LootDrop, value: string) => {
         const updatedLoot = [...(formData.lootTable || [])];
-        (updatedLoot[index] as any)[key] = key === 'chance' ? parseInt(value, 10) || 0 : value;
+        (updatedLoot[index] as any)[key] = key === 'weight' ? parseInt(value, 10) || 0 : value;
         setFormData(prev => ({ ...prev, lootTable: updatedLoot }));
     };
 
-    const addLoot = () => setFormData(prev => ({ ...prev, lootTable: [...(prev.lootTable || []), { templateId: '', chance: 0 }] }));
+    const addLoot = () => setFormData(prev => ({ ...prev, lootTable: [...(prev.lootTable || []), { templateId: '', weight: 100 }] }));
     const removeLoot = (index: number) => setFormData(prev => ({ ...prev, lootTable: prev.lootTable?.filter((_, i) => i !== index) }));
 
     const handleResourceLootChange = (index: number, key: keyof ResourceDrop, value: string) => {
         const updatedLoot = [...(formData.resourceLootTable || [])];
-        (updatedLoot[index] as any)[key] = ['min', 'max', 'chance'].includes(key) ? parseInt(value, 10) || 0 : value;
+        (updatedLoot[index] as any)[key] = ['min', 'max', 'weight'].includes(key) ? parseInt(value, 10) || 0 : value;
         setFormData(prev => ({ ...prev, resourceLootTable: updatedLoot }));
     };
 
-    const addResourceLoot = () => setFormData(prev => ({ ...prev, resourceLootTable: [...(prev.resourceLootTable || []), { resource: EssenceType.Common, min: 1, max: 1, chance: 0 }] }));
+    const addResourceLoot = () => setFormData(prev => ({ ...prev, resourceLootTable: [...(prev.resourceLootTable || []), { resource: EssenceType.Common, min: 1, max: 1, weight: 100 }] }));
     const removeResourceLoot = (index: number) => setFormData(prev => ({ ...prev, resourceLootTable: prev.resourceLootTable?.filter((_, i) => i !== index) }));
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -99,61 +99,27 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
         onSave(formData as Enemy);
     };
 
-    const getImageUrl = (url: string | undefined): string | undefined => {
-        if (!url) return undefined;
-        if (url.startsWith('http') || url.startsWith('/api/uploads/')) return url;
-        const uploadsIndex = url.indexOf('uploads/');
-        if (uploadsIndex > -1) {
-            return `/api/${url.substring(uploadsIndex)}`;
-        }
-        return url;
-    };
+    const totalLootWeight = (formData.lootTable || []).reduce((acc, curr) => acc + (curr.weight || 0), 0);
+    const totalResourceWeight = (formData.resourceLootTable || []).reduce((acc, curr) => acc + (curr.weight || 0), 0);
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400">{isEditing ? t('admin.enemy.edit') : t('admin.enemy.create')}</h3>
             
             {/* Basic Info */}
-            <div className="space-y-4">
-                <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                
-                {/* Image URL Input */}
-                <div>
-                     <label className="block text-sm font-medium text-gray-300 mb-1">Portret (URL)</label>
-                     <input
-                        type="text"
-                        name="image"
-                        value={formData.image || ''}
+            <div><label>{t('admin.general.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+            <div><label>{t('admin.general.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+            <div>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input
+                        name="isBoss"
+                        type="checkbox"
+                        checked={formData.isBoss || false}
                         onChange={handleChange}
-                        className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm"
-                        placeholder="https://example.com/image.png"
+                        className="form-checkbox h-5 w-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
                     />
-                    {formData.image && (
-                        <div className="mt-2">
-                            <p className="text-xs text-gray-400 mb-1">Podgląd:</p>
-                            <img 
-                                src={getImageUrl(formData.image)} 
-                                alt="Enemy Portrait" 
-                                className="w-16 h-16 object-cover rounded-lg border border-slate-600"
-                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                            />
-                        </div>
-                    )}
-                </div>
-
-                <div>
-                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
-                        <input
-                            name="isBoss"
-                            type="checkbox"
-                            checked={formData.isBoss || false}
-                            onChange={handleChange}
-                            className="form-checkbox h-5 w-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
-                        />
-                        <span className="text-amber-400 font-bold">{t('admin.enemy.isBoss')}</span>
-                    </label>
-                </div>
+                    <span className="text-amber-400 font-bold">{t('admin.enemy.isBoss')}</span>
+                </label>
             </div>
 
             {/* Stats */}
@@ -194,24 +160,30 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
             {/* Loot */}
             <div className="grid grid-cols-2 gap-6">
                  <div>
-                    <h4 className="font-semibold text-lg mb-2">{t('admin.lootTable')}</h4>
+                    <h4 className="font-semibold text-lg mb-2">{t('admin.lootTable')} <span className="text-xs text-gray-400 font-normal ml-2">(Suma wag: {totalLootWeight})</span></h4>
                     {(formData.lootTable || []).map((loot, index) => (
                          <div key={index} className="flex items-center gap-2 mb-2 p-2 bg-slate-800/50 rounded-md">
                             <select value={loot.templateId} onChange={e => handleLootChange(index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md"><option value="">-- {t('admin.select')} --</option>{allItemTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                            <input type="number" placeholder={t('admin.dropChance')!} value={loot.chance} onChange={e => handleLootChange(index, 'chance', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
+                            <input type="number" placeholder={t('admin.dropChance')!} value={loot.weight} onChange={e => handleLootChange(index, 'weight', e.target.value)} className="w-32 bg-slate-700 p-2 rounded-md" />
+                            <span className="text-xs text-gray-400 w-16 text-right">
+                                {totalLootWeight > 0 ? ((loot.weight / totalLootWeight) * 100).toFixed(2) : 0}%
+                            </span>
                             <button type="button" onClick={() => removeLoot(index)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">X</button>
                         </div>
                     ))}
                     <button type="button" onClick={addLoot} className="px-3 py-1 text-sm rounded bg-sky-700 hover:bg-sky-600">+</button>
                 </div>
                  <div>
-                    <h4 className="font-semibold text-lg mb-2">{t('admin.resourceLootTable')}</h4>
+                    <h4 className="font-semibold text-lg mb-2">{t('admin.resourceLootTable')} <span className="text-xs text-gray-400 font-normal ml-2">(Suma wag: {totalResourceWeight})</span></h4>
                     {(formData.resourceLootTable || []).map((loot, index) => (
                          <div key={index} className="flex items-center gap-2 mb-2 p-2 bg-slate-800/50 rounded-md">
                             <select value={loot.resource} onChange={e => handleResourceLootChange(index, 'resource', e.target.value)} className="flex-grow bg-slate-700 p-2 rounded-md">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select>
                             <input type="number" placeholder={t('admin.min')!} value={loot.min} onChange={e => handleResourceLootChange(index, 'min', e.target.value)} className="w-20 bg-slate-700 p-2 rounded-md" />
                             <input type="number" placeholder={t('admin.max')!} value={loot.max} onChange={e => handleResourceLootChange(index, 'max', e.target.value)} className="w-20 bg-slate-700 p-2 rounded-md" />
-                            <input type="number" placeholder={t('admin.chance')!} value={loot.chance} onChange={e => handleResourceLootChange(index, 'chance', e.target.value)} className="w-24 bg-slate-700 p-2 rounded-md" />
+                            <input type="number" placeholder="Waga" value={loot.weight} onChange={e => handleResourceLootChange(index, 'weight', e.target.value)} className="w-24 bg-slate-700 p-2 rounded-md" />
+                            <span className="text-xs text-gray-400 w-12 text-right">
+                                {totalResourceWeight > 0 ? ((loot.weight / totalResourceWeight) * 100).toFixed(1) : 0}%
+                            </span>
                             <button type="button" onClick={() => removeResourceLoot(index)} className="px-2 py-1 text-xs rounded bg-red-800 hover:bg-red-700">X</button>
                         </div>
                     ))}

@@ -3,7 +3,7 @@ import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats, GuildBuff } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 import { simulateTeamVsBossCombat } from './combat/simulations/index.js';
-import { createItemInstance } from './items.js';
+import { createItemInstance, pickWeighted } from './items.js';
 import { getBackpackCapacity, enforceInboxLimit } from './helpers.js';
 
 // ... (getPartyByLeader, getPartyByMember remain unchanged)
@@ -179,36 +179,46 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 const backpackCap = getBackpackCapacity(char);
                 const combinedLootTable = [...(bossTemplate.lootTable || [])];
 
-                // Dungeon Hunter Bonus Loot
-                if (staticChar.characterClass === CharacterClass.DungeonHunter && combinedLootTable.length > 0) {
-                    if (Math.random() < 0.3) combinedLootTable.push(combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)]);
-                    if (Math.random() < 0.15) combinedLootTable.push(combinedLootTable[Math.floor(Math.random() * combinedLootTable.length)]);
+                // Dungeon Hunter Bonus Loot - Just increase number of rolls
+                let rolls = 1;
+                if (staticChar.characterClass === CharacterClass.DungeonHunter) {
+                     if (Math.random() < 0.3) rolls++;
+                     if (Math.random() < 0.15) rolls++;
                 }
-                
-                for (const drop of combinedLootTable) {
-                    if (Math.random() * 100 < drop.chance) {
-                        if ((char.inventory || []).length + itemsFound.length < backpackCap) {
-                            // Passing derivedChar here ensures Luck stat is used for upgrades
-                            itemsFound.push(createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || [], derivedChar));
-                        }
+
+                if (combinedLootTable.length > 0) {
+                    for(let i=0; i<rolls; i++) {
+                         const dropTemplateId = pickWeighted(combinedLootTable)?.templateId;
+                         if (dropTemplateId) {
+                             if ((char.inventory || []).length + itemsFound.length < backpackCap) {
+                                // Passing derivedChar here ensures Luck stat is used for upgrades
+                                itemsFound.push(createItemInstance(dropTemplateId, gameData.itemTemplates || [], gameData.affixes || [], derivedChar));
+                            }
+                         }
                     }
                 }
-                for (const drop of (bossTemplate.resourceLootTable || [])) {
-                    if (Math.random() * 100 < drop.chance) {
-                        let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                        if(staticChar.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
-                        
-                        // Apply Guild Tax to Essences (Individually)
-                        if (party.guildId && guildTaxRate > 0 && guildResources) {
-                            const taxAmount = Math.floor(amount * (guildTaxRate / 100));
-                            if (taxAmount > 0) {
-                                amount -= taxAmount;
-                                totalGuildTaxEssences[drop.resource] = (totalGuildTaxEssences[drop.resource] || 0) + taxAmount;
+                
+                // Resources - Weighted Roll
+                const resourceLootTable = bossTemplate.resourceLootTable || [];
+                if (resourceLootTable.length > 0) {
+                    // Roll twice for resources
+                    for(let i=0; i<2; i++) {
+                        const drop = pickWeighted(resourceLootTable);
+                        if (drop) {
+                            let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                            if(staticChar.characterClass === 'Engineer' && Math.random() < 0.5) amount *= 2;
+                            
+                            // Apply Guild Tax to Essences (Individually)
+                            if (party.guildId && guildTaxRate > 0 && guildResources) {
+                                const taxAmount = Math.floor(amount * (guildTaxRate / 100));
+                                if (taxAmount > 0) {
+                                    amount -= taxAmount;
+                                    totalGuildTaxEssences[drop.resource] = (totalGuildTaxEssences[drop.resource] || 0) + taxAmount;
+                                }
                             }
+    
+                            essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
                         }
-
-                        // drop.resource is strictly typed as EssenceType here because bossTemplate is typed as Enemy
-                        essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
                     }
                 }
             }

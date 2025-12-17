@@ -172,7 +172,7 @@ const QuestCard: React.FC<{
                                     if (!template) return null;
                                     return (
                                         <p key={`loot-${index}`} className={`text-sm ${rarityStyles[template.rarity].text}`}>
-                                            {template.name} ({drop.chance}%)
+                                            {template.name} ({drop.weight}%)
                                         </p>
                                     )
                                 })}
@@ -214,81 +214,5 @@ const QuestCard: React.FC<{
                 )}
             </div>
         </div>
-    );
-};
-
-
-export const Quests: React.FC = () => {
-    const { character, gameData } = useCharacter();
-    const { t } = useTranslation();
-    
-    if (!character || !gameData) return null;
-    const { quests } = gameData;
-    
-    const locationQuests = quests.filter(q => (q.locationIds || []).includes(character.currentLocationId));
-
-    const acceptedQuests = locationQuests.filter(q => {
-        const progress = character.questProgress?.find(p => p.questId === q.id);
-        const isRepeatableForever = q.repeatable === 0;
-        const hasCompletionsLeft = progress ? progress.completions < q.repeatable : true;
-        return (character.acceptedQuests || []).includes(q.id) && (isRepeatableForever || hasCompletionsLeft);
-    });
-    
-    const availableQuests = locationQuests.filter(q => {
-        if ((character.acceptedQuests || []).includes(q.id)) return false;
-        const progress = character.questProgress?.find(p => p.questId === q.id);
-        if (!progress) return true;
-        if (q.repeatable === 0) return true;
-        if (progress.completions < q.repeatable) return true;
-        return false;
-    });
-
-    const completedQuests = locationQuests.filter(q => {
-        if (q.repeatable === 0) return false;
-        const progress = character.questProgress?.find(p => p.questId === q.id);
-        return progress && progress.completions >= q.repeatable;
-    });
-
-    return (
-        <ContentPanel title={t('quests.title')}>
-            <div className="space-y-8">
-                <div>
-                    <h2 className="text-2xl font-bold text-white mb-4">{t('quests.acceptedQuests')}</h2>
-                    {acceptedQuests.length > 0 ? (
-                        <div className="space-y-6">
-                            {acceptedQuests.map(quest => <QuestCard key={quest.id} quest={quest} isAccepted={true} />)}
-                        </div>
-                    ) : (
-                        <p className="text-gray-500">{t('quests.noQuests')}</p>
-                    )}
-                </div>
-                <div className="border-t border-slate-700/50"></div>
-                <div>
-                    <h2 className="text-2xl font-bold text-white mb-4">{t('quests.availableQuests')}</h2>
-                    {availableQuests.length > 0 ? (
-                        <div className="space-y-6">
-                            {availableQuests.map(quest => <QuestCard key={quest.id} quest={quest} isAccepted={false} />)}
-                        </div>
-                    ) : (
-                        <p className="text-gray-500">{t('quests.noQuests')}</p>
-                    )}
-                </div>
-                 <div className="border-t border-slate-700/50"></div>
-                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-4">{t('quests.completedQuests')}</h2>
-                    {completedQuests.length > 0 ? (
-                         <div className="space-y-2">
-                             {completedQuests.map(quest => (
-                                 <div key={quest.id} className="bg-slate-900/40 p-3 rounded-md">
-                                     <p className="text-gray-500 line-through">{quest.name}</p>
-                                 </div>
-                             ))}
-                         </div>
-                    ) : (
-                         <p className="text-gray-500">{t('quests.noQuests')}</p>
-                    )}
-                 </div>
-            </div>
-        </ContentPanel>
     );
 };

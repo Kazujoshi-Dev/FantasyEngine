@@ -1,7 +1,7 @@
 
-import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType } from '../types.js';
+import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType, LootDrop, ItemInstance } from '../types.js';
 import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations/index.js';
-import { createItemInstance } from './items.js';
+import { createItemInstance, pickWeighted } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
 
@@ -23,6 +23,13 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     const encounteredEnemies: Enemy[] = [];
     const maxEnemies = expedition.maxEnemies || (expedition.enemies || []).length;
     let enemiesFoughtCount = 0;
+    
+    // Convert old spawnChance to weight for consistent picking if needed, or stick to independent chance.
+    // For enemies, independent chance (spawnChance 0-100) often makes more sense than weighted pool if multiple enemies can spawn.
+    // However, if the user requested "enemies, bosses, expeditions" to use weights, we might want to treat the enemy list as a pool.
+    // Current logic: Loop through list, roll independent chance.
+    // Let's keep independent chance for enemy spawning (as it determines IF they appear, not WHICH one from a single slot), unless explicitly changed. 
+    // The user requirement "item finding system" strongly suggests Loot Tables. I will keep enemy spawning as-is for now to avoid breaking encounter logic, focusing on Loot.
     
     for (const expEnemy of (expedition.enemies || [])) {
         if (enemiesFoughtCount >= maxEnemies) break;
@@ -115,7 +122,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     
     let totalGold = 0;
     let totalExperience = 0;
-    const itemsFound = [];
+    const itemsFound: ItemInstance[] = [];
     const essencesFound: Partial<Record<EssenceType, number>> = {};
     let itemsLostCount = 0;
     const rewardBreakdown: RewardSource[] = [];
@@ -175,78 +182,80 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             });
         }
         
-        // Handle loot drops
-        const allLootTables = [
+        // --- Loot Logic (Weighted) ---
+        const allLootTables: LootDrop[] = [
             ...(expedition.lootTable || []),
             ...encounteredEnemies.flatMap(e => e.lootTable || [])
         ];
 
         const backpackCapacity = getBackpackCapacity(finalCharacter);
         
-        // Apply Scout's House bonus to max items limit
-        const extraRolls = scoutHouseLevel;
-        if (extraRolls > 0) {
-             for(let i=0; i<extraRolls; i++) {
-                 // Add random item from expedition table as potential extra drop
-                 if (expedition.lootTable && expedition.lootTable.length > 0) {
-                     const extraDrop = expedition.lootTable[Math.floor(Math.random() * expedition.lootTable.length)];
-                     allLootTables.push(extraDrop);
-                 }
-             }
+        // Max Items Calculation
+        let maxItems = (expedition.maxItems || 0) + scoutHouseLevel;
+        if (maxItems === 0) maxItems = 1; // Default to at least 1 roll if not specified? Or maybe default to pool size logic? 
+        // Let's assume a default of 3 rolls if maxItems not set, or derived from enemy count.
+        // For backward compatibility, let's say base 1 + 1 per enemy killed + scout bonus.
+        if (!expedition.maxItems) {
+            maxItems = 1 + encounteredEnemies.length + scoutHouseLevel;
         }
 
-        let maxItems = (expedition.maxItems || 999) + scoutHouseLevel; // Also increase cap just in case
-        
         // Apply "Dokladne przeszukanie" skill bonus
         if (character.activeSkills?.includes('dokladne-przeszukiwanie')) {
             maxItems += 1;
         }
         
         // Dungeon Hunter Bonus Loot Logic
-        if(character.characterClass === CharacterClass.DungeonHunter && allLootTables.length > 0) {
-            // First extra item chance: 30%
-            if (Math.random() < 0.3) {
-                 const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
-                 // Important: We override chance to 100% so if the bonus triggers, they actually get the item
-                 if(extraDrop) allLootTables.push({ ...extraDrop, chance: 100 });
-            }
-            // Second extra item chance: 15%
-             if (Math.random() < 0.15) {
-                 const extraDrop = allLootTables[Math.floor(Math.random() * allLootTables.length)];
-                 if(extraDrop) allLootTables.push({ ...extraDrop, chance: 100 });
-            }
+        if(character.characterClass === CharacterClass.DungeonHunter) {
+             if (Math.random() < 0.3) maxItems += 1;
+             if (Math.random() < 0.15) maxItems += 1;
         }
         
-        for (const drop of allLootTables) {
-            if (maxItems != null && maxItems > 0 && itemsFound.length >= maxItems) {
-                break;
-            }
-
-            if (Math.random() * 100 < drop.chance) {
-                if (finalCharacter.inventory.length < backpackCapacity) {
-                    const newItem = createItemInstance(drop.templateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
-                    finalCharacter.inventory.push(newItem);
-                    itemsFound.push(newItem);
-                } else {
-                    itemsLostCount++;
-                }
-            }
+        // Roll for items
+        // In weighted system, we roll 'maxItems' times against the pool.
+        // We include a "Nothing" chance implicitly? No, usually weighted pools guarantee a drop if you roll on them.
+        // To simulate "chance to get nothing", the pool should have an "Empty" entry with weight.
+        // OR we stick to: We try to find 'maxItems' items.
+        
+        for (let i = 0; i < maxItems; i++) {
+             // 50% base chance to get ANY item roll? Or always roll?
+             // Let's assume always roll on the table if it exists.
+             // To prevent flooding inventory, we can add a global "Empty" chance check before rolling the weighted table.
+             // For now, let's simply roll.
+             
+             if (allLootTables.length > 0) {
+                 const droppedTemplateId = pickWeighted(allLootTables)?.templateId;
+                 
+                 if (droppedTemplateId) {
+                     if (finalCharacter.inventory.length < backpackCapacity) {
+                        const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
+                        finalCharacter.inventory.push(newItem);
+                        itemsFound.push(newItem);
+                    } else {
+                        itemsLostCount++;
+                    }
+                 }
+             }
         }
         
-        // Handle resource drops
+        // Handle resource drops (Weighted)
         const allResourceLootTables = [
             ...(expedition.resourceLootTable || []),
             ...encounteredEnemies.flatMap(e => e.resourceLootTable || [])
         ];
         
-        for (const drop of allResourceLootTables) {
-            if (Math.random() * 100 < drop.chance) {
-                let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) {
-                    amount *= 2;
+        // Resources usually drop independently or in small batches.
+        // Let's roll 3 times on the resource table.
+        for (let i = 0; i < 3; i++) {
+            if (allResourceLootTables.length > 0) {
+                const drop = pickWeighted(allResourceLootTables);
+                if (drop) {
+                    let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                    if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) {
+                        amount *= 2;
+                    }
+                    essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
+                    finalCharacter.resources[drop.resource] = (finalCharacter.resources[drop.resource] || 0) + amount;
                 }
-                essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
-                finalCharacter.resources[drop.resource] = (finalCharacter.resources[drop.resource] || 0) + amount;
             }
         }
 

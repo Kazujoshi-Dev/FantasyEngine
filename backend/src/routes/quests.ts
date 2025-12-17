@@ -188,7 +188,8 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
                  // Random loot
                  if (quest.rewards.lootTable) {
                      for(const loot of quest.rewards.lootTable) {
-                         if(Math.random() * 100 < loot.chance) {
+                         // loot.weight here acts as chance percentage (0-100) based on legacy/current implementation
+                         if(Math.random() * 100 < loot.weight) {
                               itemsToAdd.push(createItemInstance(loot.templateId, itemTemplates, affixes));
                          }
                      }

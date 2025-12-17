@@ -1,4 +1,9 @@
 
+// This file was incorrectly referenced as "src/components/admin/tabs/TowerEditor.tsx" but should be "src/components/admin/editors/TowerEditor.tsx" based on previous file moves.
+// I will update the file content assuming the editor location.
+// Wait, the previous output had "src/components/admin/editors/TowerEditor.tsx".
+// I will output to that path.
+
 import React, { useState, useMemo } from 'react';
 import { Tower, GameData, TowerFloor, EssenceType, LootDrop, ItemInstance, ItemCategory, AffixType, ItemTemplate, ItemRarity, Affix } from '../../../types';
 import { PlusCircleIcon } from '../../icons/PlusCircleIcon';
@@ -99,7 +104,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         const floor = formData.floors![floorIndex];
         const currentResources = floor.resourceLootTable || [];
         // Use ResourceDrop structure: { resource, min, max, weight }
-        // For specific rewards, weight should be 100.
+        // For specific rewards, chance should be 100.
         updateFloor(floorIndex, { 
             resourceLootTable: [...currentResources, { resource: type, min: 1, max: 1, weight: 100 }]
         });

@@ -1,5 +1,5 @@
 
-import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, ItemCategory, EquipmentSlot, PlayerCharacter } from '../types.js';
+import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, GameSettings, ItemRarity, TraderInventoryData, ItemCategory, EquipmentSlot, PlayerCharacter, LootDrop } from '../types.js';
 import { randomUUID } from 'crypto';
 
 // Helper for luck-based rolls
@@ -18,6 +18,32 @@ export const rollValueWithLuck = (minMax: number | { min: number; max: number } 
 
     // Use floor for integer stats, but ensure it can reach max
     return min + Math.floor(weightedRoll * (max - min + 1));
+};
+
+export const pickWeighted = <T extends { weight?: number }>(items: T[]): T | null => {
+    if (!items || items.length === 0) return null;
+    
+    // Default weight to 1 if missing or 0 (unless we want 0 to mean impossible, but safe fallback 1 is better for migration)
+    // Actually, 0 should mean impossible. For migration safety, we can use 'chance' if weight is missing, but Typescript says weight is mandatory now.
+    // Let's assume input data might still have 'chance' if not fully migrated DB.
+    // The items here are usually LootDrop[], Affix[], etc.
+    
+    const weightedItems = items.map(item => ({
+        ...item,
+        _effectiveWeight: (item as any).weight !== undefined ? (item as any).weight : ((item as any).chance || 0)
+    }));
+
+    const totalWeight = weightedItems.reduce((sum, item) => sum + item._effectiveWeight, 0);
+    if (totalWeight <= 0) return null;
+
+    let random = Math.random() * totalWeight;
+    for (const item of weightedItems) {
+        if (random < item._effectiveWeight) {
+            return item;
+        }
+        random -= item._effectiveWeight;
+    }
+    return weightedItems[weightedItems.length - 1];
 };
 
 
@@ -158,43 +184,52 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
 
     if (allowAffixes) {
         const itemCategory = template.category;
-    
-        const possiblePrefixes = allAffixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
-        const possibleSuffixes = allAffixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
-    
-        if (possiblePrefixes.length > 0) {
-            for (const prefix of possiblePrefixes) {
-                const chance = prefix.spawnChances[itemCategory] || 0;
-                if (Math.random() * 100 < chance) {
-                    instance.prefixId = prefix.id;
-                    instance.rolledPrefix = rollAffixStats(prefix, luck);
-                    break; 
-                }
+        
+        // Filter valid affixes. Affix spawnChances is now a Weight Map.
+        const validPrefixes = allAffixes
+            .filter(a => a.type === AffixType.Prefix && a.spawnChances && (a.spawnChances[itemCategory] || 0) > 0)
+            .map(a => ({ ...a, weight: a.spawnChances[itemCategory] || 0 }));
+            
+        const validSuffixes = allAffixes
+            .filter(a => a.type === AffixType.Suffix && a.spawnChances && (a.spawnChances[itemCategory] || 0) > 0)
+            .map(a => ({ ...a, weight: a.spawnChances[itemCategory] || 0 }));
+
+        // Standard chance to get an affix at all (e.g. 50% for prefix, 50% for suffix)
+        // Can be adjusted or made config-based.
+        const prefixChance = 50 + (luck * 0.1); 
+        const suffixChance = 50 + (luck * 0.1);
+
+        if (validPrefixes.length > 0 && Math.random() * 100 < prefixChance) {
+            const pickedPrefix = pickWeighted(validPrefixes);
+            if (pickedPrefix) {
+                instance.prefixId = pickedPrefix.id;
+                instance.rolledPrefix = rollAffixStats(pickedPrefix, luck);
             }
         }
     
-        if (possibleSuffixes.length > 0) {
-             for (const suffix of possibleSuffixes) {
-                const chance = suffix.spawnChances[itemCategory] || 0;
-                if (Math.random() * 100 < chance) {
-                    instance.suffixId = suffix.id;
-                    instance.rolledSuffix = rollAffixStats(suffix, luck);
-                    break;
-                }
-            }
+        if (validSuffixes.length > 0 && Math.random() * 100 < suffixChance) {
+             const pickedSuffix = pickWeighted(validSuffixes);
+             if (pickedSuffix) {
+                instance.suffixId = pickedSuffix.id;
+                instance.rolledSuffix = rollAffixStats(pickedSuffix, luck);
+             }
         }
 
-        // Second chance logic if a character is provided
+        // Second chance logic if a character is provided (reroll for affix if missed)
         if (character) {
-            if (!instance.prefixId && possiblePrefixes.length > 0 && Math.random() * 100 < luck * 0.1) {
-                const luckyPrefix = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
-                instance.prefixId = luckyPrefix.id;
-                instance.rolledPrefix = rollAffixStats(luckyPrefix, luck);
+            if (!instance.prefixId && validPrefixes.length > 0 && Math.random() * 100 < luck * 0.1) {
+                const luckyPrefix = pickWeighted(validPrefixes);
+                if(luckyPrefix) {
+                    instance.prefixId = luckyPrefix.id;
+                    instance.rolledPrefix = rollAffixStats(luckyPrefix, luck);
+                }
             }
-            if (!instance.suffixId && possibleSuffixes.length > 0 && Math.random() * 100 < luck * 0.1) {
-                const luckySuffix = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
-                instance.suffixId = luckySuffix.id;
-                instance.rolledSuffix = rollAffixStats(luckySuffix, luck);
+            if (!instance.suffixId && validSuffixes.length > 0 && Math.random() * 100 < luck * 0.1) {
+                const luckySuffix = pickWeighted(validSuffixes);
+                if (luckySuffix) {
+                    instance.suffixId = luckySuffix.id;
+                    instance.rolledSuffix = rollAffixStats(luckySuffix, luck);
+                }
             }
         }
     }
@@ -249,19 +284,28 @@ const createGuaranteedAffixItem = (itemTemplates: ItemTemplate[], affixes: Affix
 
     const itemCategory = template.category;
     
-    const possiblePrefixes = affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[itemCategory]);
-    const possibleSuffixes = affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[itemCategory]);
+    const validPrefixes = affixes
+        .filter(a => a.type === AffixType.Prefix && a.spawnChances && (a.spawnChances[itemCategory] || 0) > 0)
+        .map(a => ({ ...a, weight: a.spawnChances[itemCategory] || 0 }));
+            
+    const validSuffixes = affixes
+        .filter(a => a.type === AffixType.Suffix && a.spawnChances && (a.spawnChances[itemCategory] || 0) > 0)
+        .map(a => ({ ...a, weight: a.spawnChances[itemCategory] || 0 }));
 
-    if (possiblePrefixes.length > 0) {
-        const prefix = possiblePrefixes[Math.floor(Math.random() * possiblePrefixes.length)];
-        instance.prefixId = prefix.id;
-        instance.rolledPrefix = rollAffixStats(prefix);
+    if (validPrefixes.length > 0) {
+        const prefix = pickWeighted(validPrefixes);
+        if (prefix) {
+            instance.prefixId = prefix.id;
+            instance.rolledPrefix = rollAffixStats(prefix);
+        }
     }
 
-    if (possibleSuffixes.length > 0) {
-        const suffix = possibleSuffixes[Math.floor(Math.random() * possibleSuffixes.length)];
-        instance.suffixId = suffix.id;
-        instance.rolledSuffix = rollAffixStats(suffix);
+    if (validSuffixes.length > 0) {
+        const suffix = pickWeighted(validSuffixes);
+        if (suffix) {
+            instance.suffixId = suffix.id;
+            instance.rolledSuffix = rollAffixStats(suffix);
+        }
     }
     
     return instance;
@@ -271,6 +315,8 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
     const INVENTORY_SIZE = 12;
     const regularItems: ItemInstance[] = [];
     
+    // Trader Rarity Chances usually remain percentage-based (0-100) in settings because it dictates pool selection logic, not specific item weights.
+    // However, if we want full consistency, we could treat these as weights too. For now, kept as is for settings compatibility.
     const defaultChances = {
         [ItemRarity.Common]: 60,
         [ItemRarity.Uncommon]: 30,

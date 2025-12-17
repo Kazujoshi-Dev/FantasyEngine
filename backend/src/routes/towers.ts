@@ -267,7 +267,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 // but let's allow standard loot table drops from enemies too for extra fun.
                 if (enemy.lootTable) {
                     for (const drop of enemy.lootTable) {
-                         if (Math.random() * 100 < drop.chance) {
+                         if (Math.random() * 100 < drop.weight) {
                              // Pass derivedChar to enable luck bonuses
                             rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes, derivedChar));
                         }
@@ -376,7 +376,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             // E) Floor Config Rewards - Loot Table (Simple)
             if (floorConfig.lootTable && floorConfig.lootTable.length > 0) {
                  for (const drop of floorConfig.lootTable) {
-                    if (Math.random() * 100 < drop.chance) {
+                    if (Math.random() * 100 < drop.weight) {
                         // Pass derivedChar to enable luck bonuses
                         rewards.items.push(createItemInstance(drop.templateId, gameData.itemTemplates, gameData.affixes, derivedChar));
                     }
@@ -386,7 +386,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             // F) Floor Config Rewards - Resources
              if (floorConfig.resourceLootTable) {
                 for (const drop of floorConfig.resourceLootTable) {
-                    if (Math.random() * 100 < drop.chance) {
+                    if (Math.random() * 100 < drop.weight) {
                         const amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                         rewards.essences[drop.resource] = (rewards.essences[drop.resource] || 0) + amount;
                     }

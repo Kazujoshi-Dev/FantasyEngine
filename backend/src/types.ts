@@ -462,14 +462,14 @@ export interface Enemy {
 
 export interface LootDrop {
     templateId: string;
-    chance: number;
+    weight: number;
 }
 
 export interface ResourceDrop {
     resource: EssenceType;
     min: number;
     max: number;
-    chance: number;
+    weight: number;
 }
 
 export interface Location {
@@ -486,7 +486,7 @@ export interface Location {
 
 export interface ExpeditionEnemy {
     enemyId: string;
-    spawnChance: number;
+    spawnChance: number; // This can technically be weight if we want weighted enemies, but keeping % for now as it's separate from loot
 }
 
 export interface Expedition {

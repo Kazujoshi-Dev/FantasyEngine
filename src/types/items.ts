@@ -140,7 +140,7 @@ export interface Affix {
     name: string | { masculine: string; feminine: string; neuter: string };
     type: AffixType;
     value?: number;
-    spawnChances: Partial<Record<ItemCategory, number>>;
+    spawnChances: Partial<Record<ItemCategory, number>>; // Now interpreted as Weights
     
     statsBonus?: Record<string, { min: number; max: number }>;
     
@@ -168,14 +168,14 @@ export interface Affix {
 
 export interface LootDrop {
     templateId: string;
-    chance: number;
+    weight: number; // Changed from chance
 }
 
 export interface ResourceDrop {
     resource: EssenceType;
     min: number;
     max: number;
-    chance: number;
+    weight: number; // Changed from chance
 }
 
 export interface CraftingSettings {

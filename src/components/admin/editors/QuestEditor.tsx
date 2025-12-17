@@ -152,7 +152,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
          setFormData(prev => {
              const currentRewards = prev.rewards || { gold: 0, experience: 0, itemRewards: [], resourceRewards: [], lootTable: [] };
              const lootTable = [...(currentRewards.lootTable || [])];
-             (lootTable[index] as any)[key] = key === 'chance' ? parseInt(value, 10) || 0 : value;
+             (lootTable[index] as any)[key] = key === 'weight' ? parseInt(value, 10) || 0 : value;
              return { ...prev, rewards: { ...currentRewards, lootTable, itemRewards: currentRewards.itemRewards || [], resourceRewards: currentRewards.resourceRewards || [] } };
         });
     };
@@ -162,7 +162,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
              ...prev,
              rewards: {
                  ...currentRewards,
-                 lootTable: [...(currentRewards.lootTable || []), { templateId: '', chance: 0 }],
+                 lootTable: [...(currentRewards.lootTable || []), { templateId: '', weight: 100 }],
                  itemRewards: currentRewards.itemRewards || [],
                  resourceRewards: currentRewards.resourceRewards || []
              }
@@ -203,6 +203,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
             default: return null;
         }
     };
+    
+    const totalLootWeight = (formData.rewards?.lootTable || []).reduce((acc, curr) => acc + (curr.weight || 0), 0);
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
@@ -249,9 +251,9 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
                 </div>
                  {/* Loot Table */}
                 <div>
-                     <h4 className="font-semibold text-sm mb-2">{t('admin.lootTable')}</h4>
+                     <h4 className="font-semibold text-sm mb-2">{t('admin.lootTable')} <span className="text-xs text-gray-400 font-normal ml-2">(Suma wag: {totalLootWeight})</span></h4>
                     {(formData.rewards?.lootTable || []).map((loot, index) => (
-                         <div key={index} className="flex items-center gap-2 mb-2"><select value={loot.templateId} onChange={e => handleLootChange(index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md"><option value="">-- {t('admin.select')} --</option>{gameData.itemTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select><input type="number" placeholder="Szansa %" value={loot.chance} onChange={e => handleLootChange(index, 'chance', e.target.value)} className="w-32 bg-slate-700 p-1 rounded-md" /><button type="button" onClick={() => removeLoot(index)} className="px-2 py-1 text-xs rounded bg-red-800">X</button></div>
+                         <div key={index} className="flex items-center gap-2 mb-2"><select value={loot.templateId} onChange={e => handleLootChange(index, 'templateId', e.target.value)} className="w-full bg-slate-700 p-1 rounded-md"><option value="">-- {t('admin.select')} --</option>{gameData.itemTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select><input type="number" placeholder="Waga" value={loot.weight} onChange={e => handleLootChange(index, 'weight', e.target.value)} className="w-32 bg-slate-700 p-1 rounded-md" /><span className="text-xs text-gray-400 w-16 text-right">{totalLootWeight > 0 ? ((loot.weight / totalLootWeight) * 100).toFixed(2) : 0}%</span><button type="button" onClick={() => removeLoot(index)} className="px-2 py-1 text-xs rounded bg-red-800">X</button></div>
                     ))}
                     <button type="button" onClick={addLoot} className="px-2 py-1 text-xs rounded bg-sky-700">+</button>
                 </div>
