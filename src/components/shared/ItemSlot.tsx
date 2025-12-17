@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -75,7 +76,6 @@ export const ItemDetailsPanel: React.FC<{
     const prefix = useMemo(() => safeAffixes.find(a => a.id === item?.prefixId), [safeAffixes, item?.prefixId]);
     const suffix = useMemo(() => safeAffixes.find(a => a.id === item?.suffixId), [safeAffixes, item?.suffixId]);
 
-    // Helper to get affix name based on item gender
     const getName = (affix: Affix | undefined) => {
         if (!affix || !template) return '';
         if (typeof affix.name === 'string') return affix.name;
@@ -89,7 +89,6 @@ export const ItemDetailsPanel: React.FC<{
         return (affix.name as any)[genderKey] || affix.name.masculine || '';
     };
 
-    // Calculate totalValue including affixes
     const totalValue = useMemo(() => {
         if (!template) return 0;
         let val = Number(template.value) || 0;
@@ -149,14 +148,26 @@ export const ItemDetailsPanel: React.FC<{
                 color: 'text-green-300'
             })) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`, isPerfect: checkPerfect('damageMax', s.damageMax)},
-            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerRound'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
+            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerRound'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}`, isPerfect: checkPerfect('attacksPerRoundBonus', s.attacksPerRoundBonus) },
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`, isPerfect: checkPerfect('armorBonus', s.armorBonus)},
             (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`, isPerfect: checkPerfect('critChanceBonus', s.critChanceBonus)},
             (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`, isPerfect: checkPerfect('maxHealthBonus', s.maxHealthBonus)},
             (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${calculateStat(s.critDamageModifierBonus)}%`, isPerfect: checkPerfect('critDamageModifierBonus', s.critDamageModifierBonus)},
-            (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent ? getValue(s.armorPenetrationPercent) : 0}% / ${calculateStat(s.armorPenetrationFlat)}`},
-            (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent ? getValue(s.lifeStealPercent) : 0}% / ${calculateStat(s.lifeStealFlat)}`},
-            (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent ? getValue(s.manaStealPercent) : 0}% / ${calculateStat(s.manaStealFlat)}`},
+            (s.armorPenetrationPercent !== undefined || s.armorPenetrationFlat !== undefined) && {
+                label: t('statistics.armorPenetration'), 
+                value: `${s.armorPenetrationPercent ? getValue(s.armorPenetrationPercent) : 0}% / ${calculateStat(s.armorPenetrationFlat)}`,
+                isPerfect: checkPerfect('armorPenetrationPercent', s.armorPenetrationPercent) || checkPerfect('armorPenetrationFlat', s.armorPenetrationFlat)
+            },
+            (s.lifeStealPercent !== undefined || s.lifeStealFlat !== undefined) && {
+                label: t('statistics.lifeSteal'), 
+                value: `${s.lifeStealPercent ? getValue(s.lifeStealPercent) : 0}% / ${calculateStat(s.lifeStealFlat)}`,
+                isPerfect: checkPerfect('lifeStealPercent', s.lifeStealPercent) || checkPerfect('lifeStealFlat', s.lifeStealFlat)
+            },
+            (s.manaStealPercent !== undefined || s.manaStealFlat !== undefined) && {
+                label: t('statistics.manaSteal'), 
+                value: `${s.manaStealPercent ? getValue(s.manaStealPercent) : 0}% / ${calculateStat(s.manaStealFlat)}`,
+                isPerfect: checkPerfect('manaStealPercent', s.manaStealPercent) || checkPerfect('manaStealFlat', s.manaStealFlat)
+            },
             (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, isPerfect: checkPerfect('magicDamageMax', s.magicDamageMax), color: 'text-purple-300'},
             (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
             (s.magicAttackType !== undefined) && {label: t('item.magicAttackType'), value: t(`item.magic.${s.magicAttackType}`), color: 'text-purple-300', valueClass: 'font-semibold'},
@@ -172,7 +183,6 @@ export const ItemDetailsPanel: React.FC<{
                     <p key={i} className={`flex justify-between ${e.color || ''}`}>
                         <span className="flex items-center gap-1">
                             {e.label}:
-                            {/* Fixed: title prop not supported directly on SVG component in some configs, wrapped in span */}
                             {e.isPerfect && <span title="Maksymalna wartość!"><SparklesIcon className="h-3 w-3 text-amber-400 animate-pulse" /></span>}
                         </span> 
                         <span className={`${e.valueClass || 'font-mono'} ${e.isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_3px_rgba(251,191,36,0.6)]' : ''}`}>
@@ -209,13 +219,11 @@ export const ItemDetailsPanel: React.FC<{
                         <span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`equipment.slot.${template.slot}`)}</span>
                     </p>
                     <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        {/* Fixed: totalValue missing error */}
                         <span>{t('item.value')}:</span> <span className="font-mono text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span>
                     </p>
                 </div>
 
                 {baseStatsSource && <StatSection source={baseStatsSource} metadata={template} isAffix={false} />}
-                {/* Fixed: getName missing error */}
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${getName(prefix)} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${getName(suffix)} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
 
@@ -263,7 +271,6 @@ export const ItemListItem: React.FC<{
     showPrimaryStat?: boolean;
     isEquipped?: boolean;
     meetsRequirements?: boolean;
-    // Fix: Change 'draggable' type from string to match Booleanish (boolean | 'true' | 'false')
     draggable?: boolean | 'true' | 'false';
     onDragStart?: (e: React.DragEvent) => void;
     className?: string;
