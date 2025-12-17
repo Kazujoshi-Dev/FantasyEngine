@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout } from '../types.js';
+import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout, GuildBuff } from '../types.js';
 import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer, getWarehouseCapacity } from '../logic/stats.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 
@@ -80,6 +80,69 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch character' });
+    }
+});
+
+// ==========================================
+//               HEALING
+// ==========================================
+
+router.post('/heal', authenticateToken, async (req: any, res: any) => {
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Fetch character with potential guild bonuses
+        const charRes = await client.query(`
+            SELECT 
+                c.data,
+                g.buildings,
+                g.active_buffs
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [userId]);
+
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const row = charRes.rows[0];
+        const character: PlayerCharacter = row.data;
+        const barracksLevel = row.buildings?.barracks || 0;
+        const shrineLevel = row.buildings?.shrine || 0;
+        const activeBuffs: GuildBuff[] = row.active_buffs || [];
+
+        // Fetch game data for derived stats calculation (to know max hp)
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
+        const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+        const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
+
+        const characterWithStats = calculateDerivedStatsOnServer(
+            character,
+            itemTemplates,
+            affixes,
+            barracksLevel,
+            shrineLevel,
+            skills,
+            activeBuffs
+        );
+
+        // Fully heal HP and Mana
+        character.stats.currentHealth = characterWithStats.stats.maxHealth;
+        character.stats.currentMana = characterWithStats.stats.maxMana;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("Heal Error:", err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -452,7 +515,7 @@ router.put('/loadouts/rename', authenticateToken, async (req: any, res: any) => 
     }
 });
 
-// ... (reszta pliku pozostaje bez zmian)
+// ... (rest of file)
 router.get('/names', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters ORDER BY name ASC`);

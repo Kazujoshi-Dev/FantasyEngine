@@ -2,6 +2,7 @@
 import express from 'express';
 import { pool } from '../db.js';
 import { PartyMember, PartyMemberStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry, PublicCharacterProfile } from '../types.js';
+import { calculateTotalExperience } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -163,7 +164,19 @@ router.get('/profile/:name', async (req, res) => {
             return res.status(404).json({ message: 'Character not found' });
         }
 
-        const profile: PublicCharacterProfile = result.rows[0];
+        const rawProfile = result.rows[0];
+        
+        // Calculate total sum of experience from level 1 up to current level progress
+        const totalExperience = calculateTotalExperience(
+            rawProfile.level, 
+            rawProfile.experience
+        );
+
+        const profile: PublicCharacterProfile = {
+            ...rawProfile,
+            experience: totalExperience
+        };
+
         res.json(profile);
     } catch (err) {
         console.error(err);
