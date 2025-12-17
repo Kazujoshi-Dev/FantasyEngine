@@ -1,34 +1,56 @@
 
-import React, { useState } from 'react';
-import { ActiveTowerRun, Tower, PlayerCharacter, GameData, ItemInstance, ItemTemplate } from '../../types';
+import React, { useState, useCallback } from 'react';
+import { ActiveTowerRun, Tower as TowerType, PlayerCharacter, GameData, ItemInstance, ItemTemplate, EssenceType, ItemRarity, Enemy } from '../../types';
 import { BoltIcon } from '../icons/BoltIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
-import { ShieldIcon } from '../icons/ShieldIcon';
-import { ItemDetailsPanel } from '../shared/ItemSlot';
+import { CoinsIcon } from '../icons/CoinsIcon';
+import { ItemDetailsPanel, ItemListItem, rarityStyles } from '../shared/ItemSlot';
+import { useTranslation } from '../../contexts/LanguageContext';
 import { EnemyPreview } from './EnemyPreview';
 
 interface ActiveRunViewProps {
     activeRun: ActiveTowerRun;
-    activeTower: Tower;
+    activeTower: TowerType;
     character: PlayerCharacter;
     gameData: GameData;
-    onFight: (floorCost: number, duration: number) => void;
+    onFight: (floorCost: number, durationSeconds: number) => void;
     onRetreat: () => void;
     isMoving: boolean;
     progress: number;
 }
 
+const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
+    [EssenceType.Common]: ItemRarity.Common,
+    [EssenceType.Uncommon]: ItemRarity.Uncommon,
+    [EssenceType.Rare]: ItemRarity.Rare,
+    [EssenceType.Epic]: ItemRarity.Epic,
+    [EssenceType.Legendary]: ItemRarity.Legendary,
+};
+
 export const ActiveRunView: React.FC<ActiveRunViewProps> = ({ 
     activeRun, activeTower, character, gameData, onFight, onRetreat, isMoving, progress 
 }) => {
+    const { t } = useTranslation();
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
-    const currentFloorConfig = activeTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
-    const floorEnemies = currentFloorConfig?.enemies.map(e => gameData.enemies.find(en => en.id === e.enemyId)).filter(Boolean) as any[] || [];
+    const getFloorEnemies = useCallback((floorNum: number) => {
+        if (!activeTower || !gameData) return [];
+        const floor = activeTower.floors.find(f => f.floorNumber === floorNum);
+        if (!floor) return [];
+        return floor.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(e => !!e) as Enemy[];
+    }, [activeTower, gameData]);
+
+    const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
+    const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
+    const rewards = activeRun.accumulatedRewards;
     
-    // For Floor 1, energy is paid at entry. For others, it's paid now.
-    const energyCost = activeRun.currentFloor === 1 ? 0 : (currentFloorConfig?.energyCost || 0);
-    const hasEnergy = character.stats.currentEnergy >= energyCost;
+    const currentFloorConfig = activeTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
+    const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
+    const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
+    
+    const floorCost = currentFloorConfig?.energyCost || 0;
+    const floorDuration = currentFloorConfig?.duration || 0;
+    const canAfford = character.stats.currentEnergy >= floorCost;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
@@ -36,7 +58,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
             {/* Tooltip */}
              {hoveredItem && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-none relative animate-fade-in">
+                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
                          <ItemDetailsPanel 
                             item={hoveredItem.item} 
                             template={hoveredItem.template} 
@@ -49,120 +71,135 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
             )}
 
             {/* Left: Status & Progress */}
-            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col justify-between">
+            <div className="bg-slate-900/40 p-6 rounded-xl border border-purple-900/50 flex flex-col justify-between">
                 <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{activeTower.name}</h3>
-                    <p className="text-purple-400 font-bold text-lg mb-6">Piętro {activeRun.currentFloor} / {activeTower.totalFloors}</p>
+                    <h3 className="text-2xl font-bold text-white mb-2">Piętro {activeRun.currentFloor} <span className="text-gray-500 text-lg">/ {activeTower.totalFloors}</span></h3>
+                    <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden mb-6 border border-slate-600">
+                        <div className="bg-purple-600 h-full transition-all" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
+                    </div>
 
                     <div className="space-y-4 mb-6">
-                        <div className="bg-slate-800 p-4 rounded-lg border border-slate-600">
-                            <p className="text-gray-400 text-sm mb-1">Twoje Zdrowie</p>
-                            <p className="text-2xl font-bold text-white mb-2">{activeRun.currentHealth} / {character.stats.maxHealth}</p>
-                            <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden">
-                                <div 
-                                    className="bg-red-600 h-full transition-all duration-500" 
-                                    style={{width: `${(activeRun.currentHealth / character.stats.maxHealth) * 100}%`}}
-                                ></div>
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-300 font-bold">Zdrowie</span>
+                                <span className="text-white">{Math.ceil(activeRun.currentHealth)} / {character.stats.maxHealth}</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                                <div className="bg-red-600 h-full transition-all" style={{ width: `${hpPercent}%` }}></div>
+                            </div>
+                            <p className="text-xs text-red-400 mt-1 italic">Zdrowie nie regeneruje się automatycznie!</p>
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-300 font-bold">Mana</span>
+                                <span className="text-white">{Math.ceil(activeRun.currentMana)} / {character.stats.maxMana}</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                                <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
                             </div>
                         </div>
-                        <div className="bg-slate-800 p-4 rounded-lg border border-slate-600">
-                            <p className="text-gray-400 text-sm mb-1">Twoja Mana</p>
-                            <p className="text-2xl font-bold text-white mb-2">{activeRun.currentMana} / {character.stats.maxMana}</p>
-                            <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden">
-                                <div 
-                                    className="bg-blue-600 h-full transition-all duration-500" 
-                                    style={{width: `${(activeRun.currentMana / character.stats.maxMana) * 100}%`}}
-                                ></div>
-                            </div>
+                         <div className="bg-slate-800/50 p-2 rounded flex justify-between items-center text-sm border border-slate-700/50">
+                            <span className="text-gray-400 flex items-center gap-1"><BoltIcon className="h-4 w-4 text-sky-400"/> Twoja Energia</span>
+                            <span className={`font-mono font-bold ${canAfford ? 'text-white' : 'text-red-500'}`}>{character.stats.currentEnergy}</span>
                         </div>
-                    </div>
-                </div>
-
-                <button 
-                    onClick={onRetreat}
-                    disabled={isMoving}
-                    className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-gray-200 font-bold rounded-lg transition-colors disabled:opacity-50"
-                >
-                    Ucieczka (Zachowaj Łupy)
-                </button>
-            </div>
-
-            {/* Middle: Action / Combat */}
-            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col items-center justify-center relative overflow-hidden">
-                {isMoving ? (
-                    <div className="text-center z-10 w-full px-8">
-                        <SwordsIcon className="h-16 w-16 text-red-500 animate-pulse mx-auto mb-4"/>
-                        <h3 className="text-2xl font-bold text-white mb-4">Walka w toku...</h3>
-                        <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden border border-slate-600">
-                            <div 
-                                className="bg-red-600 h-full transition-all duration-100 ease-linear"
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center z-10">
-                        <EnemyPreview floorNumber={activeRun.currentFloor} enemies={floorEnemies} />
-                        
-                        <button 
-                            onClick={() => onFight(energyCost, currentFloorConfig?.duration || 0)}
-                            disabled={!hasEnergy}
-                            className={`
-                                px-10 py-5 rounded-2xl font-extrabold text-xl shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3
-                                ${hasEnergy ? 'bg-red-700 hover:bg-red-600 text-white' : 'bg-slate-700 text-gray-500 cursor-not-allowed'}
-                            `}
-                        >
-                            <SwordsIcon className="h-8 w-8"/>
-                            WALCZ
-                        </button>
-                        {energyCost > 0 && (
-                            <p className={`mt-3 text-sm font-bold ${hasEnergy ? 'text-sky-400' : 'text-red-500'}`}>
-                                Koszt: {energyCost} <BoltIcon className="h-4 w-4 inline"/>
-                            </p>
-                        )}
-                    </div>
-                )}
-                
-                {/* Background Decoration */}
-                <div className="absolute inset-0 opacity-10 pointer-events-none flex items-center justify-center">
-                    <ShieldIcon className="h-64 w-64 text-white"/>
-                </div>
-            </div>
-
-            {/* Right: Accumulated Rewards */}
-            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col">
-                <h3 className="text-lg font-bold text-amber-400 mb-4 border-b border-slate-700 pb-2">Zgromadzone Łupy</h3>
-                <div className="space-y-4 flex-grow overflow-y-auto pr-2 custom-scrollbar">
-                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
-                        <span className="text-gray-300">Złoto</span>
-                        <span className="font-mono font-bold text-amber-400">+{activeRun.accumulatedRewards.gold}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
-                        <span className="text-gray-300">XP</span>
-                        <span className="font-mono font-bold text-sky-400">+{activeRun.accumulatedRewards.experience}</span>
                     </div>
                     
-                    {activeRun.accumulatedRewards.items.length > 0 && (
-                        <div>
-                            <p className="text-xs text-gray-500 uppercase font-bold mb-2 mt-4">Przedmioty ({activeRun.accumulatedRewards.items.length})</p>
-                            <div className="space-y-1">
-                                {activeRun.accumulatedRewards.items.map((item, idx) => {
-                                    const tmpl = gameData.itemTemplates.find(t => t.id === item.templateId);
-                                    if (!tmpl) return null;
-                                    return (
-                                        <div 
-                                            key={idx} 
-                                            className="text-sm bg-slate-800/30 p-2 rounded cursor-help hover:bg-slate-800 transition-colors"
-                                            onMouseEnter={() => setHoveredItem({ item, template: tmpl })}
-                                            onMouseLeave={() => setHoveredItem(null)}
-                                        >
-                                            <span className="text-white">{tmpl.name}</span>
-                                        </div>
-                                    );
-                                })}
+                    <div className="mb-4">
+                        <EnemyPreview floorNumber={activeRun.currentFloor} enemies={currentFloorEnemies} />
+                        {nextFloorEnemies.length > 0 && (
+                             <div className="mt-2 opacity-60 scale-90 origin-left">
+                                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Następne Piętro</p>
+                                 <EnemyPreview floorNumber={activeRun.currentFloor + 1} enemies={nextFloorEnemies} />
+                             </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-3 mt-4">
+                    {isMoving ? (
+                        <div className="w-full py-4 bg-slate-800 rounded-lg border border-slate-600 relative overflow-hidden h-20 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-slate-700/50 flex items-center justify-center text-gray-300 text-sm font-bold z-10">
+                                PRZECHODZENIE... {Math.round(progress)}%
                             </div>
+                            <div className="absolute inset-0 h-full bg-indigo-900 transition-all duration-100 ease-linear" style={{ width: `${progress}%` }}></div>
                         </div>
+                    ) : (
+                         <button 
+                            onClick={() => onFight(floorCost, floorDuration)}
+                            disabled={!canAfford}
+                            className="w-full py-4 bg-red-700 hover:bg-red-600 rounded-lg text-white font-bold text-xl shadow-lg border border-red-500 flex flex-col items-center justify-center gap-1 transition-transform hover:scale-[1.02] disabled:bg-slate-700 disabled:border-slate-600 disabled:text-gray-500"
+                        >
+                            <div className="flex items-center gap-2"><SwordsIcon className="h-6 w-6"/> WALCZ</div>
+                            <div className="text-xs font-normal opacity-80 flex gap-3">
+                                <span>Koszt: {floorCost} En</span>
+                                {floorDuration > 0 && <span>Czas: {floorDuration}s</span>}
+                            </div>
+                        </button>
                     )}
+                    
+                    <button 
+                        onClick={onRetreat}
+                        disabled={isMoving}
+                        className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200 font-semibold border border-slate-500 disabled:opacity-50"
+                    >
+                        Uciekaj z Łupami
+                    </button>
+                </div>
+            </div>
+
+            {/* Right: Loot Stash */}
+            <div className="lg:col-span-2 bg-slate-900/40 p-6 rounded-xl border border-amber-900/30 flex flex-col">
+                <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
+                    <CoinsIcon className="h-6 w-6"/> Zgromadzone Łupy
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    Te przedmioty trafią do Ciebie <strong>tylko</strong> jeśli uciekniesz lub ukończysz wieżę. Porażka oznacza ich utratę.
+                </p>
+                
+                <div className="flex gap-4 mb-4 text-lg font-mono bg-slate-800/50 p-3 rounded-lg">
+                    <span className="text-amber-400 font-bold flex items-center gap-1">{rewards.gold} <span className="text-xs text-gray-500">Złota</span></span>
+                    <span className="text-sky-400 font-bold flex items-center gap-1">{rewards.experience} <span className="text-xs text-gray-500">XP</span></span>
+                </div>
+
+                <div className="flex-grow overflow-y-auto pr-2 space-y-2 bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                    {rewards.items.length === 0 && Object.keys(rewards.essences).length === 0 && <p className="text-gray-500 text-center py-8">Pusty worek.</p>}
+                    
+                    {/* Essences */}
+                    {Object.entries(rewards.essences).map(([key, amount]) => {
+                        const type = key as EssenceType;
+                        const rarity = essenceToRarityMap[type];
+                        const style = rarityStyles[rarity];
+                        return (
+                            <div key={key} className={`flex justify-between items-center bg-slate-800 p-2 rounded border ${style.border}`}>
+                                <span className={`text-sm ${style.text} font-bold`}>{t(`resources.${type}`)}</span>
+                                <span className={`font-mono font-bold ${style.text}`}>x{amount as number}</span>
+                            </div>
+                        );
+                    })}
+
+                    {/* Items */}
+                    {rewards.items.map((item: ItemInstance) => {
+                        const template = gameData.itemTemplates.find(t => t.id === item.templateId);
+                        if (!template) return null;
+                        return (
+                            <div 
+                                key={item.uniqueId} 
+                                className="relative group cursor-help"
+                                onMouseEnter={() => setHoveredItem({ item, template })}
+                                onMouseLeave={() => setHoveredItem(null)}
+                            >
+                                <ItemListItem 
+                                    item={item} 
+                                    template={template} 
+                                    affixes={gameData.affixes} 
+                                    isSelected={false} 
+                                    onClick={()=>{}} 
+                                    showPrimaryStat={false} 
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
