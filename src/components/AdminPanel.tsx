@@ -29,14 +29,15 @@ import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
 import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 import { TowersTab } from './admin/tabs/TowersTab';
-import { CraftingSettingsTab } from './admin/tabs/CraftingSettingsTab'; // NEW
+import { CraftingSettingsTab } from './admin/tabs/CraftingSettingsTab';
+import { PlayerRanksTab } from './admin/tabs/PlayerRanksTab'; // NEW
 
 interface AdminPanelProps {
   gameData: GameData;
   onGameDataUpdate: (key: string, data: any) => void;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor' | 'towers' | 'crafting';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor' | 'towers' | 'crafting' | 'playerRanks';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpdate }) => {
   const { t } = useTranslation();
@@ -81,13 +82,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
           return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       case 'towers': 
           return <TowersTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
+      case 'playerRanks':
+          return <PlayerRanksTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />; // NEW
       
       // Zakładki Zarządzania Systemami
       case 'guilds': return <GuildsTab />;
       case 'hunting': return <HuntingTab settings={settings} onSettingsUpdate={handleSettingsUpdate} />;
       case 'pvp': return <PvpTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onResetAllPvpCooldowns={api.resetAllPvpCooldowns} />;
       case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
-      case 'crafting': return <CraftingSettingsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />; // NEW
+      case 'crafting': return <CraftingSettingsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />; 
 
       // Zakładki Narzędziowe / Audyty
       case 'itemInspector': return <ItemInspectorTab gameData={safeGameData} />;
@@ -110,10 +113,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
     { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },
     { id: 'affixes', label: 'Afiksy' },
+    { id: 'playerRanks', label: 'Rangi' }, // NEW
     { id: 'quests', label: 'Zadania' },
     { id: 'university', label: 'Umiejętności' },
     { id: 'rituals', label: 'Rytuały' },
-    { id: 'crafting', label: 'Rzemiosło (Ekonomia)' }, // NEW
+    { id: 'crafting', label: 'Rzemiosło (Ekonomia)' }, 
     { id: 'guilds', label: 'Gildie' },
     { id: 'hunting', label: 'Polowania' },
     { id: 'trivia', label: 'Info' },

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult } from '../types';
+import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult, PlayerRank } from '../types';
 import { TrophyIcon } from './icons/TrophyIcon';
 import { useTranslation } from '../contexts/LanguageContext';
 import { CrossedSwordsIcon } from './icons/CrossedSwordsIcon';
@@ -120,6 +120,11 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       return null;
   };
 
+  const getPlayerRank = (rankId?: string): PlayerRank | null => {
+      if (!rankId || !gameData?.playerRanks) return null;
+      return gameData.playerRanks.find(r => r.id === rankId) || null;
+  };
+
   return (
     <ContentPanel title={t('ranking.title')}>
       {viewingProfileName && (
@@ -185,6 +190,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
                     const disabledReason = getAttackDisabledReason(player);
                     const isProtected = player.pvpProtectionUntil > Date.now();
                     const isAdmin = player.id === 1 || player.name === 'Kazujoshi';
+                    const playerRank = getPlayerRank(player.activeRankId);
                     
                     return (
                     <tr 
@@ -199,13 +205,22 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
                         <td className="p-4 font-medium text-white">
                             <div className="flex items-center">
                                 <span className={`h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0 ${player.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={player.isOnline ? 'Online' : 'Offline'}></span>
-                                <span 
-                                    className="cursor-pointer hover:text-indigo-400 hover:underline"
-                                    onClick={() => setViewingProfileName(player.name)}
-                                >
-                                    {player.guildTag && <span className="text-amber-400 font-mono mr-1">[{player.guildTag}]</span>}
-                                    {player.name}
-                                </span>
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-1">
+                                        {playerRank && (
+                                            <span className="text-[10px] px-1 rounded uppercase font-black tracking-tighter mr-1" style={{ backgroundColor: playerRank.backgroundColor, color: playerRank.textColor }}>
+                                                {playerRank.name}
+                                            </span>
+                                        )}
+                                        <span 
+                                            className="cursor-pointer hover:text-indigo-400 hover:underline"
+                                            onClick={() => setViewingProfileName(player.name)}
+                                        >
+                                            {player.guildTag && <span className="text-amber-400 font-mono mr-1">[{player.guildTag}]</span>}
+                                            {player.name}
+                                        </span>
+                                    </div>
+                                </div>
                                 {isAdmin && (
                                     <span className="ml-2 text-xs font-bold text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full">
                                         {t('ranking.administrator')}

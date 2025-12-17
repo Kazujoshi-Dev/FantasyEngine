@@ -1,12 +1,13 @@
 
 import React, { useMemo } from 'react';
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, PlayerRank } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; 
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { HandshakeIcon } from '../icons/HandshakeIcon';
+import { useCharacter } from '@/contexts/CharacterContext';
 
 export const rarityStyles = {
     [ItemRarity.Common]: { border: 'border-slate-700', bg: 'bg-slate-800', shadow: 'shadow-none', text: 'text-gray-300' },
@@ -40,9 +41,105 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
-// ===================================================================================
-//                                Item Details Panel
-// ===================================================================================
+// FIX: Implemented ItemTooltip
+export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[] }> = ({ instance, template, affixes }) => {
+    return (
+        <div className="absolute z-[100] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 bottom-full mb-2 left-1/2 -translate-x-1/2 w-64">
+            <div className="bg-slate-900 border-2 border-slate-700 rounded-lg p-3 shadow-2xl">
+                <ItemDetailsPanel item={instance} template={template} affixes={affixes} compact size="small" />
+            </div>
+        </div>
+    );
+};
+
+// FIX: Implemented ItemListItem
+export const ItemListItem: React.FC<{
+    item: ItemInstance;
+    template: ItemTemplate;
+    affixes: Affix[];
+    isSelected?: boolean;
+    onClick: (e: React.MouseEvent) => void;
+    onDoubleClick?: () => void;
+    showPrimaryStat?: boolean;
+    isEquipped?: boolean;
+    meetsRequirements?: boolean;
+    draggable?: string;
+    onDragStart?: (e: React.DragEvent) => void;
+    className?: string;
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, showPrimaryStat, isEquipped, meetsRequirements = true, draggable, onDragStart, className = '' }) => {
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+    const style = rarityStyles[template.rarity];
+
+    return (
+        <div 
+            onClick={onClick}
+            onDoubleClick={onDoubleClick}
+            draggable={draggable === 'true'}
+            onDragStart={onDragStart}
+            className={`
+                relative p-2 rounded-lg border-2 cursor-pointer transition-all duration-200 flex items-center gap-3
+                ${style.border} ${style.bg}/20 hover:${style.bg}/40
+                ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-400' : ''}
+                ${!meetsRequirements ? 'opacity-50' : ''}
+                ${className}
+            `}
+        >
+            <div className={`w-10 h-10 rounded bg-slate-900 flex-shrink-0 flex items-center justify-center border ${style.border}`}>
+                {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-700" />}
+            </div>
+            <div className="flex-grow overflow-hidden">
+                <p className={`text-xs font-bold truncate ${style.text}`}>{fullName}</p>
+                <div className="flex gap-2 text-[10px] text-gray-500">
+                    <span>Lvl {template.requiredLevel}</span>
+                    {item.upgradeLevel ? <span className="text-amber-500">+{item.upgradeLevel}</span> : null}
+                </div>
+            </div>
+            {isEquipped && <span className="text-[10px] bg-indigo-900 text-indigo-300 px-1 rounded border border-indigo-700">E</span>}
+            {item.isBorrowed && <HandshakeIcon className="w-3 h-3 text-indigo-400" />}
+        </div>
+    );
+};
+
+// FIX: Implemented EmptySlotListItem
+export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
+    <div className="p-2 rounded-lg border-2 border-slate-800 bg-slate-900/50 flex items-center gap-3 opacity-40">
+        <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700 flex items-center justify-center">
+            <ShieldIcon className="w-6 h-6 text-slate-700" />
+        </div>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-widest">{slotName}</p>
+    </div>
+);
+
+// FIX: Implemented ItemList
+export const ItemList: React.FC<{
+    items: ItemInstance[];
+    itemTemplates: ItemTemplate[];
+    affixes: Affix[];
+    selectedItem: ItemInstance | null;
+    selectedIds?: Set<string>;
+    onSelectItem: (item: ItemInstance) => void;
+    showPrice?: 'buy' | 'buy-special' | 'sell' | ((item: ItemInstance) => 'buy' | 'buy-special' | 'sell');
+}> = ({ items, itemTemplates, affixes, selectedItem, selectedIds, onSelectItem, showPrice }) => {
+    return (
+        <div className="space-y-1">
+            {items.map(item => {
+                const template = itemTemplates.find(t => t.id === item.templateId);
+                if (!template) return null;
+                const isSelected = selectedItem?.uniqueId === item.uniqueId || selectedIds?.has(item.uniqueId);
+                return (
+                    <ItemListItem
+                        key={item.uniqueId}
+                        item={item}
+                        template={template}
+                        affixes={affixes}
+                        isSelected={isSelected}
+                        onClick={() => onSelectItem(item)}
+                    />
+                );
+            })}
+        </div>
+    );
+};
 
 export const ItemDetailsPanel: React.FC<{
     item: ItemInstance | null;
@@ -57,6 +154,7 @@ export const ItemDetailsPanel: React.FC<{
     compact?: boolean;
 }> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false }) => {
     const { t } = useTranslation();
+    const { gameData } = useCharacter();
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
     
@@ -197,6 +295,10 @@ export const ItemDetailsPanel: React.FC<{
     const totalRequiredLevel = Math.max(template.requiredLevel || 0, prefix?.requiredLevel || 0, suffix?.requiredLevel || 0);
     const allRequiredStats: Partial<CharacterStats> = {...template.requiredStats, ...prefix?.requiredStats, ...suffix?.requiredStats};
 
+    const crafterRank = (item as any).crafterRankId && gameData?.playerRanks 
+        ? gameData.playerRanks.find(r => r.id === (item as any).crafterRankId) 
+        : null;
+
     return (
         <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-1' : 'pr-2'}`}>
@@ -251,122 +353,17 @@ export const ItemDetailsPanel: React.FC<{
             
             {item.crafterName && (
                 <div className={`mt-3 pt-2 border-t border-slate-700/50 text-right ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
-                    <span className="text-gray-500">{t('item.createdBy')}: </span>
+                    <span className="text-gray-500">Wykuty przez: </span>
+                    {crafterRank && (
+                         <span className="px-1 rounded text-[10px] uppercase font-black tracking-tighter mr-1" style={{ backgroundColor: crafterRank.backgroundColor, color: crafterRank.textColor }}>
+                            {crafterRank.name}
+                        </span>
+                    )}
                     <span className="text-amber-500 font-bold italic">{item.crafterName}</span>
                 </div>
             )}
 
             {children && <div className="flex-shrink-0">{children}</div>}
-        </div>
-    );
-};
-
-export const ItemListItem: React.FC<{
-    item: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    isSelected: boolean;
-    onClick: (e: React.MouseEvent) => void;
-    onDoubleClick?: () => void;
-    showPrimaryStat?: boolean;
-    isEquipped?: boolean;
-    meetsRequirements?: boolean;
-    draggable?: boolean | 'true' | 'false';
-    onDragStart?: (e: React.DragEvent) => void;
-    className?: string;
-}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, ...props }) => {
-    const { t } = useTranslation();
-    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-    const style = rarityStyles[template.rarity];
-    const upgradeLevel = item.upgradeLevel || 0;
-
-    return (
-        <div
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
-            className={`flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-200 ${
-                isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent'
-            } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${props.className || ''}`}
-            draggable={props.draggable}
-            onDragStart={props.onDragStart}
-        >
-            <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative`}>
-                {template.icon ? (
-                    <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain" />
-                ) : (
-                    <ShieldIcon className="w-6 h-6 text-slate-500" />
-                )}
-                {isEquipped && (
-                    <div className="absolute -top-1 -left-1 bg-green-500 rounded-full p-0.5 shadow-sm">
-                        <ShieldIcon className="w-2.5 h-2.5 text-white" />
-                    </div>
-                )}
-            </div>
-            <div className="flex-grow min-w-0">
-                <p className={`text-sm font-bold truncate ${style.text}`}>
-                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
-                </p>
-                <p className="text-[10px] text-gray-500 uppercase">{t(`equipment.slot.${template.slot}`)}</p>
-            </div>
-            {item.isBorrowed && (
-                <div className="ml-2 text-indigo-400" title="Wypożyczony">
-                    <HandshakeIcon className="h-4 w-4" />
-                </div>
-            )}
-        </div>
-    );
-};
-
-export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
-    <div className="flex items-center p-2 rounded-lg bg-slate-800/30 border border-dashed border-slate-700 opacity-50">
-        <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900/50 flex items-center justify-center mr-3">
-            <ShieldIcon className="w-6 h-6 text-slate-800" />
-        </div>
-        <div className="flex-grow">
-            <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{slotName}</p>
-        </div>
-    </div>
-);
-
-export const ItemTooltip: React.FC<{
-    instance: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-}> = ({ instance, template, affixes }) => {
-    return (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} />
-        </div>
-    );
-};
-
-export const ItemList: React.FC<{
-    items: ItemInstance[];
-    itemTemplates: ItemTemplate[];
-    affixes: Affix[];
-    selectedItem: ItemInstance | null;
-    onSelectItem: (item: ItemInstance) => void;
-    selectedIds?: Set<string>;
-    showPrice?: 'buy' | 'buy-special' | 'sell' | ((item: ItemInstance) => 'buy' | 'buy-special' | 'sell' | null);
-}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds }) => {
-    return (
-        <div className="space-y-1">
-            {items.map(item => {
-                const template = itemTemplates.find(t => t.id === item.templateId);
-                if (!template) return null;
-                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds && selectedIds.has(item.uniqueId));
-                
-                return (
-                    <ItemListItem
-                        key={item.uniqueId}
-                        item={item}
-                        template={template}
-                        affixes={affixes}
-                        isSelected={!!isSelected}
-                        onClick={() => onSelectItem(item)}
-                    />
-                );
-            })}
         </div>
     );
 };

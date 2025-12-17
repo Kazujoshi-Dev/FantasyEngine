@@ -1,17 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Language } from '../types';
+import { Language, PlayerRank } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { ShieldIcon } from './icons/ShieldIcon';
+import { StarIcon } from './icons/StarIcon';
 
 export const Options: React.FC = () => {
-  const { character, updateCharacter } = useCharacter();
+  const { character, updateCharacter, gameData } = useCharacter();
   const { t } = useTranslation();
 
-  if (!character) return null;
+  if (!character || !gameData) return null;
 
   const [selectedLang, setSelectedLang] = useState(character.settings?.language || Language.PL);
   const [description, setDescription] = useState(character.description || '');
@@ -26,16 +27,25 @@ export const Options: React.FC = () => {
   // Email State
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
-  // Ensure we check if email is present (even if empty string somehow, treat as empty)
   const hasEmail = !!character.email && character.email.length > 0;
 
   const [saveProfileStatus, setSaveProfileStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const myRanks = useMemo(() => {
+    return (gameData.playerRanks || []).filter(r => character.ownedRankIds?.includes(r.id));
+  }, [gameData.playerRanks, character.ownedRankIds]);
+
+  const handleRankSelect = async (rankId: string | null) => {
+      try {
+          const updated = await api.setActiveRank(rankId);
+          updateCharacter(updated);
+      } catch (e: any) { alert(e.message); }
+  };
 
   const handleSaveProfile = async () => {
     setSaveProfileStatus('saving');
     setEmailStatus({ type: null, message: '' });
     
-    // Explicitly define update object to avoid type errors
     const updateData: any = {
         description,
         avatarUrl,
@@ -45,15 +55,12 @@ export const Options: React.FC = () => {
         }
     };
 
-    // Include email only if provided and not already set
     if (!hasEmail && email.trim()) {
         updateData.email = email.trim();
     }
 
     try {
         const updatedChar = await api.updateCharacter(updateData);
-        
-        // Optimistic update of email property if backend confirms update but doesn't return joined user data immediately
         if (updateData.email && !updatedChar.email) {
              updatedChar.email = updateData.email;
         }
@@ -63,12 +70,11 @@ export const Options: React.FC = () => {
         
         if (updateData.email) {
              setEmailStatus({ type: 'success', message: 'Email został przypisany do konta.' });
-             setEmail(''); // Clear input
+             setEmail(''); 
         }
 
         setTimeout(() => setSaveProfileStatus('idle'), 2000);
     } catch (e: any) {
-        // If it's an email conflict
         if (e.message && e.message.includes('email')) {
              setEmailStatus({ type: 'error', message: 'Ten email jest już zajęty.' });
         } else {
@@ -108,11 +114,37 @@ export const Options: React.FC = () => {
   return (
     <ContentPanel title={t('options.title')}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Column 1: Profile & General */}
           <div className="space-y-6">
+              {/* Ranks Selection */}
+              {myRanks.length > 0 && (
+                  <div className="bg-slate-900/40 p-6 rounded-xl border border-amber-500/30">
+                      <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2"><StarIcon className="h-5 w-5"/> Twoje Rangi</h3>
+                      <div className="grid grid-cols-1 gap-2">
+                          <button 
+                            onClick={() => handleRankSelect(null)}
+                            className={`p-3 rounded-lg border text-left transition-all ${!character.activeRankId ? 'bg-slate-700 border-indigo-500 ring-1 ring-indigo-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
+                          >
+                              <span className="font-bold text-gray-400">Brak Rangi</span>
+                          </button>
+                          {myRanks.map(rank => (
+                              <button
+                                key={rank.id}
+                                onClick={() => handleRankSelect(rank.id)}
+                                className={`p-3 rounded-lg border text-left transition-all flex justify-between items-center ${character.activeRankId === rank.id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-700 hover:border-slate-500'}`}
+                                style={{ backgroundColor: rank.backgroundColor }}
+                              >
+                                  <span className="font-bold" style={{ color: rank.textColor }}>{rank.name}</span>
+                                  <span className="text-[10px] opacity-70 italic" style={{ color: rank.textColor }}>
+                                      {Object.entries(rank.bonus || {}).map(([k,v]) => `+${v} ${k}`).join(', ')}
+                                  </span>
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
               <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
                 <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('options.profile.title')}</h3>
-                
                 <div className="space-y-4">
                     <div>
                         <label htmlFor="language-select" className="block text-sm font-medium text-gray-300 mb-1">{t('options.language')}</label>
@@ -159,7 +191,6 @@ export const Options: React.FC = () => {
                         />
                     </div>
                     
-                    {/* Email Section */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Adres Email (Odzyskiwanie hasła)</label>
                         {hasEmail ? (
@@ -206,24 +237,11 @@ export const Options: React.FC = () => {
                     </div>
                 </div>
               </div>
-              
-              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
-                  <h3 className="text-xl font-bold text-gray-300 mb-4">Debugowanie</h3>
-                  <button 
-                    onClick={handleSyncTime}
-                    className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold text-white transition-colors"
-                  >
-                      Synchronizuj Zegar (Napraw Błędy Czasu)
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2">Użyj tej opcji, jeśli liczniki czasu (wyprawy, polowania) nie zgadzają się z rzeczywistością.</p>
-              </div>
           </div>
 
-          {/* Column 2: Security */}
           <div>
               <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
                 <h3 className="text-xl font-bold text-red-400 mb-4">{t('options.security.title')}</h3>
-                
                 <form onSubmit={handleChangePassword} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.oldPassword')}</label>

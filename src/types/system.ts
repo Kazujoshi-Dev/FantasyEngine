@@ -1,11 +1,19 @@
 
 import { Language, Tab } from './common';
-import { ItemRarity, ItemTemplate, Affix, CraftingSettings } from './items';
+import { ItemRarity, ItemTemplate, Affix, CraftingSettings, RolledAffixStats } from './items';
 import { Location, Expedition, Quest, Skill, Ritual, Tower } from './world';
 import { Enemy } from './combat';
 
 export interface TraderSettings {
     rarityChances: Partial<Record<ItemRarity, number>>;
+}
+
+export interface PlayerRank {
+    id: string;
+    name: string;
+    backgroundColor: string;
+    textColor: string;
+    bonus: RolledAffixStats;
 }
 
 export interface GameSettings {
@@ -38,6 +46,7 @@ export interface GameData {
     skills: Skill[];
     rituals: Ritual[];
     towers: Tower[];
+    playerRanks?: PlayerRank[];
     settings?: GameSettings;
 }
 

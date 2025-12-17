@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { Guild, GuildRole } from '../../types';
+import { Guild, GuildRole, PlayerRank } from '../../types';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { useCharacter } from '@/contexts/CharacterContext';
 
 interface GuildMembersProps {
     guild: Guild;
@@ -12,6 +13,7 @@ interface GuildMembersProps {
 
 export const GuildMembers: React.FC<GuildMembersProps> = ({ guild, myRole, onUpdate }) => {
     const { t } = useTranslation();
+    const { gameData } = useCharacter();
     const canManage = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
     const isLeader = myRole === GuildRole.LEADER;
 
@@ -23,6 +25,11 @@ export const GuildMembers: React.FC<GuildMembersProps> = ({ guild, myRole, onUpd
         } catch (e: any) {
             alert(e.message);
         }
+    };
+
+    const getPlayerRank = (rankId?: string): PlayerRank | null => {
+        if (!rankId || !gameData?.playerRanks) return null;
+        return gameData.playerRanks.find(r => r.id === rankId) || null;
     };
 
     const roleOrder = { [GuildRole.LEADER]: 0, [GuildRole.OFFICER]: 1, [GuildRole.MEMBER]: 2, [GuildRole.RECRUIT]: 3 };
@@ -51,31 +58,41 @@ export const GuildMembers: React.FC<GuildMembersProps> = ({ guild, myRole, onUpd
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
-                        {sortedMembers.map(m => (
-                            <tr key={m.userId} className="hover:bg-slate-800/30">
-                                <td className="p-3 font-medium text-white flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${m.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={m.isOnline ? 'Online' : 'Offline'}></span>
-                                    {m.name}
-                                </td>
-                                <td className={`p-3 font-bold ${getRoleColor(m.role)}`}>
-                                    {m.role}
-                                </td>
-                                <td className="p-3 text-center">{m.level}</td>
-                                <td className="p-3 text-right space-x-2">
-                                    {canManage && m.role !== 'LEADER' && roleOrder[myRole!] < roleOrder[m.role] && (
-                                        <>
-                                            <button onClick={() => handleAction(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-red-900 rounded">Wyrzuć</button>
-                                            {isLeader && (
-                                                <>
-                                                    {m.role !== 'OFFICER' && <button onClick={() => handleAction(m.userId, 'promote')} className="text-green-400 hover:text-green-300 text-xs px-2 py-1 border border-green-900 rounded">Awansuj</button>}
-                                                    {m.role !== 'RECRUIT' && <button onClick={() => handleAction(m.userId, 'demote')} className="text-yellow-400 hover:text-yellow-300 text-xs px-2 py-1 border border-yellow-900 rounded">Degraduj</button>}
-                                                </>
+                        {sortedMembers.map(m => {
+                            const rank = getPlayerRank((m as any).activeRankId);
+                            return (
+                                <tr key={m.userId} className="hover:bg-slate-800/30">
+                                    <td className="p-3 font-medium text-white flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${m.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={m.isOnline ? 'Online' : 'Offline'}></span>
+                                        <div className="flex items-center gap-1">
+                                            {rank && (
+                                                <span className="text-[10px] px-1 rounded uppercase font-black tracking-tighter" style={{ backgroundColor: rank.backgroundColor, color: rank.textColor }}>
+                                                    {rank.name}
+                                                </span>
                                             )}
-                                        </>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                            {m.name}
+                                        </div>
+                                    </td>
+                                    <td className={`p-3 font-bold ${getRoleColor(m.role)}`}>
+                                        {m.role}
+                                    </td>
+                                    <td className="p-3 text-center">{m.level}</td>
+                                    <td className="p-3 text-right space-x-2">
+                                        {canManage && m.role !== 'LEADER' && roleOrder[myRole!] < roleOrder[m.role] && (
+                                            <>
+                                                <button onClick={() => handleAction(m.userId, 'kick')} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-red-900 rounded">Wyrzuć</button>
+                                                {isLeader && (
+                                                    <>
+                                                        {m.role !== 'OFFICER' && <button onClick={() => handleAction(m.userId, 'promote')} className="text-green-400 hover:text-green-300 text-xs px-2 py-1 border border-green-900 rounded">Awansuj</button>}
+                                                        {m.role !== 'RECRUIT' && <button onClick={() => handleAction(m.userId, 'demote')} className="text-yellow-400 hover:text-yellow-300 text-xs px-2 py-1 border border-yellow-900 rounded">Degraduj</button>}
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

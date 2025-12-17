@@ -113,6 +113,10 @@ export interface PlayerCharacter {
     windowBackgroundUrl?: string;
     
     activeTowerRun?: ActiveTowerRun;
+
+    // Rank System
+    activeRankId?: string;
+    ownedRankIds?: string[];
 }
 
 export interface PublicCharacterProfile {
@@ -128,6 +132,7 @@ export interface PublicCharacterProfile {
     avatarUrl?: string;
     description?: string;
     isOnline: boolean;
+    activeRankId?: string;
 }
 
 export interface AdminCharacterInfo {
@@ -152,4 +157,5 @@ export interface RankingPlayer {
     pvpProtectionUntil: number;
     guildTag?: string;
     isOnline: boolean;
+    activeRankId?: string;
 }

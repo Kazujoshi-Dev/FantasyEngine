@@ -153,8 +153,11 @@ export const performCraft = (
     const selectedTemplate = possibleTemplates[Math.floor(Math.random() * possibleTemplates.length)];
     const newItem = createItemInstance(selectedTemplate.id, gameData.itemTemplates, gameData.affixes, rollStatsChar);
     
-    // -- Set Crafter Name --
+    // -- Set Crafter Data --
     newItem.crafterName = character.name;
+    if (character.activeRankId) {
+        (newItem as any).crafterRankId = character.activeRankId;
+    }
 
     // -- Blacksmith Bonus: Masterwork Finish --
     if (character.characterClass === CharacterClass.Blacksmith) {

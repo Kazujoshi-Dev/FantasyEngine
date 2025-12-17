@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { TavernMessage } from '../types';
+import { TavernMessage, PlayerRank } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { StarIcon } from './icons/StarIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
@@ -13,7 +13,7 @@ interface TavernProps {
 }
 
 export const Tavern: React.FC<TavernProps> = ({ messages, activeUsers, onSendMessage }) => {
-    const { character } = useCharacter();
+    const { character, gameData } = useCharacter();
     const { t } = useTranslation();
     const [newMessage, setNewMessage] = useState('');
     const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -33,6 +33,11 @@ export const Tavern: React.FC<TavernProps> = ({ messages, activeUsers, onSendMes
             }
         }
     }, [messages]);
+
+    const getPlayerRank = (rankId?: string): PlayerRank | null => {
+        if (!rankId || !gameData?.playerRanks) return null;
+        return gameData.playerRanks.find(r => r.id === rankId) || null;
+    };
 
     if (!character) return null;
 
@@ -58,10 +63,23 @@ export const Tavern: React.FC<TavernProps> = ({ messages, activeUsers, onSendMes
                         {messages.map((msg) => {
                             const isMe = msg.user_id === character.id;
                             const isAdmin = msg.character_name === 'Kazujoshi';
+                            // Note: backend currently doesn't provide rank in TavernMessage. 
+                            // In a real scenario, the backend would join the rank. 
+                            // For this UI demo, we'll assume it might be present or added.
+                            const rank = getPlayerRank((msg as any).activeRankId);
+                            
                             return (
                                 <div key={msg.id} className={`flex items-end gap-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-xl p-3 rounded-lg ${isMe ? 'bg-indigo-700 text-white' : 'bg-slate-800'}`}>
                                         <div className="flex items-center gap-2 mb-1">
+                                            {rank && (
+                                                <span 
+                                                    className="text-[10px] px-1 rounded uppercase font-black tracking-tighter" 
+                                                    style={{ backgroundColor: rank.backgroundColor, color: rank.textColor }}
+                                                >
+                                                    {rank.name}
+                                                </span>
+                                            )}
                                             <span className={`font-bold text-sm ${isAdmin ? 'text-amber-400' : 'text-gray-400'}`}>
                                                 {msg.character_name}
                                             </span>
