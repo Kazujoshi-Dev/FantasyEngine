@@ -1,16 +1,19 @@
 
-import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { PlayerCharacter, GameData } from '../types';
 import { calculateDerivedStats } from '@/logic/stats';
+import { api } from '../api';
 
 interface CharacterContextType {
     character: PlayerCharacter | null;
-    baseCharacter: PlayerCharacter | null; // The raw, non-calculated character
-    derivedCharacter: PlayerCharacter | null; // The fully calculated character with item stats
+    baseCharacter: PlayerCharacter | null;
+    derivedCharacter: PlayerCharacter | null;
     setCharacter: React.Dispatch<React.SetStateAction<PlayerCharacter | null>>;
     gameData: GameData | null;
     setGameData: React.Dispatch<React.SetStateAction<GameData | null>>;
     updateCharacter: (updatedCharacter: PlayerCharacter) => void;
+    loading: boolean;
+    error: string | null;
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(undefined);
@@ -18,6 +21,41 @@ const CharacterContext = createContext<CharacterContextType | undefined>(undefin
 export const CharacterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [baseCharacter, setCharacter] = useState<PlayerCharacter | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const initData = async () => {
+            const token = api.getAuthToken();
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                // Synchronizacja czasu i pobranie danych równolegle
+                const [char, data] = await Promise.all([
+                    api.getCharacter(),
+                    api.getGameData(),
+                    api.synchronizeTime()
+                ]);
+                
+                setCharacter(char);
+                setGameData(data);
+            } catch (err: any) {
+                console.error("Initialization error:", err);
+                setError(err.message);
+                if (err.message === 'Invalid token') {
+                    localStorage.removeItem('token');
+                    window.location.reload();
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initData();
+    }, []);
 
     const derivedCharacter = useMemo(() => {
         if (!baseCharacter || !gameData) return baseCharacter;
@@ -26,14 +64,13 @@ export const CharacterProvider: React.FC<{ children: ReactNode }> = ({ children 
             baseCharacter, 
             gameData.itemTemplates || [], 
             gameData.affixes || [],
-            baseCharacter.guildBarracksLevel,
-            baseCharacter.guildShrineLevel,
+            baseCharacter.guildBarracksLevel || 0,
+            baseCharacter.guildShrineLevel || 0,
             gameData.skills || [],
             baseCharacter.activeGuildBuffs || []
         );
     }, [baseCharacter, gameData]);
     
-    // Wrapper to allow optimistic UI updates
     const updateCharacter = (updatedCharacter: PlayerCharacter) => {
         setCharacter(updatedCharacter);
     };
@@ -46,7 +83,9 @@ export const CharacterProvider: React.FC<{ children: ReactNode }> = ({ children 
             setCharacter, 
             gameData, 
             setGameData,
-            updateCharacter
+            updateCharacter,
+            loading,
+            error
         }}>
             {children}
         </CharacterContext.Provider>
