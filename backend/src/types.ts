@@ -224,15 +224,6 @@ export interface GuildBuff {
     expiresAt: number;
 }
 
-// FIX: Added PlayerRank interface
-export interface PlayerRank {
-    id: string;
-    name: string;
-    backgroundColor: string;
-    textColor: string;
-    bonus: RolledAffixStats;
-}
-
 export interface PlayerCharacter {
     id: number;
     user_id: number; // For admin/backend consistency
@@ -293,10 +284,6 @@ export interface PlayerCharacter {
     windowBackgroundUrl?: string;
     
     activeTowerRun?: ActiveTowerRun;
-
-    // FIX: Added rank-related properties
-    activeRankId?: string;
-    ownedRankIds?: string[];
 }
 
 export interface AdminCharacterInfo {
@@ -745,7 +732,6 @@ export interface RankingPlayer {
     pvpProtectionUntil: number;
     guildTag?: string;
     isOnline: boolean;
-    activeRankId?: string;
 }
 
 export interface GuildRankingEntry {
@@ -979,8 +965,6 @@ export interface GameData {
     skills: Skill[];
     rituals: Ritual[];
     towers: Tower[];
-    // FIX: Added playerRanks field
-    playerRanks?: PlayerRank[];
     settings?: GameSettings;
 }
 
@@ -997,8 +981,6 @@ export interface PublicCharacterProfile {
     avatarUrl?: string;
     description?: string;
     isOnline: boolean;
-    // FIX: Added activeRankId
-    activeRankId?: string;
 }
 
 export interface PublicGuildProfile {

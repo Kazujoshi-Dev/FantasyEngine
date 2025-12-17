@@ -1,19 +1,11 @@
 
 import { Language, Tab } from './common';
-import { ItemRarity, ItemTemplate, Affix, CraftingSettings, RolledAffixStats } from './items';
+import { ItemRarity, ItemTemplate, Affix, CraftingSettings } from './items';
 import { Location, Expedition, Quest, Skill, Ritual, Tower } from './world';
 import { Enemy } from './combat';
 
 export interface TraderSettings {
     rarityChances: Partial<Record<ItemRarity, number>>;
-}
-
-export interface PlayerRank {
-    id: string;
-    name: string;
-    backgroundImageUrl?: string;
-    textColor: string;
-    bonus: RolledAffixStats;
 }
 
 export interface GameSettings {
@@ -46,7 +38,6 @@ export interface GameData {
     skills: Skill[];
     rituals: Ritual[];
     towers: Tower[];
-    playerRanks?: PlayerRank[];
     settings?: GameSettings;
 }
 
@@ -83,7 +74,7 @@ export interface OrphanAuditResult {
 }
 
 export interface ItemSearchResult {
-    item: any; 
+    item: any; // Using any or specific ItemInstance if imports allow without cycle, here loose for admin tool
     template: ItemTemplate;
     locations: {
         userId: number;

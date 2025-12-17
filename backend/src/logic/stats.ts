@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings, PlayerRank } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -10,57 +10,6 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-// FIX: Exported upgrade cost and capacity helper functions
-export const getCampUpgradeCost = (level: number) => {
-    const gold = Math.floor(150 * Math.pow(level, 1.5));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
-    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
-    return { gold, essences };
-};
-
-export const getTreasuryUpgradeCost = (level: number) => {
-    const gold = Math.floor(200 * Math.pow(level, 1.6));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: level * 2 });
-    if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) });
-    return { gold, essences };
-};
-
-export const getChestUpgradeCost = getTreasuryUpgradeCost;
-
-export const getWarehouseUpgradeCost = (level: number) => {
-    const baseCost = getTreasuryUpgradeCost(level);
-    return {
-        gold: baseCost.gold * 2,
-        essences: baseCost.essences.map(e => ({ type: e.type, amount: e.amount * 2 }))
-    };
-};
-
-export const getBackpackUpgradeCost = (level: number) => {
-    const gold = Math.floor(150 * Math.pow(level, 1.5));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
-    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
-    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
-    return { gold, essences };
-};
-
-export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
-
-export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
-    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
-        return settings.workshopUpgrades[level];
-    }
-    // Fallback default logic
-    const gold = Math.floor(300 * Math.pow(level, 1.6));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
-    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
-    if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
-    return { gold, essences };
-};
-
 export const calculateDerivedStatsOnServer = (
     character: PlayerCharacter, 
     itemTemplates: ItemTemplate[], 
@@ -68,8 +17,7 @@ export const calculateDerivedStatsOnServer = (
     guildBarracksLevel: number = 0, 
     guildShrineLevel: number = 0, 
     skills: Skill[] = [],
-    activeGuildBuffs: GuildBuff[] = [],
-    playerRanks: PlayerRank[] = []
+    activeGuildBuffs: GuildBuff[] = []
 ): PlayerCharacter => {
     
     // Safety checks: ensure arrays are actually arrays
@@ -126,7 +74,7 @@ export const calculateDerivedStatsOnServer = (
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
 
     // Helper to apply stats from rolled affixes with cap at upgrade +5
-    const applyAffixBonuses = (source: RolledAffixStats, affixUpgradeBonusFactor: number = 0) => {
+    const applyAffixBonuses = (source: RolledAffixStats, affixUpgradeBonusFactor: number) => {
         const applyUpgrade = (val: number | undefined) => (Number(val) || 0) + Math.round((Number(val) || 0) * affixUpgradeBonusFactor);
         const applyFloatUpgrade = (val: number | undefined) => (Number(val) || 0) + ((Number(val) || 0) * affixUpgradeBonusFactor);
 
@@ -157,14 +105,6 @@ export const calculateDerivedStatsOnServer = (
         bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
         bonusDodgeChance += applyFloatUpgrade(source.dodgeChanceBonus);
     };
-
-    // Apply Rank Bonus
-    if (character.activeRankId && playerRanks && playerRanks.length > 0) {
-        const activeRank = playerRanks.find(r => r.id === character.activeRankId);
-        if (activeRank && activeRank.bonus) {
-            applyAffixBonuses(activeRank.bonus, 0); // Rank bonuses don't scale with upgrade level
-        }
-    }
 
     for (const slot in safeEquipment) {
         const itemInstance = safeEquipment[slot as EquipmentSlot];
@@ -348,4 +288,60 @@ export const calculateDerivedStatsOnServer = (
             dodgeChance
         }
     };
+};
+
+export const getCampUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
+    return { gold, essences };
+};
+
+export const getTreasuryUpgradeCost = (level: number) => {
+    const gold = Math.floor(200 * Math.pow(level, 1.6));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: level * 2 });
+    if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) });
+    return { gold, essences };
+};
+
+export const getChestUpgradeCost = getTreasuryUpgradeCost;
+
+export const getWarehouseUpgradeCost = (level: number) => {
+    const baseCost = getTreasuryUpgradeCost(level);
+    return {
+        gold: baseCost.gold * 2,
+        essences: baseCost.essences.map(e => ({ type: e.type, amount: e.amount * 2 }))
+    };
+};
+
+export const getBackpackUpgradeCost = (level: number) => {
+    const gold = Math.floor(150 * Math.pow(level, 1.5));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
+    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
+    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
+    return { gold, essences };
+};
+
+export const getWarehouseCapacity = (level: number) => {
+    return 5 + ((level - 1) * 3);
+};
+
+export const getTreasuryCapacity = (level: number) => {
+    return Math.floor(500 * Math.pow(level, 1.8));
+};
+
+export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
+    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
+        return settings.workshopUpgrades[level];
+    }
+    // Fallback default logic
+    const gold = Math.floor(300 * Math.pow(level, 1.6));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
+    return { gold, essences };
 };

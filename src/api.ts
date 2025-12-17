@@ -97,8 +97,6 @@ export const api = {
     startTravel: (destinationLocationId: string) => fetchApi('/character/travel', { method: 'POST', body: JSON.stringify({ destinationLocationId }) }),
     getCharacterNames: () => fetchApi('/character/names'),
 
-    setActiveRank: (rankId: string | null) => fetchApi('/character/active-rank', { method: 'POST', body: JSON.stringify({ rankId }) }),
-
     // Expedition
     startExpedition: (expeditionId: string) => fetchApi('/expedition/start', { method: 'POST', body: JSON.stringify({ expeditionId }) }),
     completeExpedition: () => fetchApi('/expedition/complete', { method: 'POST' }),
@@ -211,7 +209,6 @@ export const api = {
     deleteCharacterItem: (userId: number, uniqueId: string) => fetchApi(`/admin/characters/${userId}/items/${uniqueId}`, { method: 'DELETE' }),
     updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/character/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
     adminGiveItem: (userId: number, itemData: any) => fetchApi('/admin/give-item', { method: 'POST', body: JSON.stringify({ userId, ...itemData }) }),
-    adminGrantRank: (userId: number, rankId: string) => fetchApi('/admin/grant-rank', { method: 'POST', body: JSON.stringify({ userId, rankId }) }),
     
     findItemById: (id: string) => fetchApi(`/admin/items/find/${id}`),
     runCharacterDataAudit: () => fetchApi('/admin/audit/fix-characters', { method: 'POST' }),
