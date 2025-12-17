@@ -143,6 +143,15 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
+// Config for affix chances based on Item Rarity
+const affixChanceByRarity: Record<ItemRarity, number> = {
+    [ItemRarity.Common]: 5,     // 5% chance
+    [ItemRarity.Uncommon]: 20,  // 20% chance
+    [ItemRarity.Rare]: 50,      // 50% chance
+    [ItemRarity.Epic]: 80,      // 80% chance
+    [ItemRarity.Legendary]: 100 // Always has affixes
+};
+
 export const createItemInstance = (templateId: string, allItemTemplates: ItemTemplate[], allAffixes: Affix[], character?: PlayerCharacter, allowAffixes = true): ItemInstance => {
     const template = allItemTemplates.find(t => t.id === templateId);
     if (!template) {
@@ -194,10 +203,10 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
             .filter(a => a.type === AffixType.Suffix && a.spawnChances && (a.spawnChances[itemCategory] || 0) > 0)
             .map(a => ({ ...a, weight: a.spawnChances[itemCategory] || 0 }));
 
-        // Standard chance to get an affix at all (e.g. 50% for prefix, 50% for suffix)
-        // Can be adjusted or made config-based.
-        const prefixChance = 50 + (luck * 0.1); 
-        const suffixChance = 50 + (luck * 0.1);
+        // Chance to get an affix depends on Item Rarity + Luck
+        const baseChance = affixChanceByRarity[template.rarity] || 10;
+        const prefixChance = baseChance + (luck * 0.1); 
+        const suffixChance = baseChance + (luck * 0.1);
 
         if (validPrefixes.length > 0 && Math.random() * 100 < prefixChance) {
             const pickedPrefix = pickWeighted(validPrefixes);
@@ -217,14 +226,14 @@ export const createItemInstance = (templateId: string, allItemTemplates: ItemTem
 
         // Second chance logic if a character is provided (reroll for affix if missed)
         if (character) {
-            if (!instance.prefixId && validPrefixes.length > 0 && Math.random() * 100 < luck * 0.1) {
+            if (!instance.prefixId && validPrefixes.length > 0 && Math.random() * 100 < luck * 0.05) {
                 const luckyPrefix = pickWeighted(validPrefixes);
                 if(luckyPrefix) {
                     instance.prefixId = luckyPrefix.id;
                     instance.rolledPrefix = rollAffixStats(luckyPrefix, luck);
                 }
             }
-            if (!instance.suffixId && validSuffixes.length > 0 && Math.random() * 100 < luck * 0.1) {
+            if (!instance.suffixId && validSuffixes.length > 0 && Math.random() * 100 < luck * 0.05) {
                 const luckySuffix = pickWeighted(validSuffixes);
                 if (luckySuffix) {
                     instance.suffixId = luckySuffix.id;
