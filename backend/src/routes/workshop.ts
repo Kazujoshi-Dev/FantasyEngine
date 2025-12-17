@@ -1,9 +1,8 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData } from '../types.js';
-import { getWorkshopUpgradeCost } from '../logic/stats.js';
+import { getWorkshopUpgradeCost, calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { performCraft, performReforge } from '../logic/crafting.js';
 
 const router = express.Router();
@@ -88,18 +87,31 @@ router.post('/reforge', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona");
+        
         let character: PlayerCharacter = charRes.rows[0].data;
 
         const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 
-        character = performReforge(character, gameData, itemId, type);
+        // CRITICAL FIX: Calculate derived stats (including Luck from items) before reforging
+        const charWithStats = calculateDerivedStatsOnServer(
+            character, 
+            gameData.itemTemplates || [], 
+            gameData.affixes || [],
+            0, 0, // Guild levels are fetched within calculateDerivedStats if needed, here we provide defaults
+            gameData.skills || []
+        );
 
-        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        // Perform reforge using the character with calculated Luck
+        const updatedCharacter = performReforge(charWithStats, gameData, itemId, type);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(updatedCharacter), req.user.id]);
         await client.query('COMMIT');
-        res.json(character);
+        res.json(updatedCharacter);
     } catch (err: any) {
         await client.query('ROLLBACK');
+        console.error("Reforge error:", err);
         res.status(500).json({ message: err.message });
     } finally {
         client.release();

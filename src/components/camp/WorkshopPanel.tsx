@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AnvilIcon } from '../icons/AnvilIcon';
 import { BriefcaseIcon } from '../icons/BriefcaseIcon';
@@ -23,6 +22,7 @@ export const WorkshopPanel: React.FC = () => {
     const { character, baseCharacter, updateCharacter, gameData } = useCharacter();
     const { t } = useTranslation();
     const [isUpgrading, setIsUpgrading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [craftingSlot, setCraftingSlot] = useState<EquipmentSlot | 'ring' | 'consumable'>(EquipmentSlot.MainHand);
     const [craftingRarity, setCraftingRarity] = useState<ItemRarity>(ItemRarity.Common);
     const [reforgeTab, setReforgeTab] = useState<'values' | 'affixes'>('values');
@@ -65,12 +65,14 @@ export const WorkshopPanel: React.FC = () => {
     const handleCraft = async () => {
         if (!isRarityUnlocked(craftingRarity)) return alert(t('camp.workshop.lowLevel'));
         if (!canAffordCraft) return alert(t('camp.workshop.noResources'));
+        setIsProcessing(true);
         try {
             const { character: updatedChar, item } = await api.craftItem(craftingSlot, craftingRarity);
             updateCharacter(updatedChar);
             setLastCraftedItem(item);
             setSelectedReforgeItem(null); 
         } catch(e:any) { alert(e.message); }
+        finally { setIsProcessing(false); }
     };
 
     const reforgeUnlocked = level >= 10;
@@ -85,12 +87,29 @@ export const WorkshopPanel: React.FC = () => {
         : false;
 
     const handleReforge = async () => {
-        if (!selectedReforgeItem) return;
+        if (!selectedReforgeItem || isProcessing) return;
+        setIsProcessing(true);
         try {
             const updated = await api.reforgeItem(selectedReforgeItem.uniqueId, reforgeTab);
+            
+            // CRITICAL FIX: After reforge, the item in selectedReforgeItem is stale (old reference).
+            // We must find the updated item in the new character inventory to refresh the preview.
+            const updatedItem = updated.inventory.find(i => i.uniqueId === selectedReforgeItem.uniqueId);
+            
             updateCharacter(updated);
-            alert(t('camp.workshop.reforgeSuccess'));
+            if (updatedItem) {
+                setSelectedReforgeItem(updatedItem);
+            }
+            
+            // Visual feedback
+            const reforgeEffect = document.getElementById('reforge-preview-container');
+            if (reforgeEffect) {
+                reforgeEffect.classList.add('brightness-150', 'scale-105');
+                setTimeout(() => reforgeEffect.classList.remove('brightness-150', 'scale-105'), 300);
+            }
+
         } catch(e:any) { alert(e.message); }
+        finally { setIsProcessing(false); }
     };
 
     const previewItem = selectedReforgeItem || lastCraftedItem;
@@ -195,10 +214,10 @@ export const WorkshopPanel: React.FC = () => {
                             </div>
                             <button 
                                 onClick={handleReforge}
-                                disabled={!canAffordReforge}
+                                disabled={!canAffordReforge || isProcessing}
                                 className="w-full py-2 bg-purple-700 hover:bg-purple-600 rounded-lg text-white font-bold text-sm transition-all shadow-lg shadow-purple-900/30 disabled:bg-slate-700 disabled:shadow-none"
                             >
-                                {t('camp.workshop.reforgeAction')}
+                                {isProcessing ? 'Przetwarzanie...' : t('camp.workshop.reforgeAction')}
                             </button>
                         </div>
                     )}
@@ -209,9 +228,9 @@ export const WorkshopPanel: React.FC = () => {
                         <h3 className="font-bold text-indigo-300 text-sm uppercase tracking-wider text-center">Podgląd Przedmiotu</h3>
                     </div>
                     
-                    <div className="flex-grow overflow-y-auto p-4 custom-scrollbar bg-slate-900/10">
+                    <div id="reforge-preview-container" className="flex-grow overflow-y-auto p-4 custom-scrollbar bg-slate-900/10 transition-all duration-300">
                         {previewItem && previewTemplate ? (
-                            <div className="animate-fade-in h-full">
+                            <div className="animate-fade-in h-full" key={previewItem.uniqueId + JSON.stringify(previewItem.rolledBaseStats)}>
                                 <ItemDetailsPanel 
                                     item={previewItem} 
                                     template={previewTemplate} 
@@ -309,10 +328,10 @@ export const WorkshopPanel: React.FC = () => {
 
                         <button 
                             onClick={handleCraft} 
-                            disabled={!canAffordCraft || !isRarityUnlocked(craftingRarity)}
+                            disabled={!canAffordCraft || !isRarityUnlocked(craftingRarity) || isProcessing}
                             className="w-full py-3 bg-green-700 hover:bg-green-600 text-white font-bold rounded-lg shadow-lg shadow-green-900/20 transition-all hover:scale-[1.01] active:scale-95 disabled:bg-slate-700 disabled:shadow-none flex items-center justify-center gap-2"
                         >
-                            <AnvilIcon className="h-5 w-5"/> {t('camp.workshop.action')}
+                            <AnvilIcon className="h-5 w-5"/> {isProcessing ? 'Wytwarzanie...' : t('camp.workshop.action')}
                         </button>
                     </div>
                 </div>
