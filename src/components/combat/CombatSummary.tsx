@@ -1,290 +1,83 @@
 
-import React, { useState, useEffect } from 'react';
-import { ExpeditionRewardSummary, PvpRewardSummary, CharacterStats, EnemyStats, ItemTemplate, Affix, Enemy, ItemInstance, PartyMember, EquipmentSlot } from '../../types';
+import React, { useState } from 'react';
+import { ExpeditionRewardSummary, ItemTemplate, Affix, Enemy, PartyMember, CharacterStats, ItemInstance, EssenceType, PvpRewardSummary, PlayerCharacter } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { CombatLogRow } from './CombatLog';
+import { ItemDetailsPanel, rarityStyles } from '../shared/ItemSlot';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
-import { ItemDetailsPanel, rarityStyles, ItemListItem } from '../shared/ItemSlot';
-import { CombatLogRow } from './CombatLog';
-import { api } from '../../api';
 
-interface CombatSummaryProps {
-    reward: ExpeditionRewardSummary | PvpRewardSummary;
-    onClose: () => void;
-    characterName: string;
-    itemTemplates?: ItemTemplate[];
-    affixes?: Affix[];
-    enemies?: Enemy[];
-    isHunting?: boolean;
-    isRaid?: boolean;
-    isPvp?: boolean;
-    pvpData?: { attacker: any, defender: any };
-    isDefenderView?: boolean;
-    huntingMembers?: PartyMember[];
-    opponents?: PartyMember[];
-    allRewards?: any;
-    initialEnemy?: Enemy;
-    messageId?: number;
-    bossName?: string;
-    raidId?: number;
-    backgroundImage?: string;
+interface CombatantStatsPanelProps {
+    name: string;
+    stats: CharacterStats;
+    isLeft?: boolean;
 }
 
-export const CombatantStatsPanel: React.FC<{ name: string; stats: CharacterStats | EnemyStats }> = ({ name, stats }) => {
+export const CombatantStatsPanel: React.FC<CombatantStatsPanelProps> = ({ name, stats, isLeft }) => {
     const { t } = useTranslation();
     return (
-        <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-gray-300 mb-2 border-b border-slate-600 pb-1">{name}</h4>
-            <div className="text-xs space-y-1 text-gray-400">
-                <div className="flex justify-between"><span>{t('statistics.health')}:</span> <span className="text-white">{stats.maxHealth}</span></div>
-                <div className="flex justify-between"><span>{t('statistics.damage')}:</span> <span className="text-white">{stats.minDamage}-{stats.maxDamage}</span></div>
-                <div className="flex justify-between"><span>{t('statistics.armor')}:</span> <span className="text-white">{stats.armor}</span></div>
-                <div className="flex justify-between"><span>{t('statistics.critChance')}:</span> <span className="text-white">{stats.critChance.toFixed(1)}%</span></div>
-                <div className="flex justify-between"><span>{t('statistics.dodgeChance')}:</span> <span className="text-white">{(stats.dodgeChance || 0).toFixed(1)}%</span></div>
-                {stats.magicDamageMax > 0 && <div className="flex justify-between"><span>{t('statistics.magicDamage')}:</span> <span className="text-purple-300">{stats.magicDamageMin}-{stats.magicDamageMax}</span></div>}
+        <div className={`p-4 bg-slate-800/50 rounded-lg border border-slate-700 ${isLeft ? 'text-left' : 'text-right'}`}>
+            <h4 className="font-bold text-white mb-2 text-lg">{name}</h4>
+            <div className="space-y-1 text-sm text-gray-300">
+                <p>{t('statistics.health')}: <span className="text-white font-mono">{Math.ceil(stats.currentHealth)}/{stats.maxHealth}</span></p>
+                <p>{t('statistics.armor')}: <span className="text-white font-mono">{stats.armor}</span></p>
+                <p>{t('statistics.physicalDamage')}: <span className="text-white font-mono">{stats.minDamage}-{stats.maxDamage}</span></p>
+                <p>{t('statistics.critChance')}: <span className="text-white font-mono">{stats.critChance.toFixed(1)}%</span></p>
+                <p>{t('statistics.dodgeChance')}: <span className="text-white font-mono">{stats.dodgeChance.toFixed(1)}%</span></p>
             </div>
         </div>
     );
 };
 
-export const ExpeditionSummaryModal: React.FC<CombatSummaryProps> = ({
-    reward, onClose, characterName, itemTemplates = [], affixes = [], enemies = [],
-    isHunting, isRaid, isPvp, pvpData, isDefenderView, huntingMembers, opponents, allRewards, initialEnemy, messageId, bossName, raidId, backgroundImage
+interface ExpeditionSummaryModalProps {
+    reward: ExpeditionRewardSummary;
+    onClose: () => void;
+    characterName: string;
+    itemTemplates: ItemTemplate[];
+    affixes: Affix[];
+    enemies: Enemy[];
+    messageId?: number | null;
+    raidId?: number | null;
+    backgroundImage?: string;
+    isHunting?: boolean;
+    isRaid?: boolean;
+    huntingMembers?: PartyMember[];
+    opponents?: PartyMember[];
+    allRewards?: Record<string, any>;
+    bossName?: string;
+    initialEnemy?: Enemy;
+    encounteredEnemies?: Enemy[];
+    isPvp?: boolean;
+    pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
+    isDefenderView?: boolean;
+}
+
+export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
+    reward, onClose, characterName, itemTemplates, affixes, enemies,
+    isHunting, isRaid, huntingMembers, opponents, allRewards, bossName, initialEnemy, encounteredEnemies,
+    isPvp, pvpData, isDefenderView, backgroundImage
 }) => {
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<'rewards' | 'log' | 'stats'>('rewards');
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+    const [activeTab, setActiveTab] = useState<'summary' | 'log'>('summary');
 
-    const {
-        isVictory, totalGold, totalExperience, itemsFound, essencesFound, combatLog,
-        rewardBreakdown = [], itemsLostCount, encounteredEnemies = []
-    } = reward as ExpeditionRewardSummary; // Safe cast for shared props
+    const isVictory = reward.isVictory;
+    const title = isVictory ? t('expedition.victory') : t('expedition.defeat');
+    const titleColor = isVictory ? 'text-amber-400' : 'text-red-500';
 
-    // Determine Title
-    let title = isVictory ? t('expedition.victory') : t('expedition.defeat');
-    if (isPvp) {
-        title = t('pvp.duelResult');
-    }
-
-    // Determine Enemies involved for display
-    const uniqueEnemies = encounteredEnemies.length > 0 ? encounteredEnemies : (initialEnemy ? [initialEnemy] : []);
-    
-    // Stats Tab Logic
-    const renderStatsTab = () => {
-        if (isPvp && pvpData) {
-            return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <CombatantStatsPanel name={pvpData.attacker.name} stats={pvpData.attacker.stats} />
-                    <CombatantStatsPanel name={pvpData.defender.name} stats={pvpData.defender.stats} />
-                </div>
-            );
-        }
-        if (isHunting || isRaid) {
-             return (
-                 <div className="space-y-4">
-                     {huntingMembers && (
-                         <div>
-                             <h4 className="text-green-400 font-bold mb-2">Twoja Drużyna</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                 {huntingMembers.map((m, idx) => m.stats ? <CombatantStatsPanel key={idx} name={m.characterName} stats={m.stats} /> : null)}
-                             </div>
-                         </div>
-                     )}
-                     {opponents && (
-                         <div>
-                             <h4 className="text-red-400 font-bold mb-2">Przeciwnicy</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                 {opponents.map((m, idx) => m.stats ? <CombatantStatsPanel key={idx} name={m.characterName} stats={m.stats} /> : null)}
-                             </div>
-                         </div>
-                     )}
-                     {!opponents && uniqueEnemies.length > 0 && (
-                          <div>
-                             <h4 className="text-red-400 font-bold mb-2">Przeciwnicy</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                 {uniqueEnemies.map((e, idx) => <CombatantStatsPanel key={idx} name={e.name} stats={e.stats} />)}
-                             </div>
-                         </div>
-                     )}
-                 </div>
-             )
-        }
-        return (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="text-center text-gray-500 italic col-span-2">Statystyki szczegółowe dostępne w trybie PvP i Polowań.</div>
-            </div>
-        );
+    // Essence Rendering Helper
+    const essenceToRarityMap: Record<EssenceType, any> = {
+        [EssenceType.Common]: rarityStyles['Common'],
+        [EssenceType.Uncommon]: rarityStyles['Uncommon'],
+        [EssenceType.Rare]: rarityStyles['Rare'],
+        [EssenceType.Epic]: rarityStyles['Epic'],
+        [EssenceType.Legendary]: rarityStyles['Legendary'],
     };
 
-    const modalStyle = backgroundImage 
-        ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
-        : {};
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
-            <div 
-                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative" 
-                onClick={e => e.stopPropagation()}
-                style={modalStyle}
-            >
-                {/* Overlay for readability */}
-                <div className="absolute inset-0 bg-slate-900/90 pointer-events-none"></div>
-
-                <div className="relative z-10 flex flex-col h-full">
-                    {/* Header */}
-                    <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 backdrop-blur-md">
-                        <div>
-                            <h2 className={`text-3xl font-extrabold ${isVictory ? 'text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'text-red-500'}`}>
-                                {title}
-                            </h2>
-                            <p className="text-gray-400 text-sm mt-1">
-                                {isPvp ? (
-                                    <>
-                                        {isVictory ? (isDefenderView ? t('pvp.defenseWon') : t('pvp.attackWon')) : (isDefenderView ? t('pvp.defenseLost') : t('pvp.attackLost'))}
-                                    </>
-                                ) : (
-                                    bossName ? `Boss: ${bossName}` : t('expedition.combatReport')
-                                )}
-                            </p>
-                        </div>
-                        <div className="flex gap-2">
-                             {/* Tabs */}
-                            <div className="flex bg-slate-800/80 rounded-lg p-1 mr-4">
-                                <button onClick={() => setActiveTab('rewards')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'rewards' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>Nagrody</button>
-                                <button onClick={() => setActiveTab('log')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'log' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>Log Walki</button>
-                                <button onClick={() => setActiveTab('stats')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>Statystyki</button>
-                            </div>
-                            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-slate-700 rounded-full">
-                                ✕
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-grow overflow-y-auto p-6 custom-scrollbar relative">
-                        {activeTab === 'rewards' && (
-                            <div className="space-y-6 animate-fade-in">
-                                {/* Summary Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-3 bg-amber-500/20 rounded-lg"><CoinsIcon className="h-6 w-6 text-amber-400" /></div>
-                                            <div>
-                                                <p className="text-xs text-gray-400 uppercase tracking-widest">{t('resources.gold')}</p>
-                                                <p className="text-2xl font-mono font-bold text-white">+{totalGold.toLocaleString()}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-3 bg-sky-500/20 rounded-lg"><StarIcon className="h-6 w-6 text-sky-400" /></div>
-                                            <div>
-                                                <p className="text-xs text-gray-400 uppercase tracking-widest">{t('expedition.experience')}</p>
-                                                <p className="text-2xl font-mono font-bold text-white">+{totalExperience.toLocaleString()}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Items & Essences */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                                        <h4 className="text-sm font-bold text-gray-300 uppercase mb-3 border-b border-slate-700 pb-2">{t('expedition.itemsFound')}</h4>
-                                        <div className="space-y-2">
-                                            {itemsFound.length === 0 && <p className="text-gray-500 text-sm italic py-2">Brak przedmiotów.</p>}
-                                            {itemsFound.map((item, index) => {
-                                                const template = itemTemplates.find(t => t.id === item.templateId);
-                                                if (!template) return null;
-                                                return (
-                                                    <div 
-                                                        key={index} 
-                                                        onMouseEnter={() => setHoveredItem({ item, template })}
-                                                        onMouseLeave={() => setHoveredItem(null)}
-                                                        className="relative"
-                                                    >
-                                                        <ItemListItem 
-                                                            item={item} 
-                                                            template={template} 
-                                                            affixes={affixes} 
-                                                            isSelected={false} 
-                                                            onClick={() => {}} 
-                                                            showPrimaryStat={false}
-                                                            className="hover:bg-slate-700/50 cursor-help"
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
-                                            {itemsLostCount && itemsLostCount > 0 && (
-                                                <p className="text-xs text-red-400 mt-2 bg-red-900/20 p-2 rounded border border-red-900/30">
-                                                    {t('expedition.itemsLost', { count: itemsLostCount })}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                                        <h4 className="text-sm font-bold text-gray-300 uppercase mb-3 border-b border-slate-700 pb-2">{t('expedition.essencesFound')}</h4>
-                                        <div className="space-y-2">
-                                             {Object.entries(essencesFound).length === 0 && <p className="text-gray-500 text-sm italic py-2">Brak esencji.</p>}
-                                             {Object.entries(essencesFound).map(([type, amount]) => (
-                                                 <div key={type} className="flex justify-between items-center bg-slate-900/30 p-2 rounded">
-                                                     <span className="text-gray-300 text-sm">{t(`resources.${type}`)}</span>
-                                                     <span className="font-mono font-bold text-white">+{amount}</span>
-                                                 </div>
-                                             ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {allRewards && (
-                                    <div className="mt-4 pt-4 border-t border-slate-700">
-                                        <h4 className="text-sm font-bold text-gray-400 mb-2">Nagrody Pozostałych Graczy</h4>
-                                        <div className="text-xs text-gray-500 space-y-1">
-                                            {Object.entries(allRewards).map(([name, rew]: [string, any]) => {
-                                                if (name === characterName) return null;
-                                                return (
-                                                    <div key={name} className="flex justify-between">
-                                                        <span>{name}</span>
-                                                        <span>{rew.gold}g, {rew.experience}xp, {rew.items?.length || 0} it., {Object.values(rew.essences || {}).reduce((a:number,b:any)=>a+b, 0) as number} es.</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'log' && (
-                            <div className="space-y-1 font-mono text-sm bg-black/30 p-4 rounded-lg animate-fade-in h-full overflow-y-auto custom-scrollbar">
-                                {combatLog.map((log, index) => (
-                                    <CombatLogRow key={index} log={log} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
-                                ))}
-                                {combatLog.length === 0 && <p className="text-gray-500 text-center">Brak wpisów w logu.</p>}
-                            </div>
-                        )}
-                        
-                        {activeTab === 'stats' && (
-                            <div className="animate-fade-in">
-                                {renderStatsTab()}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="p-6 border-t border-slate-700 bg-slate-900/50 backdrop-blur-md flex justify-end">
-                        <button 
-                            onClick={onClose} 
-                            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg shadow-indigo-500/20 transition-all transform hover:scale-105"
-                        >
-                            Zamknij Raport
-                        </button>
-                    </div>
-                </div>
-            </div>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 overflow-y-auto">
             {/* Hover Item Tooltip */}
             {hoveredItem && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -293,6 +86,171 @@ export const ExpeditionSummaryModal: React.FC<CombatSummaryProps> = ({
                     </div>
                 </div>
             )}
+
+            <div 
+                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col relative overflow-hidden max-h-[90vh]"
+                style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundBlendMode: 'multiply' } : undefined}
+            >
+                {/* Header */}
+                <div className="p-6 text-center border-b border-slate-700 bg-slate-900/80">
+                    <h2 className={`text-4xl font-extrabold mb-2 uppercase tracking-widest ${titleColor} drop-shadow-lg`}>{title}</h2>
+                    <div className="flex justify-center gap-4 text-sm font-medium">
+                        <button 
+                            onClick={() => setActiveTab('summary')}
+                            className={`px-4 py-2 rounded-full transition-colors ${activeTab === 'summary' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                        >
+                            Podsumowanie
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('log')}
+                            className={`px-4 py-2 rounded-full transition-colors ${activeTab === 'log' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                        >
+                            Log Walki
+                        </button>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-grow overflow-y-auto p-6 bg-slate-900/60 custom-scrollbar">
+                    
+                    {/* SUMMARY TAB */}
+                    {activeTab === 'summary' && (
+                        <div className="space-y-8 animate-fade-in">
+                            
+                            {/* PvP Header */}
+                            {isPvp && pvpData && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center mb-6">
+                                    <CombatantStatsPanel name={pvpData.attacker.name} stats={pvpData.attacker.stats} isLeft={true} />
+                                    <div className="text-center">
+                                        <SwordsIcon className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                                        <p className="text-gray-400 font-bold text-sm">VS</p>
+                                    </div>
+                                    <CombatantStatsPanel name={pvpData.defender.name} stats={pvpData.defender.stats} isLeft={false} />
+                                </div>
+                            )}
+
+                            {/* Rewards Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <h4 className="text-lg font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                                        <CoinsIcon className="h-5 w-5" /> {t('expedition.totalRewards')}
+                                    </h4>
+                                    
+                                    <div className="space-y-2">
+                                        {reward.totalGold > 0 && (
+                                            <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                <span className="text-gray-300">{t('resources.gold')}</span>
+                                                <span className="font-mono font-bold text-amber-400">+{reward.totalGold}</span>
+                                            </div>
+                                        )}
+                                        {reward.totalExperience > 0 && (
+                                            <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                <span className="text-gray-300">{t('expedition.experience')}</span>
+                                                <span className="font-mono font-bold text-sky-400">+{reward.totalExperience}</span>
+                                            </div>
+                                        )}
+                                        {Object.entries(reward.essencesFound).map(([key, val]) => {
+                                            if (!val) return null;
+                                            const rarityStyle = essenceToRarityMap[key as EssenceType];
+                                            return (
+                                                <div key={key} className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                    <span className={`${rarityStyle.text}`}>{t(`resources.${key}`)}</span>
+                                                    <span className="font-mono font-bold text-white">+{val}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <h4 className="text-lg font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                                        <ShieldIcon className="h-5 w-5" /> {t('expedition.itemsFound')}
+                                    </h4>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                        {reward.itemsFound.length === 0 && <p className="text-gray-500 italic text-sm text-center py-4">Brak przedmiotów</p>}
+                                        {reward.itemsFound.map((item, idx) => {
+                                            const template = itemTemplates.find(t => t.id === item.templateId);
+                                            if (!template) return null;
+                                            const style = rarityStyles[template.rarity];
+                                            
+                                            return (
+                                                <div 
+                                                    key={idx}
+                                                    onMouseEnter={() => setHoveredItem({ item, template })}
+                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                    className={`p-2 rounded bg-slate-900/50 border border-slate-700 hover:border-slate-500 cursor-help flex items-center gap-3 transition-colors`}
+                                                >
+                                                    {template.icon && <img src={template.icon} className="w-8 h-8 bg-slate-800 rounded object-contain" />}
+                                                    <div>
+                                                        <p className={`font-bold text-sm ${style.text}`}>{template.name} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}</p>
+                                                        <p className="text-[10px] text-gray-500">{t(`rarity.${template.rarity}`)}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Party Results (Raid/Hunting) */}
+                            {(isHunting || isRaid) && huntingMembers && (
+                                <div className="mt-6">
+                                    <h4 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">Wyniki Drużyny</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {huntingMembers.map(member => {
+                                            const memberRewards = allRewards?.[member.characterName];
+                                            return (
+                                                <div key={member.userId} className="bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+                                                    <div>
+                                                        <span className="font-bold text-white">{member.characterName}</span>
+                                                        <span className="text-xs text-gray-400 ml-2">Lvl {member.level}</span>
+                                                    </div>
+                                                    {memberRewards && (
+                                                        <div className="text-right text-xs">
+                                                            <div className="text-amber-400">{memberRewards.gold} Gold</div>
+                                                            <div className="text-sky-400">{memberRewards.experience} XP</div>
+                                                            {memberRewards.items && memberRewards.items.length > 0 && (
+                                                                <div className="text-purple-400">{memberRewards.items.length} Przedmiotów</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    )}
+
+                    {/* LOG TAB */}
+                    {activeTab === 'log' && (
+                        <div className="bg-black/40 p-4 rounded-lg font-mono text-sm h-full overflow-y-auto custom-scrollbar border border-slate-700 shadow-inner">
+                            {reward.combatLog.map((log, index) => (
+                                <div key={index} className="mb-1 border-b border-white/5 pb-1 last:border-0">
+                                    <CombatLogRow 
+                                        log={log} 
+                                        characterName={characterName} 
+                                        isHunting={isHunting}
+                                        huntingMembers={huntingMembers}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-slate-700 bg-slate-900/80 flex justify-end">
+                    <button 
+                        onClick={onClose}
+                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105"
+                    >
+                        Zamknij
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
