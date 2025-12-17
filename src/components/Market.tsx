@@ -119,13 +119,27 @@ export const Market: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     };
 
+    // Helper for deduplicating slots in the filter dropdown
+    const slotOptions = useMemo(() => {
+        const slots = Object.values(EquipmentSlot) as string[];
+        const uniqueSlots = Array.from(new Set(slots.map(s => s.startsWith('ring') ? 'ring' : s)));
+        return uniqueSlots.map(s => ({
+            id: s,
+            label: s === 'ring' ? t('item.slot.ring') : t(`equipment.slot.${s}`)
+        })).sort((a, b) => a.label.localeCompare(b.label));
+    }, [t]);
+
     const filteredListings = useMemo(() => {
         return listings.filter(l => {
             const template = itemTemplates.find(t => t.id === l.item_data.templateId);
             if (!template) return false;
             
             const matchRarity = filterRarity === 'all' || template.rarity === filterRarity;
-            const matchSlot = filterSlot === 'all' || template.slot === filterSlot;
+            
+            // Normalize ring slots for comparison
+            const itemSlotNormalized = template.slot.startsWith('ring') ? 'ring' : template.slot;
+            const matchSlot = filterSlot === 'all' || itemSlotNormalized === filterSlot;
+            
             const matchSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase());
             
             // Affix logic
@@ -196,7 +210,7 @@ export const Market: React.FC = () => {
                                     <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.slot')}</label>
                                     <select value={filterSlot} onChange={e => setFilterSlot(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
                                         <option value="all">{t('market.browse.filters.all')}</option>
-                                        {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
+                                        {slotOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
                                     </select>
                                 </div>
                             </div>
