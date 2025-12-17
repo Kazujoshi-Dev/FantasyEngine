@@ -1,26 +1,31 @@
 
 import React, { useState } from 'react';
-import { ExpeditionRewardSummary, ItemTemplate, Affix, Enemy, CharacterStats, PartyMember, PvpRewardSummary, ItemInstance, EssenceType, ItemRarity } from '../../types';
+import { ExpeditionRewardSummary, ItemTemplate, Affix, Enemy, PartyMember, CharacterStats, ItemInstance, EssenceType, PvpRewardSummary, PlayerCharacter } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
-import { ItemDetailsPanel, rarityStyles } from '../shared/ItemSlot';
 import { CombatLogRow } from './CombatLog';
+import { ItemDetailsPanel, rarityStyles } from '../shared/ItemSlot';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon';
-import { TrophyIcon } from '../icons/TrophyIcon';
-import { UsersIcon } from '../icons/UsersIcon';
+import { ShieldIcon } from '../icons/ShieldIcon';
+import { SwordsIcon } from '../icons/SwordsIcon';
 
-export const CombatantStatsPanel: React.FC<{ name: string, stats: CharacterStats }> = ({ name, stats }) => {
+interface CombatantStatsPanelProps {
+    name: string;
+    stats: CharacterStats;
+    isLeft?: boolean;
+}
+
+export const CombatantStatsPanel: React.FC<CombatantStatsPanelProps> = ({ name, stats, isLeft }) => {
     const { t } = useTranslation();
     return (
-        <div className="bg-slate-800/50 p-2 rounded text-xs space-y-1">
-            <p className="font-bold text-white border-b border-slate-700 pb-1 mb-1">{name}</p>
-            <div className="grid grid-cols-2 gap-x-2">
-                <span className="text-gray-400">HP: <span className="text-white">{stats.maxHealth}</span></span>
-                <span className="text-gray-400">Mana: <span className="text-white">{stats.maxMana}</span></span>
-                <span className="text-gray-400">Dmg: <span className="text-white">{stats.minDamage}-{stats.maxDamage}</span></span>
-                <span className="text-gray-400">Mag: <span className="text-white">{stats.magicDamageMin}-{stats.magicDamageMax}</span></span>
-                <span className="text-gray-400">Armor: <span className="text-white">{stats.armor}</span></span>
-                <span className="text-gray-400">Crit: <span className="text-white">{stats.critChance.toFixed(1)}%</span></span>
+        <div className={`p-4 bg-slate-800/50 rounded-lg border border-slate-700 ${isLeft ? 'text-left' : 'text-right'}`}>
+            <h4 className="font-bold text-white mb-2 text-lg">{name}</h4>
+            <div className="space-y-1 text-sm text-gray-300">
+                <p>{t('statistics.health')}: <span className="text-white font-mono">{Math.ceil(stats.currentHealth)}/{stats.maxHealth}</span></p>
+                <p>{t('statistics.armor')}: <span className="text-white font-mono">{stats.armor}</span></p>
+                <p>{t('statistics.physicalDamage')}: <span className="text-white font-mono">{stats.minDamage}-{stats.maxDamage}</span></p>
+                <p>{t('statistics.critChance')}: <span className="text-white font-mono">{stats.critChance.toFixed(1)}%</span></p>
+                <p>{t('statistics.dodgeChance')}: <span className="text-white font-mono">{stats.dodgeChance.toFixed(1)}%</span></p>
             </div>
         </div>
     );
@@ -30,241 +35,222 @@ interface ExpeditionSummaryModalProps {
     reward: ExpeditionRewardSummary;
     onClose: () => void;
     characterName: string;
-    itemTemplates?: ItemTemplate[];
-    affixes?: Affix[];
-    enemies?: Enemy[];
+    itemTemplates: ItemTemplate[];
+    affixes: Affix[];
+    enemies: Enemy[];
     messageId?: number | null;
-    isHunting?: boolean;
-    huntingMembers?: PartyMember[];
-    allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
-    initialEnemy?: Enemy;
-    isPvp?: boolean;
-    pvpData?: { attacker: any, defender: any };
-    isDefenderView?: boolean;
-    bossName?: string;
-    isRaid?: boolean;
-    raidId?: number;
-    opponents?: PartyMember[];
+    raidId?: number | null;
     backgroundImage?: string;
+    isHunting?: boolean;
+    isRaid?: boolean;
+    huntingMembers?: PartyMember[];
+    opponents?: PartyMember[];
+    allRewards?: Record<string, any>;
+    bossName?: string;
+    initialEnemy?: Enemy;
     encounteredEnemies?: Enemy[];
+    isPvp?: boolean;
+    pvpData?: { attacker: PlayerCharacter, defender: PlayerCharacter };
+    isDefenderView?: boolean;
 }
 
-export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({ 
-    reward, onClose, characterName, itemTemplates = [], affixes = [], enemies = [], messageId, 
-    isHunting, huntingMembers, allRewards, initialEnemy, isPvp, pvpData, isDefenderView, bossName, isRaid, opponents, backgroundImage, encounteredEnemies
+export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
+    reward, onClose, characterName, itemTemplates, affixes, enemies,
+    isHunting, isRaid, huntingMembers, opponents, allRewards, bossName, initialEnemy, encounteredEnemies,
+    isPvp, pvpData, isDefenderView, backgroundImage
 }) => {
     const { t } = useTranslation();
     const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+    const [activeTab, setActiveTab] = useState<'summary' | 'log'>('summary');
 
-    const mainTitle = isPvp 
-        ? t('pvp.duelResult')
-        : (isRaid ? 'Raport z Rajdu' : (isHunting ? 'Raport z Polowania' : t('expedition.combatReport')));
-    
-    const outcomeTitle = reward.isVictory ? t('expedition.victory') : t('expedition.defeat');
-    const outcomeColor = reward.isVictory ? 'text-green-400' : 'text-red-500';
+    const isVictory = reward.isVictory;
+    const title = isVictory ? t('expedition.victory') : t('expedition.defeat');
+    const titleColor = isVictory ? 'text-amber-400' : 'text-red-500';
 
-    const renderRewards = (gold: number, xp: number, items: ItemInstance[], essences: Partial<Record<EssenceType, number>>) => (
-        <div className="flex flex-col gap-2">
-            {(gold > 0 || xp > 0) && (
-                <div className="flex gap-4 mb-2">
-                    {gold > 0 && <span className="flex items-center text-amber-400 font-bold"><CoinsIcon className="h-4 w-4 mr-1"/> {gold}</span>}
-                    {xp > 0 && <span className="flex items-center text-sky-400 font-bold"><StarIcon className="h-4 w-4 mr-1"/> {xp} XP</span>}
-                </div>
-            )}
-            
-            {/* Essences */}
-            {essences && Object.entries(essences).length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                    {Object.entries(essences).map(([key, val]) => (
-                         <span key={key} className={`text-xs px-2 py-1 rounded bg-slate-800 border border-slate-600 ${rarityStyles[key === EssenceType.Legendary ? ItemRarity.Legendary : key === EssenceType.Epic ? ItemRarity.Epic : key === EssenceType.Rare ? ItemRarity.Rare : key === EssenceType.Uncommon ? ItemRarity.Uncommon : ItemRarity.Common].text}`}>
-                            {val}x {t(`resources.${key}`)}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {items && items.length > 0 && (
-                <div className="grid grid-cols-1 gap-1">
-                    {items.map((item, idx) => {
-                         const template = itemTemplates.find(t => t.id === item.templateId);
-                         if (!template) return null;
-                         return (
-                            <div 
-                                key={idx} 
-                                className={`text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 flex justify-between items-center cursor-help hover:bg-slate-700 ${rarityStyles[template.rarity].text}`}
-                                onMouseEnter={() => setHoveredItem({ item, template })}
-                                onMouseLeave={() => setHoveredItem(null)}
-                            >
-                                <span>{template.name} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}</span>
-                            </div>
-                         )
-                    })}
-                </div>
-            )}
-            
-            {gold === 0 && xp === 0 && (!items || items.length === 0) && (!essences || Object.keys(essences).length === 0) && (
-                <span className="text-gray-500 italic text-xs">Brak nagród</span>
-            )}
-        </div>
-    );
+    // Essence Rendering Helper
+    const essenceToRarityMap: Record<EssenceType, any> = {
+        [EssenceType.Common]: rarityStyles['Common'],
+        [EssenceType.Uncommon]: rarityStyles['Uncommon'],
+        [EssenceType.Rare]: rarityStyles['Rare'],
+        [EssenceType.Epic]: rarityStyles['Epic'],
+        [EssenceType.Legendary]: rarityStyles['Legendary'],
+    };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            
-            {/* Tooltip Overlay */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 overflow-y-auto">
+            {/* Hover Item Tooltip - pointer-events-none added to prevent flickering */}
             {hoveredItem && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-none relative animate-fade-in backdrop-blur-md">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-none relative animate-fade-in">
                          <ItemDetailsPanel item={hoveredItem.item} template={hoveredItem.template} affixes={affixes} hideAffixes={false} size="small" compact={true} />
                     </div>
                 </div>
             )}
 
             <div 
-                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative overflow-hidden" 
-                onClick={e => e.stopPropagation()}
-                style={{ 
-                    backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundBlendMode: 'overlay'
-                }}
+                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col relative overflow-hidden max-h-[90vh]"
+                style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundBlendMode: 'multiply' } : undefined}
             >
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-slate-700/50 bg-slate-900/80">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">{mainTitle}</h2>
-                        <p className={`text-xl font-bold ${outcomeColor} mt-1`}>{outcomeTitle}</p>
-                        {bossName && <p className="text-sm text-gray-400 mt-1">Przeciwnik: <span className="text-red-400 font-bold">{bossName}</span></p>}
+                <div className="p-6 text-center border-b border-slate-700 bg-slate-900/80">
+                    <h2 className={`text-4xl font-extrabold mb-2 uppercase tracking-widest ${titleColor} drop-shadow-lg`}>{title}</h2>
+                    <div className="flex justify-center gap-4 text-sm font-medium">
+                        <button 
+                            onClick={() => setActiveTab('summary')}
+                            className={`px-4 py-2 rounded-full transition-colors ${activeTab === 'summary' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                        >
+                            Podsumowanie
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('log')}
+                            className={`px-4 py-2 rounded-full transition-colors ${activeTab === 'log' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                        >
+                            Log Walki
+                        </button>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white p-2">✕</button>
                 </div>
 
-                <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
+                {/* Content */}
+                <div className="flex-grow overflow-y-auto p-6 bg-slate-900/60 custom-scrollbar">
                     
-                    {/* LEFT COLUMN: Participants & Rewards */}
-                    <div className="w-full md:w-1/3 bg-slate-900/60 border-r border-slate-700/50 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-700/50 bg-slate-800/40">
-                             <h3 className="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <TrophyIcon className="h-4 w-4"/> Nagrody
-                             </h3>
-                             {/* Personal Rewards (for single view) */}
-                             {!isRaid && renderRewards(reward.totalGold, reward.totalExperience, reward.itemsFound, reward.essencesFound)}
-                        </div>
+                    {/* SUMMARY TAB */}
+                    {activeTab === 'summary' && (
+                        <div className="space-y-8 animate-fade-in">
+                            
+                            {/* PvP Header */}
+                            {isPvp && pvpData && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center mb-6">
+                                    <CombatantStatsPanel name={pvpData.attacker.name} stats={pvpData.attacker.stats} isLeft={true} />
+                                    <div className="text-center">
+                                        <SwordsIcon className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                                        <p className="text-gray-400 font-bold text-sm">VS</p>
+                                    </div>
+                                    <CombatantStatsPanel name={pvpData.defender.name} stats={pvpData.defender.stats} isLeft={false} />
+                                </div>
+                            )}
 
-                        {/* Participants List (Hunting / Raid) */}
-                        {(isHunting || isRaid) && huntingMembers && (
-                            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-                                <h3 className="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                   <UsersIcon className="h-4 w-4"/> Uczestnicy
-                                </h3>
-                                <div className="space-y-4">
-                                    {huntingMembers.map(member => {
-                                        const rewards = allRewards ? allRewards[member.characterName] : null;
-                                        // For raids we might not have detailed rewards per person here in summary
-                                        const isMe = member.characterName === characterName;
-                                        
-                                        return (
-                                            <div key={member.userId} className={`bg-slate-800/40 p-3 rounded border ${isMe ? 'border-indigo-500/50 bg-indigo-900/20' : 'border-slate-700/50'}`}>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className={`font-bold ${isMe ? 'text-indigo-300' : 'text-gray-300'}`}>{member.characterName} <span className="text-xs font-normal text-gray-500">(Lvl {member.level})</span></span>
-                                                </div>
-                                                
-                                                {/* Stats Preview if available */}
-                                                {member.stats && <CombatantStatsPanel name="" stats={member.stats} />}
-
-                                                {/* Rewards for this member */}
-                                                {rewards && (
-                                                    <div className="mt-2 pt-2 border-t border-slate-700/30">
-                                                        {renderRewards(rewards.gold, rewards.experience, rewards.items || [], rewards.essences || {})}
-                                                    </div>
-                                                )}
+                            {/* Rewards Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <h4 className="text-lg font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                                        <CoinsIcon className="h-5 w-5" /> {t('expedition.totalRewards')}
+                                    </h4>
+                                    
+                                    <div className="space-y-2">
+                                        {reward.totalGold > 0 && (
+                                            <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                <span className="text-gray-300">{t('resources.gold')}</span>
+                                                <span className="font-mono font-bold text-amber-400">+{reward.totalGold}</span>
                                             </div>
-                                        )
-                                    })}
+                                        )}
+                                        {reward.totalExperience > 0 && (
+                                            <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                <span className="text-gray-300">{t('expedition.experience')}</span>
+                                                <span className="font-mono font-bold text-sky-400">+{reward.totalExperience}</span>
+                                            </div>
+                                        )}
+                                        {Object.entries(reward.essencesFound).map(([key, val]) => {
+                                            if (!val) return null;
+                                            const rarityStyle = essenceToRarityMap[key as EssenceType];
+                                            return (
+                                                <div key={key} className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
+                                                    <span className={`${rarityStyle.text}`}>{t(`resources.${key}`)}</span>
+                                                    <span className="font-mono font-bold text-white">+{val}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <h4 className="text-lg font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                                        <ShieldIcon className="h-5 w-5" /> {t('expedition.itemsFound')}
+                                    </h4>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                        {reward.itemsFound.length === 0 && <p className="text-gray-500 italic text-sm text-center py-4">Brak przedmiotów</p>}
+                                        {reward.itemsFound.map((item, idx) => {
+                                            const template = itemTemplates.find(t => t.id === item.templateId);
+                                            if (!template) return null;
+                                            const style = rarityStyles[template.rarity];
+                                            
+                                            return (
+                                                <div 
+                                                    key={idx}
+                                                    onMouseEnter={() => setHoveredItem({ item, template })}
+                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                    className={`p-2 rounded bg-slate-900/50 border border-slate-700 hover:border-slate-500 cursor-help flex items-center gap-3 transition-colors`}
+                                                >
+                                                    {template.icon && <img src={template.icon} className="w-8 h-8 bg-slate-800 rounded object-contain" />}
+                                                    <div>
+                                                        <p className={`font-bold text-sm ${style.text}`}>{template.name} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}</p>
+                                                        <p className="text-[10px] text-gray-500">{t(`rarity.${template.rarity}`)}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
-                        )}
-                        
-                        {/* Opponents for Raid */}
-                        {isRaid && opponents && (
-                             <div className="flex-grow overflow-y-auto p-4 custom-scrollbar border-t border-slate-700/50">
-                                <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                   <SwordsIcon className="h-4 w-4"/> Przeciwnicy
-                                </h3>
-                                <div className="space-y-2">
-                                    {opponents.map(opp => (
-                                         <div key={opp.userId} className="bg-slate-800/40 p-2 rounded border border-red-900/30">
-                                              <div className="flex justify-between items-center">
-                                                    <span className="font-bold text-red-300">{opp.characterName} <span className="text-xs text-gray-500">(Lvl {opp.level})</span></span>
-                                              </div>
-                                              {opp.stats && <div className="mt-1"><CombatantStatsPanel name="" stats={opp.stats} /></div>}
-                                         </div>
-                                    ))}
+                            
+                            {/* Party Results (Raid/Hunting) */}
+                            {(isHunting || isRaid) && huntingMembers && (
+                                <div className="mt-6">
+                                    <h4 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">Wyniki Drużyny</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {huntingMembers.map(member => {
+                                            const memberRewards = allRewards?.[member.characterName];
+                                            return (
+                                                <div key={member.userId} className="bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+                                                    <div>
+                                                        <span className="font-bold text-white">{member.characterName}</span>
+                                                        <span className="text-xs text-gray-400 ml-2">Lvl {member.level}</span>
+                                                    </div>
+                                                    {memberRewards && (
+                                                        <div className="text-right text-xs">
+                                                            <div className="text-amber-400">{memberRewards.gold} Gold</div>
+                                                            <div className="text-sky-400">{memberRewards.experience} XP</div>
+                                                            {memberRewards.items && memberRewards.items.length > 0 && (
+                                                                <div className="text-purple-400">{memberRewards.items.length} Przedmiotów</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                             </div>
-                        )}
+                            )}
 
-                        {/* PvP Info */}
-                        {isPvp && pvpData && (
-                             <div className="p-4 flex-grow overflow-y-auto custom-scrollbar">
-                                 <div className="mb-4">
-                                     <h4 className="text-green-400 font-bold mb-2 border-b border-green-500/30 pb-1">Twój Bohater</h4>
-                                     <CombatantStatsPanel name={isDefenderView ? pvpData.defender.name : pvpData.attacker.name} stats={isDefenderView ? pvpData.defender.stats : pvpData.attacker.stats} />
-                                 </div>
-                                 <div>
-                                     <h4 className="text-red-400 font-bold mb-2 border-b border-red-500/30 pb-1">Przeciwnik</h4>
-                                     <CombatantStatsPanel name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} />
-                                 </div>
-                             </div>
-                        )}
-                        
-                        {/* Single Enemy Info (Expedition) */}
-                        {!isPvp && !isRaid && !isHunting && encounteredEnemies && encounteredEnemies.length > 0 && (
-                            <div className="p-4 flex-grow overflow-y-auto custom-scrollbar">
-                                <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-3">Napotkani Wrogowie</h3>
-                                <div className="space-y-2">
-                                    {encounteredEnemies.map((e, i) => (
-                                         <div key={i} className="bg-slate-800/40 p-2 rounded border border-red-900/30">
-                                             <p className="font-bold text-red-300">{e.name}</p>
-                                             {e.stats && <CombatantStatsPanel name="" stats={e.stats as any} />}
-                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* RIGHT COLUMN: Combat Log */}
-                    <div className="w-full md:w-2/3 bg-slate-900/80 p-4 flex flex-col min-h-0">
-                        <h3 className="text-lg font-bold text-gray-300 mb-2 sticky top-0 bg-slate-900/90 py-2 z-10 border-b border-slate-700">Przebieg Walki</h3>
-                        <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1">
-                            {reward.combatLog.map((log, index) => (
-                                <CombatLogRow 
-                                    key={index} 
-                                    log={log} 
-                                    characterName={characterName} 
-                                    isHunting={isHunting || isRaid} 
-                                    huntingMembers={huntingMembers}
-                                />
-                            ))}
-                            {reward.combatLog.length === 0 && <p className="text-gray-500 italic text-center mt-10">Brak logów z walki (Walkower lub błąd).</p>}
                         </div>
-                    </div>
+                    )}
+
+                    {/* LOG TAB */}
+                    {activeTab === 'log' && (
+                        <div className="bg-black/40 p-4 rounded-lg font-mono text-sm h-full overflow-y-auto custom-scrollbar border border-slate-700 shadow-inner">
+                            {reward.combatLog.map((log, index) => (
+                                <div key={index} className="mb-1 border-b border-white/5 pb-1 last:border-0">
+                                    <CombatLogRow 
+                                        log={log} 
+                                        characterName={characterName} 
+                                        isHunting={isHunting}
+                                        huntingMembers={huntingMembers}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-slate-700 bg-slate-900/80 flex justify-end">
+                    <button 
+                        onClick={onClose}
+                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105"
+                    >
+                        Zamknij
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
-    
-// Helper Icon Component for CombatSummary (reused from sidebar but need importing if not available)
-function SwordsIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
-      <line x1="13" y1="19" x2="19" y2="13" />
-      <line x1="16" y1="16" x2="20" y2="20" />
-      <line x1="19" y1="21" x2="21" y2="19" />
-    </svg>
-  );
-}

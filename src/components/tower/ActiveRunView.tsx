@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { ActiveTowerRun, Tower, PlayerCharacter, GameData, ItemTemplate, ItemInstance } from '../../types';
-import { useTranslation } from '../../contexts/LanguageContext';
-import { EnemyPreview } from './EnemyPreview';
+import { ActiveTowerRun, Tower, PlayerCharacter, GameData, ItemInstance, ItemTemplate } from '../../types';
 import { BoltIcon } from '../icons/BoltIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
+import { ShieldIcon } from '../icons/ShieldIcon';
 import { ItemDetailsPanel } from '../shared/ItemSlot';
+import { EnemyPreview } from './EnemyPreview';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface ActiveRunViewProps {
     activeRun: ActiveTowerRun;
@@ -39,7 +40,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             
-            {/* Tooltip */}
+            {/* Tooltip - pointer-events-none added */}
              {hoveredItem && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
                     <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-none relative animate-fade-in">
