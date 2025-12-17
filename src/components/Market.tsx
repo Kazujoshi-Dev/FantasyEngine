@@ -38,6 +38,9 @@ export const Market: React.FC = () => {
     // Filter State
     const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
     const [filterSlot, setFilterSlot] = useState<string>('all');
+    const [filterPrefix, setFilterPrefix] = useState<'all' | 'yes' | 'no'>('all');
+    const [filterSuffix, setFilterSuffix] = useState<'all' | 'yes' | 'no'>('all');
+    const [filterAffixCount, setFilterAffixCount] = useState<'all' | '0' | '1' | '2'>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
     const { itemTemplates, affixes } = gameData || { itemTemplates: [], affixes: [], enemies: [] };
@@ -125,9 +128,18 @@ export const Market: React.FC = () => {
             const matchSlot = filterSlot === 'all' || template.slot === filterSlot;
             const matchSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase());
             
-            return matchRarity && matchSlot && matchSearch;
+            // Affix logic
+            const hasPrefix = !!l.item_data.prefixId;
+            const hasSuffix = !!l.item_data.suffixId;
+            const count = (hasPrefix ? 1 : 0) + (hasSuffix ? 1 : 0);
+
+            const matchPrefix = filterPrefix === 'all' || (filterPrefix === 'yes' ? hasPrefix : !hasPrefix);
+            const matchSuffix = filterSuffix === 'all' || (filterSuffix === 'yes' ? hasSuffix : !hasSuffix);
+            const matchCount = filterAffixCount === 'all' || count === parseInt(filterAffixCount);
+            
+            return matchRarity && matchSlot && matchSearch && matchPrefix && matchSuffix && matchCount;
         });
-    }, [listings, filterRarity, filterSlot, searchQuery, itemTemplates]);
+    }, [listings, filterRarity, filterSlot, filterPrefix, filterSuffix, filterAffixCount, searchQuery, itemTemplates]);
 
     const renderPrice = (amount: number, curr: string) => {
         if (curr === 'gold') return <span className="text-amber-400 font-bold flex items-center">{amount} <CoinsIcon className="h-4 w-4 ml-1"/></span>;
@@ -166,13 +178,58 @@ export const Market: React.FC = () => {
             <div className="h-[70vh] overflow-y-auto pr-2">
                 {activeTab === 'browse' && (
                     <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/40 p-4 rounded-xl">
-                            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('market.create.filterByName')} className="bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white" />
-                            <select value={filterRarity} onChange={e => setFilterRarity(e.target.value as any)} className="bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white">
-                                <option value="all">{t('market.create.allRarities')}</option>
-                                {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
-                            </select>
+                        {/* Filters Container */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700/50 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Nazwa</label>
+                                    <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('market.create.filterByName')} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.rarity')}</label>
+                                    <select value={filterRarity} onChange={e => setFilterRarity(e.target.value as any)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
+                                        <option value="all">{t('market.browse.filters.all')}</option>
+                                        {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.slot')}</label>
+                                    <select value={filterSlot} onChange={e => setFilterSlot(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
+                                        <option value="all">{t('market.browse.filters.all')}</option>
+                                        {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`equipment.slot.${s}`)}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-800">
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.hasPrefix')}</label>
+                                    <select value={filterPrefix} onChange={e => setFilterPrefix(e.target.value as any)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
+                                        <option value="all">{t('market.browse.filters.any')}</option>
+                                        <option value="yes">{t('market.browse.filters.yes')}</option>
+                                        <option value="no">{t('market.browse.filters.no')}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.hasSuffix')}</label>
+                                    <select value={filterSuffix} onChange={e => setFilterSuffix(e.target.value as any)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
+                                        <option value="all">{t('market.browse.filters.any')}</option>
+                                        <option value="yes">{t('market.browse.filters.yes')}</option>
+                                        <option value="no">{t('market.browse.filters.no')}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">{t('market.browse.filters.affixCount')}</label>
+                                    <select value={filterAffixCount} onChange={e => setFilterAffixCount(e.target.value as any)} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-indigo-500 outline-none">
+                                        <option value="all">{t('market.browse.filters.all')}</option>
+                                        <option value="0">0</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {filteredListings.map(listing => {
                                 const template = itemTemplates.find(t => t.id === listing.item_data.templateId);
@@ -210,7 +267,7 @@ export const Market: React.FC = () => {
                                     </div>
                                 )
                             })}
-                            {filteredListings.length === 0 && <p className="text-gray-500 text-center col-span-full py-8">Brak ofert.</p>}
+                            {filteredListings.length === 0 && <p className="text-gray-500 text-center col-span-full py-8">Brak ofert spełniających kryteria.</p>}
                         </div>
                     </div>
                 )}

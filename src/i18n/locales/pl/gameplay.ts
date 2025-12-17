@@ -128,6 +128,43 @@ export default {
         dodgeChance: 'Szansa na Unik',
         dodgeChanceDesc: 'Procentowa szansa na uniknięcie ataku fizycznego.'
     },
+    blacksmith: {
+        title: 'Kowal',
+        disenchant: 'Odczaruj',
+        disenchantItem: 'Odczaruj Przedmiot',
+        disenchantCost: 'Koszt',
+        potentialYield: 'Potencjalny Zysk',
+        pressEnter: 'Naciśnij Enter, aby odczarować',
+        selectItem: 'Wybierz przedmiot z listy po lewej stronie.',
+        yourBag: 'Twój Plecak',
+        notEnoughGold: 'Za mało złota.',
+        notEnoughEssence: 'Za mało esencji.',
+        disenchantSuccess: 'Sukces! Otrzymano {amount}x {essenceName}.',
+        disenchantFailure: 'Odczarowanie nie powiodło się (zniszczono przedmiot).',
+        upgrade: {
+            upgradeItem: 'Ulepsz Przedmiot',
+            upgrade: 'Ulepsz',
+            currentStats: 'Obecne',
+            statsAfterUpgrade: 'Po Ulepszeniu',
+            successChance: 'Szansa Powodzenia',
+            cost: 'Koszt',
+            youHave: 'Masz',
+            riskWarning: 'Uwaga: Nieudane ulepszenie może zniszczyć przedmiot lub obniżyć jego poziom!',
+            maxLevel: 'Przedmiot osiągnął maksymalny poziom ulepszenia.',
+            selectItemToUpgrade: 'Wybierz przedmiot z listy po lewej, aby go ulepszyć.',
+            howItWorks: {
+                title: 'Jak działa ulepszanie?',
+                statIncrease: 'Każdy poziom zwiększa statystyki bazowe o 10%.',
+                scope: 'Statystyki z afiksów (magiczne) również rosną o 10% za każdy poziom, jednak ten bonus działa maksymalnie do poziomu +5.',
+                cost: 'Koszt rośnie wraz z poziomem i rzadkością.',
+                chance: 'Szansa powodzenia spada o 10% z każdym poziomem.',
+                failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótce).'
+            },
+            upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie może zniszczyć przedmiot. Czy na pewno chcesz spróbować?',
+            upgradeSuccess: 'Ulepszono przedmiot do poziomu +{level}!',
+            upgradeFailure: 'Ulepszenie nie powiodło się!',
+        }
+    },
     expedition: {
         inProgressTitle: 'Wyprawa w toku',
         availableTitle: 'Dostępne Wyprawy',

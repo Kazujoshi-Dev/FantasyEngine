@@ -117,10 +117,10 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
                     resultText = `Ziemia pęka! Cała drużyna otrzymuje obrażenia.`;
                     if (log.aoeDamage) {
                         aoeDetails = (
-                            <div className="flex flex-wrap justify-center gap-2 mt-1.5">
+                            <div className="flex flex-wrap justify-center gap-2 mt-2">
                                 {log.aoeDamage.map((d, i) => (
-                                    <span key={i} className="text-xs text-red-400 font-bold bg-red-950/40 px-2 py-1 rounded border border-red-900/50">
-                                        {d.target}: <span className="text-red-500">-{d.damage} HP</span> <span className="text-[10px] text-gray-500 font-normal">{getTargetHealthStatus(d.target)}</span>
+                                    <span key={i} className="text-[10px] font-bold bg-red-950/40 border border-red-900/50 text-red-400 px-2 py-1 rounded shadow-sm">
+                                        {d.target}: <span className="text-red-500">-{d.damage} HP</span> {getTargetHealthStatus(d.target)}
                                     </span>
                                 ))}
                             </div>
@@ -136,7 +136,7 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             }
 
             return (
-                <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-2 my-1">
+                <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-2 my-1 bg-red-900/10 rounded">
                     {log.attacker} używa {specialName}! {resultText}
                     {aoeDetails}
                 </div>
