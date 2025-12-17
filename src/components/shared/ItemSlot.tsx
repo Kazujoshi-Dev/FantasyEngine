@@ -3,8 +3,10 @@ import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
-import { StarIcon } from '../icons/StarIcon'; // For +level display
+import { StarIcon } from '../icons/StarIcon'; 
 import { ShieldIcon } from '../icons/ShieldIcon';
+import { SparklesIcon } from '../icons/SparklesIcon';
+import { HandshakeIcon } from '../icons/HandshakeIcon';
 
 export const rarityStyles = {
     [ItemRarity.Common]: { border: 'border-slate-700', bg: 'bg-slate-800', shadow: 'shadow-none', text: 'text-gray-300' },
@@ -38,7 +40,6 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
-
 // ===================================================================================
 //                                Item Details Panel
 // ===================================================================================
@@ -62,7 +63,6 @@ export const ItemDetailsPanel: React.FC<{
     const baseStatsSource = useMemo(() => {
         if (!item || !template) return null;
         if (item.rolledBaseStats) {
-            // Inject static stats from template that are not rolled but needed for display (like attacksPerRound)
             return {
                 ...item.rolledBaseStats,
                 attacksPerRound: template.attacksPerRound,
@@ -73,52 +73,61 @@ export const ItemDetailsPanel: React.FC<{
         return template;
     }, [item, template]);
 
+    const prefix = useMemo(() => safeAffixes.find(a => a.id === item?.prefixId), [safeAffixes, item?.prefixId]);
+    const suffix = useMemo(() => safeAffixes.find(a => a.id === item?.suffixId), [safeAffixes, item?.suffixId]);
+
+    // Helper to get affix name based on item gender
+    const getName = (affix: Affix | undefined) => {
+        if (!affix || !template) return '';
+        if (typeof affix.name === 'string') return affix.name;
+        
+        let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
+        if (template.gender === GrammaticalGender.Feminine) {
+            genderKey = 'feminine';
+        } else if (template.gender === GrammaticalGender.Neuter) {
+            genderKey = 'neuter';
+        }
+        return (affix.name as any)[genderKey] || affix.name.masculine || '';
+    };
+
+    // Calculate totalValue including affixes
+    const totalValue = useMemo(() => {
+        if (!template) return 0;
+        let val = Number(template.value) || 0;
+        if (prefix) val += Number(prefix.value) || 0;
+        if (suffix) val += Number(suffix.value) || 0;
+        return val;
+    }, [template, prefix, suffix]);
+
     if (!item || !template) {
         return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
     }
 
     const upgradeLevel = item.upgradeLevel || 0;
-    // Base stats scale infinitely (10% per level)
     const baseUpgradeFactor = upgradeLevel * 0.1;
-    // Affixes scale max +5 (50%)
     const affixUpgradeFactor = Math.min(upgradeLevel, 5) * 0.1;
     
-    const prefix = safeAffixes.find(a => a.id === item.prefixId);
-    const suffix = safeAffixes.find(a => a.id === item.suffixId);
     const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
-    
-    let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
-    if (template.gender === GrammaticalGender.Feminine) {
-        genderKey = 'feminine';
-    } else if (template.gender === GrammaticalGender.Neuter) {
-        genderKey = 'neuter';
-    }
-    
-    const getName = (affix: Affix | undefined) => {
-        if (!affix) return '';
-        if (typeof affix.name === 'string') return affix.name;
-        return (affix.name as any)[genderKey] || affix.name.masculine || '';
-    };
 
-    const prefixName = getName(prefix);
-    const suffixName = getName(suffix);
-
-    const totalValue = (() => {
-        if (!template) return 0;
-        let value = Number(template.value) || 0;
-        if (prefix) value += Number(prefix.value) || 0;
-        if (suffix) value += Number(suffix.value) || 0;
-        return value;
-    })();
-
-    const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, isAffix: boolean}> = ({title, source, isAffix}) => {
+    const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, metadata: any, isAffix: boolean}> = ({title, source, metadata, isAffix}) => {
         const bonusFactor = isAffix ? affixUpgradeFactor : baseUpgradeFactor;
         
-        // Helper to safely get numeric value from potential range object
         const getValue = (val: any): number => {
             if (typeof val === 'number') return val;
             if (val && typeof val.max === 'number') return val.max;
             return 0;
+        };
+
+        const checkPerfect = (key: string, rolledVal: any): boolean => {
+            if (rolledVal === undefined || !metadata) return false;
+            let metaVal = metadata[key];
+            if (key.startsWith('statsBonus.')) {
+                const statKey = key.split('.')[1];
+                metaVal = metadata.statsBonus?.[statKey];
+            }
+            if (!metaVal) return false;
+            const maxPossible = getValue(metaVal);
+            return maxPossible > 0 && rolledVal >= maxPossible;
         };
 
         const calculateStat = (base?: any) => {
@@ -131,23 +140,28 @@ export const ItemDetailsPanel: React.FC<{
              return val !== undefined ? val + val * bonusFactor : undefined;
         }
         
-        const s = source as any; // To access properties dynamically
+        const s = source as any;
         
         const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({label: t(`statistics.${k}`), value: `+${calculateStat(v)}`, color: 'text-green-300'})) : []),
-            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`},
+            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({
+                label: t(`statistics.${k}`), 
+                value: `+${calculateStat(v)}`, 
+                isPerfect: checkPerfect(`statsBonus.${k}`, v),
+                color: 'text-green-300'
+            })) : []),
+            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`, isPerfect: checkPerfect('damageMax', s.damageMax)},
             (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerTurn'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
-            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`},
-            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`},
-            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`},
-            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${calculateStat(s.critDamageModifierBonus)}%`},
+            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`, isPerfect: checkPerfect('armorBonus', s.armorBonus)},
+            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`, isPerfect: checkPerfect('critChanceBonus', s.critChanceBonus)},
+            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`, isPerfect: checkPerfect('maxHealthBonus', s.maxHealthBonus)},
+            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${calculateStat(s.critDamageModifierBonus)}%`, isPerfect: checkPerfect('critDamageModifierBonus', s.critDamageModifierBonus)},
             (s.armorPenetrationPercent || s.armorPenetrationFlat) && {label: t('statistics.armorPenetration'), value: `${s.armorPenetrationPercent ? getValue(s.armorPenetrationPercent) : 0}% / ${calculateStat(s.armorPenetrationFlat)}`},
             (s.lifeStealPercent || s.lifeStealFlat) && {label: t('statistics.lifeSteal'), value: `${s.lifeStealPercent ? getValue(s.lifeStealPercent) : 0}% / ${calculateStat(s.lifeStealFlat)}`},
             (s.manaStealPercent || s.manaStealFlat) && {label: t('statistics.manaSteal'), value: `${s.manaStealPercent ? getValue(s.manaStealPercent) : 0}% / ${calculateStat(s.manaStealFlat)}`},
-            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, color: 'text-purple-300'},
+            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, isPerfect: checkPerfect('magicDamageMax', s.magicDamageMax), color: 'text-purple-300'},
             (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
             (s.magicAttackType !== undefined) && {label: t('item.magicAttackType'), value: t(`item.magic.${s.magicAttackType}`), color: 'text-purple-300', valueClass: 'font-semibold'},
-            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${calculateFloatStat(s.dodgeChanceBonus)?.toFixed(1)}%`},
+            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${calculateFloatStat(s.dodgeChanceBonus)?.toFixed(1)}%`, isPerfect: checkPerfect('dodgeChanceBonus', s.dodgeChanceBonus)},
         ].filter(Boolean);
 
         if (entries.length === 0) return null;
@@ -155,10 +169,16 @@ export const ItemDetailsPanel: React.FC<{
         return (
              <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
                 {title && <h5 className={`font-semibold text-gray-400 ${isSmall ? 'text-sm' : 'text-base'}`}>{title}</h5>}
-                {entries.map((e, i) => (
-                    <p key={i} className={`flex justify-between ${(e as { color?: string }).color || ''}`}>
-                        <span>{e.label}:</span> 
-                        <span className={`${(e as { valueClass?: string }).valueClass || 'font-mono'}`}>{e.value}</span>
+                {entries.map((e: any, i: number) => (
+                    <p key={i} className={`flex justify-between ${e.color || ''}`}>
+                        <span className="flex items-center gap-1">
+                            {e.label}:
+                            {/* Fixed: title prop not supported directly on SVG component in some configs, wrapped in span */}
+                            {e.isPerfect && <span title="Maksymalna wartość!"><SparklesIcon className="h-3 w-3 text-amber-400 animate-pulse" /></span>}
+                        </span> 
+                        <span className={`${e.valueClass || 'font-mono'} ${e.isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_3px_rgba(251,191,36,0.6)]' : ''}`}>
+                            {e.value}
+                        </span>
                     </p>
                 ))}
             </div>
@@ -187,17 +207,18 @@ export const ItemDetailsPanel: React.FC<{
 
                 <div className="border-t border-slate-700/50 pt-2">
                     <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        {/* Use equipment.slot translations here */}
                         <span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`equipment.slot.${template.slot}`)}</span>
                     </p>
                     <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                        {/* Fixed: totalValue missing error */}
                         <span>{t('item.value')}:</span> <span className="font-mono text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span>
                     </p>
                 </div>
 
-                {baseStatsSource && <StatSection source={baseStatsSource} isAffix={false} />}
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${prefixName} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} isAffix={true} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${suffixName} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} isAffix={true} />}
+                {baseStatsSource && <StatSection source={baseStatsSource} metadata={template} isAffix={false} />}
+                {/* Fixed: getName missing error */}
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${getName(prefix)} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${getName(suffix)} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
 
                 {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && (
                     <div className={`border-t border-slate-700/50 pt-2 mt-2 ${isSmall ? 'text-xs' : 'text-sm'}`}>
@@ -209,7 +230,7 @@ export const ItemDetailsPanel: React.FC<{
                                 </p>
                             )}
                             {Object.entries(allRequiredStats).map(([stat, value]) => {
-                                const meetsReq = character ? character.stats[stat as keyof CharacterStats] >= value : true;
+                                const meetsReq = character ? character.stats[stat as keyof CharacterStats] >= (value as number) : true;
                                 return (
                                     <p key={stat} className={`flex justify-between ${!meetsReq ? 'text-red-400' : 'text-gray-300'}`}>
                                         <span>{t(`statistics.${stat}`)}:</span> <span>{value}</span>
@@ -221,7 +242,6 @@ export const ItemDetailsPanel: React.FC<{
                 )}
             </div>
             
-            {/* Crafter Signature */}
             {item.crafterName && (
                 <div className={`mt-3 pt-2 border-t border-slate-700/50 text-right ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
                     <span className="text-gray-500">{t('item.createdBy')}: </span>
@@ -234,149 +254,109 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-// ===================================================================================
-//                                  Item Tooltip
-// ===================================================================================
-export const ItemTooltip: React.FC<{
-  instance: ItemInstance;
-  template: ItemTemplate;
-  affixes: Affix[];
-}> = ({ instance, template, affixes }) => {
+export const ItemListItem: React.FC<{
+    item: ItemInstance;
+    template: ItemTemplate;
+    affixes: Affix[];
+    isSelected: boolean;
+    onClick: (e: React.MouseEvent) => void;
+    onDoubleClick?: () => void;
+    showPrimaryStat?: boolean;
+    isEquipped?: boolean;
+    meetsRequirements?: boolean;
+    draggable?: string;
+    onDragStart?: (e: React.DragEvent) => void;
+    className?: string;
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, ...props }) => {
+    const { t } = useTranslation();
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+    const style = rarityStyles[template.rarity];
+    const upgradeLevel = item.upgradeLevel || 0;
+
     return (
         <div
-            className="absolute left-full top-0 ml-2 z-20 w-72 bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-2xl p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300 pointer-events-none"
+            onClick={onClick}
+            onDoubleClick={onDoubleClick}
+            className={`flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-200 ${
+                isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent'
+            } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${props.className || ''}`}
+            draggable={props.draggable}
+            onDragStart={props.onDragStart}
         >
+            <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative`}>
+                {template.icon ? (
+                    <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain" />
+                ) : (
+                    <ShieldIcon className="w-6 h-6 text-slate-500" />
+                )}
+                {isEquipped && (
+                    <div className="absolute -top-1 -left-1 bg-green-500 rounded-full p-0.5 shadow-sm">
+                        <ShieldIcon className="w-2.5 h-2.5 text-white" />
+                    </div>
+                )}
+            </div>
+            <div className="flex-grow min-w-0">
+                <p className={`text-sm font-bold truncate ${style.text}`}>
+                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
+                </p>
+                <p className="text-[10px] text-gray-500 uppercase">{t(`equipment.slot.${template.slot}`)}</p>
+            </div>
+            {item.isBorrowed && (
+                <div className="ml-2 text-indigo-400" title="Wypożyczony">
+                    <HandshakeIcon className="h-4 w-4" />
+                </div>
+            )}
+        </div>
+    );
+};
+
+export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
+    <div className="flex items-center p-2 rounded-lg bg-slate-800/30 border border-dashed border-slate-700 opacity-50">
+        <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900/50 flex items-center justify-center mr-3">
+            <ShieldIcon className="w-6 h-6 text-slate-800" />
+        </div>
+        <div className="flex-grow">
+            <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{slotName}</p>
+        </div>
+    </div>
+);
+
+export const ItemTooltip: React.FC<{
+    instance: ItemInstance;
+    template: ItemTemplate;
+    affixes: Affix[];
+}> = ({ instance, template, affixes }) => {
+    return (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} />
         </div>
     );
 };
 
-// ===================================================================================
-//                                Item List Components
-// ===================================================================================
-interface ItemListItemProps extends React.HTMLAttributes<HTMLDivElement> {
-    item: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    isSelected: boolean;
-    isEquipped?: boolean;
-    price?: number;
-    showPrimaryStat?: boolean;
-    meetsRequirements?: boolean;
-    onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-}
-
-export const ItemListItem: React.FC<ItemListItemProps> = ({ item, template, affixes, isSelected, isEquipped, price, showPrimaryStat = true, meetsRequirements = true, onDragStart, ...divProps }) => {
-    const { t } = useTranslation();
-    const upgradeLevel = item.upgradeLevel || 0;
-    const { border, text, bg, shadow } = rarityStyles[template.rarity];
-    const safeAffixes = affixes || [];
-    const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
-    const finalBorder = meetsRequirements ? border : 'border-red-500';
-    
-    const borrowedStyle = item.isBorrowed ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : '';
-    // Styling for multiple selections (e.g. in Trader Sell Tab)
-    const selectedStyle = isSelected ? 'bg-amber-700/40 ring-2 ring-amber-500' : `${bg}/50 hover:bg-slate-700/50`;
-    // Fallback for single selection (e.g. inventory/equip) usually uses indigo
-    const singleSelectedStyle = isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`;
-
-    // Determine which style to use. If divProps.className contains specific overrides, those might apply, 
-    // but here we check context indirectly. For now, we'll assume the parent component controls `isSelected` logic
-    // and we just need a generic "active" look. 
-    // However, if we want distinct looks for "Multi-selected for Sell" vs "Single clicked for details", 
-    // we might need a prop like `selectionMode`. 
-    // For this implementation, I will stick to a unified active state but use conditional classes based on usage.
-
-    return (
-         <div
-            draggable="true"
-            onDragStart={onDragStart}
-            {...divProps}
-            className={`p-2 rounded-lg border flex items-start gap-3 transition-all duration-150 select-none ${
-               isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : `${bg}/50 hover:bg-slate-700/50`
-            } ${finalBorder} ${shadow} ${borrowedStyle} ${divProps.className || ''}`}
-        >
-            {template.icon && <img src={template.icon} alt={template.name} draggable={false} className="w-12 h-12 object-contain bg-slate-800/50 rounded-md flex-shrink-0" />}
-            <div className="flex-grow">
-                <p className={`font-semibold ${text} ${!meetsRequirements ? 'text-red-500 line-through' : ''}`}>
-                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
-                </p>
-                <div className="flex justify-between items-center text-xs mt-1">
-                    {/* Use equipment.slot translations here */}
-                    <span className="text-gray-400">{t(`equipment.slot.${template.slot}`)}</span>
-                    {price !== undefined && <span className="font-mono text-amber-400 flex items-center">{price} <CoinsIcon className="h-3 w-3 ml-1"/></span>}
-                    {isEquipped && <span className="text-sky-400 font-semibold">{t('equipment.equipped')}</span>}
-                    {item.isBorrowed && <span className="text-indigo-400 font-bold ml-1" title={`Od: ${item.originalOwnerName}`}>[Wypożyczony]</span>}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export const EmptySlotListItem: React.FC<{ slotName: string, onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void }> = ({ slotName, onMouseEnter }) => (
-    <div className={`p-2 rounded-lg border border-slate-800 flex items-center gap-3 bg-slate-900/30 select-none`} onMouseEnter={onMouseEnter}>
-        <div className="w-12 h-12 bg-slate-800/50 rounded-md flex-shrink-0 flex items-center justify-center">
-            <ShieldIcon className="h-6 w-6 text-slate-600" />
-        </div>
-        <div className="flex-grow">
-            <p className="font-semibold text-slate-600">{slotName}</p>
-        </div>
-    </div>
-);
-
-
-interface ItemListProps {
+export const ItemList: React.FC<{
     items: ItemInstance[];
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     selectedItem: ItemInstance | null;
-    selectedIds?: Set<string>; // New prop for multi-select
     onSelectItem: (item: ItemInstance) => void;
-    showPrice?: 'buy' | 'sell' | 'buy-special' | ((item: any) => 'buy' | 'sell' | 'buy-special');
-    meetsRequirements?: (item: ItemInstance) => boolean;
-}
-
-export const ItemList: React.FC<ItemListProps> = ({ items, itemTemplates, affixes, selectedItem, selectedIds, onSelectItem, showPrice, meetsRequirements }) => {
+    selectedIds?: Set<string>;
+    showPrice?: 'buy' | 'buy-special' | 'sell' | ((item: ItemInstance) => 'buy' | 'buy-special' | 'sell' | null);
+}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds }) => {
     return (
-        <div className="flex-grow overflow-y-auto pr-2 space-y-1">
+        <div className="space-y-1">
             {items.map(item => {
                 const template = itemTemplates.find(t => t.id === item.templateId);
                 if (!template) return null;
+                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds && selectedIds.has(item.uniqueId));
                 
-                // Determine selection status: either match single selected item OR be present in selectedIds set
-                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds ? selectedIds.has(item.uniqueId) : false);
-                
-                let price;
-                if (showPrice) {
-                    let itemValue = Number(template.value) || 0;
-                    if (item.prefixId && affixes) {
-                        const prefix = affixes.find(a => a.id === item.prefixId);
-                        itemValue += Number(prefix?.value) || 0;
-                    }
-                    if (item.suffixId && affixes) {
-                        const suffix = affixes.find(a => a.id === item.suffixId);
-                        itemValue += Number(suffix?.value) || 0;
-                    }
-                    const priceType = typeof showPrice === 'function' ? showPrice(item) : showPrice;
-                    const multiplier = priceType === 'buy' ? 2 : priceType === 'buy-special' ? 5 : 1;
-                    price = itemValue * multiplier;
-                }
-                
-                // Extra styling for multi-selected items in sell mode
-                const multiSelectClass = (selectedIds && selectedIds.has(item.uniqueId)) ? 'ring-2 ring-amber-500 bg-amber-900/20' : '';
-
                 return (
                     <ItemListItem
                         key={item.uniqueId}
                         item={item}
                         template={template}
                         affixes={affixes}
-                        isSelected={isSelected}
+                        isSelected={!!isSelected}
                         onClick={() => onSelectItem(item)}
-                        price={price}
-                        showPrimaryStat={false}
-                        meetsRequirements={meetsRequirements ? meetsRequirements(item) : true}
-                        className={multiSelectClass}
                     />
                 );
             })}
