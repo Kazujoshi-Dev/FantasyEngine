@@ -48,6 +48,9 @@ export const getBackpackUpgradeCost = (level: number) => {
 
 export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
+// Poziom 1 = 5, Poziom 2 = 10, Poziom 3 = 15...
+export const getWarehouseCapacity = (level: number) => 5 + ((level - 1) * 5);
+
 export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
     if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
         return settings.workshopUpgrades[level];

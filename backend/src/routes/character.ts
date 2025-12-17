@@ -3,7 +3,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout } from '../types.js';
-import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer, getWarehouseCapacity } from '../logic/stats.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 
 const router = express.Router();
@@ -83,6 +83,235 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
     }
 });
 
+// ==========================================
+//               TREASURY / CHEST
+// ==========================================
+
+router.post('/treasury/deposit', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    const userId = req.user.id;
+    const val = parseInt(amount);
+
+    if (isNaN(val) || val <= 0) return res.status(400).json({ message: 'Nieprawidłowa kwota.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        
+        const capacity = getTreasuryCapacity(character.treasury.level);
+        const currentGold = character.resources.gold || 0;
+
+        if (currentGold < val) throw new Error("Niewystarczająca ilość złota w plecaku.");
+        if (character.treasury.gold + val > capacity) throw new Error("Skarbiec jest pełny.");
+
+        character.resources.gold -= val;
+        character.treasury.gold += val;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/treasury/withdraw', authenticateToken, async (req: any, res: any) => {
+    const { amount } = req.body;
+    const userId = req.user.id;
+    const val = parseInt(amount);
+
+    if (isNaN(val) || val <= 0) return res.status(400).json({ message: 'Nieprawidłowa kwota.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+
+        if (character.treasury.gold < val) throw new Error("Niewystarczająca ilość złota w skarbcu.");
+
+        character.treasury.gold -= val;
+        character.resources.gold = (character.resources.gold || 0) + val;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/treasury/upgrade', authenticateToken, async (req: any, res: any) => {
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.treasury) character.treasury = { level: 1, gold: 0 };
+        
+        const currentLevel = character.treasury.level;
+        const cost = getTreasuryUpgradeCost(currentLevel);
+
+        if (character.resources.gold < cost.gold) throw new Error("Brak złota na ulepszenie.");
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) throw new Error(`Brak esencji: ${e.type}.`);
+        }
+
+        // Deduct cost
+        character.resources.gold -= cost.gold;
+        cost.essences.forEach(e => {
+            character.resources[e.type] = (character.resources[e.type] || 0) - e.amount;
+        });
+
+        character.treasury.level += 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ==========================================
+//               WAREHOUSE
+// ==========================================
+
+router.post('/warehouse/deposit', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona.");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        
+        const capacity = getWarehouseCapacity(character.warehouse.level);
+        if (character.warehouse.items.length >= capacity) throw new Error("Magazyn jest pełny.");
+
+        const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
+        if (itemIndex === -1) throw new Error("Przedmiot nie znajduje się w plecaku.");
+        
+        const item = character.inventory[itemIndex];
+        if (item.isBorrowed) throw new Error("Nie można deponować pożyczonych przedmiotów.");
+
+        // Przenoszenie
+        character.inventory.splice(itemIndex, 1);
+        character.warehouse.items.push(item);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/warehouse/withdraw', authenticateToken, async (req: any, res: any) => {
+    const { itemId } = req.body;
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona.");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        
+        const backpackCap = getBackpackCapacity(character);
+        if (character.inventory.length >= backpackCap) throw new Error("Plecak jest pełny.");
+
+        const itemIndex = character.warehouse.items.findIndex(i => i.uniqueId === itemId);
+        if (itemIndex === -1) throw new Error("Przedmiot nie znajduje się w magazynie.");
+
+        const item = character.warehouse.items[itemIndex];
+
+        // Przenoszenie
+        character.warehouse.items.splice(itemIndex, 1);
+        character.inventory.push(item);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/warehouse/upgrade', authenticateToken, async (req: any, res: any) => {
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona.");
+        
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.warehouse) character.warehouse = { level: 1, items: [] };
+        
+        const currentLevel = character.warehouse.level;
+        if (currentLevel >= 10) throw new Error("Maksymalny poziom magazynu.");
+
+        const cost = getWarehouseUpgradeCost(currentLevel);
+
+        if (character.resources.gold < cost.gold) throw new Error("Brak złota na ulepszenie.");
+        for (const e of cost.essences) {
+            if ((character.resources[e.type] || 0) < e.amount) throw new Error(`Brak esencji: ${e.type}.`);
+        }
+
+        // Deduct cost
+        character.resources.gold -= cost.gold;
+        cost.essences.forEach(e => {
+            character.resources[e.type] = (character.resources[e.type] || 0) - e.amount;
+        });
+
+        character.warehouse.level += 1;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ==========================================
+//               LOADOUTS
+// ==========================================
+
 // Zapisywanie zestawu
 router.post('/loadouts/save', authenticateToken, async (req: any, res: any) => {
     const { loadoutId, name } = req.body; // loadoutId 0-4
@@ -148,7 +377,7 @@ router.post('/loadouts/load', authenticateToken, async (req: any, res: any) => {
         const currentEquipped = Object.values(character.equipment).filter(i => i !== null) as ItemInstance[];
         
         // 2. Check Warehouse capacity
-        const warehouseCap = 5 + ((character.warehouse.level - 1) * 3);
+        const warehouseCap = getWarehouseCapacity(character.warehouse.level);
         const freeSpaces = warehouseCap - character.warehouse.items.length;
 
         if (currentEquipped.length > freeSpaces) {
