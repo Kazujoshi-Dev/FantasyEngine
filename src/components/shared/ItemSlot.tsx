@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -150,7 +149,7 @@ export const ItemDetailsPanel: React.FC<{
                 color: 'text-green-300'
             })) : []),
             (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`, isPerfect: checkPerfect('damageMax', s.damageMax)},
-            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerTurn'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
+            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerRound'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}` },
             (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`, isPerfect: checkPerfect('armorBonus', s.armorBonus)},
             (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`, isPerfect: checkPerfect('critChanceBonus', s.critChanceBonus)},
             (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`, isPerfect: checkPerfect('maxHealthBonus', s.maxHealthBonus)},
@@ -264,7 +263,8 @@ export const ItemListItem: React.FC<{
     showPrimaryStat?: boolean;
     isEquipped?: boolean;
     meetsRequirements?: boolean;
-    draggable?: string;
+    // Fix: Change 'draggable' type from string to match Booleanish (boolean | 'true' | 'false')
+    draggable?: boolean | 'true' | 'false';
     onDragStart?: (e: React.DragEvent) => void;
     className?: string;
 }> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, ...props }) => {

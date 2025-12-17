@@ -1,5 +1,4 @@
 
-
 import { EssenceType, ItemRarity, PlayerCharacter, GameData, ItemTemplate, EquipmentSlot, CharacterClass, ItemInstance, CraftingSettings } from '../types.js';
 import { createItemInstance, rollAffixStats, rollTemplateStats } from './items.js';
 import { getBackpackCapacity } from './helpers.js';
@@ -115,7 +114,8 @@ export const performCraft = (
     character: PlayerCharacter, 
     gameData: GameData, 
     slot: EquipmentSlot | 'ring' | 'consumable', 
-    rarity: ItemRarity
+    rarity: ItemRarity,
+    luckOverride?: number
 ): { character: PlayerCharacter, item: ItemInstance } => {
     
     const workshopLevel = character.workshop?.level || 0;
@@ -146,25 +146,22 @@ export const performCraft = (
     character.resources.gold -= cost.gold;
     cost.essences.forEach(e => character.resources[e.type] -= e.amount);
     
+    // Use total luck for the actual generation if provided
+    const rollStatsChar = luckOverride !== undefined ? { ...character, stats: { ...character.stats, luck: luckOverride } } : character;
+
     // Roll Item
     const selectedTemplate = possibleTemplates[Math.floor(Math.random() * possibleTemplates.length)];
-    const newItem = createItemInstance(selectedTemplate.id, gameData.itemTemplates, gameData.affixes, character);
+    const newItem = createItemInstance(selectedTemplate.id, gameData.itemTemplates, gameData.affixes, rollStatsChar);
     
     // -- Set Crafter Name --
     newItem.crafterName = character.name;
 
     // -- Blacksmith Bonus: Masterwork Finish --
-    // Base: 25% chance to craft item with +1 upgrade level immediately
-    // Advanced Crafting Skill (Kowal only): Chance for +2 or +3
     if (character.characterClass === CharacterClass.Blacksmith) {
         const hasAdvancedCrafting = (character.learnedSkills || []).includes('advanced-crafting');
         const roll = Math.random();
 
         if (hasAdvancedCrafting) {
-            // Advanced Logic:
-            // 5% chance for +3
-            // 15% chance for +2 (Cumulative 20%)
-            // 30% chance for +1 (Cumulative 50% for any upgrade)
             if (roll < 0.05) {
                 newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 3;
             } else if (roll < 0.20) {
@@ -173,7 +170,6 @@ export const performCraft = (
                 newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
             }
         } else {
-            // Base Logic: 25% chance for +1
             if (roll < 0.25) {
                 newItem.upgradeLevel = (newItem.upgradeLevel || 0) + 1;
             }
@@ -193,7 +189,8 @@ export const performReforge = (
     character: PlayerCharacter, 
     gameData: GameData, 
     itemId: string,
-    type: 'values' | 'affixes'
+    type: 'values' | 'affixes',
+    luckOverride?: number
 ): PlayerCharacter => {
     
     const workshopLevel = character.workshop?.level || 0;
@@ -219,10 +216,11 @@ export const performReforge = (
     character.resources.gold -= cost.gold;
     cost.essences.forEach(e => character.resources[e.type] -= e.amount);
     
-    const luck = character.stats.luck;
+    // CRITICAL FIX: Use the calculated luck, but keep character.stats as the base stats for saving
+    const luck = luckOverride !== undefined ? luckOverride : character.stats.luck;
 
     if (type === 'values') {
-        // Reroll stats using existing template and affix definitions
+        // Reroll stats using the provided luck value
         item.rolledBaseStats = rollTemplateStats(template, luck);
         if (item.prefixId) {
             const prefix = gameData.affixes.find(a => a.id === item.prefixId);
@@ -234,7 +232,10 @@ export const performReforge = (
         }
     } else {
         // Reroll Affixes
-        const freshItem = createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, character);
+        // We need an object that has the high luck for creation logic
+        const rollStatsChar = { ...character, stats: { ...character.stats, luck } };
+        const freshItem = createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, rollStatsChar);
+        
         item.prefixId = freshItem.prefixId;
         item.suffixId = freshItem.suffixId;
         item.rolledPrefix = freshItem.rolledPrefix;
