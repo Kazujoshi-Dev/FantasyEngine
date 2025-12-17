@@ -216,3 +216,71 @@ const QuestCard: React.FC<{
         </div>
     );
 };
+
+export const Quests: React.FC = () => {
+    const { character, gameData } = useCharacter();
+    const { t } = useTranslation();
+
+    if (!character || !gameData) return null;
+
+    const { quests } = gameData;
+    const acceptedIds = character.acceptedQuests || [];
+
+    // Filter Active (Accepted) Quests
+    const activeQuests = quests.filter(q => acceptedIds.includes(q.id));
+
+    // Filter Available Quests
+    const availableQuests = quests.filter(q => {
+        // Not already accepted
+        if (acceptedIds.includes(q.id)) return false;
+        
+        // Location check
+        if (q.locationIds && q.locationIds.length > 0 && !q.locationIds.includes(character.currentLocationId)) {
+            return false;
+        }
+
+        // Completion check for non-repeatable quests
+        const progress = character.questProgress?.find(p => p.questId === q.id);
+        if (progress) {
+            // If repeatable is 0 (infinite) or completions < limit
+            const limit = q.repeatable === 0 ? Infinity : (q.repeatable || 1);
+            if (progress.completions >= limit) return false;
+        }
+
+        return true;
+    });
+
+    return (
+        <ContentPanel title={t('quests.title')}>
+            <div className="space-y-8 pb-6">
+                {/* Active Quests Section */}
+                <section>
+                    <h3 className="text-xl font-bold text-amber-400 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
+                        <span>{t('quests.acceptedQuests')}</span>
+                        <span className="text-sm font-normal text-gray-500 bg-slate-800 px-2 py-1 rounded">{activeQuests.length}</span>
+                    </h3>
+                    <div className="grid grid-cols-1 gap-6">
+                        {activeQuests.length === 0 && <p className="text-gray-500 text-center py-4 italic">Brak aktywnych zadań.</p>}
+                        {activeQuests.map(quest => (
+                            <QuestCard key={quest.id} quest={quest} isAccepted={true} />
+                        ))}
+                    </div>
+                </section>
+
+                {/* Available Quests Section */}
+                <section>
+                    <h3 className="text-xl font-bold text-green-400 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
+                        <span>{t('quests.availableQuests')}</span>
+                        <span className="text-sm font-normal text-gray-500 bg-slate-800 px-2 py-1 rounded">{availableQuests.length}</span>
+                    </h3>
+                    <div className="grid grid-cols-1 gap-6">
+                        {availableQuests.length === 0 && <p className="text-gray-500 text-center py-4 italic">{t('quests.noQuests')}</p>}
+                        {availableQuests.map(quest => (
+                            <QuestCard key={quest.id} quest={quest} isAccepted={false} />
+                        ))}
+                    </div>
+                </section>
+            </div>
+        </ContentPanel>
+    );
+};
