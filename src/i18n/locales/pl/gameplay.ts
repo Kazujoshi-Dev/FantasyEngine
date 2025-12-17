@@ -128,11 +128,6 @@ export default {
         dodgeChance: 'Szansa na Unik',
         dodgeChanceDesc: 'Procentowa szansa na uniknięcie ataku fizycznego.'
     },
-    damageMeter: {
-        title: 'Tabela Obrażeń (Drużyna)',
-        dpt: 'Obrażeń na turę',
-        total: 'Suma'
-    },
     expedition: {
         inProgressTitle: 'Wyprawa w toku',
         availableTitle: 'Dostępne Wyprawy',
@@ -212,6 +207,11 @@ export default {
                 meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'
             }
+        },
+        damageMeter: {
+            title: 'Tabela Obrażeń (Drużyna)',
+            dpt: 'Obrażeń na turę',
+            total: 'Suma'
         }
     },
     quests: {
