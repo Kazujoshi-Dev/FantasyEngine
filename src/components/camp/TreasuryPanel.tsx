@@ -36,13 +36,33 @@ export const TreasuryPanel: React.FC = () => {
     const canAffordUpgrade = (baseCharacter.resources?.gold || 0) >= upgradeCost.gold && upgradeCost.essences.every(e => (baseCharacter.resources[e.type] || 0) >= e.amount);
 
     const handleDeposit = async (value: number | 'all') => {
-        const depositAmount = value === 'all' ? (baseCharacter.resources?.gold || 0) : Math.min((baseCharacter.resources?.gold || 0), Number(value));
+        const playerGold = baseCharacter.resources?.gold || 0;
+        const remainingSpace = capacity - chestGold;
+        
+        if (playerGold <= 0) return;
+
+        let depositAmount = 0;
+        if (value === 'all') {
+            // Decydujemy ile faktycznie można wpłacić: mniejsza z wartości (posiadane złoto, wolne miejsce)
+            depositAmount = Math.min(playerGold, remainingSpace);
+            
+            if (depositAmount <= 0) {
+                alert("Skarbiec jest pełny.");
+                return;
+            }
+        } else {
+            depositAmount = Math.min(playerGold, Number(value));
+        }
+
         if (isNaN(depositAmount) || depositAmount <= 0) return;
+
         try {
             const updatedChar = await api.chestDeposit(depositAmount);
             updateCharacter(updatedChar);
             setAmount('');
-        } catch (e: any) { alert(e.message || 'Błąd wpłaty'); }
+        } catch (e: any) { 
+            alert(e.message || 'Błąd wpłaty'); 
+        }
     };
 
     const handleWithdraw = async (value: number | 'all') => {
