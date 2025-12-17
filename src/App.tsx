@@ -48,7 +48,7 @@ class ErrorBoundary extends Component<{children?: ReactNode}, {hasError: boolean
 }
 
 const AppContent: React.FC = () => {
-    const { character, derivedCharacter, setCharacter, gameData, setGameData, updateCharacter } = useCharacter();
+    const { character, derivedCharacter, setCharacter, gameData, setGameData, updateCharacter, loading } = useCharacter();
     const [activeTab, setActiveTab] = useState<Tab>(Tab.Statistics);
     const [isNewsOpen, setIsNewsOpen] = useState(false);
     const [activeUsers, setActiveUsers] = useState<string[]>([]);
@@ -80,21 +80,21 @@ const AppContent: React.FC = () => {
     }, [character?.activeTowerRun, activeTab]);
 
     const checkUpdates = useCallback(async () => {
-        if (!api.getAuthToken()) return;
+        if (!api.getAuthToken() || loading) return;
         try {
             const [unread, tavern] = await Promise.all([api.getUnreadMessagesStatus(), api.getTavernMessages()]);
             setHasUnreadMessages(unread);
             setTavernMessages(tavern.messages);
             setActiveUsers(tavern.activeUsers);
         } catch (e: any) { if (e.message === 'Invalid token') handleLogout(); }
-    }, [handleLogout]);
+    }, [handleLogout, loading]);
 
     useEffect(() => {
-        if (!api.getAuthToken()) return;
+        if (!api.getAuthToken() || loading) return;
         checkUpdates();
         const interval = setInterval(checkUpdates, 15000);
         return () => clearInterval(interval);
-    }, [checkUpdates]);
+    }, [checkUpdates, loading]);
 
     const fetchRanking = useCallback(async () => {
         setIsRankingLoading(true);
@@ -130,6 +130,16 @@ const AppContent: React.FC = () => {
         const timer = setTimeout(() => handleExpeditionCompletion(), Math.max(0, timeLeft));
         return () => clearTimeout(timer);
     }, [character?.activeExpedition, handleExpeditionCompletion]);
+
+    // Strażnik ładowania - zapobiega błyskowi CharacterCreation
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
+                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-400 animate-pulse">Wczytywanie kronik...</p>
+            </div>
+        );
+    }
 
     if (!character) return <CharacterCreation onCharacterCreate={async (d) => setCharacter(await api.createCharacter(d.name, d.race, gameData?.locations.find(l => l.isStartLocation)?.id || 'start'))} />;
     if (!gameData || !derivedCharacter) return null;
