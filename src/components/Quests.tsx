@@ -12,13 +12,16 @@ import { api } from '../api';
 
 const getObjectiveText = (quest: Quest, progress: number, enemies: Enemy[], itemTemplates: ItemTemplate[], t: (key: string, options?: any) => string) => {
     const { objective } = quest;
-    if (!objective) {
-        return "Zadanie w przygotowaniu (brak celu)";
+    if (!objective) return "Zadanie w przygotowaniu (brak celu)";
+    
+    let targetName = '';
+    if (objective.type === QuestType.Kill) {
+        targetName = enemies.find(e => e.id === objective.targetId)?.name || objective.targetId;
+    } else if (objective.type === QuestType.Gather) {
+        targetName = itemTemplates.find(it => it.id === objective.targetId)?.name || objective.targetId;
+    } else if (objective.type === QuestType.GatherResource) {
+        targetName = t(`resources.${objective.targetId}`);
     }
-    const targetName =
-        objective.type === QuestType.Kill ? enemies.find(e => e.id === objective.targetId)?.name :
-        objective.type === QuestType.Gather ? itemTemplates.find(it => it.id === objective.targetId)?.name :
-        objective.type === QuestType.GatherResource ? t(`resources.${objective.targetId}`) : '';
     
     let textKey = '';
     switch (objective.type) {
@@ -46,59 +49,35 @@ const QuestCard: React.FC<{
         try {
             const updatedChar = await api.acceptQuest(questId);
             updateCharacter(updatedChar);
-        } catch (e: any) {
-            if (e.message === 'Invalid token') {
-                window.location.reload();
-            } else {
-                alert(e.message);
-            }
-        }
+        } catch (e: any) { alert(e.message); }
     };
+
     const onCompleteQuest = async (questId: string) => {
         try {
             const updatedChar = await api.completeQuest(questId);
             updateCharacter(updatedChar);
-        } catch (e: any) {
-             if (e.message === 'Invalid token') {
-                window.location.reload();
-            } else {
-                alert(e.message);
-            }
-        }
+        } catch (e: any) { alert(e.message); }
     };
 
     const progressData = character.questProgress?.find(p => p.questId === quest.id) || { progress: 0, completions: 0 };
     const canStillComplete = quest.repeatable === 0 || progressData.completions < quest.repeatable;
     
-    if (!quest.objective) {
-        return (
-            <div className="bg-slate-900/40 p-6 rounded-xl border border-red-900/50">
-                <h3 className="text-lg font-bold text-red-400">{quest.name}</h3>
-                <p className="text-gray-500 text-sm">Błąd danych zadania: Brak zdefiniowanego celu.</p>
-            </div>
-        );
-    }
+    if (!quest.objective) return null;
 
     const { objective } = quest;
 
     const currentProgress = useMemo(() => {
         if (!isAccepted) return 0;
         switch (objective.type) {
-            case QuestType.Kill:
-                return progressData.progress;
-            case QuestType.Gather:
-                return (character.inventory || []).filter(i => i && i.templateId === objective.targetId).length;
-            case QuestType.GatherResource:
-                return (character.resources as any)[objective.targetId as EssenceType] || 0;
-            case QuestType.PayGold:
-                return character.resources.gold;
-            default:
-                return 0;
+            case QuestType.Kill: return progressData.progress;
+            case QuestType.Gather: return (character.inventory || []).filter(i => i && i.templateId === objective.targetId && !i.isBorrowed).length;
+            case QuestType.GatherResource: return (character.resources as any)[objective.targetId as EssenceType] || 0;
+            case QuestType.PayGold: return character.resources.gold;
+            default: return 0;
         }
     }, [character, objective, isAccepted, progressData]);
 
     const isObjectiveMet = currentProgress >= objective.amount;
-
     const progressPercentage = objective.amount > 0 ? (currentProgress / objective.amount) * 100 : 0;
     
     const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
@@ -129,6 +108,9 @@ const QuestCard: React.FC<{
                                 </div>
                                 <p className="text-right text-sm font-mono text-gray-400">{Math.min(currentProgress, objective.amount)} / {objective.amount}</p>
                             </div>
+                        )}
+                        {objective.type === QuestType.Gather && (
+                            <p className="text-[10px] text-gray-500 mt-1">* Przedmioty pożyczone nie są wliczane do postępu.</p>
                         )}
                     </div>
                     {quest.repeatable !== 1 && <p className="text-xs text-gray-500 mt-2">{t('quests.completions', { count: progressData.completions, total: quest.repeatable === 0 ? '∞' : quest.repeatable })}</p>}
@@ -164,27 +146,6 @@ const QuestCard: React.FC<{
                                 </p>
                             );
                         })}
-                        {quest.rewards?.lootTable && quest.rewards.lootTable.length > 0 && (
-                            <div className="pt-2 mt-2 border-t border-slate-700/50">
-                                <p className="text-xs text-gray-400 mb-1">Możliwe łupy:</p>
-                                {quest.rewards.lootTable.map((drop, index) => {
-                                    const template = itemTemplates.find(t => t.id === drop.templateId);
-                                    if (!template) return null;
-                                    return (
-                                        <p key={`loot-${index}`} className={`text-sm ${rarityStyles[template.rarity].text}`}>
-                                            {template.name} ({drop.weight}%)
-                                        </p>
-                                    )
-                                })}
-                            </div>
-                        )}
-                        {(!quest.rewards || (
-                            (quest.rewards.gold || 0) === 0 && 
-                            (quest.rewards.experience || 0) === 0 && 
-                            (!quest.rewards.itemRewards || quest.rewards.itemRewards.length === 0) &&
-                            (!quest.rewards.resourceRewards || quest.rewards.resourceRewards.length === 0) &&
-                            (!quest.rewards.lootTable || quest.rewards.lootTable.length === 0)
-                        )) && <p className="text-gray-500 text-sm text-center italic">Brak nagród</p>}
                     </div>
                 </div>
             </div>
@@ -199,9 +160,6 @@ const QuestCard: React.FC<{
                         >
                             {canStillComplete ? t('quests.complete') : t('quests.completed')}
                         </button>
-                        {!isObjectiveMet && quest.objective?.type === QuestType.Gather && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughItems')}</p>}
-                        {!isObjectiveMet && quest.objective?.type === QuestType.PayGold && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughGold')}</p>}
-                        {!isObjectiveMet && quest.objective?.type === QuestType.GatherResource && <p className="text-red-400 text-sm mt-2">{t('quests.notEnoughEssence')}</p>}
                     </>
                 ) : (
                      <button
@@ -226,34 +184,22 @@ export const Quests: React.FC = () => {
     const { quests } = gameData;
     const acceptedIds = character.acceptedQuests || [];
 
-    // Filter Active (Accepted) Quests
     const activeQuests = quests.filter(q => acceptedIds.includes(q.id));
 
-    // Filter Available Quests
     const availableQuests = quests.filter(q => {
-        // Not already accepted
         if (acceptedIds.includes(q.id)) return false;
-        
-        // Location check
-        if (q.locationIds && q.locationIds.length > 0 && !q.locationIds.includes(character.currentLocationId)) {
-            return false;
-        }
-
-        // Completion check for non-repeatable quests
+        if (q.locationIds && q.locationIds.length > 0 && !q.locationIds.includes(character.currentLocationId)) return false;
         const progress = character.questProgress?.find(p => p.questId === q.id);
         if (progress) {
-            // If repeatable is 0 (infinite) or completions < limit
             const limit = q.repeatable === 0 ? Infinity : (q.repeatable || 1);
             if (progress.completions >= limit) return false;
         }
-
         return true;
     });
 
     return (
         <ContentPanel title={t('quests.title')}>
             <div className="space-y-8 pb-6">
-                {/* Active Quests Section */}
                 <section>
                     <h3 className="text-xl font-bold text-amber-400 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
                         <span>{t('quests.acceptedQuests')}</span>
@@ -267,7 +213,6 @@ export const Quests: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Available Quests Section */}
                 <section>
                     <h3 className="text-xl font-bold text-green-400 mb-4 px-2 border-b border-slate-700 pb-2 flex justify-between items-center">
                         <span>{t('quests.availableQuests')}</span>
