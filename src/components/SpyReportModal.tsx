@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { SpyReportResult, GameData, EquipmentSlot } from '../types';
 import { CoinsIcon } from './icons/CoinsIcon';
-import { CombatantStatsPanel } from './combat/CombatSummary';
+import { CombatantStatsPanel } from './combat/summary/CombatantStatsPanel';
 import { ItemDetailsPanel } from './shared/ItemSlot';
 import { useTranslation } from '../contexts/LanguageContext';
 
