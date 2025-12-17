@@ -24,13 +24,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     const maxEnemies = expedition.maxEnemies || (expedition.enemies || []).length;
     let enemiesFoughtCount = 0;
     
-    // Convert old spawnChance to weight for consistent picking if needed, or stick to independent chance.
-    // For enemies, independent chance (spawnChance 0-100) often makes more sense than weighted pool if multiple enemies can spawn.
-    // However, if the user requested "enemies, bosses, expeditions" to use weights, we might want to treat the enemy list as a pool.
-    // Current logic: Loop through list, roll independent chance.
-    // Let's keep independent chance for enemy spawning (as it determines IF they appear, not WHICH one from a single slot), unless explicitly changed. 
-    // The user requirement "item finding system" strongly suggests Loot Tables. I will keep enemy spawning as-is for now to avoid breaking encounter logic, focusing on Loot.
-    
     for (const expEnemy of (expedition.enemies || [])) {
         if (enemiesFoughtCount >= maxEnemies) break;
         if (Math.random() * 100 < expEnemy.spawnChance) {
@@ -128,8 +121,11 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     const rewardBreakdown: RewardSource[] = [];
 
     if (isVictory) {
-        // Enemy rewards
+        const backpackCapacity = getBackpackCapacity(finalCharacter);
+        
+        // --- PHASE A: Enemy Rewards (Gold, XP, Items) ---
         for (const enemy of encounteredEnemies) {
+            // Gold & XP
             const minGold = enemy.rewards?.minGold ?? 0;
             const maxGold = enemy.rewards?.maxGold ?? 0;
             const goldReward = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
@@ -143,6 +139,31 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
                 gold: goldReward,
                 experience: experienceReward
             });
+
+            // Enemy Loot (Independent roll per enemy)
+            if (enemy.lootTable && enemy.lootTable.length > 0) {
+                 const droppedTemplateId = pickWeighted(enemy.lootTable)?.templateId;
+                 if (droppedTemplateId) {
+                     if (finalCharacter.inventory.length < backpackCapacity) {
+                        const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
+                        finalCharacter.inventory.push(newItem);
+                        itemsFound.push(newItem);
+                    } else {
+                        itemsLostCount++;
+                    }
+                 }
+            }
+            
+            // Enemy Resources
+            if (enemy.resourceLootTable && enemy.resourceLootTable.length > 0) {
+                 const drop = pickWeighted(enemy.resourceLootTable);
+                 if (drop) {
+                    let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
+                    if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) amount *= 2;
+                    essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
+                    finalCharacter.resources[drop.resource] = (finalCharacter.resources[drop.resource] || 0) + amount;
+                 }
+            }
             
             character.questProgress.forEach(qp => {
                 const quest = gameData.quests.find(q => q.id === qp.questId);
@@ -152,7 +173,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             });
         }
 
-        // Base expedition rewards
+        // --- PHASE B: Expedition Base Rewards (Completion) ---
         const baseGold = Math.floor(Math.random() * (expedition.maxBaseGoldReward - expedition.minBaseGoldReward + 1)) + expedition.minBaseGoldReward;
         const baseExperience = Math.floor(Math.random() * (expedition.maxBaseExperienceReward - expedition.minBaseExperienceReward + 1)) + expedition.minBaseExperienceReward;
         rewardBreakdown.unshift({
@@ -161,18 +182,17 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             experience: baseExperience
         });
         
-        // Sum up all rewards
+        // Sum up all monetary rewards
         rewardBreakdown.forEach(rb => {
             totalGold += rb.gold;
             totalExperience += rb.experience;
         });
         
-        // Race bonuses
+        // Apply Bonuses
         if(character.race === Race.Human) totalExperience = Math.floor(totalExperience * 1.10);
         if(character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.20);
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
         
-        // Apply Guild Buffs (Experience Bonus)
         const expBuffs = character.activeGuildBuffs?.filter(b => (b.stats as any).expBonus);
         if (expBuffs && expBuffs.length > 0) {
             expBuffs.forEach(b => {
@@ -182,48 +202,31 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             });
         }
         
-        // --- Loot Logic (Weighted) ---
-        const allLootTables: LootDrop[] = [
-            ...(expedition.lootTable || []),
-            ...encounteredEnemies.flatMap(e => e.lootTable || [])
-        ];
-
-        const backpackCapacity = getBackpackCapacity(finalCharacter);
+        // --- PHASE C: Expedition Scavenging (Loot from Map) ---
+        // Max Scavenge Attempts (Default 1 + bonuses, unrelated to enemy count now)
+        // If expedition.maxItems is set, use it. Otherwise, assume base 1 + bonuses.
+        let scavengeAttempts = (expedition.maxItems || 0);
         
-        // Max Items Calculation
-        let maxItems = (expedition.maxItems || 0) + scoutHouseLevel;
-        if (maxItems === 0) maxItems = 1; // Default to at least 1 roll if not specified? Or maybe default to pool size logic? 
-        // Let's assume a default of 3 rolls if maxItems not set, or derived from enemy count.
-        // For backward compatibility, let's say base 1 + 1 per enemy killed + scout bonus.
         if (!expedition.maxItems) {
-            maxItems = 1 + encounteredEnemies.length + scoutHouseLevel;
+            scavengeAttempts = 1; // Base 1 scavenge attempt per expedition if not configured
         }
+        
+        scavengeAttempts += scoutHouseLevel;
 
-        // Apply "Dokladne przeszukanie" skill bonus
         if (character.activeSkills?.includes('dokladne-przeszukiwanie')) {
-            maxItems += 1;
+            scavengeAttempts += 1;
         }
         
-        // Dungeon Hunter Bonus Loot Logic
         if(character.characterClass === CharacterClass.DungeonHunter) {
-             if (Math.random() < 0.3) maxItems += 1;
-             if (Math.random() < 0.15) maxItems += 1;
+             if (Math.random() < 0.3) scavengeAttempts += 1;
+             if (Math.random() < 0.15) scavengeAttempts += 1;
         }
         
-        // Roll for items
-        // In weighted system, we roll 'maxItems' times against the pool.
-        // We include a "Nothing" chance implicitly? No, usually weighted pools guarantee a drop if you roll on them.
-        // To simulate "chance to get nothing", the pool should have an "Empty" entry with weight.
-        // OR we stick to: We try to find 'maxItems' items.
+        const expeditionLootTable = expedition.lootTable || [];
         
-        for (let i = 0; i < maxItems; i++) {
-             // 50% base chance to get ANY item roll? Or always roll?
-             // Let's assume always roll on the table if it exists.
-             // To prevent flooding inventory, we can add a global "Empty" chance check before rolling the weighted table.
-             // For now, let's simply roll.
-             
-             if (allLootTables.length > 0) {
-                 const droppedTemplateId = pickWeighted(allLootTables)?.templateId;
+        for (let i = 0; i < scavengeAttempts; i++) {
+             if (expeditionLootTable.length > 0) {
+                 const droppedTemplateId = pickWeighted(expeditionLootTable)?.templateId;
                  
                  if (droppedTemplateId) {
                      if (finalCharacter.inventory.length < backpackCapacity) {
@@ -237,17 +240,14 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
              }
         }
         
-        // Handle resource drops (Weighted)
-        const allResourceLootTables = [
-            ...(expedition.resourceLootTable || []),
-            ...encounteredEnemies.flatMap(e => e.resourceLootTable || [])
-        ];
+        // Expedition Resources (Scavenging)
+        const expeditionResourceTable = expedition.resourceLootTable || [];
+        // Roll 1-2 times for resources
+        const resourceRolls = 1 + (scoutHouseLevel > 0 ? 1 : 0);
         
-        // Resources usually drop independently or in small batches.
-        // Let's roll 3 times on the resource table.
-        for (let i = 0; i < 3; i++) {
-            if (allResourceLootTables.length > 0) {
-                const drop = pickWeighted(allResourceLootTables);
+        for (let i = 0; i < resourceRolls; i++) {
+            if (expeditionResourceTable.length > 0) {
+                const drop = pickWeighted(expeditionResourceTable);
                 if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                     if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) {
