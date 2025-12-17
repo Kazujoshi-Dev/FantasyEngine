@@ -220,7 +220,7 @@ export const performReforge = (
     const luck = luckOverride !== undefined ? luckOverride : character.stats.luck;
 
     if (type === 'values') {
-        // Reroll stats using the provided luck value
+        // Reroll values for base AND current affixes
         item.rolledBaseStats = rollTemplateStats(template, luck);
         if (item.prefixId) {
             const prefix = gameData.affixes.find(a => a.id === item.prefixId);
@@ -231,16 +231,19 @@ export const performReforge = (
             if (suffix) item.rolledSuffix = rollAffixStats(suffix, luck);
         }
     } else {
-        // Reroll Affixes
-        // We need an object that has the high luck for creation logic
+        // type === 'affixes'
+        // Reroll Affixes ONLY. Preserve existing rolledBaseStats.
         const rollStatsChar = { ...character, stats: { ...character.stats, luck } };
         const freshItem = createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, rollStatsChar);
         
+        // Copy new affix properties
         item.prefixId = freshItem.prefixId;
         item.suffixId = freshItem.suffixId;
         item.rolledPrefix = freshItem.rolledPrefix;
         item.rolledSuffix = freshItem.rolledSuffix;
-        item.rolledBaseStats = freshItem.rolledBaseStats;
+        
+        // CRITICAL FIX: DO NOT overwrite item.rolledBaseStats here.
+        // item.rolledBaseStats = freshItem.rolledBaseStats; // This was the line causing the bug.
     }
     
     return character;
