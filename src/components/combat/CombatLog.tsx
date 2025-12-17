@@ -14,8 +14,8 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
     const { t } = useTranslation();
     const isPlayerAttacker = log.attacker === characterName || (isHunting && huntingMembers?.some(m => m.characterName === log.attacker));
     
-    const getTargetHealthStatus = (): string => {
-        const targetName = log.defender;
+    const getTargetHealthStatus = (targetNameOverride?: string): string => {
+        const targetName = targetNameOverride || log.defender;
         if (!targetName) return '';
 
         let current = 0;
@@ -108,12 +108,25 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
         case 'specialAttackLog': {
             const specialName = t(`specialAttacks.${log.specialAttackType}`);
             let resultText = "";
+            let aoeDetails: React.ReactNode = null;
             
             switch(log.specialAttackType) {
                 case SpecialAttackType.Stun: 
                     resultText = `Ogłusza ${log.defender}! Cel nie może atakować.`; break;
                 case SpecialAttackType.Earthquake:
-                    resultText = `Ziemia pęka! Cała drużyna otrzymuje obrażenia.`; break;
+                    resultText = `Ziemia pęka! Cała drużyna otrzymuje obrażenia.`;
+                    if (log.aoeDamage) {
+                        aoeDetails = (
+                            <div className="flex flex-wrap justify-center gap-2 mt-1">
+                                {log.aoeDamage.map((d, i) => (
+                                    <span key={i} className="text-[10px] text-red-500/80 bg-red-950/20 px-1.5 py-0.5 rounded border border-red-900/30">
+                                        {d.target}: <span className="font-bold">-{d.damage} HP</span> {getTargetHealthStatus(d.target)}
+                                    </span>
+                                ))}
+                            </div>
+                        );
+                    }
+                    break;
                 case SpecialAttackType.ArmorPierce:
                     resultText = `Roztrzaskuje pancerz ${log.defender}!`; break;
                 case SpecialAttackType.DeathTouch:
@@ -125,6 +138,7 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             return (
                 <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-1 my-1">
                     {log.attacker} używa {specialName}! {resultText}
+                    {aoeDetails}
                 </div>
             );
         }

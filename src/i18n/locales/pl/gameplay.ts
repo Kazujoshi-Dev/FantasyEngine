@@ -106,27 +106,32 @@ export default {
         critChance: 'Szansa na Trafienie Krytyczne',
         manaRegen: 'Regeneracja many na turę',
         nextEnergyIn: 'Następny za {time}',
-        itemBonusNote: 'Zielone wartości w nawiasach to bonusy z założonych przedmiotów.',
+        itemBonusNote: 'Zielone wartości w nawiasach to bonusy z przedmiotów.',
         critDamageModifier: 'Modyfikator Obr. Kryt.',
         critDamageModifierDesc: 'Mnożnik obrażeń zadawanych przy trafieniu krytycznym. Bazowo 200%.',
-        healthDesc: 'Twoje całkowite punkty zdrowia. Zwiększa się wraz z Wytrzymałością i bonusami z przedmiotów. Regeneruje się podczas odpoczynku w obozie.',
+        healthDesc: 'Twoje całkowite punkty zdrowia. Zwiększa się wraz z Wytrzymałością i bonusami z przedmiotów.',
         manaDesc: 'Używana do zdolności magicznych.',
-        manaRegenDesc: 'Ilość many odzyskiwanej w każdej turze walki. Zwiększa się z Inteligencją.',
+        manaRegenDesc: 'Ilość many odzyskiwanej w każdej turze walki.',
         physicalDamageDesc: 'Obrażenia fizyczne. Skalują się z Siłą (broń biała) lub Zręcznością (broń dystansowa).',
-        magicDamageDesc: 'Obrażenia zadawane przez ataki magiczne. Zwiększają się z Inteligencją i statystykami broni.',
+        magicDamageDesc: 'Obrażenia zadawane przez ataki magiczne.',
         armorDesc: 'Redukuje otrzymywane obrażenia fizyczne.',
-        critChanceDesc: 'Szansa na zadanie ciosu krytycznego. Zwiększa się z Celnością.',
-        attacksPerRoundDesc: 'Liczba ataków, które wykonujesz w każdej rundzie. Zależy od założonej broni.',
+        critChanceDesc: 'Szansa na zadanie ciosu krytycznego.',
+        attacksPerRoundDesc: 'Liczba ataków, które wykonujesz w każdej rundzie.',
         vitals: 'Witalne',
         combatStats: 'Statystyki Bojowe',
         armorPenetration: 'Penetracja Pancerza',
-        armorPenetrationDesc: "Ignoruje procentową i/lub stałą wartość pancerza celu podczas zadawania obrażeń fizycznych.",
+        armorPenetrationDesc: "Ignoruje procentową i/lub stałą wartość pancerza celu.",
         lifeSteal: 'Kradzież Życia',
-        lifeStealDesc: 'Leczy Cię o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
+        lifeStealDesc: 'Leczy Cię o procent zadanych obrażeń.',
         manaSteal: 'Kradzież Many',
-        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń i/lub o stałą wartość za każde trafienie.',
+        manaStealDesc: 'Odnawia manę o procent zadanych obrażeń.',
         dodgeChance: 'Szansa na Unik',
-        dodgeChanceDesc: 'Procentowa szansa na uniknięcie ataku fizycznego przeciwnika. Zwiększa się wraz ze Zręcznością.'
+        dodgeChanceDesc: 'Procentowa szansa na uniknięcie ataku fizycznego.'
+    },
+    damageMeter: {
+        title: 'Tabela Obrażeń (Drużyna)',
+        dpt: 'Obrażeń na turę',
+        total: 'Suma'
     },
     expedition: {
         inProgressTitle: 'Wyprawa w toku',
@@ -206,11 +211,6 @@ export default {
                 earthquakeSplash: '{target} otrzymuje {damage} obrażeń od wstrząsów wtórnych!',
                 meteorSwarmSplash: 'Odłamek meteorytu uderza {target}, zadając {damage} obrażeń!',
                 reduced_attacks: 'Ataki {target} zostały spowolnione!'
-            },
-            damageMeter: {
-                title: 'Tabela Obrażeń (Drużyna)',
-                dpt: 'Obrażeń na turę',
-                total: 'Suma'
             }
         }
     },
