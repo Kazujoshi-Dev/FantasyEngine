@@ -203,28 +203,42 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
         
         // --- PHASE C: Expedition Scavenging (Loot from Map) ---
-        // Max Scavenge Attempts (Default 1 + bonuses, unrelated to enemy count now)
-        // If expedition.maxItems is set, use it. Otherwise, assume base 1 + bonuses.
-        let scavengeAttempts = (expedition.maxItems || 0);
+        // Calculate "Potential" items count (Max possible items you COULD find)
+        let maxPotentialItems = (expedition.maxItems || 0);
         
         if (!expedition.maxItems) {
-            scavengeAttempts = 1; // Base 1 scavenge attempt per expedition if not configured
+            maxPotentialItems = 1; // Base 1 potential item per expedition if not configured
         }
         
-        scavengeAttempts += scoutHouseLevel;
+        maxPotentialItems += scoutHouseLevel;
 
         if (character.activeSkills?.includes('dokladne-przeszukiwanie')) {
-            scavengeAttempts += 1;
+            maxPotentialItems += 1;
         }
         
         if(character.characterClass === CharacterClass.DungeonHunter) {
-             if (Math.random() < 0.3) scavengeAttempts += 1;
-             if (Math.random() < 0.15) scavengeAttempts += 1;
+             if (Math.random() < 0.3) maxPotentialItems += 1;
+             if (Math.random() < 0.15) maxPotentialItems += 1;
         }
         
         const expeditionLootTable = expedition.lootTable || [];
         
-        for (let i = 0; i < scavengeAttempts; i++) {
+        // --- New Logic: Randomized Scavenging based on Luck ---
+        // Instead of getting ALL potential items, we roll for each potential slot.
+        // Base chance: 40% per slot.
+        // Luck bonus: 0.25% chance per 1 Luck point.
+        // Example: 0 Luck = 40% chance per slot. 100 Luck = 65% chance. 240 Luck = 100% chance.
+        
+        const baseFindChance = 40;
+        const luckBonus = (characterWithStats.stats.luck || 0) * 0.25;
+        const totalFindChance = Math.min(100, baseFindChance + luckBonus);
+
+        for (let i = 0; i < maxPotentialItems; i++) {
+             // Roll to see if we find anything in this "slot"
+             if (Math.random() * 100 > totalFindChance) {
+                 continue; // Failed to find item in this attempt
+             }
+
              if (expeditionLootTable.length > 0) {
                  const droppedTemplateId = pickWeighted(expeditionLootTable)?.templateId;
                  
