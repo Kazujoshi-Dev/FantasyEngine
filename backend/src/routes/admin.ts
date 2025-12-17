@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, Race, EssenceType, ItemInstance } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
+import { rollAffixStats, rollTemplateStats } from '../logic/items.js';
 
 const router = express.Router();
 
@@ -825,27 +826,54 @@ router.put('/guilds/:guildId/buildings', async (req: any, res: any) => {
 
 router.post('/give-item', async (req: any, res: any) => {
     const { userId, templateId, prefixId, suffixId, upgradeLevel } = req.body;
+    const client = await pool.connect();
     try {
-        const result = await pool.query('SELECT data FROM characters WHERE user_id = $1', [userId]);
-        if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+        await client.query('BEGIN');
+        const result = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'User not found' });
+        }
         
         const char = result.rows[0].data;
+
+        // Fetch required game data for rolls
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const templates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const allAffixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const template = templates.find(t => t.id === templateId);
+        if (!template) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Template not found' });
+        }
+
+        const prefix = prefixId ? allAffixes.find(a => a.id === prefixId) : null;
+        const suffix = suffixId ? allAffixes.find(a => a.id === suffixId) : null;
         
-        const newItem = {
+        const newItem: ItemInstance = {
             uniqueId: crypto.randomUUID(),
             templateId,
             prefixId: prefixId || undefined,
             suffixId: suffixId || undefined,
             upgradeLevel: upgradeLevel || 0,
+            rolledBaseStats: rollTemplateStats(template, 0),
+            rolledPrefix: prefix ? rollAffixStats(prefix, 0) : undefined,
+            rolledSuffix: suffix ? rollAffixStats(suffix, 0) : undefined,
+            crafterName: 'Administrator'
         };
         
         char.inventory.push(newItem);
-        await pool.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
+        await client.query('COMMIT');
         
         res.json({ message: 'Item given' });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Failed' });
+    } finally {
+        client.release();
     }
 });
 

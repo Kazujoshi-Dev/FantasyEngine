@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ItemTemplate, Affix, AdminCharacterInfo, ItemCategory, AffixType, ItemInstance } from '../../../types';
+import { ItemTemplate, Affix, AdminCharacterInfo, ItemCategory, AffixType, ItemInstance, RolledAffixStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { api } from '../../../api';
 import { ItemDetailsPanel } from '../../shared/ItemSlot';
@@ -43,17 +43,58 @@ export const ItemCreatorTab: React.FC<ItemCreatorTabProps> = ({ itemTemplates, a
         return affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[selectedTemplate.category]);
     }, [affixes, selectedTemplate]);
 
+    // Helper function to mock rolled stats for the preview
+    const mockRolledStats = (affix: Affix): RolledAffixStats => {
+        const rolled: any = {};
+        
+        // Use average of min/max for a realistic preview
+        const getVal = (range: { min: number, max: number } | number | undefined) => {
+            if (typeof range === 'number') return range;
+            if (!range) return undefined;
+            return Math.floor((range.min + range.max) / 2);
+        };
+
+        if (affix.statsBonus) {
+            rolled.statsBonus = {};
+            for (const [key, range] of Object.entries(affix.statsBonus)) {
+                rolled.statsBonus[key] = getVal(range as any);
+            }
+        }
+
+        const keys = [
+            'damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus',
+            'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent',
+            'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent',
+            'manaStealFlat', 'magicDamageMin', 'magicDamageMax'
+        ];
+
+        keys.forEach(k => {
+            const val = getVal((affix as any)[k]);
+            if (val !== undefined) rolled[k] = val;
+        });
+
+        return rolled as RolledAffixStats;
+    };
+
     const previewItem: ItemInstance | null = useMemo(() => {
         if (!selectedTemplate) return null;
+        
+        const prefixObj = affixes.find(a => a.id === selectedPrefixId);
+        const suffixObj = affixes.find(a => a.id === selectedSuffixId);
+
         return {
             uniqueId: 'preview',
             templateId: selectedTemplate.id,
             prefixId: selectedPrefixId || undefined,
             suffixId: selectedSuffixId || undefined,
             upgradeLevel: upgradeLevel,
-            isBorrowed: false // Admin generated
+            isBorrowed: false,
+            // Hydrate preview with mocked stats so ItemDetailsPanel shows values
+            rolledBaseStats: mockRolledStats(selectedTemplate as any),
+            rolledPrefix: prefixObj ? mockRolledStats(prefixObj) : undefined,
+            rolledSuffix: suffixObj ? mockRolledStats(suffixObj) : undefined
         };
-    }, [selectedTemplate, selectedPrefixId, selectedSuffixId, upgradeLevel]);
+    }, [selectedTemplate, selectedPrefixId, selectedSuffixId, upgradeLevel, affixes]);
 
     const handleGiveItem = async () => {
         if (!selectedUserId || !selectedTemplateId) {
