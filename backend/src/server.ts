@@ -225,8 +225,55 @@ initializeDatabase().then(() => {
         processPendingEspionage().catch(err => console.error("Error processing espionage:", err));
     }, 60000);
 
+    // CRON: Hourly Energy Regeneration (11:00, 12:00, etc.)
     cron.schedule('0 * * * *', async () => {
-        // ... existing hourly cron
+        const client = await pool.connect();
+        try {
+            console.log('[ENERGY REGEN] Starting hourly regeneration process...');
+            
+            // Fetch game data needed for stat calculation
+            const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
+            const itemTemplates = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+            const affixes = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+            const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
+
+            await client.query('BEGIN');
+            
+            // Fetch all characters and their associated guild data for accurate stat bonus calculation
+            const charsRes = await client.query(`
+                SELECT c.user_id, c.data, g.buildings, g.active_buffs
+                FROM characters c
+                LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+                LEFT JOIN guilds g ON gm.guild_id = g.id
+            `);
+
+            for (const row of charsRes.rows) {
+                let char = row.data as PlayerCharacter;
+                const barracks = row.buildings?.barracks || 0;
+                const shrine = row.buildings?.shrine || 0;
+                const activeBuffs = row.active_buffs || [];
+
+                // Calculate derived stats to find the current absolute maxEnergy (considering items/guilds)
+                const derivedChar = calculateDerivedStatsOnServer(char, itemTemplates, affixes, barracks, shrine, skills, activeBuffs);
+                const maxEnergy = derivedChar.stats.maxEnergy || 10;
+                const currentEnergy = char.stats.currentEnergy || 0;
+
+                if (currentEnergy < maxEnergy) {
+                    char.stats.currentEnergy = currentEnergy + 1;
+                    char.lastEnergyUpdateTime = Date.now();
+
+                    await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), row.user_id]);
+                }
+            }
+
+            await client.query('COMMIT');
+            console.log(`[ENERGY REGEN] Successfully updated energy for characters. Total processed: ${charsRes.rowCount}`);
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('[ENERGY REGEN] CRITICAL ERROR during hourly energy regeneration:', err);
+        } finally {
+            client.release();
+        }
     });
 
     cron.schedule('* * * * *', async () => {

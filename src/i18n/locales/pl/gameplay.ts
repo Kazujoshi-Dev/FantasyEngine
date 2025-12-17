@@ -75,7 +75,7 @@ export default {
         intelligence: 'Inteligencja',
         energy: 'Energia',
         luck: 'Szczęście',
-        strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Nie wpływa na obrażenia broni dystansowej ani magicznej.',
+        strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Zapewnia również niewielki bonus do ataku fizycznego broni magicznych. Nie wpływa na obrażenia broni dystansowej.',
         agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku w walce oraz szansę na unik.',
         accuracyDesc: 'Zwiększa szansę na trafienie krytyczne.',
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
@@ -111,7 +111,7 @@ export default {
         critDamageModifierDesc: 'Mnożnik obrażeń zadawanych przy trafieniu krytycznym. Bazowo 200%.',
         healthDesc: 'Twoje całkowite punkty zdrowia. Zwiększa się wraz z Wytrzymałością i bonusami z przedmiotów.',
         manaDesc: 'Używana do zdolności magicznych.',
-        manaRegenDesc: 'Ilość many odzyskiwanej w każdej turze walki.',
+        manaRegenDesc: 'Ilość many odyzskiwanej w każdej turze walki.',
         physicalDamageDesc: 'Obrażenia fizyczne. Skalują się z Siłą (broń biała) lub Zręcznością (broń dystansowa).',
         magicDamageDesc: 'Obrażenia zadawane przez ataki magiczne.',
         armorDesc: 'Redukuje otrzymywane obrażenia fizyczne.',
@@ -272,53 +272,6 @@ export default {
         acceptedQuests: 'Zaakceptowane Zadania',
         availableQuests: 'Dostępne Zadania',
         completedQuests: 'Ukończone Zadania'
-    },
-    pvp: {
-        attackInProgress: 'Atak w toku...',
-        attacking: 'Atakowanie {playerName}...',
-        cannotAttackSelf: "Nie możesz atakować samego siebie.",
-        levelRangeError: 'Możesz atakować tylko graczy w zasięgu +/- 3 poziomów.',
-        notEnoughEnergy: 'Za mało energii, aby zaatakować (koszt 3).',
-        targetProtected: 'Ten gracz jest chroniony przed atakami jeszcze przez {minutes} minut.',
-        goldStolen: 'Skradzione złoto: {amount}',
-        goldLost: 'Stracone złoto: {amount}',
-        xpGained: 'Zdobyte PD: {amount}',
-        xpLost: 'Przeciwnik zdobył: {amount} PD',
-        duelResult: 'Wynik Pojedynku',
-        attacker: 'Atakujący',
-        defender: 'Obrońca'
-    },
-    hunting: {
-        title: 'Polowanie',
-        statusLabel: 'Status',
-        startsIn: 'Start za',
-        leave: 'Opuść grupę',
-        disband: 'Rozwiąż grupę',
-        leaveConfirm: 'Czy na pewno chcesz opuścić grupę?',
-        chooseBoss: 'Wybierz Bossa',
-        partySize: 'Rozmiar Grupy',
-        create: 'Utwórz Grupę',
-        availableParties: 'Dostępne Grupy',
-        noParties: 'Brak dostępnych grup. Utwórz własną!',
-        join: 'Dołącz',
-        emptySlot: 'Wolne miejsce',
-        members: 'Członkowie Drużyny',
-        status: {
-            FORMING: 'Formowanie',
-            PREPARING: 'Przygotowanie',
-            FIGHTING: 'Walka',
-            FINISHED: 'Zakończone'
-        },
-        memberStatus: {
-            LEADER: 'Lider',
-            MEMBER: 'Członek',
-            PENDING: 'Oczekujący'
-        }
-    },
-    skills: {
-        passive: 'Umiejętności Pasywne',
-        active: 'Umiejętności Aktywne',
-        noSkills: 'Nie nauczono się jeszcze żadnych umiejętności.'
     },
     specialAttacks: {
         Stun: 'Ogłuszenie',

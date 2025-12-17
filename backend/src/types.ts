@@ -270,6 +270,9 @@ export interface PlayerCharacter {
     pvpLosses: number;
     pvpProtectionUntil: number;
     
+    // Fix: activeRankId does not exist on type 'PlayerCharacter'
+    activeRankId?: string;
+    
     traderData?: TraderData;
     
     guildId?: number;
@@ -1070,4 +1073,11 @@ export interface SpyReportResult {
     stats?: CharacterStats;
     equipment?: Record<EquipmentSlot, ItemInstance | null>;
     inventoryCount?: number;
+}
+
+// Fix: Module '"../types.js"' has no exported member 'PlayerRank'.
+export interface PlayerRank {
+    id: string;
+    name: string;
+    bonus: RolledAffixStats;
 }

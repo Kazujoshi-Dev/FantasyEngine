@@ -1,6 +1,6 @@
 
 import { EssenceType, Language, Race, CharacterClass } from './common';
-import { EquipmentSlot, ItemInstance } from './items';
+import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items';
 import { GuildBuff } from './guild';
 import { PlayerQuestProgress } from './world';
 import { ActiveTowerRun } from './world'; // Circular but needed
@@ -98,6 +98,9 @@ export interface PlayerCharacter {
     pvpWins: number;
     pvpLosses: number;
     pvpProtectionUntil: number;
+
+    // Added to sync with backend
+    activeRankId?: string;
     
     traderData?: TraderData;
     
@@ -152,4 +155,11 @@ export interface RankingPlayer {
     pvpProtectionUntil: number;
     guildTag?: string;
     isOnline: boolean;
+}
+
+// Added to sync with backend
+export interface PlayerRank {
+    id: string;
+    name: string;
+    bonus: RolledAffixStats;
 }
