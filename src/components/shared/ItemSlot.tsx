@@ -3,8 +3,6 @@ import React, { useMemo } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, PlayerRank } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
-import { StarIcon } from '../icons/StarIcon'; 
-import { ShieldIcon } from '../icons/ShieldIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { HandshakeIcon } from '../icons/HandshakeIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
@@ -18,79 +16,46 @@ export const rarityStyles = {
 };
 
 export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
-    const safeAffixes = affixes || [];
-    const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
-    const suffixAffix = safeAffixes.find(a => a.id === item.suffixId);
-    
-    let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
-    if (template.gender === GrammaticalGender.Feminine) {
-        genderKey = 'feminine';
-    } else if (template.gender === GrammaticalGender.Neuter) {
-        genderKey = 'neuter';
-    }
-    
-    const getName = (affix: Affix | undefined) => {
-        if (!affix) return '';
-        if (typeof affix.name === 'string') return affix.name;
-        return (affix.name as any)[genderKey] || affix.name.masculine || '';
-    };
-
-    const prefixName = getName(prefixAffix);
-    const suffixName = getName(suffixAffix);
-
-    return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
-}
-
-// FIX: Implemented ItemTooltip
-export const ItemTooltip: React.FC<{ instance: ItemInstance, template: ItemTemplate, affixes: Affix[] }> = ({ instance, template, affixes }) => {
-    return (
-        <div className="absolute z-[100] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 bottom-full mb-2 left-1/2 -translate-x-1/2 w-64">
-            <div className="bg-slate-900 border-2 border-slate-700 rounded-lg p-3 shadow-2xl">
-                <ItemDetailsPanel item={instance} template={template} affixes={affixes} compact size="small" />
-            </div>
-        </div>
-    );
+    const prefix = affixes.find(a => a.id === item.prefixId);
+    const suffix = affixes.find(a => a.id === item.suffixId);
+    let g: 'masculine' | 'feminine' | 'neuter' = 'masculine';
+    if (template.gender === GrammaticalGender.Feminine) g = 'feminine'; else if (template.gender === GrammaticalGender.Neuter) g = 'neuter';
+    const getName = (a: Affix | undefined) => a ? (typeof a.name === 'string' ? a.name : a.name[g]) : '';
+    return [getName(prefix), template.name, getName(suffix)].filter(Boolean).join(' ');
 };
 
-// FIX: Implemented ItemListItem
+// Fix: Added missing props to ItemListItem interface for compatibility
 export const ItemListItem: React.FC<{
     item: ItemInstance;
     template: ItemTemplate;
     affixes: Affix[];
     isSelected?: boolean;
     onClick: (e: React.MouseEvent) => void;
-    onDoubleClick?: () => void;
-    showPrimaryStat?: boolean;
     isEquipped?: boolean;
+    onDoubleClick?: (e: React.MouseEvent) => void;
+    showPrimaryStat?: boolean;
     meetsRequirements?: boolean;
     draggable?: string;
     onDragStart?: (e: React.DragEvent) => void;
     className?: string;
-}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, showPrimaryStat, isEquipped, meetsRequirements = true, draggable, onDragStart, className = '' }) => {
+}> = ({ item, template, affixes, isSelected, onClick, isEquipped, onDoubleClick, showPrimaryStat, meetsRequirements = true, draggable, onDragStart, className }) => {
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
     const style = rarityStyles[template.rarity];
-
     return (
         <div 
-            onClick={onClick}
+            onClick={onClick} 
             onDoubleClick={onDoubleClick}
-            draggable={draggable === 'true'}
-            onDragStart={onDragStart}
-            className={`
-                relative p-2 rounded-lg border-2 cursor-pointer transition-all duration-200 flex items-center gap-3
-                ${style.border} ${style.bg}/20 hover:${style.bg}/40
-                ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-400' : ''}
-                ${!meetsRequirements ? 'opacity-50' : ''}
-                ${className}
-            `}
+            draggable={draggable === "true"}
+            onDragStart={onDragStart as any}
+            className={`p-2 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${style.border} ${style.bg}/20 hover:${style.bg}/40 ${isSelected ? 'ring-2 ring-indigo-500' : ''} ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`}
         >
-            <div className={`w-10 h-10 rounded bg-slate-900 flex-shrink-0 flex items-center justify-center border ${style.border}`}>
-                {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-700" />}
+            <div className={`w-10 h-10 rounded bg-slate-900 flex items-center justify-center border ${style.border}`}>
+                {template.icon ? <img src={template.icon} className="w-8 h-8 object-contain" alt={template.name} /> : '?'}
             </div>
             <div className="flex-grow overflow-hidden">
                 <p className={`text-xs font-bold truncate ${style.text}`}>{fullName}</p>
                 <div className="flex gap-2 text-[10px] text-gray-500">
-                    <span>Lvl {template.requiredLevel}</span>
+                    <span className={!meetsRequirements ? 'text-red-400 font-bold' : ''}>Lvl {template.requiredLevel}</span>
                     {item.upgradeLevel ? <span className="text-amber-500">+{item.upgradeLevel}</span> : null}
                 </div>
             </div>
@@ -100,270 +65,92 @@ export const ItemListItem: React.FC<{
     );
 };
 
-// FIX: Implemented EmptySlotListItem
-export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
-    <div className="p-2 rounded-lg border-2 border-slate-800 bg-slate-900/50 flex items-center gap-3 opacity-40">
-        <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700 flex items-center justify-center">
-            <ShieldIcon className="w-6 h-6 text-slate-700" />
-        </div>
-        <p className="text-xs font-bold text-gray-600 uppercase tracking-widest">{slotName}</p>
-    </div>
-);
+// Fix: Added hideAffixes to ItemDetailsPanel interface
+export const ItemDetailsPanel: React.FC<{
+    item: ItemInstance | null;
+    template: ItemTemplate | null;
+    affixes: Affix[];
+    character?: PlayerCharacter;
+    size?: 'small';
+    title?: string;
+    compact?: boolean;
+    showIcon?: boolean;
+    hideAffixes?: boolean;
+}> = ({ item, template, affixes, character, size, title, compact, showIcon = true, hideAffixes }) => {
+    const { t } = useTranslation();
+    const { gameData } = useCharacter();
+    if (!item || !template) return <div className="text-gray-500 text-center py-10">{t('equipment.selectItemPrompt')}</div>;
+    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+    const style = rarityStyles[template.rarity];
+    const crafterRank = (item as any).crafterRankId && gameData?.playerRanks ? gameData.playerRanks.find(r => r.id === (item as any).crafterRankId) : null;
 
-// FIX: Implemented ItemList
+    return (
+        <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
+            <div className="flex-grow overflow-y-auto">
+                <h4 className={`font-bold text-center ${style.text} ${size === 'small' ? 'text-lg' : 'text-2xl'}`}>{fullName} {item.upgradeLevel ? `+${item.upgradeLevel}` : ''}</h4>
+                {showIcon && template.icon && <img src={template.icon} className="w-32 h-32 mx-auto my-4 object-contain" alt={template.name} />}
+                <p className="italic text-gray-400 text-center text-xs px-2 mb-4">{template.description}</p>
+                <div className="border-t border-slate-700 pt-2 space-y-1 px-2 text-sm">
+                    <p className="flex justify-between"><span>Slot:</span> <span className="text-white font-bold">{template.slot}</span></p>
+                    <p className="flex justify-between"><span>Wartość:</span> <span className="text-amber-400 font-bold">{template.value} <CoinsIcon className="inline h-3 w-3" /></span></p>
+                </div>
+            </div>
+            {item.crafterName && (
+                <div className="mt-3 pt-2 border-t border-slate-700 text-right px-2">
+                    <span className="text-gray-500 text-[10px]">Wykuty przez: </span>
+                    {crafterRank && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter border border-white/5 shadow-sm mr-1" style={{ 
+                            backgroundImage: crafterRank.backgroundImageUrl ? `url(${crafterRank.backgroundImageUrl})` : 'none',
+                            backgroundColor: crafterRank.backgroundImageUrl ? 'transparent' : '#312e81',
+                            backgroundSize: 'cover',
+                            color: crafterRank.textColor,
+                            textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+                        }}>{crafterRank.name}</span>
+                    )}
+                    <span className="text-amber-500 font-bold italic text-xs">{item.crafterName}</span>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Fix: Added showPrice to ItemList interface
 export const ItemList: React.FC<{
     items: ItemInstance[];
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     selectedItem: ItemInstance | null;
+    onSelectItem: (i: ItemInstance) => void;
     selectedIds?: Set<string>;
-    onSelectItem: (item: ItemInstance) => void;
-    showPrice?: 'buy' | 'buy-special' | 'sell' | ((item: ItemInstance) => 'buy' | 'buy-special' | 'sell');
-}> = ({ items, itemTemplates, affixes, selectedItem, selectedIds, onSelectItem, showPrice }) => {
-    return (
-        <div className="space-y-1">
-            {items.map(item => {
-                const template = itemTemplates.find(t => t.id === item.templateId);
-                if (!template) return null;
-                const isSelected = selectedItem?.uniqueId === item.uniqueId || selectedIds?.has(item.uniqueId);
-                return (
-                    <ItemListItem
-                        key={item.uniqueId}
-                        item={item}
-                        template={template}
-                        affixes={affixes}
-                        isSelected={isSelected}
-                        onClick={() => onSelectItem(item)}
-                    />
-                );
-            })}
-        </div>
-    );
-};
+    showPrice?: string | ((item: ItemInstance) => string);
+}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, showPrice }) => (
+    <div className="space-y-1">
+        {items.map(i => {
+            const t = itemTemplates.find(tmpl => tmpl.id === i.templateId);
+            if (!t) return null;
+            return (
+                <ItemListItem 
+                    key={i.uniqueId} 
+                    item={i} 
+                    template={t} 
+                    affixes={affixes} 
+                    isSelected={selectedItem?.uniqueId === i.uniqueId || selectedIds?.has(i.uniqueId)} 
+                    onClick={() => onSelectItem(i)} 
+                />
+            );
+        })}
+    </div>
+);
 
-export const ItemDetailsPanel: React.FC<{
-    item: ItemInstance | null;
-    template: ItemTemplate | null;
-    affixes: Affix[];
-    children?: React.ReactNode;
-    showIcon?: boolean;
-    character?: PlayerCharacter;
-    size?: 'small';
-    hideAffixes?: boolean;
-    title?: string;
-    compact?: boolean;
-}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false }) => {
-    const { t } = useTranslation();
-    const { gameData } = useCharacter();
-    const isSmall = size === 'small';
-    const safeAffixes = affixes || [];
-    
-    const baseStatsSource = useMemo(() => {
-        if (!item || !template) return null;
-        if (item.rolledBaseStats) {
-            return {
-                ...item.rolledBaseStats,
-                attacksPerRound: template.attacksPerRound,
-                manaCost: template.manaCost,
-                magicAttackType: template.magicAttackType
-            };
-        }
-        return template;
-    }, [item, template]);
+export const EmptySlotListItem: React.FC<{slotName: string}> = ({ slotName }) => (
+    <div className="p-2 rounded-lg border-2 border-slate-800 bg-slate-900/50 flex items-center gap-3 opacity-40">
+        <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center">?</div>
+        <p className="text-xs font-bold text-gray-600 uppercase">{slotName}</p>
+    </div>
+);
 
-    const prefix = useMemo(() => safeAffixes.find(a => a.id === item?.prefixId), [safeAffixes, item?.prefixId]);
-    const suffix = useMemo(() => safeAffixes.find(a => a.id === item?.suffixId), [safeAffixes, item?.suffixId]);
-
-    const getName = (affix: Affix | undefined) => {
-        if (!affix || !template) return '';
-        if (typeof affix.name === 'string') return affix.name;
-        
-        let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
-        if (template.gender === GrammaticalGender.Feminine) {
-            genderKey = 'feminine';
-        } else if (template.gender === GrammaticalGender.Neuter) {
-            genderKey = 'neuter';
-        }
-        return (affix.name as any)[genderKey] || affix.name.masculine || '';
-    };
-
-    const totalValue = useMemo(() => {
-        if (!template) return 0;
-        let val = Number(template.value) || 0;
-        if (prefix) val += Number(prefix.value) || 0;
-        if (suffix) val += Number(suffix.value) || 0;
-        return val;
-    }, [template, prefix, suffix]);
-
-    if (!item || !template) {
-        return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
-    }
-
-    const upgradeLevel = item.upgradeLevel || 0;
-    const baseUpgradeFactor = upgradeLevel * 0.1;
-    const affixUpgradeFactor = Math.min(upgradeLevel, 5) * 0.1;
-    
-    const fullName = getGrammaticallyCorrectFullName(item, template, safeAffixes);
-
-    const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, metadata: any, isAffix: boolean}> = ({title, source, metadata, isAffix}) => {
-        const bonusFactor = isAffix ? affixUpgradeFactor : baseUpgradeFactor;
-        
-        const getValue = (val: any): number => {
-            if (typeof val === 'number') return val;
-            if (val && typeof val.max === 'number') return val.max;
-            return 0;
-        };
-
-        const checkPerfect = (key: string, rolledVal: any): boolean => {
-            if (rolledVal === undefined || !metadata) return false;
-            let metaVal = metadata[key];
-            if (key.startsWith('statsBonus.')) {
-                const statKey = key.split('.')[1];
-                metaVal = metadata.statsBonus?.[statKey];
-            }
-            if (!metaVal) return false;
-            const maxPossible = getValue(metaVal);
-            return maxPossible > 0 && rolledVal >= maxPossible;
-        };
-
-        const calculateStat = (base?: any) => {
-             const val = getValue(base);
-             return val !== undefined ? val + Math.round(val * bonusFactor) : undefined;
-        }
-
-        const calculateFloatStat = (base?: any) => {
-             const val = getValue(base);
-             return val !== undefined ? val + val * bonusFactor : undefined;
-        }
-        
-        const s = source as any;
-        
-        const entries = [
-            ...(s.statsBonus ? Object.entries(s.statsBonus).filter(([,v])=>v).map(([k,v]) => ({
-                label: t(`statistics.${k}`), 
-                value: `+${calculateStat(v)}`, 
-                isPerfect: checkPerfect(`statsBonus.${k}`, v),
-                color: 'text-green-300'
-            })) : []),
-            (s.damageMin !== undefined) && {label: t('item.damage'), value: `${calculateStat(s.damageMin)}-${calculateStat(s.damageMax)}`, isPerfect: checkPerfect('damageMax', s.damageMax)},
-            (s.attacksPerRound !== undefined || s.attacksPerRoundBonus !== undefined) && { label: t('statistics.attacksPerRound'), value: s.attacksPerRound || `+${s.attacksPerRoundBonus}`, isPerfect: checkPerfect('attacksPerRoundBonus', s.attacksPerRoundBonus) },
-            (s.armorBonus !== undefined) && {label: t('statistics.armor'), value: `+${calculateStat(s.armorBonus)}`, isPerfect: checkPerfect('armorBonus', s.armorBonus)},
-            (s.critChanceBonus !== undefined) && {label: t('statistics.critChance'), value: `+${(calculateFloatStat(s.critChanceBonus))?.toFixed(1)}%`, isPerfect: checkPerfect('critChanceBonus', s.critChanceBonus)},
-            (s.maxHealthBonus !== undefined) && {label: t('statistics.health'), value: `+${calculateStat(s.maxHealthBonus)}`, isPerfect: checkPerfect('maxHealthBonus', s.maxHealthBonus)},
-            (s.critDamageModifierBonus !== undefined) && {label: t('statistics.critDamageModifier'), value: `+${calculateStat(s.critDamageModifierBonus)}%`, isPerfect: checkPerfect('critDamageModifierBonus', s.critDamageModifierBonus)},
-            (s.armorPenetrationPercent !== undefined || s.armorPenetrationFlat !== undefined) && {
-                label: t('statistics.armorPenetration'), 
-                value: `${s.armorPenetrationPercent ? getValue(s.armorPenetrationPercent) : 0}% / ${calculateStat(s.armorPenetrationFlat)}`,
-                isPerfect: checkPerfect('armorPenetrationPercent', s.armorPenetrationPercent) || checkPerfect('armorPenetrationFlat', s.armorPenetrationFlat)
-            },
-            (s.lifeStealPercent !== undefined || s.lifeStealFlat !== undefined) && {
-                label: t('statistics.lifeSteal'), 
-                value: `${s.lifeStealPercent ? getValue(s.lifeStealPercent) : 0}% / ${calculateStat(s.lifeStealFlat)}`,
-                isPerfect: checkPerfect('lifeStealPercent', s.lifeStealPercent) || checkPerfect('lifeStealFlat', s.lifeStealFlat)
-            },
-            (s.manaStealPercent !== undefined || s.manaStealFlat !== undefined) && {
-                label: t('statistics.manaSteal'), 
-                value: `${s.manaStealPercent ? getValue(s.manaStealPercent) : 0}% / ${calculateStat(s.manaStealFlat)}`,
-                isPerfect: checkPerfect('manaStealPercent', s.manaStealPercent) || checkPerfect('manaStealFlat', s.manaStealFlat)
-            },
-            (s.magicDamageMin !== undefined) && {label: t('statistics.magicDamage'), value: `${calculateStat(s.magicDamageMin)}-${calculateStat(s.magicDamageMax)}`, isPerfect: checkPerfect('magicDamageMax', s.magicDamageMax), color: 'text-purple-300'},
-            (s.manaCost?.min !== undefined) && {label: t('item.manaCost'), value: s.manaCost.min === s.manaCost.max ? `${s.manaCost.min}` : `${s.manaCost.min}-${s.manaCost.max}`, color: 'text-cyan-300'},
-            (s.magicAttackType !== undefined) && {label: t('item.magicAttackType'), value: t(`item.magic.${s.magicAttackType}`), color: 'text-purple-300', valueClass: 'font-semibold'},
-            (s.dodgeChanceBonus !== undefined) && {label: t('item.dodgeChanceBonus'), value: `+${calculateFloatStat(s.dodgeChanceBonus)?.toFixed(1)}%`, isPerfect: checkPerfect('dodgeChanceBonus', s.dodgeChanceBonus)},
-        ].filter(Boolean);
-
-        if (entries.length === 0) return null;
-        
-        return (
-             <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
-                {title && <h5 className={`font-semibold text-gray-400 ${isSmall ? 'text-sm' : 'text-base'}`}>{title}</h5>}
-                {entries.map((e: any, i: number) => (
-                    <p key={i} className={`flex justify-between ${e.color || ''}`}>
-                        <span className="flex items-center gap-1">
-                            {e.label}:
-                            {e.isPerfect && <span title="Maksymalna wartość!"><SparklesIcon className="h-3 w-3 text-amber-400 animate-pulse" /></span>}
-                        </span> 
-                        <span className={`${e.valueClass || 'font-mono'} ${e.isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_3px_rgba(251,191,36,0.6)]' : ''}`}>
-                            {e.value}
-                        </span>
-                    </p>
-                ))}
-            </div>
-        )
-    }
-
-    const totalRequiredLevel = Math.max(template.requiredLevel || 0, prefix?.requiredLevel || 0, suffix?.requiredLevel || 0);
-    const allRequiredStats: Partial<CharacterStats> = {...template.requiredStats, ...prefix?.requiredStats, ...suffix?.requiredStats};
-
-    const crafterRank = (item as any).crafterRankId && gameData?.playerRanks 
-        ? gameData.playerRanks.find(r => r.id === (item as any).crafterRankId) 
-        : null;
-
-    return (
-        <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
-            <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-1' : 'pr-2'}`}>
-                {title && <h5 className={`text-center font-bold mb-2 ${isSmall ? 'text-base' : 'text-lg'} text-sky-300`}>{title}</h5>}
-                <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-xl mb-1' : 'text-2xl mb-2'}`}>
-                    {fullName} {upgradeLevel > 0 && `+${upgradeLevel}`}
-                </h4>
-                {showIcon && template.icon && <img src={template.icon} alt={template.name} className="w-48 h-48 object-contain border border-slate-600 rounded-md bg-slate-800 mx-auto mb-4" />}
-                <p className={`italic text-center ${isSmall ? 'text-xs text-gray-400 mb-2' : 'text-sm text-gray-400 mb-4'}`}>{template.description}</p>
-                
-                {item.isBorrowed && (
-                    <div className="bg-indigo-900/50 text-indigo-300 border border-indigo-700 p-2 rounded text-center mb-2 text-xs font-bold">
-                        WYPOŻYCZONY OD GILDII<br/>
-                        <span className="font-normal text-gray-400">Właściciel: {item.originalOwnerName || 'Nieznany'}</span>
-                    </div>
-                )}
-
-                <div className="border-t border-slate-700/50 pt-2">
-                    <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        <span>{t('item.slotLabel')}:</span> <span className="font-semibold text-white">{t(`equipment.slot.${template.slot}`)}</span>
-                    </p>
-                    <p className={`flex justify-between ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        <span>{t('item.value')}:</span> <span className="font-mono text-amber-400 flex items-center">{totalValue} <CoinsIcon className="h-4 w-4 ml-1"/></span>
-                    </p>
-                </div>
-
-                {baseStatsSource && <StatSection source={baseStatsSource} metadata={template} isAffix={false} />}
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`${getName(prefix)} (${t('admin.affix.prefix')})`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`${getName(suffix)} (${t('admin.affix.suffix')})`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
-
-                {(totalRequiredLevel > 1 || Object.keys(allRequiredStats).length > 0) && (
-                    <div className={`border-t border-slate-700/50 pt-2 mt-2 ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                        <h5 className="font-semibold text-gray-400 mb-1">{t('item.requirements')}:</h5>
-                        <div className="space-y-0.5">
-                            {totalRequiredLevel > 1 && (
-                                <p className={`flex justify-between ${character && character.level < totalRequiredLevel ? 'text-red-400' : 'text-gray-300'}`}>
-                                    <span>{t('item.levelRequirement')}:</span> <span>{totalRequiredLevel}</span>
-                                </p>
-                            )}
-                            {Object.entries(allRequiredStats).map(([stat, value]) => {
-                                const meetsReq = character ? character.stats[stat as keyof CharacterStats] >= (value as number) : true;
-                                return (
-                                    <p key={stat} className={`flex justify-between ${!meetsReq ? 'text-red-400' : 'text-gray-300'}`}>
-                                        <span>{t(`statistics.${stat}`)}:</span> <span>{value}</span>
-                                    </p>
-                                )
-                            })}
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            {item.crafterName && (
-                <div className={`mt-3 pt-2 border-t border-slate-700/50 text-right ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
-                    <span className="text-gray-500">Wykuty przez: </span>
-                    {crafterRank && (
-                         <span className="px-1 rounded text-[10px] uppercase font-black tracking-tighter mr-1" style={{ backgroundColor: crafterRank.backgroundColor, color: crafterRank.textColor }}>
-                            {crafterRank.name}
-                        </span>
-                    )}
-                    <span className="text-amber-500 font-bold italic">{item.crafterName}</span>
-                </div>
-            )}
-
-            {children && <div className="flex-shrink-0">{children}</div>}
-        </div>
-    );
-};
+export const ItemTooltip: React.FC<{instance: ItemInstance, template: ItemTemplate, affixes: Affix[]}> = ({ instance, template, affixes }) => (
+    <div className="absolute z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bg-slate-900 border border-slate-700 p-2 rounded shadow-2xl w-64 bottom-full mb-2">
+        <ItemDetailsPanel item={instance} template={template} affixes={affixes} compact size="small" />
+    </div>
+);

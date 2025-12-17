@@ -11,7 +11,7 @@ export interface TraderSettings {
 export interface PlayerRank {
     id: string;
     name: string;
-    backgroundColor: string;
+    backgroundImageUrl?: string;
     textColor: string;
     bonus: RolledAffixStats;
 }
@@ -83,7 +83,7 @@ export interface OrphanAuditResult {
 }
 
 export interface ItemSearchResult {
-    item: any; // Using any or specific ItemInstance if imports allow without cycle, here loose for admin tool
+    item: any; 
     template: ItemTemplate;
     locations: {
         userId: number;

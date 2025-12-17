@@ -44,78 +44,37 @@ export const Options: React.FC = () => {
 
   const handleSaveProfile = async () => {
     setSaveProfileStatus('saving');
-    setEmailStatus({ type: null, message: '' });
-    
     const updateData: any = {
-        description,
-        avatarUrl,
-        settings: {
-            ...character.settings,
-            language: selectedLang
-        }
+        description, avatarUrl,
+        settings: { ...character.settings, language: selectedLang }
     };
-
-    if (!hasEmail && email.trim()) {
-        updateData.email = email.trim();
-    }
+    if (!hasEmail && email.trim()) updateData.email = email.trim();
 
     try {
         const updatedChar = await api.updateCharacter(updateData);
-        if (updateData.email && !updatedChar.email) {
-             updatedChar.email = updateData.email;
-        }
-
         updateCharacter(updatedChar);
         setSaveProfileStatus('saved');
-        
-        if (updateData.email) {
-             setEmailStatus({ type: 'success', message: 'Email został przypisany do konta.' });
-             setEmail(''); 
-        }
-
         setTimeout(() => setSaveProfileStatus('idle'), 2000);
     } catch (e: any) {
-        if (e.message && e.message.includes('email')) {
-             setEmailStatus({ type: 'error', message: 'Ten email jest już zajęty.' });
-        } else {
-             alert('Failed to save profile: ' + (e.message || 'Unknown error'));
-        }
+        alert('Błąd zapisu: ' + (e.message || 'Unknown error'));
         setSaveProfileStatus('idle');
     }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (newPassword !== confirmPassword) {
-          setPasswordStatus({ type: 'error', message: t('options.security.passwordsDoNotMatch') });
-          return;
-      }
-      if (newPassword.length < 6) {
-          setPasswordStatus({ type: 'error', message: t('options.security.passwordTooShort') });
-          return;
-      }
-
+      if (newPassword !== confirmPassword) { setPasswordStatus({ type: 'error', message: t('options.security.passwordsDoNotMatch') }); return; }
       try {
           await api.changePassword(oldPassword, newPassword);
           setPasswordStatus({ type: 'success', message: t('options.security.passwordChanged') });
-          setOldPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-      } catch (err: any) {
-          setPasswordStatus({ type: 'error', message: err.message });
-      }
-  };
-
-  const handleSyncTime = async () => {
-      const offset = await api.synchronizeTime();
-      alert(`Czas zsynchronizowany. Offset: ${offset.toFixed(0)}ms`);
+          setOldPassword(''); setNewPassword(''); setConfirmPassword('');
+      } catch (err: any) { setPasswordStatus({ type: 'error', message: err.message }); }
   };
 
   return (
     <ContentPanel title={t('options.title')}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-              {/* Ranks Selection */}
               {myRanks.length > 0 && (
                   <div className="bg-slate-900/40 p-6 rounded-xl border border-amber-500/30">
                       <h3 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2"><StarIcon className="h-5 w-5"/> Twoje Rangi</h3>
@@ -130,11 +89,16 @@ export const Options: React.FC = () => {
                               <button
                                 key={rank.id}
                                 onClick={() => handleRankSelect(rank.id)}
-                                className={`p-3 rounded-lg border text-left transition-all flex justify-between items-center ${character.activeRankId === rank.id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-700 hover:border-slate-500'}`}
-                                style={{ backgroundColor: rank.backgroundColor }}
+                                className={`p-3 rounded-lg border text-left transition-all flex justify-between items-center overflow-hidden relative ${character.activeRankId === rank.id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-700 hover:border-slate-500'}`}
+                                style={{ 
+                                    backgroundImage: rank.backgroundImageUrl ? `url(${rank.backgroundImageUrl})` : 'none',
+                                    backgroundColor: rank.backgroundImageUrl ? 'transparent' : '#1e293b',
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                }}
                               >
-                                  <span className="font-bold" style={{ color: rank.textColor }}>{rank.name}</span>
-                                  <span className="text-[10px] opacity-70 italic" style={{ color: rank.textColor }}>
+                                  <span className="font-black uppercase tracking-widest text-sm z-10" style={{ color: rank.textColor, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{rank.name}</span>
+                                  <span className="text-[10px] italic z-10" style={{ color: rank.textColor, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                       {Object.entries(rank.bonus || {}).map(([k,v]) => `+${v} ${k}`).join(', ')}
                                   </span>
                               </button>
@@ -147,153 +111,37 @@ export const Options: React.FC = () => {
                 <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('options.profile.title')}</h3>
                 <div className="space-y-4">
                     <div>
-                        <label htmlFor="language-select" className="block text-sm font-medium text-gray-300 mb-1">{t('options.language')}</label>
-                        <select
-                        id="language-select"
-                        value={selectedLang}
-                        onChange={(e) => setSelectedLang(e.target.value as Language)}
-                        className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                        >
+                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.language')}</label>
+                        <select value={selectedLang} onChange={(e) => setSelectedLang(e.target.value as Language)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2">
                         <option value={Language.PL}>{t('languages.pl')}</option>
                         <option value={Language.EN}>{t('languages.en')}</option>
                         </select>
                     </div>
-
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.profile.avatarUrl')}</label>
-                        <div className="flex gap-4 items-start">
-                            <input 
-                                type="text" 
-                                value={avatarUrl} 
-                                onChange={e => setAvatarUrl(e.target.value)} 
-                                placeholder="https://example.com/avatar.png"
-                                className="flex-grow bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                            />
-                            {avatarUrl && (
-                                <img 
-                                    src={avatarUrl} 
-                                    alt="Preview" 
-                                    className="w-10 h-10 rounded-full object-cover border border-slate-500 bg-slate-900"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                />
-                            )}
-                        </div>
+                        <input type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} placeholder="https://..." className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2" />
                     </div>
-
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.profile.description')}</label>
-                        <textarea 
-                            value={description} 
-                            onChange={e => setDescription(e.target.value)} 
-                            rows={4}
-                            placeholder={t('options.profile.descriptionPlaceholder')}
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                        />
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2" />
                     </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Adres Email (Odzyskiwanie hasła)</label>
-                        {hasEmail ? (
-                             <div className="w-full bg-slate-800/80 border border-green-700/50 rounded-md px-4 py-3 flex items-center justify-between">
-                                 <div className="flex items-center gap-2">
-                                     <span className="text-gray-200 font-mono">{character.email}</span>
-                                 </div>
-                                 <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold uppercase tracking-wider bg-green-900/30 px-2 py-1 rounded">
-                                     <ShieldIcon className="h-3 w-3" />
-                                     Zabezpieczone
-                                 </div>
-                             </div>
-                        ) : (
-                            <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-700/30">
-                                <input 
-                                    type="email" 
-                                    value={email} 
-                                    onChange={e => setEmail(e.target.value)} 
-                                    placeholder="twoj@email.com"
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                                    autoComplete="email"
-                                />
-                                <p className="text-xs text-amber-500 mt-1">
-                                    <strong>Uwaga:</strong> Adres email można przypisać do konta tylko raz. Służy on wyłącznie do odzyskiwania hasła.
-                                </p>
-                                {emailStatus.message && (
-                                    <p className={`text-xs ${emailStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                                        {emailStatus.message}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex justify-end items-center h-10 pt-2 border-t border-slate-700/50">
+                    <div className="flex justify-end pt-2 border-t border-slate-700/50">
                         {saveProfileStatus === 'saved' && <p className="text-green-400 mr-4 animate-fade-in">{t('options.saveSuccess')}</p>}
-                        <button
-                        onClick={handleSaveProfile}
-                        disabled={saveProfileStatus !== 'idle'}
-                        className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                        >
-                        {saveProfileStatus === 'saving' ? t('admin.general.saving') + '...' : t('options.save')}
-                        </button>
+                        <button onClick={handleSaveProfile} className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold">{t('options.save')}</button>
                     </div>
                 </div>
               </div>
           </div>
 
-          <div>
-              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-xl font-bold text-red-400 mb-4">{t('options.security.title')}</h3>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.oldPassword')}</label>
-                        <input 
-                            type="password" 
-                            value={oldPassword} 
-                            onChange={e => setOldPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                            required
-                            autoComplete="current-password"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.newPassword')}</label>
-                        <input 
-                            type="password" 
-                            value={newPassword} 
-                            onChange={e => setNewPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                            required
-                            autoComplete="new-password"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.confirmPassword')}</label>
-                        <input 
-                            type="password" 
-                            value={confirmPassword} 
-                            onChange={e => setConfirmPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
-                            required
-                            autoComplete="new-password"
-                        />
-                    </div>
-
-                    {passwordStatus.message && (
-                        <div className={`p-2 rounded text-center text-sm ${passwordStatus.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
-                            {passwordStatus.message}
-                        </div>
-                    )}
-
-                    <div className="flex justify-end pt-2 border-t border-slate-700/50">
-                        <button
-                        type="submit"
-                        disabled={!oldPassword || !newPassword || !confirmPassword}
-                        className="px-6 py-2 rounded-md bg-red-700 hover:bg-red-600 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                        >
-                        {t('options.security.changePassword')}
-                        </button>
-                    </div>
-                </form>
-              </div>
+          <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 h-fit">
+            <h3 className="text-xl font-bold text-red-400 mb-4">{t('options.security.title')}</h3>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+                <input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} placeholder="Stare hasło" className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2" required />
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Nowe hasło" className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2" required />
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Powtórz hasło" className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2" required />
+                {passwordStatus.message && <p className={`p-2 rounded text-center text-sm ${passwordStatus.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>{passwordStatus.message}</p>}
+                <button type="submit" className="w-full py-2 bg-red-700 hover:bg-red-600 rounded font-bold text-white transition-colors">{t('options.security.changePassword')}</button>
+            </form>
           </div>
       </div>
     </ContentPanel>
