@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { CombatLogEntry, PartyMember } from '../../types';
+import { CombatLogEntry, PartyMember, SpecialAttackType } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 
 interface CombatLogRowProps {
@@ -14,7 +14,6 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
     const { t } = useTranslation();
     const isPlayerAttacker = log.attacker === characterName || (isHunting && huntingMembers?.some(m => m.characterName === log.attacker));
     
-    // Helper to extract Health Status for the defender/target of the action
     const getTargetHealthStatus = (): string => {
         const targetName = log.defender;
         if (!targetName) return '';
@@ -23,7 +22,6 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
         let max = 0;
         let found = false;
 
-        // 1. Try to find in arrays (Team/Party combat)
         if (log.allPlayersHealth) {
             const p = log.allPlayersHealth.find(x => x.name === targetName);
             if (p) { current = p.currentHealth; max = p.maxHealth; found = true; }
@@ -33,16 +31,10 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             if (e) { current = e.currentHealth; max = e.maxHealth; found = true; }
         }
 
-        // 2. Fallback for 1v1 (Scalars)
         if (!found) {
-            // Determine if the target (defender) is the Player side or Enemy side
             const isTargetPlayerSide = targetName === characterName;
-            
             if (isTargetPlayerSide) {
                 current = log.playerHealth;
-                // We assume max health might be available in stats if this is the first log, 
-                // but usually log entries don't carry maxHealth in 1v1 scalars. 
-                // We'll just show current HP for simplicity in fallback.
                 if (log.playerStats) max = log.playerStats.maxHealth;
             } else {
                 current = log.enemyHealth;
@@ -50,7 +42,6 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             }
         }
         
-        // Format
         const currentDisplay = Math.max(0, Math.floor(current));
         if (max > 0) {
             return `(HP: ${currentDisplay}/${max})`;
@@ -70,7 +61,6 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             textColor = 'text-amber-400 font-bold text-center my-2';
             break;
         case 'attacks':
-            // Display weapon name if available
             const weaponText = log.weaponName ? `(${log.weaponName})` : '';
             actionText = (
                 <span>
@@ -104,23 +94,40 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             actionText = t('expedition.enemyDefeated', { enemyName: log.defender || 'Wrogowie' });
             textColor = 'text-green-400 font-bold';
             return <div className={`text-sm ${textColor} text-center uppercase tracking-widest`}>{actionText}</div>;
-        case 'manaRegen':
-            return null; // Skip detailed regen logs to reduce clutter
         case 'effectApplied':
             const effectName = t(`expedition.combatLog.effect.${log.effectApplied || 'applied'}`, { 
                 target: log.defender, 
                 damage: log.damage,
-                stacks: log.damage // reusing damage field for stacks
+                stacks: log.damage
             });
-            // For effects like burning that deal damage, we might want to show HP too
             return (
                 <div className="text-xs text-yellow-500 italic text-center">
                     {effectName} {log.damage && log.damage > 0 ? hpSpan : null}
                 </div>
             );
-        case 'specialAttackLog':
+        case 'specialAttackLog': {
             const specialName = t(`specialAttacks.${log.specialAttackType}`);
-            return <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-1 my-1">{log.attacker} używa {specialName}!</div>;
+            let resultText = "";
+            
+            switch(log.specialAttackType) {
+                case SpecialAttackType.Stun: 
+                    resultText = `Ogłusza ${log.defender}! Cel nie może atakować.`; break;
+                case SpecialAttackType.Earthquake:
+                    resultText = `Ziemia pęka! Cała drużyna otrzymuje obrażenia.`; break;
+                case SpecialAttackType.ArmorPierce:
+                    resultText = `Roztrzaskuje pancerz ${log.defender}!`; break;
+                case SpecialAttackType.DeathTouch:
+                    resultText = `Wysysa życie z ${log.defender} zadając ${log.damage} obrażeń!`; break;
+                case SpecialAttackType.EmpoweredStrikes:
+                    resultText = `Boss wpada w szał, zwiększając swoją celność!`; break;
+            }
+
+            return (
+                <div className="text-sm text-red-400 font-bold text-center border-y border-red-900/30 py-1 my-1">
+                    {log.attacker} używa {specialName}! {resultText}
+                </div>
+            );
+        }
         case 'boss_shout':
             return <div className="text-sm text-red-500 font-serif italic text-center">"{t(`bossShouts.${log.shout}`)}"</div>;
         case 'shaman_power':

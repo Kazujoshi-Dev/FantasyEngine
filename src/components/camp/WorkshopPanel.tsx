@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { AnvilIcon } from '../icons/AnvilIcon';
 import { BriefcaseIcon } from '../icons/BriefcaseIcon';
 import { CoinsIcon } from '../icons/CoinsIcon';
+import { StarIcon } from '../icons/StarIcon';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { useCharacter } from '../../contexts/CharacterContext';
 import { api } from '../../api';
@@ -92,8 +94,6 @@ export const WorkshopPanel: React.FC = () => {
         try {
             const updated = await api.reforgeItem(selectedReforgeItem.uniqueId, reforgeTab);
             
-            // CRITICAL FIX: After reforge, the item in selectedReforgeItem is stale (old reference).
-            // We must find the updated item in the new character inventory to refresh the preview.
             const updatedItem = updated.inventory.find(i => i.uniqueId === selectedReforgeItem.uniqueId);
             
             updateCharacter(updated);
@@ -101,7 +101,6 @@ export const WorkshopPanel: React.FC = () => {
                 setSelectedReforgeItem(updatedItem);
             }
             
-            // Visual feedback
             const reforgeEffect = document.getElementById('reforge-preview-container');
             if (reforgeEffect) {
                 reforgeEffect.classList.add('brightness-150', 'scale-105');
@@ -118,7 +117,8 @@ export const WorkshopPanel: React.FC = () => {
     return (
         <div className="flex flex-col h-full animate-fade-in overflow-hidden">
             
-            <div className="bg-slate-900/60 p-4 rounded-xl border border-indigo-500/30 mb-6 flex flex-col md:flex-row gap-6 items-center">
+            {/* Workshop Level & Upgrade Bar */}
+            <div className="bg-slate-900/60 p-4 rounded-xl border border-indigo-500/30 mb-4 flex flex-col md:flex-row gap-6 items-center">
                 <div className="flex items-center gap-4">
                     <div className="bg-indigo-600/20 p-4 rounded-full border border-indigo-500/50">
                         <AnvilIcon className="h-10 w-10 text-indigo-400" />
@@ -159,6 +159,22 @@ export const WorkshopPanel: React.FC = () => {
                         </button>
                     </div>
                 )}
+            </div>
+
+            {/* CURRENT RESOURCES BAR */}
+            <div className="bg-slate-800/40 p-3 rounded-lg border border-slate-700/50 flex flex-wrap justify-center gap-x-8 gap-y-2 mb-6 text-xs shadow-inner">
+                <div className="flex items-center gap-2">
+                    <CoinsIcon className="h-4 w-4 text-amber-400" />
+                    <span className="text-gray-400 font-bold uppercase tracking-wider">{t('resources.gold')}:</span>
+                    <span className="font-mono font-bold text-amber-400 text-sm">{character.resources.gold.toLocaleString()}</span>
+                </div>
+                {Object.values(EssenceType).map(eType => (
+                    <div key={eType} className="flex items-center gap-2">
+                        <StarIcon className={`h-3.5 w-3.5 ${rarityStyles[essenceToRarityMap[eType]].text}`} />
+                        <span className="text-gray-400 font-bold uppercase tracking-wider">{t(`resources.${eType}`).replace(' Esencja', '')}:</span>
+                        <span className="font-mono font-bold text-white text-sm">{character.resources[eType] || 0}</span>
+                    </div>
+                ))}
             </div>
 
             <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden pb-4">

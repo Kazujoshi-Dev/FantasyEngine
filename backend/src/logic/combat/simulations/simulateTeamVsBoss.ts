@@ -146,8 +146,7 @@ export const simulateTeamVsBossCombat = (
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
 
-        // --- 3.2. Boss Special Attacks (Lair Actions - Happens BEFORE initiative) ---
-        let bossUsedSpecial = false;
+        // --- 3.2. Boss Special Attacks (Lair Actions) ---
         if (bossState.currentHealth > 0) {
             for (const special of (bossData.specialAttacks || [])) {
                 if (bossState.specialAttacksUsed[special.type] < special.uses && Math.random() * 100 < special.chance) {
@@ -155,9 +154,8 @@ export const simulateTeamVsBossCombat = (
                     if (livingTargets.length === 0) continue;
                     
                     bossState.specialAttacksUsed[special.type]++;
-                    bossUsedSpecial = true; 
                     
-                    // Log Shout first
+                    // Okrzyk
                     log.push({
                         turn, 
                         attacker: bossState.name, 
@@ -167,6 +165,7 @@ export const simulateTeamVsBossCombat = (
                         ...getHealthStateForLog()
                     });
 
+                    // Efekt natychmiastowy
                     switch(special.type) {
                         case SpecialAttackType.Stun: {
                             const target = livingTargets[Math.floor(Math.random() * livingTargets.length)];
@@ -184,7 +183,6 @@ export const simulateTeamVsBossCombat = (
                                     damageDetails.push({ target: p.data.name, damage: dmg });
                                 }
                             });
-                            // Push log AFTER damage is applied to state so getHealthStateForLog works
                             log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'specialAttackLog', specialAttackType: special.type, aoeDamage: damageDetails, ...getHealthStateForLog() });
                             break;
                         }
@@ -206,16 +204,15 @@ export const simulateTeamVsBossCombat = (
                         case SpecialAttackType.EmpoweredStrikes: {
                             bossState.isEmpowered = true;
                             log.push({ turn, attacker: bossState.name, defender: '', action: 'specialAttackLog', specialAttackType: special.type, ...getHealthStateForLog() });
-                            bossUsedSpecial = false; // Does not consume attack
                             break;
                         }
                     }
-                    if (bossUsedSpecial) break; 
+                    break; // Tylko jeden atak specjalny na runda
                 }
             }
         }
         
-        // Check dead after special
+        // Sprawdzenie zgonów po ataku specjalnym
         playersState.forEach(p => {
             if (!p.isDead && p.currentHealth <= 0) {
                 p.isDead = true;
@@ -223,69 +220,43 @@ export const simulateTeamVsBossCombat = (
             }
         });
         
-        // --- 3.3. Standard Combat Phase (Initiative) ---
-        
-        // Construct Action Queue
+        // --- 3.3. Standard Combat Phase ---
         interface ActionEntity {
             type: 'player' | 'boss';
-            index: number; // Index in playersState or -1 for boss
+            index: number;
             name: string;
             agility: number;
         }
 
         const actionQueue: ActionEntity[] = [];
-
-        // Add Players to queue
         playersState.forEach((p, index) => {
             if (!p.isDead) {
-                actionQueue.push({
-                    type: 'player',
-                    index: index,
-                    name: p.data.name,
-                    agility: p.data.stats.agility
-                });
+                actionQueue.push({ type: 'player', index, name: p.data.name, agility: p.data.stats.agility });
             }
         });
 
-        // Add Boss to queue
         if (bossState.currentHealth > 0) {
-            actionQueue.push({
-                type: 'boss',
-                index: -1,
-                name: bossState.name,
-                agility: (bossState.stats as EnemyStats).agility
-            });
+            actionQueue.push({ type: 'boss', index: -1, name: bossState.name, agility: (bossState.stats as EnemyStats).agility });
         }
 
-        // Sort by Agility Descending. Players win ties.
         actionQueue.sort((a, b) => {
-            // Elf Bonus: Always acts first in turn 1
             if (turn === 1) {
                 const isAElf = a.type === 'player' && playersState[a.index].data.race === Race.Elf;
                 const isBElf = b.type === 'player' && playersState[b.index].data.race === Race.Elf;
-
-                if (isAElf && !isBElf) return -1; // a comes first
-                if (!isAElf && isBElf) return 1;  // b comes first
+                if (isAElf && !isBElf) return -1;
+                if (!isAElf && isBElf) return 1;
             }
-
-            if (b.agility !== a.agility) {
-                return b.agility - a.agility;
-            }
+            if (b.agility !== a.agility) return b.agility - a.agility;
             return a.type === 'player' ? -1 : 1;
         });
 
-        // Execute Actions
         for (const actor of actionQueue) {
-            if (bossState.currentHealth <= 0) break; // Fight ends immediately if boss dies
+            if (bossState.currentHealth <= 0) break;
 
             if (actor.type === 'player') {
-                const playerIndex = actor.index;
-                const player = playersState[playerIndex];
-                
-                // Re-check death (might have died from earlier action, though improbable in standard phase unless Thorns existed)
+                const player = playersState[actor.index];
                 if (player.isDead) continue;
 
-                // --- Player Turn Logic ---
                 if (player.data.characterClass === CharacterClass.Shaman && player.currentMana > 0) {
                     const shamanDamage = Math.floor(player.currentMana);
                     bossState.currentHealth = Math.max(0, bossState.currentHealth - shamanDamage);
@@ -293,148 +264,72 @@ export const simulateTeamVsBossCombat = (
                     if (bossState.currentHealth <= 0) break;
                 }
 
-                const stunIndex = player.statusEffects.findIndex(e => e.type === 'stunned');
-                if (stunIndex > -1) continue;
+                if (player.statusEffects.some(e => e.type === 'stunned')) continue;
 
                 const attacks = player.data.stats.attacksPerRound;
                 for (let i = 0; i < attacks; i++) {
                     if (bossState.currentHealth <= 0) break;
-
-                    let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name };
+                    let playerAsAttacker: AttackerState & {data: PlayerCharacter} = { ...player, stats: player.data.stats, name: player.data.name };
                     const attackOptions = {};
-
                     if (player.data.characterClass === CharacterClass.Warrior && i === 0) {
                         playerAsAttacker.stats = { ...playerAsAttacker.stats, critChance: 100 };
                         Object.assign(attackOptions, { ignoreDodge: true });
                     }
-
-                    const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
-                    
-                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
-                    playersState[playerIndex].currentMana = attackerState.currentMana;
-                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
-                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
-                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
-                    
+                    const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
+                    Object.assign(player, attackerState);
                     Object.assign(bossState, defenderState);
-                    log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                    log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
                 
                 if (player.data.characterClass === CharacterClass.Berserker && player.currentHealth < player.data.stats.maxHealth * 0.3 && bossState.currentHealth > 0) {
-                     log.push({
-                        turn, attacker: player.data.name, defender: bossState.name, action: 'berserker_frenzy',
-                        ...getHealthStateForLog()
-                     });
-                     const { logs: bonusLogs, attackerState, defenderState } = performAttack({ ...playersState[playerIndex], stats: playersState[playerIndex].data.stats, name: playersState[playerIndex].data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
-                     
-                    playersState[playerIndex].currentHealth = attackerState.currentHealth;
-                    playersState[playerIndex].currentMana = attackerState.currentMana;
-                    playersState[playerIndex].statusEffects = attackerState.statusEffects;
-                    playersState[playerIndex].manaSurgeUsed = attackerState.manaSurgeUsed;
-                    playersState[playerIndex].shadowBoltStacks = attackerState.shadowBoltStacks;
-                     
+                     log.push({ turn, attacker: player.data.name, defender: bossState.name, action: 'berserker_frenzy', ...getHealthStateForLog() });
+                     const { logs, attackerState, defenderState } = performAttack({ ...player, stats: player.data.stats, name: player.data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, []);
+                     Object.assign(player, attackerState);
                      Object.assign(bossState, defenderState);
-                     log.push(...bonusLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                     log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
                 }
 
             } else {
-                // --- Boss Turn Logic ---
                 const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
                 for (let i = 0; i < bossAttacks; i++) {
-                    const currentLivingTargets = playersState.filter(p => !p.isDead);
-                    if (currentLivingTargets.length === 0) break;
+                    const livingTargets = playersState.filter(p => !p.isDead);
+                    if (livingTargets.length === 0) break;
                     
-                    const targetPlayer = currentLivingTargets[Math.floor(Math.random() * currentLivingTargets.length)];
+                    const targetPlayer = livingTargets[Math.floor(Math.random() * livingTargets.length)];
                     const targetIndex = playersState.findIndex(p => p.data.id === targetPlayer.data.id);
-
                     const targetAsDefender: DefenderState = {
                         stats: playersState[targetIndex].data.stats, name: playersState[targetIndex].data.name,
                         currentHealth: playersState[targetIndex].currentHealth, currentMana: playersState[targetIndex].currentMana,
                         statusEffects: playersState[targetIndex].statusEffects, hardSkinTriggered: playersState[targetIndex].hardSkinTriggered,
                         data: playersState[targetIndex].data
                     };
+                    const otherTargets = livingTargets.filter(p => p.data.id !== targetPlayer.data.id).map(p => ({
+                        stats: p.data.stats, currentHealth: p.currentHealth, currentMana: p.currentMana,
+                        name: p.data.name, statusEffects: p.statusEffects, data: p.data, uniqueId: String(p.data.id)
+                    }));
 
-                    const otherPlayersAsTargets = currentLivingTargets
-                        .filter(p => p.data.id !== targetPlayer.data.id)
-                        .map(p => ({
-                            stats: p.data.stats, currentHealth: p.currentHealth, currentMana: p.currentMana,
-                            name: p.data.name, statusEffects: p.statusEffects, data: p.data,
-                            uniqueId: String(p.data.id)
-                        }));
-
-                    const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(
-                        { ...bossState }, targetAsDefender, turn, gameData, otherPlayersAsTargets, true
-                    );
-                    
+                    const { logs, attackerState, defenderState, aoeData, chainData } = performAttack({ ...bossState }, targetAsDefender, turn, gameData, otherTargets, true);
                     bossState = { ...bossState, ...attackerState };
-                    
-                    playersState[targetIndex].currentHealth = defenderState.currentHealth;
-                    playersState[targetIndex].currentMana = defenderState.currentMana;
-                    playersState[targetIndex].statusEffects = defenderState.statusEffects;
-                    playersState[targetIndex].hardSkinTriggered = defenderState.hardSkinTriggered; // Sync back hardSkin state
-                    
-                    log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+                    Object.assign(playersState[targetIndex], defenderState);
+                    log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
 
                     if (aoeData) {
                         const otherPlayers = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
-                        const splashDamageDetails: { target: string, damage: number }[] = [];
-                        
-                        if (aoeData.type === 'earthquake' || aoeData.type === 'meteor_swarm') {
-                            let splashDamage = 0;
-                            if (aoeData.type === 'earthquake') splashDamage = Math.floor(aoeData.baseDamage * aoeData.splashPercent);
-                            if (aoeData.type === 'meteor_swarm') splashDamage = Math.floor(aoeData.baseDamage);
-
-                            otherPlayers.forEach(p => {
-                                const wasAlive = p.currentHealth > 0;
-                                p.currentHealth = Math.max(0, p.currentHealth - splashDamage);
-                                splashDamageDetails.push({ target: p.data.name, damage: splashDamage });
-                                if (wasAlive && p.currentHealth <= 0) {
-                                    p.isDead = true;
-                                    log.push({ turn, attacker: bossState.name, defender: p.data.name, action: 'death', ...getHealthStateForLog() });
-                                }
-                            });
-                            
-                            if (splashDamageDetails.length > 0) {
-                                const effectName = aoeData.type === 'earthquake' ? 'earthquakeSplash' : 'meteorSwarmSplash';
-                                log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'effectApplied', effectApplied: effectName, damage: splashDamage, aoeDamage: splashDamageDetails, ...getHealthStateForLog() });
-                            }
-                        }
-                    }
-
-                    if (chainData && chainData.type === 'chain_lightning') {
-                        const potentialTargets = playersState.filter((p, idx) => idx !== targetIndex && !p.isDead);
-                        let jumps = 0;
-                        const chainDamageDetails: { target: string, damage: number }[] = [];
-                        let currentChainDamage = chainData.damage;
-                        
-                        while(jumps < chainData.maxJumps && potentialTargets.length > 0) {
-                            if (Math.random() * 100 < chainData.chance) {
-                                currentChainDamage = Math.floor(currentChainDamage * 0.75);
-                                if (currentChainDamage < 1) currentChainDamage = 1;
-                                const jumpTargetIndexLocal = Math.floor(Math.random() * potentialTargets.length);
-                                const jumpTarget = potentialTargets[jumpTargetIndexLocal];
-                                const wasAlive = jumpTarget.currentHealth > 0;
-                                jumpTarget.currentHealth = Math.max(0, jumpTarget.currentHealth - currentChainDamage);
-                                chainDamageDetails.push({ target: jumpTarget.data.name, damage: currentChainDamage });
-                                if (wasAlive && jumpTarget.currentHealth <= 0) {
-                                    jumpTarget.isDead = true;
-                                    log.push({ turn, attacker: bossState.name, defender: jumpTarget.data.name, action: 'death', ...getHealthStateForLog() });
-                                }
-                                potentialTargets.splice(jumpTargetIndexLocal, 1);
-                                jumps++;
-                            } else break;
-                        }
-                        
-                        if (chainDamageDetails.length > 0) {
-                            log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'effectApplied', effectApplied: 'chainLightningJump', aoeDamage: chainDamageDetails, ...getHealthStateForLog() });
+                        const splashDetails: { target: string, damage: number }[] = [];
+                        let splashDmg = aoeData.type === 'earthquake' ? Math.floor(aoeData.baseDamage * aoeData.splashPercent) : Math.floor(aoeData.baseDamage);
+                        otherPlayers.forEach(p => {
+                            p.currentHealth = Math.max(0, p.currentHealth - splashDmg);
+                            splashDetails.push({ target: p.data.name, damage: splashDmg });
+                            if (p.currentHealth <= 0) { p.isDead = true; log.push({ turn, attacker: bossState.name, defender: p.data.name, action: 'death', ...getHealthStateForLog() }); }
+                        });
+                        if (splashDetails.length > 0) {
+                            log.push({ turn, attacker: bossState.name, defender: 'Drużyna', action: 'effectApplied', effectApplied: aoeData.type === 'earthquake' ? 'earthquakeSplash' : 'meteorSwarmSplash', damage: splashDmg, aoeDamage: splashDetails, ...getHealthStateForLog() });
                         }
                     }
                 }
             }
         }
 
-        // --- 3.4. End of Turn Phase ---
-        // First, check for player deaths this turn
         playersState.forEach(p => {
             if (!p.isDead && p.currentHealth <= 0) {
                 p.isDead = true;
@@ -442,7 +337,6 @@ export const simulateTeamVsBossCombat = (
             }
         });
 
-        // Then, check for boss death and break if necessary
         if (bossState.currentHealth <= 0) {
             log.push({ turn, attacker: 'Drużyna', defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
             break;
