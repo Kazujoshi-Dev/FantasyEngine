@@ -224,6 +224,13 @@ export interface GuildBuff {
     expiresAt: number;
 }
 
+/* Fix: Missing EquipmentLoadout interface */
+export interface EquipmentLoadout {
+    id: number;
+    name: string;
+    equipment: Record<EquipmentSlot, string | null>; // Przechowuje uniqueId przedmiotów
+}
+
 export interface PlayerCharacter {
     id: number;
     user_id: number; // For admin/backend consistency
@@ -260,6 +267,9 @@ export interface PlayerCharacter {
     warehouse?: { level: number; items: ItemInstance[] };
     workshop?: { level: number }; // NEW: Workshop
     
+    /* Fix: Missing loadouts property on PlayerCharacter */
+    loadouts?: EquipmentLoadout[];
+
     acceptedQuests: string[];
     questProgress: PlayerQuestProgress[];
     

@@ -74,6 +74,11 @@ export const api = {
     equipItem: (itemId: string) => fetchApi('/character/equip', { method: 'POST', body: JSON.stringify({ itemId }) }),
     unequipItem: (slot: string) => fetchApi('/character/unequip', { method: 'POST', body: JSON.stringify({ slot }) }),
     
+    // Loadouts
+    saveLoadout: (loadoutId: number, name?: string) => fetchApi('/character/loadouts/save', { method: 'POST', body: JSON.stringify({ loadoutId, name }) }),
+    loadLoadout: (loadoutId: number) => fetchApi('/character/loadouts/load', { method: 'POST', body: JSON.stringify({ loadoutId }) }),
+    renameLoadout: (loadoutId: number, name: string) => fetchApi('/character/loadouts/rename', { method: 'PUT', body: JSON.stringify({ loadoutId, name }) }),
+
     upgradeCamp: () => fetchApi('/character/camp/upgrade', { method: 'POST' }),
     upgradeChest: () => fetchApi('/character/treasury/upgrade', { method: 'POST' }),
     chestDeposit: (amount: number) => fetchApi('/character/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
@@ -161,7 +166,7 @@ export const api = {
     upgradeGuildBuilding: (buildingType: string) => fetchApi('/guilds/upgrade-building', { method: 'POST', body: JSON.stringify({ buildingType }) }),
     getGuildArmory: () => fetchApi('/guilds/armory'),
     depositToArmory: (itemId: string) => fetchApi('/guilds/armory/deposit', { method: 'POST', body: JSON.stringify({ itemId }) }),
-    borrowFromArmory: (armoryId: number) => fetchApi('/guilds/armory/borrow', { method: 'POST', body: JSON.stringify({ armoryId }) }),
+    borrowFromArmory: (armoryId: number) => fetchApi('/guilds/armory/borrow', { method: 'POST', body: JSON.stringify({ itemId: armoryId }) }), // Adjusted per backend
     recallFromMember: (targetUserId: number, itemUniqueId: string) => fetchApi('/guilds/armory/recall', { method: 'POST', body: JSON.stringify({ targetUserId, itemUniqueId }) }),
     deleteFromArmory: (armoryId: number) => fetchApi(`/guilds/armory/${armoryId}`, { method: 'DELETE' }),
     guildBankTransaction: (type: string, currency: string, amount: number) => fetchApi('/guilds/bank', { method: 'POST', body: JSON.stringify({ type, currency, amount }) }),
@@ -173,7 +178,7 @@ export const api = {
     // Guild Espionage
     getEspionage: () => fetchApi('/guilds/espionage'),
     startEspionage: (targetGuildId: number) => fetchApi('/guilds/espionage/start', { method: 'POST', body: JSON.stringify({ targetGuildId }) }),
-    getGuildTargets: () => fetchApi('/guilds/targets'), // Reused from Raids
+    getGuildTargets: () => fetchApi('/guilds/targets'), 
 
     // Towers
     getTowers: () => fetchApi('/towers'),

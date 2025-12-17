@@ -1,11 +1,15 @@
+
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats } from '../types';
+import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix, RolledAffixStats, EquipmentLoadout } from '../types';
 import { ItemDetailsPanel, ItemListItem, EmptySlotListItem, rarityStyles, getGrammaticallyCorrectFullName, ItemTooltip } from './shared/ItemSlot';
 import { ContextMenu } from './shared/ContextMenu';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { StarIcon } from './icons/StarIcon';
+import { SaveIcon } from './icons/SaveIcon'; // Add this icon if available or use generic
+import { EditIcon } from './icons/EditIcon'; // Add this icon if available or use generic
 
 const slotOrder: EquipmentSlot[] = [
     EquipmentSlot.Head,
@@ -106,7 +110,6 @@ const ItemComparisonTooltip: React.FC<{
         if (character.equipment.twoHand) {
             equippedItemsToCompare.push({ item: character.equipment.twoHand, slotName: t('equipment.slot.twoHand') });
         } else {
-            // Compare 2H with current 1H main hand and offhand, only if they are equipped
             if (character.equipment.mainHand) {
                 equippedItemsToCompare.push({ item: character.equipment.mainHand, slotName: t('equipment.slot.mainHand') });
             }
@@ -115,7 +118,6 @@ const ItemComparisonTooltip: React.FC<{
             }
         }
     } else if (hoveredTemplate.slot === EquipmentSlot.MainHand || hoveredTemplate.slot === EquipmentSlot.OffHand) {
-        // Compare 1H with current 2H or the specific 1H slot
         if (character.equipment.twoHand) {
             equippedItemsToCompare.push({ item: character.equipment.twoHand, slotName: t('equipment.slot.twoHand') });
         } else {
@@ -164,6 +166,7 @@ export const Equipment: React.FC = () => {
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     const [hideUnusable, setHideUnusable] = useState(false);
+    const [isLoadoutLoading, setIsLoadoutLoading] = useState(false);
 
     if (!character || !baseCharacter || !gameData) {
         return null;
@@ -176,7 +179,6 @@ export const Equipment: React.FC = () => {
         [character.inventory, gameData.itemTemplates]
     );
 
-    // ... other useMemo and callbacks ...
     const equipmentSlotOptions = useMemo(() => {
         const slots: {value: string, label: string}[] = (Object.values(EquipmentSlot) as string[])
             .filter(slot => slot !== EquipmentSlot.Ring1 && slot !== EquipmentSlot.Ring2)
@@ -188,7 +190,7 @@ export const Equipment: React.FC = () => {
 
     const meetsRequirements = useCallback((item: ItemInstance): boolean => {
         const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
-        if (!template) return true; // Should not happen
+        if (!template) return true;
 
         if (character.level < template.requiredLevel) {
             return false;
@@ -257,6 +259,36 @@ export const Equipment: React.FC = () => {
         }
     }, [updateCharacter, t]);
 
+    const handleSaveLoadout = async (id: number) => {
+        const name = prompt("Podaj nazwę zestawu:", character.loadouts?.find(l=>l.id===id)?.name || `Zestaw ${id+1}`);
+        if (name === null) return;
+        try {
+            const updated = await api.saveLoadout(id, name);
+            updateCharacter(updated);
+            alert("Zestaw zapisany!");
+        } catch (e: any) { alert(e.message); }
+    };
+
+    const handleLoadLoadout = async (id: number) => {
+        setIsLoadoutLoading(true);
+        try {
+            const updated = await api.loadLoadout(id);
+            updateCharacter(updated);
+        } catch (e: any) { alert(e.message); }
+        finally { setIsLoadoutLoading(false); }
+    };
+
+    const handleRenameLoadout = async (id: number) => {
+        const current = character.loadouts?.find(l=>l.id===id);
+        const name = prompt("Nowa nazwa zestawu:", current?.name || "");
+        if (name) {
+            try {
+                const updated = await api.renameLoadout(id, name);
+                updateCharacter(updated);
+            } catch (e: any) { alert(e.message); }
+        }
+    };
+
     const contextMenuOptions = useMemo(() => {
         if (!contextMenu) return [];
         if (contextMenu.source === 'inventory') {
@@ -284,7 +316,7 @@ export const Equipment: React.FC = () => {
     
     const handleDrop = (e: React.DragEvent, target: 'inventory' | { slot: EquipmentSlot }) => {
         e.preventDefault();
-        e.stopPropagation(); // Stop propagation to prevent nested drop zones from firing
+        e.stopPropagation();
         const itemUniqueId = e.dataTransfer.getData('itemUniqueId');
         const source = e.dataTransfer.getData('source') as 'equipment' | 'inventory';
         const fromSlot = e.dataTransfer.getData('fromSlot') as EquipmentSlot;
@@ -316,6 +348,45 @@ export const Equipment: React.FC = () => {
     
     return (
         <ContentPanel title={t('equipment.title')}>
+            {/* Loadout Section */}
+            <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50 mb-6 flex flex-wrap items-center gap-4 animate-fade-in">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-2">Zestawy:</span>
+                <div className="flex gap-2">
+                    {[0, 1, 2, 3, 4].map(id => {
+                        const loadout = character.loadouts?.find(l => l.id === id);
+                        return (
+                            <div key={id} className="group relative flex items-center bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+                                <button 
+                                    onClick={() => handleLoadLoadout(id)}
+                                    disabled={!loadout || isLoadoutLoading}
+                                    title={loadout ? `Załóż: ${loadout.name}` : "Zestaw pusty"}
+                                    className={`px-3 py-2 text-sm font-bold transition-colors ${loadout ? 'text-white hover:bg-indigo-600' : 'text-gray-600 cursor-default'}`}
+                                >
+                                    {loadout ? loadout.name : `Zestaw ${id+1}`}
+                                </button>
+                                <button 
+                                    onClick={() => handleSaveLoadout(id)}
+                                    title="Zapisz obecny sprzęt"
+                                    className="px-2 py-2 bg-slate-700 hover:bg-green-700 text-gray-400 hover:text-white border-l border-slate-600 transition-colors"
+                                >
+                                    💾
+                                </button>
+                                {loadout && (
+                                    <button 
+                                        onClick={() => handleRenameLoadout(id)}
+                                        title="Zmień nazwę"
+                                        className="px-2 py-2 bg-slate-700 hover:bg-sky-700 text-gray-400 hover:text-white border-l border-slate-600 transition-colors"
+                                    >
+                                        ✏️
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                {isLoadoutLoading && <span className="text-xs text-indigo-400 animate-pulse font-bold">Zmieniam zestaw...</span>}
+            </div>
+
             <div 
                 className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[75vh]"
             >
@@ -349,7 +420,7 @@ export const Equipment: React.FC = () => {
                                             affixes={gameData.affixes || []}
                                             isSelected={selectedItem?.item.uniqueId === item.uniqueId}
                                             onClick={(e) => {
-                                                e.stopPropagation(); // Prevent deselecting
+                                                e.stopPropagation();
                                                 handleItemClick(item, 'equipment', slot);
                                             }}
                                             onDoubleClick={() => handleUnequip(item, slot)}
@@ -368,10 +439,10 @@ export const Equipment: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Details/Stats Panel - ALWAYS SHOW COMBAT STATS NOW */}
+                {/* Details/Stats Panel */}
                 <div 
                     className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0"
-                    onClick={(e) => e.stopPropagation()} // Prevent clicks in detail panel from deselecting
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <CombatStatsPanel character={character} baseCharacter={baseCharacter} />
                 </div>
@@ -386,7 +457,7 @@ export const Equipment: React.FC = () => {
                     </div>
                     <div 
                         className="px-2 mb-4 space-y-2"
-                        onClick={(e) => e.stopPropagation()} // Prevent interacting with filters from deselecting
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-center space-x-2">
@@ -442,7 +513,7 @@ export const Equipment: React.FC = () => {
                                         affixes={gameData.affixes || []}
                                         isSelected={isSelected}
                                         onClick={(e) => {
-                                            e.stopPropagation(); // Prevent deselecting
+                                            e.stopPropagation();
                                             handleItemClick(item, 'inventory');
                                         }}
                                         onDoubleClick={() => handleEquip(item)}

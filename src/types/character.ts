@@ -7,6 +7,12 @@ import { ActiveTowerRun } from './world'; // Circular but needed
 import { CombatLogEntry } from './combat';
 import { TraderData } from './social';
 
+export interface EquipmentLoadout {
+    id: number;
+    name: string;
+    equipment: Record<EquipmentSlot, string | null>; // Przechowuje uniqueId przedmiotów
+}
+
 export interface CharacterStats {
     strength: number;
     agility: number;
@@ -89,6 +95,8 @@ export interface PlayerCharacter {
     warehouse?: { level: number; items: ItemInstance[] };
     workshop?: { level: number };
     
+    loadouts?: EquipmentLoadout[]; // System zestawów (max 5)
+
     acceptedQuests: string[];
     questProgress: PlayerQuestProgress[];
     
@@ -99,7 +107,6 @@ export interface PlayerCharacter {
     pvpLosses: number;
     pvpProtectionUntil: number;
 
-    // Added to sync with backend
     activeRankId?: string;
     
     traderData?: TraderData;
@@ -157,7 +164,6 @@ export interface RankingPlayer {
     isOnline: boolean;
 }
 
-// Added to sync with backend
 export interface PlayerRank {
     id: string;
     name: string;
