@@ -90,6 +90,7 @@ export const PartyMemberList: React.FC<{
                             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
                                 <div className={`${barColor} h-1.5 transition-all`} style={{width: `${hpPercent}%`}}></div>
                             </div>
+                            <p className="text-xs text-right text-gray-400 font-mono mt-0.5">{Math.max(0, Math.ceil(currentHP))} / {maxHP}</p>
                         </div>
                     );
                 })}

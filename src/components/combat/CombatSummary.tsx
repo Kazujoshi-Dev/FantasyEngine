@@ -1,5 +1,4 @@
 
-// ... (zachowujemy istniejące importy)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -39,6 +38,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
     const { t } = useTranslation();
     const [currentTurn, setCurrentTurn] = useState(0);
     const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+    const [isAnimationFinished, setIsAnimationFinished] = useState(false);
     const [speed, setSpeed] = useState(1);
     const logEndRef = useRef<HTMLDivElement>(null);
     const [selectedCombatant, setSelectedCombatant] = useState<{ name: string, stats: any, description?: string } | null>(null);
@@ -46,12 +46,19 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
 
     const log = reward.combatLog || [];
 
+    // Auto-playing logic
     useEffect(() => {
         if (isAutoPlaying && currentTurn < log.length) {
             const timer = setTimeout(() => {
-                setCurrentTurn(prev => prev + 1);
+                setCurrentTurn(prev => {
+                    const next = prev + 1;
+                    if (next >= log.length) setIsAnimationFinished(true);
+                    return next;
+                });
             }, 1000 / speed);
             return () => clearTimeout(timer);
+        } else if (currentTurn >= log.length) {
+            setIsAnimationFinished(true);
         }
     }, [isAutoPlaying, currentTurn, log.length, speed]);
 
@@ -59,8 +66,13 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [currentTurn]);
 
+    const handleSkip = () => {
+        setCurrentTurn(log.length);
+        setIsAutoPlaying(false);
+        setIsAnimationFinished(true);
+    };
+
     const displayedLogs = log.slice(0, currentTurn);
-    // CRITICAL FIX: If turn is 0, use log[0] as context for initial HP/Mana
     const lastLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : log[0];
 
     const logsWithRoundHeaders = useMemo(() => {
@@ -119,8 +131,9 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         return healthMap;
     }, [lastLog, log, characterName]);
 
-    // Strategia renderowania nagród
     const renderRewardsSection = () => {
+        if (!isAnimationFinished) return null;
+        
         if (isPvp && pvpData) {
             return <PvpRewardsPanel isVictory={reward.isVictory} gold={reward.totalGold} experience={reward.totalExperience} />;
         }
@@ -142,13 +155,21 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                         </h2>
                     </div>
                     <div className="flex gap-2 items-center">
-                        <button onClick={handleCopyLink} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md font-bold text-xs">
+                        <button onClick={handleCopyLink} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md font-bold text-xs transition-colors">
                             {copyStatus || 'Kopiuj Link'}
                         </button>
-                        <button onClick={() => setIsAutoPlaying(!isAutoPlaying)} className="px-4 py-2 bg-slate-700 rounded-md font-bold">
+                        
+                        {!isAnimationFinished && (
+                            <button onClick={handleSkip} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-md font-bold text-xs transition-colors uppercase tracking-tight">
+                                Pomiń animację
+                            </button>
+                        )}
+
+                        <button onClick={() => setIsAutoPlaying(!isAutoPlaying)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md font-bold text-xs transition-colors">
                             {isAutoPlaying ? 'Pauza' : 'Graj'}
                         </button>
-                        <button onClick={onClose} className="px-4 py-2 bg-indigo-600 rounded-md font-bold">Zamknij</button>
+                        
+                        <button onClick={onClose} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md font-bold text-xs transition-colors">Zamknij</button>
                     </div>
                 </div>
 
@@ -187,16 +208,18 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                             </>
                         ) : (
                             <>
-                                <PartyMemberList members={isHunting ? (huntingMembers || []) : [{ userId: 0, characterName, level: 1, race: Race.Human, status: PartyMemberStatus.Member }]} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
+                                <PartyMemberList members={isHunting ? (huntingMembers || []) : [{ userId: 0, characterName, level: 1, race: Race.Human, status: PartyMemberStatus.Member, stats: log[0]?.playerStats }]} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
                                 <EnemyListPanel enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} finalEnemiesHealth={lastLog?.allEnemiesHealth} onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })} />
                             </>
                         )}
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-700 bg-slate-800/50 z-10">
-                    {renderRewardsSection()}
-                </div>
+                {isAnimationFinished && (
+                    <div className="p-6 border-t border-slate-700 bg-slate-800/50 z-10 animate-fade-in">
+                        {renderRewardsSection()}
+                    </div>
+                )}
             </div>
         </div>
     );
