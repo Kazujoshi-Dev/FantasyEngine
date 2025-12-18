@@ -66,7 +66,7 @@ export default {
         },
         title: 'Statystyki Postaci',
         level: 'Poziom',
-        racialBonusTitle: 'Bonus Rasowy',
+        racialBonusTitle: 'Atrybut Rasowy',
         baseAttributes: 'Atrybuty Podstawowe',
         pointsToSpend: 'Punkty do wydania',
         strength: 'Siła',
@@ -128,5 +128,24 @@ export default {
         manaStealDesc: 'Odnawia manę o procent zadanych obrażeń.',
         dodgeChance: 'Szansa na Unik',
         dodgeChanceDesc: 'Szansa na uniknięcie ataku fizycznego.'
+    },
+    specialAttacks: {
+        Stun: 'Ogłuszający Cios',
+        StunDesc: 'Przeciwnik uderza z ogromną siłą, ogłuszając cel na 1 turę.',
+        ArmorPierce: 'Rozdarcie Pancerza',
+        ArmorPierceDesc: 'Potężny cios, który niszczy pancerz celu, czyniąc go podatnym na kolejne ataki.',
+        DeathTouch: 'Dotyk Śmierci',
+        DeathTouchDesc: 'Mroczna energia wysysa 50% aktualnego zdrowia celu.',
+        EmpoweredStrikes: 'Szał Bitewny',
+        EmpoweredStrikesDesc: 'Boss wpada w amok, znacząco zwiększając swoją celność i szansę na krytyk.',
+        Earthquake: 'Trzęsienie Ziemi',
+        EarthquakeDesc: 'Uderzenie w ziemię rani wszystkich członków drużyny jednocześnie.'
+    },
+    bossShouts: {
+        Stun: 'MILCZ I GIŃ!',
+        ArmorPierce: 'TWÓJ PANCERZ JEST NICZYM!',
+        DeathTouch: 'POCZUJ CHŁÓD PUSTKI...',
+        EmpoweredStrikes: 'MOJA SIŁA NIE MA GRANIC!',
+        Earthquake: 'DRŻYJCIE PRZED MOIM GNIEWEM!'
     }
 };
