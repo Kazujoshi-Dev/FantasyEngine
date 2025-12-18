@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, EssenceType } from '../../types';
+import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, EssenceType, PartyMemberStatus } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CombatLogRow } from './CombatLog';
 import { DamageMeter } from './summary/DamageMeter';
@@ -59,6 +59,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     }, [currentTurn]);
 
     const displayedLogs = log.slice(0, currentTurn);
+    const lastLog = displayedLogs[displayedLogs.length - 1];
 
     // Grouping logs by round for display
     const logsWithRoundHeaders = useMemo(() => {
@@ -108,6 +109,28 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
         : { backgroundColor: 'var(--window-bg, #0f172a)' };
 
+    // Dynamic Player Stats for the Right Panel
+    const dynamicPartyHealth = useMemo(() => {
+        const healthMap: Record<string, { currentHealth: number, maxHealth: number }> = {};
+        
+        if (lastLog?.allPlayersHealth) {
+            lastLog.allPlayersHealth.forEach(p => {
+                healthMap[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
+            });
+        } else if (lastLog) {
+            // Single player logic
+            const maxHP = log[0]?.playerStats?.maxHealth || 100;
+            healthMap[characterName] = { currentHealth: lastLog.playerHealth, maxHealth: maxHP };
+        } else if (log.length > 0) {
+            // Initial state
+            const initial = log[0];
+            const maxHP = initial.playerStats?.maxHealth || 100;
+            healthMap[characterName] = { currentHealth: initial.playerHealth, maxHealth: maxHP };
+        }
+        
+        return healthMap;
+    }, [lastLog, log, characterName]);
+
     return (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm">
             <div 
@@ -149,7 +172,12 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                     className="absolute -top-2 -right-2 z-[110] bg-red-600 text-white w-6 h-6 rounded-full text-xs font-bold shadow-lg"
                                     onClick={() => setSelectedCombatant(null)}
                                 >✕</button>
-                                <CombatantStatsPanel name={selectedCombatant.name} stats={selectedCombatant.stats} description={selectedCombatant.description} />
+                                <CombatantStatsPanel 
+                                    name={selectedCombatant.name} 
+                                    stats={selectedCombatant.stats} 
+                                    description={selectedCombatant.description}
+                                    currentHealth={dynamicPartyHealth[selectedCombatant.name]?.currentHealth}
+                                />
                              </div>
                         ) : isPvp && pvpData ? (
                              <CombatantStatsPanel name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} />
@@ -197,14 +225,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                             <>
                                 <PartyMemberList 
                                     members={huntingMembers || []} 
-                                    finalPartyHealth={{}} 
+                                    finalPartyHealth={dynamicPartyHealth} 
                                     onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
                                     selectedName={selectedCombatant?.name}
                                 />
                                 <PartyMemberList 
                                     isEnemyTeam 
                                     members={opponents || []} 
-                                    finalPartyHealth={{}} 
+                                    finalPartyHealth={dynamicPartyHealth} 
                                     onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
                                     selectedName={selectedCombatant?.name}
                                 />
@@ -213,26 +241,44 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                             <>
                                 <PartyMemberList 
                                     members={huntingMembers || []} 
-                                    finalPartyHealth={{}} 
+                                    finalPartyHealth={dynamicPartyHealth} 
                                     onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
                                     selectedName={selectedCombatant?.name}
                                 />
                                 <EnemyListPanel 
                                     enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} 
-                                    finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} 
+                                    finalEnemiesHealth={lastLog?.allEnemiesHealth} 
                                     onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })}
                                     selectedName={selectedCombatant?.name}
                                 />
                             </>
-                        ) : isPvp && pvpData ? (
-                             <CombatantStatsPanel name={isDefenderView ? pvpData.defender.name : pvpData.attacker.name} stats={isDefenderView ? pvpData.defender.stats : pvpData.attacker.stats} />
                         ) : (
-                             <EnemyListPanel 
-                                enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} 
-                                finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} 
-                                onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })}
-                                selectedName={selectedCombatant?.name}
-                             />
+                            <>
+                                {/* DYNAMIC PLAYER CARD FOR SOLO/PVP */}
+                                <PartyMemberList 
+                                    members={[{ 
+                                        userId: 0, 
+                                        characterName: characterName, 
+                                        level: 0, 
+                                        race: (log[0]?.playerStats as any)?.race || 'Human', 
+                                        status: PartyMemberStatus.Member 
+                                    }]} 
+                                    finalPartyHealth={dynamicPartyHealth} 
+                                    onMemberClick={() => setSelectedCombatant({ name: characterName, stats: log[0]?.playerStats })}
+                                    selectedName={selectedCombatant?.name}
+                                />
+                                
+                                {isPvp && pvpData ? (
+                                     <CombatantStatsPanel name={isDefenderView ? pvpData.defender.name : pvpData.attacker.name} stats={isDefenderView ? pvpData.defender.stats : pvpData.attacker.stats} />
+                                ) : (
+                                     <EnemyListPanel 
+                                        enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} 
+                                        finalEnemiesHealth={lastLog?.allEnemiesHealth} 
+                                        onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })}
+                                        selectedName={selectedCombatant?.name}
+                                     />
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

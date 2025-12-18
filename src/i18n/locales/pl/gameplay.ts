@@ -217,6 +217,7 @@ export default {
         manaSurge: 'w przypływie magicznej mocy w pełni odnawia swoją manę!',
         skipAnimation: 'Pomiń do wyniku',
         shamanPower: 'używa mocy szamana na',
+        hardSkinProc: '{attacker} uderza w Twoją twardą skórę! Obrażenia krytyczne zredukowane o 50%.',
         noEnemiesEncountered: 'Nie napotkano żadnych wrogów na tej wyprawie.',
         specialAttackLog: '{attacker} używa {specialAttack}!',
         stunLog: '{defender} jest ogłuszony i nie może działać!',
