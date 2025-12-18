@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout, GuildBuff } from '../types.js';
+import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout, GuildBuff, Skill, SkillType, SkillCategory } from '../types.js';
 import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer, getWarehouseCapacity } from '../logic/stats.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 
@@ -80,6 +80,146 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch character' });
+    }
+});
+
+// ==========================================
+//               STATS & SKILLS
+// ==========================================
+
+router.post('/stats', authenticateToken, async (req: any, res: any) => {
+    const { stats } = req.body; // Partial stats to add
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        let totalPointsToSpend = 0;
+        for (const [key, value] of Object.entries(stats)) {
+            const points = parseInt(value as string, 10);
+            if (points > 0) {
+                (character.stats as any)[key] += points;
+                totalPointsToSpend += points;
+            }
+        }
+
+        if (character.stats.statPoints < totalPointsToSpend) {
+            throw new Error("Niewystarczająca liczba punktów umiejętności.");
+        }
+
+        character.stats.statPoints -= totalPointsToSpend;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/skills/learn', authenticateToken, async (req: any, res: any) => {
+    const { skillId } = req.body;
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Get Character
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // 2. Get Skill Data
+        const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
+        const skills: Skill[] = skillsRes.rows[0]?.data || [];
+        const skill = skills.find(s => s.id === skillId);
+
+        if (!skill) throw new Error("Umiejętność nie istnieje.");
+        if (character.learnedSkills?.includes(skillId)) throw new Error("Już znasz tę umiejętność.");
+
+        // 3. Check Requirements
+        if (skill.requirements) {
+            if (skill.requirements.level && character.level < skill.requirements.level) throw new Error("Zbyt niski poziom.");
+            if (skill.requirements.characterClass && character.characterClass !== skill.requirements.characterClass) throw new Error("Nieodpowiednia klasa.");
+            if (skill.requirements.race && character.race !== skill.requirements.race) throw new Error("Nieodpowiednia rasa.");
+            
+            const statsToCheck = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+            for (const s of statsToCheck) {
+                const reqVal = (skill.requirements as any)[s];
+                if (reqVal && (character.stats as any)[s] < reqVal) throw new Error(`Wymagana większa wartość atrybutu: ${s}`);
+            }
+        }
+
+        // 4. Check & Deduct Cost
+        if (skill.cost) {
+            if (skill.cost.gold && character.resources.gold < skill.cost.gold) throw new Error("Za mało złota.");
+            const essences: EssenceType[] = Object.values(EssenceType);
+            for (const e of essences) {
+                const reqEss = (skill.cost as any)[e];
+                if (reqEss && (character.resources as any)[e] < reqEss) throw new Error(`Za mało esencji: ${e}`);
+            }
+
+            // Perform deduction
+            if (skill.cost.gold) character.resources.gold -= skill.cost.gold;
+            for (const e of essences) {
+                const reqEss = (skill.cost as any)[e];
+                if (reqEss) (character.resources as any)[e] -= reqEss;
+            }
+        }
+
+        // 5. Learn
+        if (!character.learnedSkills) character.learnedSkills = [];
+        character.learnedSkills.push(skillId);
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/skills/toggle', authenticateToken, async (req: any, res: any) => {
+    const { skillId, isActive } = req.body;
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.learnedSkills?.includes(skillId)) {
+            throw new Error("Nie znasz tej umiejętności.");
+        }
+
+        if (!character.activeSkills) character.activeSkills = [];
+
+        if (isActive) {
+            if (!character.activeSkills.includes(skillId)) {
+                character.activeSkills.push(skillId);
+            }
+        } else {
+            character.activeSkills = character.activeSkills.filter(id => id !== skillId);
+        }
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ message: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -515,7 +655,6 @@ router.put('/loadouts/rename', authenticateToken, async (req: any, res: any) => 
     }
 });
 
-// ... (rest of file)
 router.get('/names', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query(`SELECT data->>'name' as name FROM characters ORDER BY name ASC`);
