@@ -17,7 +17,13 @@ const router = express.Router();
 router.get('/list', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query(`
-            SELECT id, name, tag, member_count, max_members, min_level, is_public, created_at 
+            SELECT 
+                id, name, tag, 
+                member_count as "memberCount", 
+                max_members as "maxMembers", 
+                min_level as "minLevel", 
+                is_public as "isPublic", 
+                created_at as "createdAt" 
             FROM guilds 
             ORDER BY member_count DESC, created_at ASC
         `);
@@ -36,8 +42,25 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         
         const { guild_id, role } = memberRes.rows[0];
 
-        // 2. Get Guild Data
-        const guildRes = await pool.query('SELECT * FROM guilds WHERE id = $1', [guild_id]);
+        // 2. Get Guild Data with camelCase aliases
+        const guildRes = await pool.query(`
+            SELECT 
+                id, name, tag, description, 
+                crest_url as "crestUrl", 
+                leader_id as "leaderId", 
+                resources, buildings, 
+                active_buffs as "activeBuffs", 
+                member_count as "memberCount", 
+                max_members as "maxMembers", 
+                min_level as "minLevel", 
+                is_public as "isPublic", 
+                rental_tax as "rentalTax", 
+                hunting_tax as "huntingTax", 
+                created_at as "createdAt" 
+            FROM guilds 
+            WHERE id = $1
+        `, [guild_id]);
+
         if (guildRes.rows.length === 0) return res.json(null);
         const guild = guildRes.rows[0];
 
@@ -762,8 +785,13 @@ router.get('/profile/:id', async (req: any, res: any) => {
     try {
         const result = await pool.query(`
             SELECT 
-                g.id, g.name, g.tag, g.description, g.crest_url as "crestUrl", g.created_at as "createdAt",
-                g.member_count as "memberCount", g.max_members as "maxMembers", g.min_level as "minLevel", g.is_public as "isPublic",
+                g.id, g.name, g.tag, g.description, 
+                g.crest_url as "crestUrl", 
+                g.created_at as "createdAt",
+                g.member_count as "memberCount", 
+                g.max_members as "maxMembers", 
+                g.min_level as "minLevel", 
+                g.is_public as "isPublic",
                 c.data->>'name' as "leaderName",
                 (SELECT SUM((ch.data->>'level')::int) FROM guild_members gm JOIN characters ch ON gm.user_id = ch.user_id WHERE gm.guild_id = g.id) as "totalLevel"
             FROM guilds g

@@ -193,10 +193,10 @@ export const Guild: React.FC<GuildProps> = ({ onCharacterUpdate }) => {
                                                 [{g.tag}] {g.name}
                                             </div>
                                             <div className="text-xs text-gray-400">
-                                                Członków: {g.member_count}/{g.max_members} | Min. Lvl: {g.min_level}
+                                                Członków: {g.memberCount}/{g.maxMembers} | Min. Lvl: {g.minLevel}
                                             </div>
                                         </div>
-                                        {g.is_public && !isFull ? (
+                                        {g.isPublic && !isFull ? (
                                             <button onClick={() => handleJoin(g.id)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-bold">Dołącz</button>
                                         ) : (
                                             <span className="text-gray-500 text-sm px-3 border border-gray-700 rounded bg-slate-900/50 cursor-not-allowed">
