@@ -18,8 +18,11 @@ export const EnemyListPanel: React.FC<{
                 {enemies.map((enemy, idx) => {
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
                     const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
-                    const currentHealth = healthData ? healthData.currentHealth : 0; 
+                    
+                    // FIX: If no health data in current log step, default to maxHealth from template instead of 0
+                    const currentHealth = healthData !== undefined ? healthData.currentHealth : enemy.stats.maxHealth; 
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
+                    
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
                     const enemyName = healthData?.name || enemy.name;
@@ -66,8 +69,11 @@ export const PartyMemberList: React.FC<{
             <div className="space-y-2">
                 {members.map((member, idx) => {
                     const healthData = finalPartyHealth[member.characterName];
-                    const currentHP = healthData?.currentHealth ?? 0; 
-                    const maxHP = healthData?.maxHealth ?? 1;
+                    
+                    // Similar logic for party members if they are not yet in the logs (though usually they are present from turn 0)
+                    const currentHP = healthData !== undefined ? healthData.currentHealth : (member.stats?.maxHealth || 100); 
+                    const maxHP = healthData?.maxHealth ?? (member.stats?.maxHealth || 100);
+                    
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
                     const isDead = currentHP <= 0;
                     const isSelected = selectedName === member.characterName;
