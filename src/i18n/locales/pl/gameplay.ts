@@ -76,7 +76,7 @@ export default {
         energy: 'Energia',
         luck: 'Szczęście',
         strengthDesc: 'Zwiększa obrażenia fizyczne dla broni białej (wręcz). Zapewnia również niewielki bonus do ataku fizycznego broni magicznych. Nie wpływa na obrażenia broni dystansowej.',
-        agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku w walce oraz szansę na unik.',
+        agilityDesc: 'Zwiększa obrażenia broni dystansowej (łuki, kusze). Zwiększa również szansę na wykonanie pierwszego ataku in walce oraz szansę na unik.',
         accuracyDesc: 'Zwiększa szansę na trafienie krytyczne.',
         staminaDesc: 'Zwiększa maksymalne zdrowie.',
         intelligenceDesc: 'Zwiększa maksymalną manę (+10 na punkt) i regenerację many w walce (+2 na turę na punkt). Zwiększa również obrażenia magiczne.',
@@ -250,6 +250,28 @@ export default {
             title: 'Tabela Obrażeń (Drużyna)',
             dpt: 'Obrażeń na turę',
             total: 'Suma'
+        }
+    },
+    hunting: {
+        title: 'Polowanie',
+        members: 'Członkowie Drużyny',
+        leaveConfirm: 'Czy na pewno chcesz opuścić grupę?',
+        statusLabel: 'Status',
+        startsIn: 'Start za',
+        emptySlot: 'Wolne miejsce',
+        disband: 'Rozwiąż grupę',
+        leave: 'Opuść grupę',
+        join: 'Dołącz',
+        create: 'Stwórz grupę',
+        chooseBoss: 'Wybierz przeciwnika',
+        partySize: 'Rozmiar drużyny',
+        availableParties: 'Dostępne grupy',
+        noParties: 'Obecnie nie ma żadnych aktywnych grup polujących.',
+        status: {
+            FORMING: 'Oczekiwanie',
+            PREPARING: 'Przygotowania',
+            FIGHTING: 'Walka',
+            FINISHED: 'Zakończono'
         }
     },
     quests: {
