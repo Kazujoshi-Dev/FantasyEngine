@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -19,6 +18,7 @@ export const GuildHunting: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [serverTimeOffset, setServerTimeOffset] = useState(0);
     const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [now, setNow] = useState(Date.now());
     
     // Creation State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
@@ -82,6 +82,19 @@ export const GuildHunting: React.FC = () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
         };
     }, [myParty?.id]);
+
+    // Efekt dla płynnego odliczania licznika co 1s
+    useEffect(() => {
+        let ticker: ReturnType<typeof setInterval> | null = null;
+        if (myParty?.status === PartyStatus.Preparing) {
+            ticker = setInterval(() => {
+                setNow(Date.now());
+            }, 1000);
+        }
+        return () => {
+            if (ticker) clearInterval(ticker);
+        };
+    }, [myParty?.status]);
 
     const joinParty = async (id: number) => {
         try {
@@ -237,8 +250,8 @@ export const GuildHunting: React.FC = () => {
             const startTimestamp = new Date(myParty.startTime).getTime();
             const prepTime = (boss?.preparationTimeSeconds || 30) * 1000;
             const fightStart = startTimestamp + prepTime;
-            const now = Date.now() + serverTimeOffset;
-            const diff = Math.ceil((fightStart - now) / 1000);
+            const currentTime = now + serverTimeOffset;
+            const diff = Math.ceil((fightStart - currentTime) / 1000);
             
             if (diff > 0) timerText = `${diff}s`;
             else timerText = '0s';

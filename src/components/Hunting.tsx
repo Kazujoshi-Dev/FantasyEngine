@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -18,6 +17,7 @@ export const Hunting: React.FC = () => {
     const [view, setView] = useState<'DASHBOARD' | 'LOBBY' | 'COMBAT' | 'GUILD_REDIRECT'>('DASHBOARD');
     const [parties, setParties] = useState<any[]>([]);
     const [myParty, setMyParty] = useState<HuntingParty | null>(null);
+    const [now, setNow] = useState(Date.now());
     
     // Form State
     const [selectedBossId, setSelectedBossId] = useState<string>('');
@@ -98,6 +98,19 @@ export const Hunting: React.FC = () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
         };
     }, [view]);
+
+    // Dodatkowy efekt dla płynnego odliczania co 1s
+    useEffect(() => {
+        let ticker: ReturnType<typeof setInterval> | null = null;
+        if (myParty?.status === PartyStatus.Preparing) {
+            ticker = setInterval(() => {
+                setNow(Date.now());
+            }, 1000);
+        }
+        return () => {
+            if (ticker) clearInterval(ticker);
+        };
+    }, [myParty?.status]);
 
     const handleCreate = async () => {
         try {
@@ -253,8 +266,8 @@ export const Hunting: React.FC = () => {
             const startTimestamp = new Date(myParty.startTime).getTime();
             const prepTime = (boss?.preparationTimeSeconds || 30) * 1000;
             const fightStart = startTimestamp + prepTime;
-            const now = Date.now() + serverTimeOffset;
-            const diff = Math.ceil((fightStart - now) / 1000);
+            const currentTime = now + serverTimeOffset;
+            const diff = Math.ceil((fightStart - currentTime) / 1000);
             
             if (diff > 0) timerText = `${diff}s`;
             else timerText = '0s';
