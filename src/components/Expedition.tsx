@@ -45,7 +45,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
     };
 
     const onCancelExpedition = async () => {
-        if (!window.confirm("Are you sure you want to cancel the expedition? You will get your resources back.")) return;
+        if (!window.confirm("Czy na pewno chcesz anulować wyprawę? Odzyskasz zużyte zasoby.")) return;
         try {
             const updatedChar = await api.cancelExpedition();
             updateCharacter(updatedChar);
@@ -63,7 +63,6 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
         if (!selectedExpedition && availableExpeditions.length > 0) {
             setSelectedExpedition(availableExpeditions[0]);
         } else if (availableExpeditions.length > 0 && selectedExpedition && !availableExpeditions.some(e => e.id === selectedExpedition.id)) {
-            // Reselect if current selection is no longer available
             setSelectedExpedition(availableExpeditions[0]);
         } else if (availableExpeditions.length === 0) {
             setSelectedExpedition(null);
@@ -101,27 +100,81 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
         const expedition = expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
         return (
             <ContentPanel title={t('expedition.inProgressTitle')}>
-                <div className="bg-slate-900/40 p-8 rounded-xl text-center">
-                    <h3 className="text-2xl font-bold text-indigo-400 mb-2">{t('expedition.onExpedition')}</h3>
-                    <p className="text-4xl font-extrabold text-white mb-4">{expedition?.name}</p>
-                    {expedition?.image && <img src={expedition.image} alt={expedition.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
-                    <p className="text-lg text-gray-400 mb-6">{t('expedition.endsIn')}</p>
-                    <div className="text-6xl font-mono font-bold text-amber-400 mb-8">{formatTimeLeft(timeLeft)}</div>
-                    <div className="flex justify-center gap-4">
-                        <button 
-                            onClick={onCompletion} 
-                            disabled={timeLeft > 0} 
-                            className="px-8 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed shadow-lg"
-                        >
-                            {timeLeft > 0 ? t('expedition.inProgress') : t('expedition.finish')}
-                        </button>
-                        <button
-                            onClick={onCancelExpedition}
-                            className="px-6 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white font-semibold transition-colors duration-200"
-                        >
-                            Anuluj Wyprawę
-                        </button>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full animate-fade-in">
+                    
+                    {/* LEWA SEKJA: Kontrolki i Odliczanie */}
+                    <div className="bg-slate-900/40 p-8 rounded-2xl border border-slate-700/50 flex flex-col items-center justify-center text-center shadow-xl">
+                        <span className="px-4 py-1 bg-indigo-900/50 text-indigo-300 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-indigo-500/30">
+                            {t('expedition.onExpedition')}
+                        </span>
+                        <h3 className="text-4xl font-black text-white mb-8 drop-shadow-md">
+                            {expedition?.name}
+                        </h3>
+                        
+                        <div className="mb-10">
+                            <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">{t('expedition.endsIn')}</p>
+                            <div className="text-7xl font-mono font-bold text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                {formatTimeLeft(timeLeft)}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col w-full max-w-sm gap-4">
+                            <button 
+                                onClick={onCompletion} 
+                                disabled={timeLeft > 0} 
+                                className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl transition-all duration-300 disabled:bg-slate-700 disabled:text-gray-500 shadow-lg shadow-indigo-900/20 active:scale-95"
+                            >
+                                {timeLeft > 0 ? t('expedition.inProgress') : t('expedition.finish')}
+                            </button>
+                            <button
+                                onClick={onCancelExpedition}
+                                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-red-900/40 text-gray-400 hover:text-red-300 font-bold transition-all duration-300 border border-slate-700 hover:border-red-900/50"
+                            >
+                                Anuluj Wyprawę
+                            </button>
+                        </div>
                     </div>
+
+                    {/* PRAWA SEKJA: Grafika i Fabuła */}
+                    <div className="relative group">
+                        <div className="h-full flex flex-col bg-slate-900/60 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-2xl">
+                            {/* Grafika wyprawy */}
+                            <div className="relative h-2/3 overflow-hidden">
+                                {expedition?.image ? (
+                                    <img 
+                                        src={expedition.image} 
+                                        alt={expedition.name} 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                                        <BoltIcon className="w-20 h-20 text-slate-700 opacity-20" />
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+                            </div>
+
+                            {/* Opis w klimatycznej ramie */}
+                            <div className="flex-1 p-6 relative">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                    <div className="w-12 h-1 bg-amber-500/50 rounded-full"></div>
+                                </div>
+                                <div className="h-full bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 shadow-inner overflow-y-auto custom-scrollbar">
+                                    <h4 className="text-xs font-bold text-amber-500/70 uppercase tracking-widest mb-2 text-center">Kroniki Wydarzeń</h4>
+                                    <p className="text-gray-300 italic leading-relaxed text-center">
+                                        {expedition?.description}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Ozdobne narożniki ramy */}
+                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-slate-700 rounded-tl-lg"></div>
+                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-slate-700 rounded-tr-lg"></div>
+                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-slate-700 rounded-bl-lg"></div>
+                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-slate-700 rounded-br-lg"></div>
+                    </div>
+
                 </div>
             </ContentPanel>
         );
