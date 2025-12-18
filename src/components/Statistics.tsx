@@ -6,8 +6,9 @@ import { useCharacter } from '@/contexts/CharacterContext';
 import { AttributePanel } from './stats/AttributePanel';
 import { ProgressionPanel } from './stats/ProgressionPanel';
 import { KnowledgePanel } from './stats/KnowledgePanel';
+import { SkillsPanel } from './stats/SkillsPanel';
 
-type StatTab = 'stats' | 'progression' | 'knowledge';
+type StatTab = 'stats' | 'progression' | 'skills' | 'knowledge';
 
 export const Statistics: React.FC = () => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
@@ -21,13 +22,16 @@ export const Statistics: React.FC = () => {
     return (
         <ContentPanel title={t('statistics.title')}>
             <div className="flex border-b border-slate-700 mb-6 overflow-x-auto">
-                <button onClick={() => setActiveTab('stats')} className={`px-4 py-3 text-sm font-medium transition-all ${activeTab === 'stats' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                <button onClick={() => setActiveTab('stats')} className={`px-4 py-3 text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'stats' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
                     {t('statistics.tabs.stats')}
                 </button>
-                <button onClick={() => setActiveTab('progression')} className={`px-4 py-3 text-sm font-medium transition-all ${activeTab === 'progression' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                <button onClick={() => setActiveTab('progression')} className={`px-4 py-3 text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'progression' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
                     {t('statistics.tabs.developmentPath')}
                 </button>
-                <button onClick={() => setActiveTab('knowledge')} className={`px-4 py-3 text-sm font-medium transition-all ${activeTab === 'knowledge' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                <button onClick={() => setActiveTab('skills')} className={`px-4 py-3 text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'skills' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    {t('statistics.tabs.skills')}
+                </button>
+                <button onClick={() => setActiveTab('knowledge')} className={`px-4 py-3 text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'knowledge' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}>
                     {t('statistics.tabs.knowledge')}
                 </button>
             </div>
@@ -45,6 +49,7 @@ export const Statistics: React.FC = () => {
             <div className="flex-1 min-h-0">
                 {activeTab === 'stats' && <AttributePanel character={character} baseCharacter={baseCharacter} gameData={gameData} updateCharacter={updateCharacter} />}
                 {activeTab === 'progression' && <ProgressionPanel character={character} updateCharacter={updateCharacter} />}
+                {activeTab === 'skills' && <SkillsPanel />}
                 {activeTab === 'knowledge' && <KnowledgePanel />}
             </div>
         </ContentPanel>
