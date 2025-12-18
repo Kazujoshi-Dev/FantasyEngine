@@ -64,13 +64,14 @@ export const simulateTeamVsBossCombat = (
     const log: CombatLogEntry[] = [];
     let turn = 0;
 
-    // Helper to generate a snapshot of all players' health at specific moment
+    // Helper to generate a snapshot of all entities health at specific moment
     const getHealthStateForLog = () => ({
         playerHealth: 0, 
         playerMana: 0,
         enemyHealth: bossState.currentHealth,
         enemyMana: bossState.currentMana,
-        allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth }))
+        allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth })),
+        allEnemiesHealth: [{ uniqueId: 'boss', name: bossState.name, currentHealth: bossState.currentHealth, maxHealth: bossState.stats.maxHealth }]
     });
 
     const partyStats: Record<string, CharacterStats> = {};
@@ -101,12 +102,12 @@ export const simulateTeamVsBossCombat = (
                  attackOptions.critChanceOverride = 100;
                  attackOptions.ignoreDodge = true;
              }
-             const { logs: attackLogs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, [], false, attackOptions);
+             const { logs, attackerState, defenderState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, [], false, attackOptions);
              
              Object.assign(player, attackerState);
              bossState.currentHealth = defenderState.currentHealth;
 
-             log.push(...attackLogs.map(l => ({...l, ...getHealthStateForLog()})));
+             log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
 
              if (player.data.characterClass === CharacterClass.Hunter && bossState.currentHealth > 0) {
                  const { logs: hunterLogs, defenderState: hunterBossState } = performAttack(playerAsAttacker, bossAsDefender, 0, gameData, []);

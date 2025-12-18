@@ -1,4 +1,5 @@
 
+// ... (zachowujemy istniejące importy)
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats, GuildBuff, QuestType } from '../types.js';
 import { calculateDerivedStatsOnServer } from './stats.js';
@@ -98,6 +99,13 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         }
     }
 
+    // Map members to include their initial stats for the report
+    const initialStatsSnapshot = combatLog[0]?.partyMemberStats || {};
+    const huntingMembersWithStats = party.members.map(m => ({
+        ...m,
+        stats: initialStatsSnapshot[m.characterName]
+    }));
+
     if (isVictory) {
         const bossBonusMultiplier = 1.0 + (playerCombatants.length * 0.3);
         const rolledGold = Math.floor(Math.random() * ((originalBossTemplate.rewards.maxGold || 0) - (originalBossTemplate.rewards.minGold || 0) + 1)) + (originalBossTemplate.rewards.minGold || 0);
@@ -185,8 +193,6 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                     }
                 }
 
-                // --- QUEST PROGRESS UPDATE ---
-                // Update Kill progress for Boss
                 if (!char.questProgress) char.questProgress = [];
                 if (!char.acceptedQuests) char.acceptedQuests = [];
 
@@ -236,7 +242,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 isVictory: true, totalGold: userRewards.gold, totalExperience: userRewards.experience, combatLog,
                 itemsFound: userRewards.items || [], essencesFound: userRewards.essences || {},
                 rewardBreakdown: [{ source: `Polowanie na Bossa: ${bossTemplate.name}`, gold: userRewards.gold, experience: userRewards.experience }],
-                huntingMembers: party.members, allRewards: allRewardsForReport, bossId: party.bossId
+                huntingMembers: huntingMembersWithStats, allRewards: allRewardsForReport, bossId: party.bossId
             };
             await enforceInboxLimit(client, userId);
             await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`, [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]);
@@ -254,7 +260,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [charToUpdate, userId]);
             const summary: ExpeditionRewardSummary = {
                 isVictory: false, totalGold: 0, totalExperience: 0, combatLog, itemsFound: [], essencesFound: {}, 
-                rewardBreakdown: [], huntingMembers: party.members, bossId: party.bossId
+                rewardBreakdown: [], huntingMembers: huntingMembersWithStats, bossId: party.bossId
             };
             await enforceInboxLimit(client, userId);
             await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`, [userId, `Raport z Polowania: ${bossTemplate.name}`, JSON.stringify(summary)]);

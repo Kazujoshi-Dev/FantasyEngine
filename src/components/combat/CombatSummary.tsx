@@ -1,6 +1,6 @@
 
+// ... (zachowujemy istniejące importy)
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-/* Added Race to the imports from ../../types */
 import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CombatLogRow } from './CombatLog';
@@ -60,7 +60,8 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
     }, [currentTurn]);
 
     const displayedLogs = log.slice(0, currentTurn);
-    const lastLog = displayedLogs[displayedLogs.length - 1];
+    // CRITICAL FIX: If turn is 0, use log[0] as context for initial HP/Mana
+    const lastLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : log[0];
 
     const logsWithRoundHeaders = useMemo(() => {
         const result: (CombatLogEntry | { isHeader: boolean, round: number })[] = [];
