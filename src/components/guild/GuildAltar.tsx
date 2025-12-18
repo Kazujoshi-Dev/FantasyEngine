@@ -15,9 +15,12 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
     const rituals: Ritual[] = gameData.rituals || [];
     const altarLevel = guild.buildings?.altar || 0;
     
-    // Sort active buffs by expiration time
+    // Sort active buffs by expiration time and FILTER OUT expired ones locally for UI consistency
     const activeBuffs = useMemo(() => {
-        return [...(guild.activeBuffs || [])].sort((a, b) => a.expiresAt - b.expiresAt);
+        const now = Date.now();
+        return [...(guild.activeBuffs || [])]
+            .filter(b => b.expiresAt > now)
+            .sort((a, b) => a.expiresAt - b.expiresAt);
     }, [guild.activeBuffs]);
 
     const handleSacrifice = async (ritualId: string) => {

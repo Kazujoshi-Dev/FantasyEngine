@@ -3,7 +3,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
-import { getBuildingCost, canManage } from '../logic/guilds.js';
+import { getBuildingCost, canManage, pruneExpiredBuffs } from '../logic/guilds.js';
 import { GuildRole, EssenceType } from '../types.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
 
@@ -35,15 +35,21 @@ router.get('/list', authenticateToken, async (req: any, res: any) => {
 
 // GET /api/guilds/my-guild
 router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+        
         // 1. Check membership
-        const memberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
-        if (memberRes.rows.length === 0) return res.json(null); // Not in guild
+        const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
+        if (memberRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.json(null); // Not in guild
+        }
         
         const { guild_id, role } = memberRes.rows[0];
 
-        // 2. Get Guild Data with camelCase aliases
-        const guildRes = await pool.query(`
+        // 2. Get Guild Data
+        const guildRes = await client.query(`
             SELECT 
                 id, name, tag, description, 
                 crest_url as "crestUrl", 
@@ -58,14 +64,26 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
                 hunting_tax as "huntingTax", 
                 created_at as "createdAt" 
             FROM guilds 
-            WHERE id = $1
+            WHERE id = $1 FOR UPDATE
         `, [guild_id]);
 
-        if (guildRes.rows.length === 0) return res.json(null);
+        if (guildRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.json(null);
+        }
+        
         const guild = guildRes.rows[0];
 
+        // --- LAZY PRUNING OF BUFFS ---
+        const { pruned, wasModified } = pruneExpiredBuffs(guild.activeBuffs);
+        if (wasModified) {
+            await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(pruned), guild_id]);
+            guild.activeBuffs = pruned;
+        }
+        // -----------------------------
+
         // 3. Get Members
-        const membersRes = await pool.query(`
+        const membersRes = await client.query(`
             SELECT gm.user_id, gm.role, gm.joined_at, c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race, c.data->>'characterClass' as "characterClass",
             EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
             FROM guild_members gm
@@ -74,7 +92,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         `, [guild_id]);
 
         // 4. Get Transactions (Last 50)
-        const transRes = await pool.query(`
+        const transRes = await client.query(`
             SELECT t.*, c.data->>'name' as "characterName"
             FROM guild_bank_history t
             LEFT JOIN characters c ON t.user_id = c.user_id
@@ -83,7 +101,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
         `, [guild_id]);
 
         // 5. Get Chat (Last 50)
-        const chatRes = await pool.query(`
+        const chatRes = await client.query(`
             SELECT gc.*, c.data->>'name' as "characterName", gm.role
             FROM guild_chat gc
             JOIN characters c ON gc.user_id = c.user_id
@@ -92,6 +110,8 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             ORDER BY gc.created_at ASC LIMIT 50
         `, [guild_id]);
 
+        await client.query('COMMIT');
+        
         res.json({
             ...guild,
             myRole: role,
@@ -100,8 +120,11 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             chatHistory: chatRes.rows
         });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Error fetching guild data' });
+    } finally {
+        client.release();
     }
 });
 

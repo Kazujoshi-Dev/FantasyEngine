@@ -5,81 +5,93 @@ import { pool } from '../db.js';
 import { PlayerCharacter, ActiveTowerRun, EquipmentSlot, ItemTemplate, ItemInstance, CharacterStats, SkillCost, EssenceType, CharacterClass, CharacterResources, EquipmentLoadout, GuildBuff, Skill, SkillType, SkillCategory } from '../types.js';
 import { getCampUpgradeCost, getTreasuryUpgradeCost, getBackpackUpgradeCost, getWarehouseUpgradeCost, getTreasuryCapacity, calculateDerivedStatsOnServer, getWarehouseCapacity } from '../logic/stats.js';
 import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
+import { pruneExpiredBuffs } from '../logic/guilds.js';
 
 const router = express.Router();
 
 // GET /api/character - Get Character Data
 router.get('/', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        try {
-            const result = await client.query(`
-                SELECT 
-                    c.data,
-                    u.email,
-                    g.buildings,
-                    g.active_buffs,
-                    g.id as guild_id,
-                    (
-                        SELECT row_to_json(tr) 
-                        FROM tower_runs tr 
-                        WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS'
-                        LIMIT 1
-                    ) as active_tower_run
-                FROM characters c 
-                JOIN users u ON c.user_id = u.id
-                LEFT JOIN guild_members gm ON c.user_id = gm.user_id
-                LEFT JOIN guilds g ON gm.guild_id = g.id
-                WHERE c.user_id = $1
-            `, [req.user.id]);
+        await client.query('BEGIN');
+        const result = await client.query(`
+            SELECT 
+                c.data,
+                u.email,
+                g.buildings,
+                g.active_buffs,
+                g.id as guild_id,
+                (
+                    SELECT row_to_json(tr) 
+                    FROM tower_runs tr 
+                    WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS'
+                    LIMIT 1
+                ) as active_tower_run
+            FROM characters c 
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [req.user.id]);
 
-            if (result.rows.length === 0) {
-                return res.json(null);
-            }
-
-            const row = result.rows[0];
-            const charData: PlayerCharacter = row.data;
-            const activeRunDB = row.active_tower_run;
-
-            if (row.email) {
-                charData.email = row.email;
-            }
-
-            if (row.guild_id) {
-                charData.guildId = row.guild_id;
-                charData.guildBarracksLevel = row.buildings?.barracks || 0;
-                charData.guildShrineLevel = row.buildings?.shrine || 0;
-                charData.activeGuildBuffs = row.active_buffs || [];
-            } else {
-                charData.guildId = undefined;
-                charData.guildBarracksLevel = 0;
-                charData.guildShrineLevel = 0;
-                charData.activeGuildBuffs = [];
-            }
-
-            if (activeRunDB) {
-                const mappedRun: ActiveTowerRun = {
-                    id: activeRunDB.id,
-                    userId: activeRunDB.user_id,
-                    towerId: activeRunDB.tower_id,
-                    currentFloor: activeRunDB.current_floor,
-                    currentHealth: activeRunDB.current_health,
-                    currentMana: activeRunDB.current_mana,
-                    accumulatedRewards: activeRunDB.accumulated_rewards,
-                    status: activeRunDB.status
-                };
-                charData.activeTowerRun = mappedRun;
-            } else {
-                charData.activeTowerRun = undefined;
-            }
-
-            res.json(charData);
-        } finally {
-            client.release();
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.json(null);
         }
+
+        const row = result.rows[0];
+        const charData: PlayerCharacter = row.data;
+        const activeRunDB = row.active_tower_run;
+
+        if (row.email) {
+            charData.email = row.email;
+        }
+
+        if (row.guild_id) {
+            charData.guildId = row.guild_id;
+            charData.guildBarracksLevel = row.buildings?.barracks || 0;
+            charData.guildShrineLevel = row.buildings?.shrine || 0;
+            
+            // --- LAZY PRUNING OF BUFFS FOR CHARACTER LOAD ---
+            const { pruned, wasModified } = pruneExpiredBuffs(row.active_buffs || []);
+            if (wasModified) {
+                await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(pruned), row.guild_id]);
+                charData.activeGuildBuffs = pruned;
+            } else {
+                charData.activeGuildBuffs = row.active_buffs || [];
+            }
+            // -----------------------------------------------
+        } else {
+            charData.guildId = undefined;
+            charData.guildBarracksLevel = 0;
+            charData.guildShrineLevel = 0;
+            charData.activeGuildBuffs = [];
+        }
+
+        if (activeRunDB) {
+            const mappedRun: ActiveTowerRun = {
+                id: activeRunDB.id,
+                userId: activeRunDB.user_id,
+                towerId: activeRunDB.tower_id,
+                currentFloor: activeRunDB.current_floor,
+                currentHealth: activeRunDB.current_health,
+                currentMana: activeRunDB.current_mana,
+                accumulatedRewards: activeRunDB.accumulated_rewards,
+                status: activeRunDB.status
+            };
+            charData.activeTowerRun = mappedRun;
+        } else {
+            charData.activeTowerRun = undefined;
+        }
+
+        await client.query('COMMIT');
+        res.json(charData);
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ message: 'Failed to fetch character' });
+    } finally {
+        client.release();
     }
 });
 

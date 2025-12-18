@@ -1,8 +1,23 @@
 
-import { EssenceType, GuildRole } from '../types.js';
+import { EssenceType, GuildRole, GuildBuff } from '../types.js';
 
 // Helper to check roles
 export const canManage = (role: GuildRole) => role === GuildRole.LEADER || role === GuildRole.OFFICER;
+
+/**
+ * Usuwa wygasłe buffy z tablicy i zwraca informację czy tablica uległa zmianie.
+ */
+export const pruneExpiredBuffs = (buffs: GuildBuff[]): { pruned: GuildBuff[], wasModified: boolean } => {
+    if (!buffs || !Array.isArray(buffs)) return { pruned: [], wasModified: false };
+    
+    const now = Date.now();
+    const active = buffs.filter(b => b.expiresAt > now);
+    
+    return {
+        pruned: active,
+        wasModified: active.length !== buffs.length
+    };
+};
 
 // Helper for building costs
 export const getBuildingCost = (type: string, level: number): { gold: number, costs: { type: EssenceType, amount: number }[] } => {
