@@ -112,7 +112,7 @@ router.post('/', async (req: any, res: any) => {
             experienceToNextLevel: 100,
             stats: {
                 strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1,
-                statPoints: 0,
+                statPoints: 20, // PRZYZNANO 20 PUNKTÓW NA START
                 currentHealth: 60, maxHealth: 60,
                 currentMana: 30, maxMana: 30,
                 currentEnergy: 10, maxEnergy: 10,
