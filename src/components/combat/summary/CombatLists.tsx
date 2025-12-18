@@ -8,7 +8,9 @@ export const EnemyListPanel: React.FC<{
     finalEnemiesHealth: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[] | undefined;
     onEnemyClick: (enemy: Enemy) => void;
     selectedName?: string;
-}> = ({ enemies, finalEnemiesHealth, onEnemyClick, selectedName }) => {
+    // Dodajemy opcjonalne ogólne HP dla walk 1v1
+    globalEnemyHealth?: number; 
+}> = ({ enemies, finalEnemiesHealth, onEnemyClick, selectedName, globalEnemyHealth }) => {
     return (
         <div className="bg-slate-900/50 p-4 rounded-lg border border-red-500/50 h-full overflow-y-auto">
              <h4 className="font-bold text-xl text-center border-b border-red-500/50 pb-2 mb-2 text-red-400">
@@ -19,9 +21,18 @@ export const EnemyListPanel: React.FC<{
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
                     const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
                     
-                    // CRITICAL FIX: If no health data found (Turn 0), default to maxHealth
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
-                    const currentHealth = healthData ? healthData.currentHealth : maxHealth; 
+                    
+                    // FALLBACK: 
+                    // 1. Jeśli mamy dane w tablicy snapshots (walki drużynowe/bossy) -> weź stamtąd
+                    // 2. Jeśli to walka 1v1 i mamy globalEnemyHealth -> weź globalne HP
+                    // 3. Jeśli to tura 0 i brak danych -> pokaż maxHealth
+                    let currentHealth = maxHealth;
+                    if (healthData) {
+                        currentHealth = healthData.currentHealth;
+                    } else if (globalEnemyHealth !== undefined && enemies.length === 1) {
+                        currentHealth = globalEnemyHealth;
+                    }
                     
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
@@ -70,7 +81,6 @@ export const PartyMemberList: React.FC<{
                 {members.map((member, idx) => {
                     const healthData = finalPartyHealth[member.characterName];
                     
-                    // CRITICAL FIX: If no health data found (Turn 0), default to stats in member object
                     const currentHP = healthData?.currentHealth ?? (member.stats?.currentHealth ?? 1); 
                     const maxHP = healthData?.maxHealth ?? (member.stats?.maxHealth ?? 1);
                     
