@@ -13,7 +13,15 @@ export async function authenticateToken(req: any, res: any, next: any) {
         if (result.rows.length === 0) {
             return res.status(403).json({ message: "Invalid token" });
         }
-        req.user = { id: result.rows[0].user_id };
+        
+        const userId = result.rows[0].user_id;
+        req.user = { id: userId };
+
+        // Background update of last activity for accurate Online status
+        pool.query('UPDATE sessions SET last_active_at = NOW() WHERE token = $1', [token]).catch(err => {
+            console.error("Failed to update session activity:", err);
+        });
+
         next();
     } catch (err) {
         console.error("Authentication error:", err);

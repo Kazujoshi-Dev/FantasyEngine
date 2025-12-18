@@ -23,7 +23,7 @@ router.get('/', async (req: any, res: any) => {
                 EXISTS (
                     SELECT 1 
                     FROM sessions s 
-                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '1 minute'
+                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '2 minutes'
                 ) as "isOnline"
             FROM characters c
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
