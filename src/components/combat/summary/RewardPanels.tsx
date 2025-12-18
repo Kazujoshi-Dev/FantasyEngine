@@ -1,11 +1,9 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
-import { EssenceType, ItemRarity, ExpeditionRewardSummary, ItemTemplate, Affix, ItemInstance } from '../../../types';
+import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix } from '../../../types';
 import { CoinsIcon } from '../../icons/CoinsIcon';
 import { StarIcon } from '../../icons/StarIcon';
-import { ShieldIcon } from '../../icons/ShieldIcon';
-import { rarityStyles, getGrammaticallyCorrectFullName, ItemDetailsPanel } from '../../shared/ItemSlot';
+import { rarityStyles, ItemTooltip } from '../../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -15,7 +13,7 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Legendary]: ItemRarity.Legendary,
 };
 
-export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
+export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>>, isVictory?: boolean }> = ({ totalGold, essencesFound, isVictory = true }) => {
     const { t } = useTranslation();
     const hasLoot = totalGold > 0 || Object.keys(essencesFound).length > 0;
 
@@ -28,18 +26,21 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
         );
     }
 
+    const headerColor = isVictory ? 'text-amber-500' : 'text-red-500';
+    const borderColor = isVictory ? 'border-amber-600/30' : 'border-red-600/40';
+
     return (
-        <div className="bg-slate-900/80 p-6 rounded-xl border border-amber-600/40 mt-4 shadow-lg relative overflow-hidden group">
-             <div className="absolute -right-10 -top-10 w-32 h-32 bg-amber-600/10 rounded-full blur-3xl group-hover:bg-amber-600/20 transition-all duration-500"></div>
-             <h4 className="font-bold text-xl text-center border-b border-amber-600/30 pb-3 mb-5 text-amber-500 tracking-wider flex items-center justify-center gap-2">
+        <div className={`bg-slate-900/80 p-6 rounded-xl border ${borderColor} mt-4 shadow-lg relative overflow-hidden group`}>
+             <div className={`absolute -right-10 -top-10 w-32 h-32 ${isVictory ? 'bg-amber-600/10' : 'bg-red-600/10'} rounded-full blur-3xl group-hover:opacity-50 transition-all duration-500`}></div>
+             <h4 className={`font-bold text-xl text-center border-b ${borderColor} pb-3 mb-5 ${headerColor} tracking-wider flex items-center justify-center gap-2`}>
                 <CoinsIcon className="h-6 w-6" />
-                Zrabowane z Banku Gildii
+                {isVictory ? 'Zrabowane z Banku Gildii' : 'Utracone z Banku Gildii'}
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {totalGold > 0 && (
-                     <div className="flex flex-col items-center justify-center bg-slate-800/80 p-3 rounded-lg border border-amber-500/30 shadow-md col-span-2 md:col-span-1">
+                     <div className={`flex flex-col items-center justify-center bg-slate-800/80 p-3 rounded-lg border ${isVictory ? 'border-amber-500/30' : 'border-red-500/30'} shadow-md col-span-2 md:col-span-1`}>
                         <span className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">{t('resources.gold')}</span>
-                        <span className="font-mono font-bold text-amber-400 flex items-center text-2xl">
+                        <span className={`font-mono font-bold ${isVictory ? 'text-amber-400' : 'text-red-400'} flex items-center text-2xl`}>
                             {totalGold.toLocaleString()}
                         </span>
                      </div>
@@ -52,7 +53,7 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
                         <div key={key} className={`flex flex-col items-center justify-center bg-slate-800/60 p-3 rounded-lg border ${style.border} shadow-sm relative overflow-hidden`}>
                              <div className={`absolute inset-0 ${style.bg} opacity-10`}></div>
                              <span className={`${style.text} text-[10px] uppercase tracking-widest mb-1 z-10 text-center`}>{t(`resources.${type}`).replace(' Esencja', '')}</span>
-                             <span className="font-mono font-bold text-white text-xl z-10">x{amount}</span>
+                             <span className={`font-mono font-bold ${isVictory ? 'text-white' : 'text-red-400'} text-xl z-10`}>x{amount}</span>
                         </div>
                     )
                 })}
@@ -61,87 +62,69 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
     );
 };
 
-export const StandardRewardsPanel: React.FC<{ 
-    reward: ExpeditionRewardSummary; 
-    itemTemplates: ItemTemplate[]; 
-    affixes: Affix[];
-}> = ({ reward, itemTemplates, affixes }) => {
+export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ reward, itemTemplates, affixes }) => {
     const { t } = useTranslation();
-    const { totalGold, totalExperience, itemsFound, essencesFound } = reward;
-    const [hoveredItem, setHoveredItem] = useState<{item: ItemInstance, template: ItemTemplate} | null>(null);
-
-    if (totalGold <= 0 && totalExperience <= 0 && itemsFound.length === 0 && Object.keys(essencesFound).length === 0) return null;
-
     return (
-        <div className="bg-slate-900/80 p-6 rounded-xl border border-green-500/30 mt-4 shadow-lg relative">
-             <h4 className="font-bold text-2xl text-center border-b border-green-500/50 pb-3 mb-6 text-green-400 tracking-wider">
-                {t('expedition.totalRewards')}
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="flex flex-col gap-6 justify-center">
-                    {totalGold > 0 && (
-                        <div className="bg-slate-800/60 p-4 rounded-lg text-center border border-amber-500/20">
-                            <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">{t('resources.gold')} i {t('expedition.experience')}</p>
-                            <p className="font-mono font-bold text-amber-400 flex justify-center items-center text-2xl mb-1">
-                                +{totalGold.toLocaleString()} <CoinsIcon className="h-6 w-6 ml-2"/>
-                            </p>
-                             {totalExperience > 0 && (
-                                <p className="font-mono font-bold text-sky-400 flex justify-center items-center text-2xl">
-                                    +{totalExperience.toLocaleString()} <span className="text-sm ml-2">XP</span>
-                                </p>
-                            )}
-                        </div>
-                    )}
-                </div>
-                <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700/50">
-                    <p className="text-center text-gray-400 text-xs uppercase tracking-widest mb-4">{t('expedition.itemsFound')} ({itemsFound.length})</p>
-                    {itemsFound.length === 0 && <p className="text-gray-600 italic text-sm py-4 text-center">Brak</p>}
-                    <div className="flex flex-wrap gap-2 justify-center">
-                        {itemsFound.map((item, idx) => {
-                            const template = itemTemplates.find(t => t.id === item.templateId);
-                            if (!template) return null;
-                            const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-                            const rarityColor = rarityStyles[template.rarity].text;
-                            const rarityBg = rarityStyles[template.rarity].bg;
-                            const rarityBorder = rarityStyles[template.rarity].border;
-                            return (
-                                <div 
-                                    key={idx} 
-                                    className={`cursor-help px-3 py-2 rounded-lg border ${rarityBorder} ${rarityBg}/30 hover:${rarityBg}/50 transition-all duration-200`}
-                                    onMouseEnter={() => setHoveredItem({ item, template })}
-                                    onMouseLeave={() => setHoveredItem(null)}
-                                >
-                                    <span className={`font-bold text-sm ${rarityColor}`}>{fullName}</span>
-                                </div>
-                            );
-                        })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-900/60 p-6 rounded-xl border border-slate-700/50">
+            <div>
+                <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                    <StarIcon className="h-5 w-5 text-yellow-400"/> {t('expedition.totalRewards')}
+                </h3>
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
+                        <span className="text-gray-400 font-bold">{t('expedition.goldGained')}</span>
+                        <span className="text-amber-400 font-mono text-xl">{reward.totalGold.toLocaleString()}</span>
                     </div>
-                    {reward.itemsLostCount && <p className="text-xs text-red-400 mt-4 text-center font-bold">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>}
-                </div>
-                <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700/50">
-                    <p className="text-center text-gray-400 text-xs uppercase tracking-widest mb-4">{t('expedition.essencesFound')}</p>
-                    {Object.keys(essencesFound).length === 0 && <p className="text-gray-600 italic text-sm text-center py-4">Brak</p>}
-                    <div className="space-y-2">
-                        {Object.entries(essencesFound).map(([key, amount]) => {
-                             const type = key as EssenceType;
-                             const rarity = essenceToRarityMap[type];
-                             return (
-                                 <div key={key} className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700">
-                                      <span className={`${rarityStyles[rarity].text} font-medium text-sm`}>{t(`resources.${type}`)}</span>
-                                      <span className="font-mono font-bold text-white">+{amount}</span>
-                                 </div>
-                             )
-                        })}
+                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
+                        <span className="text-gray-400 font-bold">{t('expedition.experience')}</span>
+                        <span className="text-sky-400 font-mono text-xl">{reward.totalExperience.toLocaleString()} XP</span>
                     </div>
+                    {Object.entries(reward.essencesFound).map(([key, amount]) => {
+                        const type = key as EssenceType;
+                        const rarity = essenceToRarityMap[type];
+                        const style = rarityStyles[rarity];
+                        return (
+                            <div key={key} className={`flex justify-between items-center bg-slate-800/50 p-3 rounded border-l-4 ${style.border}`}>
+                                <span className={`${style.text} font-bold text-sm`}>{t(`resources.${type}`)}</span>
+                                <span className="text-white font-mono font-bold">x{amount}</span>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
-            {hoveredItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                         <ItemDetailsPanel item={hoveredItem.item} template={hoveredItem.template} affixes={affixes} hideAffixes={false} size="small" />
-                    </div>
+
+            <div>
+                <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                    <CoinsIcon className="h-5 w-5 text-indigo-400"/> {t('expedition.itemsFound')}
+                </h3>
+                <div className="bg-slate-800/30 rounded-lg p-2 min-h-[100px] border border-slate-700/50">
+                    {reward.itemsFound.length === 0 ? (
+                        <p className="text-gray-600 text-center py-8 italic text-sm">{t('expedition.noEnemies')}</p>
+                    ) : (
+                        <div className="flex flex-wrap gap-2">
+                            {reward.itemsFound.map((item, idx) => {
+                                const template = itemTemplates.find(t => t.id === item.templateId);
+                                if (!template) return null;
+                                return (
+                                    <div key={idx} className="relative group cursor-help">
+                                        <div className={`w-12 h-12 rounded border-2 ${rarityStyles[template.rarity].border} ${rarityStyles[template.rarity].bg} flex items-center justify-center shadow-lg transition-transform hover:scale-110`}>
+                                            {template.icon ? (
+                                                <img src={template.icon} alt={template.name} className="w-10 h-10 object-contain" />
+                                            ) : (
+                                                <span className="text-xs font-bold text-white">?</span>
+                                            )}
+                                        </div>
+                                        <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    {reward.itemsLostCount && (
+                        <p className="text-red-400 text-xs mt-3 font-bold px-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 };
