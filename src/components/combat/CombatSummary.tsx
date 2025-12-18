@@ -1,75 +1,122 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useTranslation } from '../../contexts/LanguageContext';
-import { 
-    ExpeditionRewardSummary, 
-    ItemTemplate, 
-    Affix, 
-    Enemy, 
-    CombatLogEntry, 
-    PartyMember, 
-    Race, 
-    PartyMemberStatus 
-} from '../../types';
-import { CombatLogRow } from './CombatLog';
-import { CombatantStatsPanel } from './summary/CombatantStatsPanel';
-import { EnemyListPanel, PartyMemberList } from './summary/CombatLists';
-import { DamageMeter } from './summary/DamageMeter';
-import { StandardRewardsPanel, PvpRewardsPanel, RaidRewardsPanel } from './summary/RewardPanels';
 
-interface ExpeditionSummaryModalProps {
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race } from '../../types';
+import { useTranslation } from '../../contexts/LanguageContext';
+import { CombatLogRow } from './CombatLog';
+import { DamageMeter } from './summary/DamageMeter';
+import { EnemyListPanel, PartyMemberList } from './summary/CombatLists';
+import { StandardRewardsPanel, RaidRewardsPanel, PvpRewardsPanel } from './summary/RewardPanels';
+import { CombatantStatsPanel } from './summary/CombatantStatsPanel';
+
+interface CombatReportModalProps {
     reward: ExpeditionRewardSummary;
     onClose: () => void;
     characterName: string;
     itemTemplates: ItemTemplate[];
     affixes: Affix[];
     enemies: Enemy[];
-    isHunting?: boolean;
-    isRaid?: boolean;
-    isPvp?: boolean;
-    huntingMembers?: PartyMember[];
-    opponents?: PartyMember[];
-    allRewards?: Record<string, any>;
-    initialEnemy?: Enemy;
-    bossName?: string;
     messageId?: number | null;
     raidId?: number | null;
+    isHunting?: boolean;
+    isRaid?: boolean;
+    huntingMembers?: PartyMember[];
+    opponents?: any[];
+    allRewards?: Record<string, any>;
+    isPvp?: boolean;
+    pvpData?: { attacker: any, defender: any };
     isDefenderView?: boolean;
+    initialEnemy?: Enemy;
+    bossName?: string;
     backgroundImage?: string;
 }
 
-export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
-    reward,
-    onClose,
-    characterName,
-    itemTemplates,
-    affixes,
-    enemies,
-    isHunting,
-    isRaid,
-    isPvp,
-    huntingMembers,
-    opponents,
-    allRewards,
-    initialEnemy,
-    bossName,
-    messageId,
-    raidId,
-    isDefenderView,
-    backgroundImage
+export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
+    reward, onClose, characterName, itemTemplates, affixes, enemies, 
+    messageId, raidId, isHunting, isRaid, huntingMembers, opponents, 
+    allRewards, isPvp, pvpData, isDefenderView, initialEnemy, bossName, backgroundImage
 }) => {
     const { t } = useTranslation();
-    const [selectedCombatant, setSelectedCombatant] = useState<{ name: string; stats: any; description?: string } | null>(null);
-    const [showLog, setShowLog] = useState(false);
-    const [animatedLog, setAnimatedLog] = useState<CombatLogEntry[]>([]);
-    
+    const [currentTurn, setCurrentTurn] = useState(0);
+    const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+    const [isAnimationFinished, setIsAnimationFinished] = useState(false);
+    const [speed, setSpeed] = useState(1);
+    const logEndRef = useRef<HTMLDivElement>(null);
+    const [selectedCombatant, setSelectedCombatant] = useState<{ name: string, stats: any, description?: string } | null>(null);
+    const [copyStatus, setCopyStatus] = useState('');
+
     const log = reward.combatLog || [];
-    const lastLog = log.length > 0 ? log[log.length - 1] : null;
+
+    // Auto-playing logic
+    useEffect(() => {
+        if (isAutoPlaying && currentTurn < log.length) {
+            const timer = setTimeout(() => {
+                setCurrentTurn(prev => {
+                    const next = prev + 1;
+                    if (next >= log.length) setIsAnimationFinished(true);
+                    return next;
+                });
+            }, 1000 / speed);
+            return () => clearTimeout(timer);
+        } else if (currentTurn >= log.length) {
+            setIsAnimationFinished(true);
+        }
+    }, [isAutoPlaying, currentTurn, log.length, speed]);
 
     useEffect(() => {
-        if (!showLog) {
-            setAnimatedLog(log);
-        }
-    }, [showLog, log]);
+        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [currentTurn]);
+
+    const handleSkip = () => {
+        setCurrentTurn(log.length);
+        setIsAutoPlaying(false);
+        setIsAnimationFinished(true);
+    };
+
+    const displayedLogs = log.slice(0, currentTurn);
+    const lastLog = displayedLogs.length > 0 ? displayedLogs[displayedLogs.length - 1] : log[0];
+
+    const logsWithRoundHeaders = useMemo(() => {
+        const result: (CombatLogEntry | { isHeader: boolean, round: number })[] = [];
+        let lastRound = -1;
+
+        displayedLogs.forEach((entry) => {
+            if (entry.turn > 0 && entry.turn !== lastRound) {
+                result.push({ isHeader: true, round: entry.turn });
+                lastRound = entry.turn;
+            }
+            result.push(entry);
+        });
+        return result;
+    }, [displayedLogs]);
+
+    const damageMeterData = useMemo(() => {
+        const stats: Record<string, number> = {};
+        let turns = 0;
+        displayedLogs.forEach(entry => {
+            if (entry.damage) {
+                const attacker = entry.attacker;
+                stats[attacker] = (stats[attacker] || 0) + entry.damage;
+            }
+            if (entry.turn > turns) turns = entry.turn;
+        });
+        
+        const sortedMembers = Object.entries(stats)
+            .map(([name, dmg]) => ({ name, dmg }))
+            .sort((a, b) => b.dmg - a.dmg);
+
+        return { stats, totalDamage: Object.values(stats).reduce((a, b) => a + b, 0), turns: Math.max(1, turns), sortedMembers };
+    }, [displayedLogs]);
+
+    const handleCopyLink = () => {
+        const id = messageId || raidId;
+        if (!id) return;
+        const path = raidId ? 'raid' : 'report';
+        const url = `${window.location.origin}/${path}/${id}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopyStatus('Skopiowano!');
+            setTimeout(() => setCopyStatus(''), 2000);
+        });
+    };
 
     const dynamicPartyHealth = useMemo(() => {
         const healthMap: Record<string, { currentHealth: number, maxHealth: number }> = {};
@@ -77,44 +124,83 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
             lastLog.allPlayersHealth.forEach(p => {
                 healthMap[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
             });
+        } else if (lastLog) {
+            const maxHP = log[0]?.playerStats?.maxHealth || 100;
+            healthMap[characterName] = { currentHealth: lastLog.playerHealth, maxHealth: maxHP };
         }
         return healthMap;
-    }, [lastLog]);
+    }, [lastLog, log, characterName]);
 
-    // Simple damage meter logic
-    const damageMeterData = useMemo(() => {
-        const stats: Record<string, number> = {};
-        log.forEach(entry => {
-            if (entry.damage && entry.attacker) {
-                stats[entry.attacker] = (stats[entry.attacker] || 0) + entry.damage;
-            }
-        });
-        const sorted = Object.entries(stats)
-            .map(([name, dmg]) => ({ name, dmg }))
-            .sort((a, b) => b.dmg - a.dmg);
-            
-        return { stats, totalDamage: sorted.reduce((s, item) => s + item.dmg, 0), turns: Math.max(1, log.length), sortedMembers: sorted };
-    }, [log]);
+    const renderRewardsSection = () => {
+        if (!isAnimationFinished) return null;
+        
+        if (isPvp && pvpData) {
+            return <PvpRewardsPanel isVictory={reward.isVictory} gold={reward.totalGold} experience={reward.totalExperience} />;
+        }
+        if (isRaid) {
+            return <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />;
+        }
+        return <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />;
+    };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 overflow-y-auto">
-            <div 
-                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col relative overflow-hidden"
-                style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
-            >
-                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm">
+            <div className="w-full max-w-[1400px] h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-hidden" 
+                 style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover' } : { backgroundColor: 'var(--window-bg, #0f172a)' }}>
                 
-                {/* Header */}
-                <div className="relative z-10 flex justify-between items-center p-6 border-b border-slate-700/50 bg-slate-900/50">
-                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
-                        {isPvp ? 'Raport z Pojedynku' : isRaid ? 'Raport z Rajdu' : isHunting ? 'Raport z Polowania' : t('expedition.combatReport')}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-gray-400 hover:text-white">✕</button>
+                <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center z-10">
+                    <div>
+                        <h2 className="text-2xl font-bold text-white uppercase tracking-wider">
+                            {isPvp ? 'Pojedynek PvP' : isRaid ? 'Bitwa Gildii' : isHunting ? `Polowanie: ${bossName || 'Boss'}` : t('expedition.combatReport')}
+                        </h2>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                        <button onClick={handleCopyLink} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md font-bold text-xs transition-colors">
+                            {copyStatus || 'Kopiuj Link'}
+                        </button>
+                        
+                        {!isAnimationFinished && (
+                            <button onClick={handleSkip} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-md font-bold text-xs transition-colors uppercase tracking-tight">
+                                Pomiń animację
+                            </button>
+                        )}
+
+                        <button onClick={() => setIsAutoPlaying(!isAutoPlaying)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md font-bold text-xs transition-colors">
+                            {isAutoPlaying ? 'Pauza' : 'Graj'}
+                        </button>
+                        
+                        <button onClick={onClose} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md font-bold text-xs transition-colors">Zamknij</button>
+                    </div>
                 </div>
 
-                <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
-                    {/* Left: Stats & Lists */}
-                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 p-6 overflow-y-auto custom-scrollbar border-r border-slate-700/50">
+                <div className="flex-1 flex overflow-hidden p-6 gap-6 relative">
+                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar z-10">
+                        {selectedCombatant ? (
+                             <CombatantStatsPanel 
+                                name={selectedCombatant.name} 
+                                stats={selectedCombatant.stats} 
+                                description={selectedCombatant.description}
+                                currentHealth={dynamicPartyHealth[selectedCombatant.name]?.currentHealth}
+                             />
+                        ) : isPvp && pvpData ? (
+                             <CombatantStatsPanel name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} />
+                        ) : (
+                            <DamageMeter damageData={damageMeterData} title=" Damage Meter" />
+                        )}
+                    </div>
+
+                    <div className="flex-1 bg-black/40 rounded-xl border border-slate-700 p-4 flex flex-col z-10 shadow-inner">
+                        <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1">
+                            {logsWithRoundHeaders.map((entry, idx) => (
+                                'isHeader' in entry ? 
+                                <div key={idx} className="text-center text-slate-500 text-[10px] my-2 uppercase font-bold">Runda {entry.round}</div> :
+                                <CombatLogRow key={idx} log={entry} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
+                            ))}
+                            <div ref={logEndRef} />
+                        </div>
+                    </div>
+
+                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 z-10">
                         {isRaid ? (
                             <>
                                 <PartyMemberList members={huntingMembers || []} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
@@ -131,56 +217,14 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                                 />
                             </>
                         )}
-                        
-                        <DamageMeter damageData={damageMeterData} title={t('expedition.damageMeter.title')} />
-                    </div>
-
-                    {/* Middle: Log & Details */}
-                    <div className="flex-1 flex flex-col p-6 overflow-y-auto custom-scrollbar relative">
-                        {selectedCombatant ? (
-                            <div className="h-full flex flex-col animate-fade-in">
-                                <button onClick={() => setSelectedCombatant(null)} className="mb-4 text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-bold">&larr; Wróć do raportu</button>
-                                <div className="flex-1">
-                                    <CombatantStatsPanel 
-                                        name={selectedCombatant.name} 
-                                        stats={selectedCombatant.stats} 
-                                        description={selectedCombatant.description}
-                                        currentHealth={dynamicPartyHealth[selectedCombatant.name]?.currentHealth}
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                {/* Victory/Defeat & Loot */}
-                                {isPvp ? (
-                                    <PvpRewardsPanel isVictory={reward.isVictory} gold={reward.totalGold} experience={reward.totalExperience} />
-                                ) : isRaid ? (
-                                    <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />
-                                ) : (
-                                    <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />
-                                )}
-
-                                {/* Combat Log */}
-                                <div className="bg-slate-800/30 rounded-xl border border-slate-700/50 p-4">
-                                    <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                                        <h4 className="font-bold text-gray-400 uppercase tracking-widest text-xs">Przebieg Walki</h4>
-                                    </div>
-                                    <div className="space-y-1 font-serif">
-                                        {animatedLog.map((entry, idx) => (
-                                            <CombatLogRow key={idx} log={entry} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
-                                        ))}
-                                        {animatedLog.length === 0 && <p className="text-center text-gray-600 py-10 italic">Cisza przed burzą...</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="relative z-10 p-6 border-t border-slate-700/50 bg-slate-900/50 flex justify-end gap-4">
-                    <button onClick={onClose} className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-all">{t('expedition.returnToCamp')}</button>
-                </div>
+                {isAnimationFinished && (
+                    <div className="p-6 border-t border-slate-700 bg-slate-800/50 z-10 animate-fade-in">
+                        {renderRewardsSection()}
+                    </div>
+                )}
             </div>
         </div>
     );

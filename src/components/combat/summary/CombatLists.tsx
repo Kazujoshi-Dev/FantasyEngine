@@ -8,8 +8,7 @@ export const EnemyListPanel: React.FC<{
     finalEnemiesHealth: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[] | undefined;
     onEnemyClick: (enemy: Enemy) => void;
     selectedName?: string;
-    // Dodajemy opcjonalne ogólne HP dla walk 1v1
-    globalEnemyHealth?: number; 
+    globalEnemyHealth?: number; // Dodany prop dla kompatybilności 1v1
 }> = ({ enemies, finalEnemiesHealth, onEnemyClick, selectedName, globalEnemyHealth }) => {
     return (
         <div className="bg-slate-900/50 p-4 rounded-lg border border-red-500/50 h-full overflow-y-auto">
@@ -19,24 +18,24 @@ export const EnemyListPanel: React.FC<{
             <div className="space-y-3">
                 {enemies.map((enemy, idx) => {
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
-                    const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
+                    const healthSnapshot = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
                     
-                    const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
-                    
-                    // FALLBACK: 
-                    // 1. Jeśli mamy dane w tablicy snapshots (walki drużynowe/bossy) -> weź stamtąd
-                    // 2. Jeśli to walka 1v1 i mamy globalEnemyHealth -> weź globalne HP
-                    // 3. Jeśli to tura 0 i brak danych -> pokaż maxHealth
+                    // ARCHITEKTURA FALLBACKU:
+                    // 1. Weź dane ze snapshotu (walki bossów / grupowe)
+                    // 2. Jeśli brak (walka 1v1), weź globalne enemyHealth z logu
+                    // 3. Jeśli brak (np. tura 0), weź maxHealth z szablonu
+                    const maxHealth = healthSnapshot?.maxHealth ?? enemy.stats.maxHealth;
                     let currentHealth = maxHealth;
-                    if (healthData) {
-                        currentHealth = healthData.currentHealth;
+
+                    if (healthSnapshot) {
+                        currentHealth = healthSnapshot.currentHealth;
                     } else if (globalEnemyHealth !== undefined && enemies.length === 1) {
                         currentHealth = globalEnemyHealth;
                     }
                     
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
-                    const enemyName = healthData?.name || enemy.name;
+                    const enemyName = healthSnapshot?.name || enemy.name;
                     const isSelected = selectedName === enemyName;
 
                     return (
