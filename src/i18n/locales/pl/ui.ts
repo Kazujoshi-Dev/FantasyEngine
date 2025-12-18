@@ -194,6 +194,28 @@ export default {
             }
         }
     },
+    hunting: {
+        title: 'Polowanie',
+        members: 'Członkowie Drużyny',
+        create: 'Stwórz Grupę',
+        join: 'Dołącz',
+        leave: 'Opuść Grupę',
+        disband: 'Rozwiąż Grupę',
+        noParties: 'Obecnie nie ma żadnych aktywnych grup.',
+        availableParties: 'Dostępne Grupy',
+        chooseBoss: 'Wybierz Cel',
+        partySize: 'Rozmiar Grupy',
+        statusLabel: 'Status',
+        startsIn: 'Start za',
+        emptySlot: 'Wolne miejsce',
+        leaveConfirm: 'Czy na pewno chcesz opuścić grupę?',
+        status: {
+            FORMING: 'Formowanie',
+            PREPARING: 'Przygotowania',
+            FIGHTING: 'Walka',
+            FINISHED: 'Zakończono'
+        }
+    },
     trader: {
         title: 'Handlarz',
         buy: 'Kup',
