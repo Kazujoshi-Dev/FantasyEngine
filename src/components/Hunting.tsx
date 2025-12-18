@@ -32,15 +32,12 @@ export const Hunting: React.FC = () => {
     if (!character || !gameData) return null;
     const { enemies, itemTemplates, affixes } = gameData;
 
-    // Check for Lone Wolf skill
     const hasLoneWolf = (character.learnedSkills || []).includes('lone-wolf');
 
-    // Filter bosses: Only NON-GUILD bosses for public hunting
     const bosses = useMemo(() => {
         return enemies.filter(e => e.isBoss && !e.isGuildBoss);
     }, [enemies]);
     
-    // Auto-select first boss when list changes or is empty
     useEffect(() => {
         if (bosses.length > 0 && (!selectedBossId || !bosses.find(b => b.id === selectedBossId))) {
             setSelectedBossId(bosses[0].id);
@@ -50,7 +47,6 @@ export const Hunting: React.FC = () => {
     const fetchParties = async () => {
         setLoading(true);
         try {
-            // Fetch Public Parties Only
             const publicParties = await api.getHuntingParties();
             setParties(publicParties);
         } catch (e) { 
@@ -69,7 +65,6 @@ export const Hunting: React.FC = () => {
                     setServerTimeOffset(new Date(serverTime).getTime() - Date.now());
                 }
                 
-                // Redirect if it's a guild party
                 if (party.guildId) {
                     setView('GUILD_REDIRECT');
                     return;
@@ -106,7 +101,6 @@ export const Hunting: React.FC = () => {
 
     const handleCreate = async () => {
         try {
-            // Always false for isGuildParty in public tab
             await api.createParty(selectedBossId, createMembers, false, false);
             await fetchMyParty();
         } catch (e: any) { alert(e.message); }
@@ -178,6 +172,15 @@ export const Hunting: React.FC = () => {
 
     const reportData = useMemo(() => {
         if (!myParty) return null;
+
+        // VITAL FIX: The members list from hunting_parties table doesn't have stats.
+        // We must extract them from the combat log's first entry (Turn 0 snapshot).
+        const logStats = myParty.combatLog?.[0]?.partyMemberStats || {};
+        const enrichedMembers = myParty.members.map(m => ({
+            ...m,
+            stats: m.stats || logStats[m.characterName]
+        }));
+
         return {
             combatLog: myParty.combatLog || [],
             isVictory: myParty.victory || false,
@@ -186,13 +189,12 @@ export const Hunting: React.FC = () => {
             rewardBreakdown: [],
             itemsFound: myParty.myRewards?.items || [],
             essencesFound: myParty.myRewards?.essences || {},
-            huntingMembers: myParty.members,
+            huntingMembers: enrichedMembers,
             allRewards: myParty.allRewards,
             encounteredEnemies: selectedBoss ? [selectedBoss] : []
         };
     }, [myParty, selectedBoss]);
 
-    // --- RENDER: Guild Redirect ---
     if (view === 'GUILD_REDIRECT') {
         return (
             <ContentPanel title={t('hunting.title')}>
@@ -202,13 +204,11 @@ export const Hunting: React.FC = () => {
                     <p className="text-gray-400 mb-6 max-w-md">
                         Jesteś członkiem aktywnego polowania gildyjnego. Zarządzanie drużyną i podgląd walki znajdują się teraz w zakładce <strong>Gildia</strong>.
                     </p>
-                    {/* Note: We don't link directly, user must navigate via sidebar */}
                 </div>
             </ContentPanel>
         );
     }
 
-    // --- RENDER: Combat View ---
     if (view === 'COMBAT' && myParty) {
         return (
             <div className="fixed inset-0 bg-gray-900 z-50 overflow-auto">
@@ -230,16 +230,16 @@ export const Hunting: React.FC = () => {
                     affixes={affixes}
                     enemies={enemies}
                     isHunting={true}
-                    huntingMembers={myParty.members}
+                    huntingMembers={reportData?.huntingMembers}
                     allRewards={myParty.allRewards}
                     initialEnemy={gameData.enemies.find(e => e.id === myParty.bossId)}
                     messageId={myParty.messageId}
+                    backgroundImage={gameData.settings?.reportBackgroundUrl}
                 />
             </div>
         );
     }
 
-    // --- RENDER: Lobby View (Inside a party) ---
     if (view === 'LOBBY' && myParty) {
         const isLeader = myParty.leaderId === character.id;
         const boss = gameData.enemies.find(e => e.id === myParty.bossId);
@@ -266,13 +266,11 @@ export const Hunting: React.FC = () => {
         const lobbyMinDamage = boss ? Math.floor(boss.stats.minDamage * lobbyDamageMult) : 0;
         const lobbyMaxDamage = boss ? Math.floor(boss.stats.maxDamage * lobbyDamageMult) : 0;
         
-        // --- FIXED CONDITION: Allow starting if >= 2 OR if solo party (max 1) ---
         const canStart = acceptedMembers.length >= 2 || (myParty.maxMembers === 1 && acceptedMembers.length === 1);
 
         return (
             <ContentPanel title={t('hunting.title')}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Left: Boss Info */}
                     <div className="bg-slate-900/40 p-4 rounded-xl border border-red-900/30">
                         <h3 className="text-xl font-bold text-red-400 mb-2">{boss?.name}</h3>
                         <div className="h-64 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
@@ -285,7 +283,6 @@ export const Hunting: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Middle: Members */}
                     <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col md:col-span-2">
                         <div className="flex justify-between items-center mb-4">
                             <div>
@@ -330,7 +327,7 @@ export const Hunting: React.FC = () => {
                                             <span className="text-sm text-gray-300">{m.characterName} (Lvl {m.level})</span>
                                             <div className="flex gap-2">
                                                 <button onClick={() => handleAction(m.userId, 'accept')} className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs text-white">Akceptuj</button>
-                                                <button onClick={() => handleAction(m.userId, 'reject')} className="px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs text-white">Odrzuć</button>
+                                                <button onClick={() => handleAction(m.userId, 'reject')} className="px-2 py-1 bg-red-700 hover:bg-red-700 rounded text-xs text-white">Odrzuć</button>
                                             </div>
                                         </div>
                                     ))}
@@ -361,15 +358,11 @@ export const Hunting: React.FC = () => {
         );
     }
 
-    // --- RENDER: Dashboard View (Main) ---
     return (
         <ContentPanel title={t('hunting.title')}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
-                
-                {/* Column 1: Controls (Create Party) */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
                     <h3 className="text-xl font-bold text-indigo-400 mb-6">{t('hunting.create')}</h3>
-                    
                     <div className="space-y-6">
                         <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/30">
                             <p className="text-xs text-indigo-300">
@@ -377,13 +370,12 @@ export const Hunting: React.FC = () => {
                                 Aby stworzyć prywatne polowanie dla gildii, przejdź do zakładki Gildia.
                             </p>
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.chooseBoss')}</label>
                             <select 
                                 value={selectedBossId} 
                                 onChange={(e) => setSelectedBossId(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                             >
                                 {bosses.map(boss => (
                                     <option key={boss.id} value={boss.id}>{boss.name} (Lvl {boss.stats.maxHealth > 1000 ? 'Boss' : 'Mini'})</option>
@@ -391,13 +383,12 @@ export const Hunting: React.FC = () => {
                                 {bosses.length === 0 && <option value="" disabled>Brak dostępnych bossów</option>}
                             </select>
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">{t('hunting.partySize')}</label>
                             <select
                                 value={createMembers}
                                 onChange={(e) => setCreateMembers(parseInt(e.target.value))}
-                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                             >
                                 <option value={1} disabled={!hasLoneWolf}>
                                     1 Gracz (Solo) {!hasLoneWolf && "- Wymagana umiejętność Samotny Wilk"}
@@ -407,17 +398,11 @@ export const Hunting: React.FC = () => {
                                 <option value={4}>4 Graczy</option>
                                 <option value={5}>5 Graczy (Pełna)</option>
                             </select>
-                            {createMembers === 1 && !hasLoneWolf && (
-                                <p className="text-xs text-red-400 mt-1 font-bold">Wymagana umiejętność: Samotny Wilk</p>
-                            )}
-                            <p className="text-xs text-gray-500 mt-2">Większa drużyna = większe nagrody, ale boss jest silniejszy.</p>
                         </div>
-
                         <div className="pt-4">
                             <button 
                                 onClick={handleCreate} 
                                 disabled={character.stats.currentHealth <= 0 || !selectedBossId || (createMembers === 1 && !hasLoneWolf)}
-                                title={character.stats.currentHealth <= 0 ? "Nie możesz stworzyć grupy z 0 HP." : ""}
                                 className={`w-full py-3 bg-green-600 hover:bg-green-500 rounded text-white font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:bg-slate-600 disabled:cursor-not-allowed`}
                             >
                                 <UsersIcon className="h-5 w-5"/> {t('hunting.create')}
@@ -426,7 +411,6 @@ export const Hunting: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Column 2: Boss Info & Rewards */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
                     <h3 className="text-xl font-bold text-red-400 mb-4 text-center">Cel Polowania</h3>
                     {selectedBoss && scaledBossStats ? (
@@ -445,9 +429,7 @@ export const Hunting: React.FC = () => {
                                     <span className="text-gray-600">|</span>
                                     <span className="flex items-center gap-1">DMG: <span className="text-white">{scaledBossStats.minDamage}-{scaledBossStats.maxDamage}</span></span>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2 px-4 italic">{selectedBoss.description}</p>
                             </div>
-
                             {estimatedRewards && (
                                 <div className="mt-auto bg-slate-800/80 p-4 rounded-lg border border-slate-700">
                                     <p className="text-gray-400 text-xs uppercase tracking-widest text-center mb-3">Szacowane Nagrody (Na Osobę)</p>
@@ -472,28 +454,23 @@ export const Hunting: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-500 italic">
-                            {bosses.length > 0 ? 'Wybierz bossa z menu po lewej stronie.' : 'Brak dostępnych bossów w tej kategorii.'}
+                            Wybierz bossa z menu po lewej stronie.
                         </div>
                     )}
                 </div>
 
-                {/* Column 3: Party List */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col min-h-0 border border-slate-700">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xl font-bold text-indigo-400">{t('hunting.availableParties')}</h3>
-                        <span className="text-xs text-gray-500 bg-slate-800 px-2 py-1 rounded">{parties.length}</span>
                     </div>
-                    
                     <div className="flex-grow overflow-y-auto pr-2 space-y-3">
                         {parties.length === 0 && (
                             <div className="text-center py-12 text-gray-500 italic">
                                 <p>{t('hunting.noParties')}</p>
-                                <p className="text-xs mt-2">Bądź pierwszy i utwórz grupę!</p>
                             </div>
                         )}
                         {parties.map(party => {
                             const boss = gameData.enemies.find(e => e.id === party.bossId);
-                            // We filtered out guild parties in fetchParties, so only public ones show here
                             return (
                                 <div key={party.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-indigo-500 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
@@ -502,26 +479,20 @@ export const Hunting: React.FC = () => {
                                                 {boss?.image ? <img src={boss.image} className="w-full h-full object-cover"/> : <CrossedSwordsIcon className="h-4 w-4 text-gray-500"/>}
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2">
-                                                     <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
-                                                </div>
+                                                <h4 className="font-bold text-white text-sm">{boss?.name || 'Unknown'}</h4>
                                                 <p className="text-xs text-gray-400">Lider: {party.leaderName}</p>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => handleJoin(party.id)} 
                                             disabled={character.stats.currentHealth <= 0}
-                                            title={character.stats.currentHealth <= 0 ? "Nie możesz dołączyć z 0 HP." : ""}
-                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors disabled:bg-slate-600"
                                         >
                                             {t('hunting.join')}
                                         </button>
                                     </div>
                                     <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
-                                        <div 
-                                            className="bg-green-500 h-full transition-all" 
-                                            style={{ width: `${(party.currentMembersCount / party.maxMembers) * 100}%` }}
-                                        ></div>
+                                        <div className="bg-green-500 h-full transition-all" style={{ width: `${(party.currentMembersCount / party.maxMembers) * 100}%` }}></div>
                                     </div>
                                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                                         <span>Gracze</span>

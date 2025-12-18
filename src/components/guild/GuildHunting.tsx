@@ -28,12 +28,10 @@ export const GuildHunting: React.FC = () => {
     const { enemies, itemTemplates, affixes } = gameData || { enemies: [], itemTemplates: [], affixes: [] };
     const lobbyPollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Filter for GUILD BOSSES only
     const guildBosses = useMemo(() => {
         return enemies.filter(e => e.isBoss && e.isGuildBoss);
     }, [enemies]);
 
-    // Auto-select first boss
     useEffect(() => {
         if (guildBosses.length > 0 && (!selectedBossId || !guildBosses.find(b => b.id === selectedBossId))) {
             setSelectedBossId(guildBosses[0].id);
@@ -54,7 +52,6 @@ export const GuildHunting: React.FC = () => {
         try {
             const { party, serverTime } = await api.getMyParty();
             if (party) {
-                // Check if this is actually a GUILD party
                 if (party.guildId) {
                     setMyParty(party);
                     if (serverTime) {
@@ -64,7 +61,6 @@ export const GuildHunting: React.FC = () => {
                         setReportModalOpen(true);
                     }
                 } else {
-                    // It's a public party, handle it in regular Hunting tab, but we can reset local state here
                     setMyParty(null);
                 }
             } else {
@@ -85,9 +81,7 @@ export const GuildHunting: React.FC = () => {
         return () => {
             if (lobbyPollInterval.current) clearInterval(lobbyPollInterval.current);
         };
-    }, [myParty?.id]); // Depend on ID to toggle polling logic if needed
-
-    // --- ACTIONS ---
+    }, [myParty?.id]);
 
     const joinParty = async (id: number) => {
         try {
@@ -125,7 +119,9 @@ export const GuildHunting: React.FC = () => {
         try {
             await api.cancelParty();
             await fetchMyParty();
-        } catch (e: any) { alert(e.message); }
+        } catch (e: any) {
+            alert(e.message);
+        }
     };
 
     const handleAction = async (userId: number, action: 'accept' | 'reject' | 'kick') => {
@@ -138,18 +134,14 @@ export const GuildHunting: React.FC = () => {
     const disbandParty = async () => {
         if(!confirm('Czy na pewno chcesz rozwiązać grupę?')) return;
         try {
-            // Leaving as leader disbands
             await api.leaveParty();
             alert('Grupa rozwiązana.');
             fetchParties();
         } catch(e: any) { alert(e.message); }
     };
 
-    // --- MEMOS FOR DISPLAY ---
-
     const selectedBoss = useMemo(() => guildBosses.find(b => b.id === selectedBossId), [guildBosses, selectedBossId]);
     
-    // Calculate Scaled Stats for Creation View
     const scaledBossStatsCreation = useMemo(() => {
         if (!selectedBoss) return null;
         const healthMult = 1 + Math.max(0, createMembers - 2) * 0.7;
@@ -172,9 +164,16 @@ export const GuildHunting: React.FC = () => {
         }
     }, [selectedBoss, createMembers]);
 
-    // Report data preparation
     const reportData = useMemo(() => {
         if (!myParty) return null;
+        
+        // VITAL FIX: Extract stats from Turn 0 snapshot
+        const logStats = myParty.combatLog?.[0]?.partyMemberStats || {};
+        const enrichedMembers = myParty.members.map(m => ({
+            ...m,
+            stats: m.stats || logStats[m.characterName]
+        }));
+
         return {
             combatLog: myParty.combatLog || [],
             isVictory: myParty.victory || false,
@@ -183,15 +182,14 @@ export const GuildHunting: React.FC = () => {
             rewardBreakdown: [],
             itemsFound: myParty.myRewards?.items || [],
             essencesFound: myParty.myRewards?.essences || {},
-            huntingMembers: myParty.members,
+            huntingMembers: enrichedMembers,
             allRewards: myParty.allRewards,
-            encounteredEnemies: [] // Filled by modal logic usually
+            encounteredEnemies: [] 
         };
     }, [myParty]);
 
     if(!gameData || !character) return null;
 
-    // --- VIEW: REPORT / COMBAT RESULT ---
     if (myParty && (myParty.status === PartyStatus.Finished || reportModalOpen)) {
          return (
              <div className="h-[75vh] flex items-center justify-center">
@@ -214,10 +212,11 @@ export const GuildHunting: React.FC = () => {
                             affixes={affixes}
                             enemies={enemies}
                             isHunting={true}
-                            huntingMembers={myParty.members}
+                            huntingMembers={reportData.huntingMembers}
                             allRewards={myParty.allRewards}
                             initialEnemy={gameData.enemies.find(e => e.id === myParty.bossId)}
                             messageId={myParty.messageId}
+                            backgroundImage={gameData.settings?.reportBackgroundUrl}
                         />
                      </div>
                  )}
@@ -225,13 +224,11 @@ export const GuildHunting: React.FC = () => {
          );
     }
 
-    // --- VIEW: LOBBY (Inside Party) ---
     if (myParty) {
         const isLeader = myParty.leaderId === character.id;
         const boss = enemies.find(e => e.id === myParty.bossId);
         const acceptedMembers = myParty.members.filter(m => m.status !== PartyMemberStatus.Pending);
         const pendingMembers = myParty.members.filter(m => m.status === PartyMemberStatus.Pending);
-        const isFull = acceptedMembers.length >= myParty.maxMembers;
         
         let statusText = t(`hunting.status.${myParty.status}`);
         let timerText = '';
@@ -247,7 +244,6 @@ export const GuildHunting: React.FC = () => {
             else timerText = '0s';
         }
 
-        // Lobby Stats
         const lobbyHealthMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.7;
         const lobbyDamageMult = 1 + Math.max(0, myParty.maxMembers - 2) * 0.1;
         const lobbyMaxHealth = boss ? Math.floor(boss.stats.maxHealth * lobbyHealthMult) : 0;
@@ -256,7 +252,6 @@ export const GuildHunting: React.FC = () => {
 
         return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[75vh]">
-                {/* Left: Boss Info */}
                 <div className="bg-slate-900/40 p-4 rounded-xl border border-red-900/30">
                     <h3 className="text-xl font-bold text-red-400 mb-2">{boss?.name}</h3>
                     <div className="h-64 bg-slate-800 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-slate-700">
@@ -269,7 +264,6 @@ export const GuildHunting: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Middle: Lobby Management */}
                 <div className="bg-slate-900/40 p-4 rounded-xl flex flex-col md:col-span-2 border border-slate-700">
                     <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                         <div>
@@ -306,7 +300,6 @@ export const GuildHunting: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Pending Requests */}
                     {isLeader && pendingMembers.length > 0 && (
                         <div className="mb-4 pt-4 border-t border-slate-700">
                             <h4 className="text-sm font-bold text-gray-400 mb-2">Oczekujący</h4>
@@ -346,10 +339,8 @@ export const GuildHunting: React.FC = () => {
         );
     }
 
-    // --- VIEW: CREATE / LIST (Default) ---
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full animate-fade-in">
-            {/* Left Column: Create & Info */}
             <div className="flex flex-col gap-6">
                 <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
                     <h3 className="text-xl font-bold text-purple-400 mb-6 flex items-center gap-2">
@@ -410,7 +401,6 @@ export const GuildHunting: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Boss Info Preview */}
                 {selectedBoss && scaledBossStatsCreation && (
                     <div className="bg-slate-900/40 p-6 rounded-xl border border-red-900/30 flex-grow">
                         <h4 className="text-lg font-bold text-red-400 mb-4 text-center border-b border-red-900/30 pb-2">Podgląd Celu</h4>
@@ -444,7 +434,6 @@ export const GuildHunting: React.FC = () => {
                 )}
             </div>
 
-            {/* Right Column: Active Parties */}
             <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col h-[70vh]">
                 <h3 className="text-xl font-bold text-purple-400 mb-4 flex justify-between items-center">
                     <span>Aktywne Polowania</span>
