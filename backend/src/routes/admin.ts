@@ -37,4 +37,51 @@ router.post('/global-message', async (req: any, res: any) => {
     } catch (err) { res.status(500).json({ message: 'Failed' }); }
 });
 
+// WIPE GAME DATA - Czyści postępy graczy, zachowuje konta i dane gry
+router.post('/wipe-game-data', async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        console.log('[WIPE] Starting full game data wipe...');
+
+        // Truncate czyści tabele i resetuje sekwencje ID (RESTART IDENTITY)
+        // CASCADE zapewnia usunięcie powiązanych rekordów w tabelach zależnych
+        await client.query(`
+            TRUNCATE 
+                characters, 
+                messages, 
+                market_listings, 
+                market_bids, 
+                hunting_parties, 
+                guilds, 
+                guild_members, 
+                guild_chat, 
+                guild_armory_items, 
+                guild_bank_history, 
+                guild_raids, 
+                guild_espionage, 
+                tavern_messages, 
+                tavern_presence, 
+                tower_runs 
+            RESTART IDENTITY CASCADE
+        `);
+
+        // Opcjonalnie: Możemy też wyczyścić sesje, aby wylogować wszystkich graczy
+        // ale zachowujemy tabelę 'users' i 'game_data'
+        await client.query('DELETE FROM sessions');
+
+        await client.query('COMMIT');
+        console.log('[WIPE] Wipe completed successfully.');
+
+        res.json({ message: 'Dane gry zostały pomyślnie wyczyszczone. Wszystkie postacie i gildie przestały istnieć.' });
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error('[WIPE] Error during wipe:', err);
+        res.status(500).json({ message: 'Błąd podczas czyszczenia danych: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
 export default router;
