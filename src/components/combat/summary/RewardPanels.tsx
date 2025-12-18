@@ -14,6 +14,27 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Legendary]: ItemRarity.Legendary,
 };
 
+export const PvpRewardsPanel: React.FC<{ isVictory: boolean, gold: number, experience: number }> = ({ isVictory, gold, experience }) => {
+    const { t } = useTranslation();
+    return (
+        <div className={`p-4 rounded-xl border ${isVictory ? 'bg-green-900/30 border-green-500/50' : 'bg-red-900/30 border-red-500/50'} text-center`}>
+            <h4 className={`text-xl font-bold mb-2 ${isVictory ? 'text-green-400' : 'text-red-400'}`}>
+                {isVictory ? t('expedition.victory') : t('expedition.defeat')}
+            </h4>
+            <div className="flex justify-center gap-8">
+                <div className="flex items-center gap-2">
+                    <CoinsIcon className="h-5 w-5 text-amber-400" />
+                    <span className="font-mono text-lg font-bold text-amber-400">{gold.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <StarIcon className="h-5 w-5 text-sky-400" />
+                    <span className="font-mono text-lg font-bold text-sky-400">{experience.toLocaleString()} XP</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Partial<Record<EssenceType, number>> }> = ({ totalGold, essencesFound }) => {
     const { t } = useTranslation();
     const hasLoot = totalGold > 0 || Object.keys(essencesFound).length > 0;
@@ -124,9 +145,6 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                 );
                             })}
                         </div>
-                    )}
-                    {reward.itemsLostCount && (
-                        <p className="text-red-400 text-[9px] mt-2 font-bold px-1">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
                     )}
                 </div>
             </div>

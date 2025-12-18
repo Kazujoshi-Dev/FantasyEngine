@@ -2,7 +2,15 @@
 import { EssenceType } from './common';
 import { MagicAttackType, ItemInstance, LootDrop, ResourceDrop } from './items';
 import { CharacterStats, PlayerCharacter } from './character';
-import { Enemy, PartyMember } from './index'; // Import from Barrel to avoid direct circular if needed, or specific file
+import { Enemy, PartyMember } from './index';
+
+export enum CombatType {
+    PVE = 'PVE',
+    PVP = 'PVP',
+    HUNTING = 'HUNTING',
+    RAID = 'RAID',
+    TOWER = 'TOWER'
+}
 
 export enum SpecialAttackType {
     Stun = 'Stun',
@@ -41,7 +49,7 @@ export interface BossSpecialAttack {
 
 export interface Enemy {
     id: string;
-    uniqueId?: string; // Runtime
+    uniqueId?: string;
     name: string;
     description: string;
     image?: string;
@@ -58,8 +66,6 @@ export interface Enemy {
     resourceLootTable: ResourceDrop[];
     specialAttacks?: BossSpecialAttack[];
     preparationTimeSeconds?: number;
-    
-    // Runtime state
     currentHealth?: number;
 }
 
@@ -83,15 +89,12 @@ export interface CombatLogEntry {
     isDodge?: boolean;
     effectApplied?: string;
     manaSpent?: number;
-    
     playerStats?: CharacterStats;
     enemyStats?: EnemyStats;
     enemyDescription?: string;
-    
     allPlayersHealth?: { name: string; currentHealth: number; maxHealth: number; currentMana?: number; maxMana?: number }[];
     allEnemiesHealth?: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[];
     partyMemberStats?: Record<string, CharacterStats>;
-    
     specialAttackType?: SpecialAttackType;
     shout?: string;
     aoeDamage?: { target: string; damage: number }[];
@@ -114,10 +117,11 @@ export interface ExpeditionRewardSummary {
     rewardBreakdown: RewardSource[];
     itemsLostCount?: number;
     encounteredEnemies?: Enemy[];
-    
     huntingMembers?: PartyMember[];
+    opponents?: PartyMember[];
     allRewards?: Record<string, { gold: number; experience: number, items?: ItemInstance[], essences?: Partial<Record<EssenceType, number>> }>;
     bossId?: string;
+    combatType?: CombatType;
 }
 
 export interface PvpRewardSummary {
@@ -127,4 +131,5 @@ export interface PvpRewardSummary {
     experience: number;
     attacker: PlayerCharacter;
     defender: PlayerCharacter;
+    combatType: CombatType.PVP;
 }
