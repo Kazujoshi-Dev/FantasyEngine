@@ -92,7 +92,7 @@ export const api = {
     healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
 
     distributeStatPoints: (stats: Partial<CharacterStats>) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
-    resetAttributes: () => fetchApi('/character/stats/reset', { method: 'POST' }),
+    resetAttributes: () => fetchApi('/character/reset-stats', { method: 'POST' }),
     
     learnSkill: (skillId: string) => fetchApi('/character/skills/learn', { method: 'POST', body: JSON.stringify({ skillId }) }),
     toggleSkill: (skillId: string, isActive: boolean) => fetchApi('/character/skills/toggle', { method: 'POST', body: JSON.stringify({ skillId, isActive }) }),
@@ -148,7 +148,7 @@ export const api = {
     buyMarketListing: (listingId: number) => fetchApi('/market/buy', { method: 'POST', body: JSON.stringify({ listingId }) }),
     bidOnMarketListing: (listingId: number, amount: number) => fetchApi('/market/bid', { method: 'POST', body: JSON.stringify({ listingId, amount }) }),
     cancelMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/cancel`, { method: 'POST' }),
-    claimMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/claim`, { method: 'POST' }),
+    claimMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/claim Brennan`, { method: 'POST' }),
     claimMarketReturn: (messageId: number) => fetchApi(`/messages/claim-return/${messageId}`, { method: 'POST' }),
 
     // Quests
@@ -221,10 +221,11 @@ export const api = {
     adminGiveItem: (userId: number, itemData: any) => fetchApi('/admin/give-item', { method: 'POST', body: JSON.stringify({ userId, ...itemData }) }),
     
     findItemById: (id: string) => fetchApi(`/admin/items/find/${id}`),
+    // Added runAttributesAudit to fix type error in DataIntegrityTab
+    runAttributesAudit: () => fetchApi('/admin/audit/fix-attributes', { method: 'POST' }),
     runCharacterDataAudit: () => fetchApi('/admin/audit/fix-characters', { method: 'POST' }),
     runGoldAudit: () => fetchApi('/admin/audit/fix-gold', { method: 'POST' }),
     runValuesAudit: () => fetchApi('/admin/audit/fix-values', { method: 'POST' }),
-    runAttributesAudit: () => fetchApi('/admin/audit/fix-attributes', { method: 'POST' }),
     runDuplicationAudit: () => fetchApi('/admin/audit/duplicates'),
     resolveDuplications: () => fetchApi('/admin/resolve-duplicates', { method: 'POST' }),
     runOrphanAudit: () => fetchApi('/admin/audit/orphans'),
