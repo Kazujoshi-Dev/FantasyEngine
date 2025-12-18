@@ -1,20 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType, Enemy, Language } from '../types';
+import { GameData, ExpeditionRewardSummary, PvpRewardSummary, MessageType, Enemy } from '../types';
 import { ExpeditionSummaryModal } from './combat/CombatSummary';
 import { LanguageContext } from '../contexts/LanguageContext';
 import { getT } from '../i18n';
-
-// Symulacja Helmet dla SEO (w realnym projekcie użyj react-helmet-async)
-const SEOHead: React.FC<{ title: string; description: string }> = ({ title, description }) => {
-    useEffect(() => {
-        document.title = title;
-        const metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc) metaDesc.setAttribute('content', description);
-    }, [title, description]);
-    return null;
-};
+import { Language } from '../types';
 
 interface PublicReportViewerProps {
     reportId: string;
@@ -23,7 +14,10 @@ interface PublicReportViewerProps {
 
 const fetchPublicApi = async (endpoint: string): Promise<any> => {
     const response = await fetch(`/api/public${endpoint}`);
-    if (!response.ok) throw new Error('Report not found.');
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Raport nie został znaleziony lub wygasł.' }));
+        throw new Error(errorData.message);
+    }
     return response.json();
 };
 
@@ -32,50 +26,89 @@ export const PublicReportViewer: React.FC<PublicReportViewerProps> = ({ reportId
     const [reportData, setReportData] = useState<{ type: MessageType; body: any, subject: string, sender: string } | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const isLoading = !reportData && !error;
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const endpoint = type === 'raid' ? `/raid/${reportId}` : `/report/${reportId}`;
-                const [reportRes, gameDataRes] = await Promise.all([fetchPublicApi(endpoint), api.getGameData()]);
-                setReportData({ type: reportRes.message_type, body: reportRes.body, subject: reportRes.subject, sender: reportRes.sender_name });
+                const [reportRes, gameDataRes] = await Promise.all([
+                    fetchPublicApi(endpoint),
+                    api.getGameData()
+                ]);
+
+                setReportData({
+                    type: reportRes.message_type,
+                    body: reportRes.body,
+                    subject: reportRes.subject,
+                    sender: reportRes.sender_name,
+                });
                 setGameData(gameDataRes);
-            } catch (err: any) { setError(err.message); }
+
+                // SEO Optimization: Change Page Title
+                const resultText = reportRes.body.isVictory ? 'Zwycięstwo' : 'Porażka';
+                document.title = `${resultText}: ${reportRes.subject} | Kroniki Mroku`;
+            } catch (err: any) {
+                setError(err.message);
+            }
         };
         fetchData();
     }, [reportId, type]);
 
-    const getSEOMeta = () => {
-        if (!reportData) return { title: 'Ładowanie raportu...', desc: '' };
-        const winStatus = reportData.body.isVictory ? 'Zwycięstwo' : 'Porażka';
-        return {
-            title: `${winStatus}: ${reportData.subject} | Kroniki Mroku`,
-            desc: `Zobacz raport z walki w grze Kroniki Mroku. Gracz: ${reportData.sender}. Wynik: ${winStatus}.`
-        };
+    const handleClose = () => {
+        window.location.href = '/';
     };
 
-    if (error || !reportData || !gameData) {
-        return <div className="flex items-center justify-center h-screen bg-gray-900 text-white"><div className="text-center">{error || 'Ładowanie...'}</div></div>;
+    if (isLoading) {
+        return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Wczytywanie kronik...</div>;
     }
 
-    const { title, desc } = getSEOMeta();
+    if (error || !reportData || !gameData) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+                <div className="text-center bg-slate-800 p-8 rounded-lg shadow-2xl border border-red-500/50">
+                    <h2 className="text-2xl font-bold text-red-500 mb-4">Nie odnaleziono kroniki</h2>
+                    <p className="text-gray-400">{error || 'Zapis tej bitwy mógł zostać usunięty przez system.'}</p>
+                    <button onClick={handleClose} className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold transition-all">
+                        Strona Główna
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const { type: msgType, body } = reportData;
+
+    let modalProps: any = {
+        onClose: handleClose,
+        itemTemplates: gameData.itemTemplates,
+        affixes: gameData.affixes,
+        enemies: gameData.enemies || [],
+        messageId: type === 'message' ? parseInt(reportId, 10) : null,
+        raidId: type === 'raid' ? parseInt(reportId, 10) : null,
+        backgroundImage: gameData.settings?.reportBackgroundUrl,
+    };
+
+    if (msgType === 'expedition_report') {
+        const expBody = body as ExpeditionRewardSummary;
+        const boss = expBody.bossId ? gameData.enemies.find(e => e.id === expBody.bossId) : undefined;
+        modalProps = { ...modalProps, reward: expBody, characterName: reportData.sender || 'Bohater', isHunting: !!expBody.huntingMembers, huntingMembers: expBody.huntingMembers, allRewards: expBody.allRewards, encounteredEnemies: expBody.encounteredEnemies, bossName: boss?.name };
+    } else if (msgType === 'raid_report') {
+        const raidBody = body as ExpeditionRewardSummary & { opponents?: any[] };
+        modalProps = { ...modalProps, reward: raidBody, characterName: '', isHunting: true, isRaid: true, huntingMembers: raidBody.huntingMembers, opponents: raidBody.opponents, isPvp: false };
+    } else if (msgType === 'pvp_report') {
+        const pvpBody = body as PvpRewardSummary;
+        modalProps = { ...modalProps, reward: { combatLog: pvpBody.combatLog, isVictory: pvpBody.isVictory, totalGold: pvpBody.gold, totalExperience: pvpBody.experience, rewardBreakdown: [], itemsFound: [], essencesFound: {} }, characterName: pvpBody.attacker.name, isPvp: true, pvpData: { attacker: pvpBody.attacker, defender: pvpBody.defender }, isDefenderView: false };
+    } else {
+         return <div className="flex items-center justify-center h-screen bg-gray-900 text-white"><p>Nieznany format kroniki.</p></div>;
+    }
+    
+    const windowBackground = gameData?.settings?.windowBackgroundUrl ? `url(${gameData.settings.windowBackgroundUrl})` : undefined;
 
     return (
         <LanguageContext.Provider value={{ lang: Language.PL, t }}>
-            <SEOHead title={title} description={desc} />
-            <div className="bg-gray-900 min-h-screen">
-                <ExpeditionSummaryModal 
-                    reward={reportData.body} 
-                    onClose={() => window.location.href = '/'} 
-                    characterName={reportData.sender}
-                    itemTemplates={gameData.itemTemplates}
-                    affixes={gameData.affixes}
-                    enemies={gameData.enemies}
-                    isPvp={reportData.type === 'pvp_report'}
-                    isHunting={reportData.type === 'expedition_report' && !!reportData.body.huntingMembers}
-                    isRaid={reportData.type === 'raid_report'}
-                    backgroundImage={gameData.settings?.reportBackgroundUrl}
-                />
+            <div className="bg-gray-900 min-h-screen" style={{ "--window-bg": windowBackground } as React.CSSProperties}>
+                <ExpeditionSummaryModal {...modalProps} />
             </div>
         </LanguageContext.Provider>
     );
