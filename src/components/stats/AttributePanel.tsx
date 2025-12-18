@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { PlayerCharacter, CharacterStats, GameData } from '../../types';
 import { PlusCircleIcon } from '../icons/PlusCircleIcon';
@@ -43,7 +42,7 @@ const StatRow: React.FC<{
             <MinusCircleIcon className="h-5 w-5" />
           </button>
       )}
-      <div className="w-auto text-right">{value}</div>
+      <div className="w-auto text-right font-mono font-bold text-white text-sm">{value}</div>
       {onIncrease && (
           <button 
             onClick={onIncrease} 
@@ -103,10 +102,11 @@ export const AttributePanel: React.FC<{
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-            <div className="bg-slate-900/40 p-4 rounded-xl">
-                <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('statistics.baseAttributes')}</h3>
+            {/* Kolumna 1: Atrybuty Podstawowe */}
+            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.baseAttributes')}</h3>
                 {baseCharacter.stats.statPoints > 0 && (
-                    <div className="text-amber-400 font-bold mb-4 text-center bg-slate-800/50 p-2 rounded-lg">
+                    <div className="text-amber-400 font-bold mb-4 text-center bg-slate-800/50 p-2 rounded-lg mx-2">
                         {t('statistics.pointsToSpend')}: {availablePoints}
                     </div>
                 )}
@@ -135,26 +135,36 @@ export const AttributePanel: React.FC<{
                     })}
                 </div>
                 {spentPoints > 0 && (
-                    <div className="flex gap-2 mt-6">
-                        <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 rounded-lg">{t('admin.general.cancel')}</button>
-                        <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 rounded-lg font-bold">{t('statistics.save')}</button>
+                    <div className="flex gap-2 mt-6 px-2">
+                        <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">{t('admin.general.cancel')}</button>
+                        <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
                     </div>
                 )}
             </div>
             
-            <div className="bg-slate-900/40 p-4 rounded-xl space-y-4">
-                <h3 className="text-xl font-bold text-indigo-400">{t('statistics.vitals')}</h3>
-                <StatRow label={t('statistics.health')} value={`${previewCharacter.stats.currentHealth.toFixed(0)} / ${previewCharacter.stats.maxHealth}`} />
-                <StatRow label={t('statistics.mana')} value={`${previewCharacter.stats.currentMana.toFixed(0)} / ${previewCharacter.stats.maxMana}`} />
-                <StatRow label={t('statistics.energyLabel')} value={`${previewCharacter.stats.currentEnergy} / ${previewCharacter.stats.maxEnergy}`} />
+            {/* Kolumna 2: Statystyki Witalne */}
+            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-2">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.vitals')}</h3>
+                <StatRow label={t('statistics.health')} value={`${previewCharacter.stats.currentHealth.toFixed(0)} / ${previewCharacter.stats.maxHealth}`} description={t('statistics.healthDesc')} />
+                <StatRow label={t('statistics.mana')} value={`${previewCharacter.stats.currentMana.toFixed(0)} / ${previewCharacter.stats.maxMana}`} description={t('statistics.manaDesc')} />
+                <StatRow label={t('statistics.manaRegen')} value={previewCharacter.stats.manaRegen} description={t('statistics.manaRegenDesc')} />
+                <StatRow label={t('statistics.energyLabel')} value={`${previewCharacter.stats.currentEnergy} / ${previewCharacter.stats.maxEnergy}`} description={t('statistics.energyDesc')} />
             </div>
 
-            <div className="bg-slate-900/40 p-4 rounded-xl space-y-1">
-                <h3 className="text-xl font-bold text-indigo-400 mb-2">{t('statistics.combatStats')}</h3>
-                <StatRow label={t('statistics.physicalDamage')} value={`${previewCharacter.stats.minDamage}-${previewCharacter.stats.maxDamage}`} />
-                <StatRow label={t('statistics.magicDamage')} value={`${previewCharacter.stats.magicDamageMin}-${previewCharacter.stats.magicDamageMax}`} />
-                <StatRow label={t('statistics.armor')} value={previewCharacter.stats.armor} />
-                <StatRow label={t('statistics.critChance')} value={`${previewCharacter.stats.critChance.toFixed(1)}%`} />
+            {/* Kolumna 3: Pełne Statystyki Bojowe */}
+            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-1">
+                <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.combatStats')}</h3>
+                <StatRow label={t('statistics.physicalDamage')} value={`${previewCharacter.stats.minDamage} - ${previewCharacter.stats.maxDamage}`} description={t('statistics.physicalDamageDesc')} />
+                <StatRow label={t('statistics.magicDamage')} value={`${previewCharacter.stats.magicDamageMin} - ${previewCharacter.stats.magicDamageMax}`} description={t('statistics.magicDamageDesc')} />
+                <StatRow label={t('statistics.armor')} value={previewCharacter.stats.armor} description={t('statistics.armorDesc')} />
+                <StatRow label={t('statistics.critChance')} value={`${previewCharacter.stats.critChance.toFixed(1)}%`} description={t('statistics.critChanceDesc')} />
+                <StatRow label={t('statistics.critDamageModifier')} value={`${previewCharacter.stats.critDamageModifier}%`} description={t('statistics.critDamageModifierDesc')} />
+                <StatRow label={t('statistics.attacksPerTurn')} value={previewCharacter.stats.attacksPerRound} description={t('statistics.attacksPerRoundDesc')} />
+                <StatRow label={t('statistics.dodgeChance')} value={`${previewCharacter.stats.dodgeChance.toFixed(1)}%`} description={t('statistics.dodgeChanceDesc')} />
+                <div className="border-t border-slate-800 my-2 mx-2"></div>
+                <StatRow label={t('statistics.armorPenetration')} value={`${previewCharacter.stats.armorPenetrationPercent}% / ${previewCharacter.stats.armorPenetrationFlat}`} description={t('statistics.armorPenetrationDesc')} />
+                <StatRow label={t('statistics.lifeSteal')} value={`${previewCharacter.stats.lifeStealPercent}% / ${previewCharacter.stats.lifeStealFlat}`} description={t('statistics.lifeStealDesc')} />
+                <StatRow label={t('statistics.manaSteal')} value={`${previewCharacter.stats.manaStealPercent}% / ${previewCharacter.stats.manaStealFlat}`} description={t('statistics.manaStealDesc')} />
             </div>
         </div>
     );
