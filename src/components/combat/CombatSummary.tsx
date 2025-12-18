@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, EssenceType } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -176,7 +177,6 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                             <RaidRewardsPanel 
                                 totalGold={reward.totalGold} 
                                 essencesFound={reward.essencesFound} 
-                                isVictory={reward.isVictory} 
                             />
                         ) : (
                             <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />

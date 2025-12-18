@@ -16,10 +16,8 @@ export const EnemyListPanel: React.FC<{
             </h4>
             <div className="space-y-3">
                 {enemies.map((enemy, idx) => {
-                    // Fallback uniqueId generation if missing (e.g. reconstructed from logs)
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
                     const healthData = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
-                    // EnemyStats usually doesn't have currentHealth, so we default to 0 if healthData is missing to avoid type errors
                     const currentHealth = healthData ? healthData.currentHealth : 0; 
                     const maxHealth = healthData?.maxHealth ?? enemy.stats.maxHealth;
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
