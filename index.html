@@ -4,36 +4,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kroniki Mroku</title>
+    <title>Kroniki Mroku - Przeglądarkowa Gra Fantasy RPG</title>
+    <meta name="description" content="Zarządzaj bohaterem, zdobywaj legendarne przedmioty i walcz w potężnych rajdach gildyjnych. Kroniki Mroku to darmowa gra MMORPG w Twojej przeglądarce." />
+    <meta name="keywords" content="gra fantasy, mmorpg przeglądarkowe, gra idle, rpg online, kroniki mroku, walka z bossami, rzemiosło w grach" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kroniki Mroku - Browser Fantasy Game" />
+    <meta property="og:description" content="Dołącz do tysięcy graczy w mrocznym świecie fantasy. Trenuj statystyki, handluj na rynku i buduj potęgę swojej gildii." />
+    <meta property="og:image" content="/logo_og.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "Kroniki Mroku",
+      "description": "Przeglądarkowa gra fantasy z rozbudowanym systemem rzemiosła i rajdów.",
+      "genre": ["RPG", "Fantasy", "Idle"],
+      "gamePlatform": "Web Browser",
+      "applicationCategory": "Game",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "PLN"
+      }
+    }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      @keyframes fade-in {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in {
-        animation: fade-in 0.5s ease-out forwards;
-      }
-      
-      /* New Slider Styles */
-      .slider-viewport {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-      .slider-track {
-        display: flex;
-        height: 100%;
-        transition: transform 0.7s ease-in-out;
-      }
-      .slider-image {
-        flex-shrink: 0;
-        /* width is now set dynamically in JS */
-        height: 100%;
-        object-fit: contain; /* Fit image inside without cropping */
-        cursor: pointer;
-      }
+      @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+      .slider-viewport { position: relative; width: 100%; height: 100%; overflow: hidden; }
+      .slider-track { display: flex; height: 100%; transition: transform 0.7s ease-in-out; }
+      .slider-image { flex-shrink: 0; height: 100%; object-fit: contain; cursor: pointer; }
     </style>
 <script type="importmap">
 {
@@ -42,22 +47,23 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "socket.io-client": "https://aistudiocdn.com/socket.io-client@^4.8.1",
+    "react-helmet-async": "https://esm.sh/react-helmet-async@^2.0.4",
     "path": "https://esm.sh/path@^0.12.7",
-    "vite": "https://esm.sh/vite@^7.2.7",
+    "url": "https://esm.sh/url@^0.11.4",
+    "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
     "pg": "https://esm.sh/pg@^8.16.3",
-    "dotenv": "https://esm.sh/dotenv@^17.2.3",
-    "buffer": "https://esm.sh/buffer@^6.0.3",
-    "express": "https://esm.sh/express@^5.2.1",
-    "socket.io": "https://esm.sh/socket.io@^4.8.1",
-    "node-cron": "https://esm.sh/node-cron@^4.2.1",
     "multer": "https://esm.sh/multer@^2.0.2",
-    "crypto": "https://esm.sh/crypto@^1.0.1",
-    "url": "https://esm.sh/url@^0.11.4",
-    "http": "https://esm.sh/http@^0.0.1-security",
+    "express": "https://esm.sh/express@^5.2.1",
     "cors": "https://esm.sh/cors@^2.8.5",
     "nodemailer": "https://esm.sh/nodemailer@^7.0.11",
-    "fs": "https://esm.sh/fs@^0.0.1-security"
+    "socket.io": "https://esm.sh/socket.io@^4.8.1",
+    "dotenv": "https://esm.sh/dotenv@^17.2.3",
+    "http": "https://esm.sh/http@^0.0.1-security",
+    "crypto": "https://esm.sh/crypto@^1.0.1",
+    "buffer": "https://esm.sh/buffer@^6.0.3",
+    "fs": "https://esm.sh/fs@^0.0.1-security",
+    "node-cron": "https://esm.sh/node-cron@^4.2.1"
   }
 }
 </script>
