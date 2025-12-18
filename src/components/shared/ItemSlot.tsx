@@ -40,10 +40,6 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
-// ===================================================================================
-//                                Item Details Panel
-// ===================================================================================
-
 export const ItemDetailsPanel: React.FC<{
     item: ItemInstance | null;
     template: ItemTemplate | null;
@@ -334,7 +330,7 @@ export const ItemTooltip: React.FC<{
     affixes: Affix[];
 }> = ({ instance, template, affixes }) => {
     return (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mb-2 w-72 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[9999]">
             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} />
         </div>
     );

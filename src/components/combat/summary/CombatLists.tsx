@@ -6,9 +6,9 @@ import { useTranslation } from '../../../contexts/LanguageContext';
 export const EnemyListPanel: React.FC<{
     enemies: Enemy[];
     finalEnemiesHealth: { uniqueId: string; name: string; currentHealth: number; maxHealth: number }[] | undefined;
-    onEnemyHover: (enemy: Enemy, rect: DOMRect) => void;
-    onEnemyLeave: () => void;
-}> = ({ enemies, finalEnemiesHealth, onEnemyHover, onEnemyLeave }) => {
+    onEnemyClick: (enemy: Enemy) => void;
+    selectedName?: string;
+}> = ({ enemies, finalEnemiesHealth, onEnemyClick, selectedName }) => {
     return (
         <div className="bg-slate-900/50 p-4 rounded-lg border border-red-500/50 h-full overflow-y-auto">
              <h4 className="font-bold text-xl text-center border-b border-red-500/50 pb-2 mb-2 text-red-400">
@@ -23,13 +23,13 @@ export const EnemyListPanel: React.FC<{
                     const hpPercent = (Math.max(0, currentHealth) / maxHealth) * 100;
                     const isDead = currentHealth <= 0;
                     const enemyName = healthData?.name || enemy.name;
+                    const isSelected = selectedName === enemyName;
 
                     return (
                         <div 
                             key={uniqueId} 
-                            className={`p-2 rounded bg-slate-800 relative z-10 hover:z-20 !pointer-events-auto ${isDead ? 'opacity-75 hover:opacity-100 grayscale hover:grayscale-0' : ''} cursor-help border border-transparent hover:border-slate-500 transition-all duration-200`}
-                            onMouseEnter={(e) => onEnemyHover(enemy, e.currentTarget.getBoundingClientRect())}
-                            onMouseLeave={onEnemyLeave}
+                            className={`p-2 rounded bg-slate-800 transition-all duration-200 cursor-pointer border ${isSelected ? 'border-red-500 ring-1 ring-red-500/50 bg-red-900/20' : 'border-transparent hover:border-slate-500'} ${isDead ? 'opacity-75 grayscale' : ''}`}
+                            onClick={() => onEnemyClick(enemy)}
                         >
                             <p className={`font-bold text-sm text-white ${isDead ? 'line-through text-red-500' : ''}`}>
                                 {enemyName}
@@ -49,10 +49,10 @@ export const EnemyListPanel: React.FC<{
 export const PartyMemberList: React.FC<{ 
     members: PartyMember[]; 
     finalPartyHealth: Record<string, { currentHealth: number, maxHealth: number }>;
-    onMemberHover: (member: PartyMember, rect: DOMRect) => void;
-    onMemberLeave: () => void;
+    onMemberClick: (member: PartyMember) => void;
+    selectedName?: string;
     isEnemyTeam?: boolean;
-}> = ({ members, finalPartyHealth, onMemberHover, onMemberLeave, isEnemyTeam }) => {
+}> = ({ members, finalPartyHealth, onMemberClick, selectedName, isEnemyTeam }) => {
     const { t } = useTranslation();
     const titleColor = isEnemyTeam ? 'text-red-400' : 'text-sky-400';
     const borderColor = isEnemyTeam ? 'border-red-500/50' : 'border-sky-500/50';
@@ -70,13 +70,13 @@ export const PartyMemberList: React.FC<{
                     const maxHP = healthData?.maxHealth ?? 1;
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
                     const isDead = currentHP <= 0;
+                    const isSelected = selectedName === member.characterName;
 
                     return (
                         <div 
                             key={idx} 
-                            className={`p-2 rounded bg-slate-800 relative group cursor-help hover:bg-slate-700 z-10 hover:z-20 !pointer-events-auto transition-all duration-200 ${isDead ? 'opacity-75 hover:opacity-100' : ''}`}
-                            onMouseEnter={(e) => onMemberHover(member, e.currentTarget.getBoundingClientRect())}
-                            onMouseLeave={onMemberLeave}
+                            className={`p-2 rounded bg-slate-800 transition-all duration-200 cursor-pointer border ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/50 bg-indigo-900/20' : 'border-transparent hover:border-slate-500'} ${isDead ? 'opacity-75' : ''}`}
+                            onClick={() => onMemberClick(member)}
                         >
                             <p className={`font-bold text-sm ${isDead ? 'text-red-500 line-through' : 'text-white'}`}>
                                 {member.characterName}

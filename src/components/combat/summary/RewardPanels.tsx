@@ -4,7 +4,7 @@ import { useTranslation } from '../../../contexts/LanguageContext';
 import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix } from '../../../types';
 import { CoinsIcon } from '../../icons/CoinsIcon';
 import { StarIcon } from '../../icons/StarIcon';
-import { rarityStyles, ItemTooltip } from '../../shared/ItemSlot';
+import { rarityStyles, ItemTooltip, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -99,18 +99,25 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                     {reward.itemsFound.length === 0 ? (
                         <p className="text-gray-600 text-center py-8 italic text-sm">{t('expedition.noEnemies')}</p>
                     ) : (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col gap-2">
                             {reward.itemsFound.map((item, idx) => {
                                 const template = itemTemplates.find(t => t.id === item.templateId);
                                 if (!template) return null;
+                                const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
+                                const style = rarityStyles[template.rarity];
+                                
                                 return (
-                                    <div key={idx} className="relative group cursor-help">
-                                        <div className={`w-12 h-12 rounded border-2 ${rarityStyles[template.rarity].border} ${rarityStyles[template.rarity].bg} flex items-center justify-center shadow-lg transition-transform hover:scale-110`}>
+                                    <div key={idx} className="relative group cursor-help flex items-center gap-3 p-2 bg-slate-800/80 rounded border border-slate-700 hover:border-slate-500 transition-colors">
+                                        <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center shadow-lg`}>
                                             {template.icon ? (
-                                                <img src={template.icon} alt={template.name} className="w-10 h-10 object-contain" />
+                                                <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain" />
                                             ) : (
-                                                <span className="text-xs font-bold text-white">?</span>
+                                                <span className="text-[10px] font-bold text-white">?</span>
                                             )}
+                                        </div>
+                                        <div className="flex-grow min-w-0">
+                                            <p className={`text-sm font-bold truncate ${style.text}`}>{fullName}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase">{t(`equipment.slot.${template.slot}`)}</p>
                                         </div>
                                         <ItemTooltip instance={item} template={template} affixes={affixes} />
                                     </div>
@@ -119,7 +126,7 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                         </div>
                     )}
                     {reward.itemsLostCount && (
-                        <p className="text-red-400 text-xs mt-3 font-bold px-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                        <p className="text-red-400 text-[10px] mt-3 font-bold px-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
                     )}
                 </div>
             </div>

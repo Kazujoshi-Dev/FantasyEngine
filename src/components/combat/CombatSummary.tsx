@@ -40,11 +40,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     const [isAutoPlaying, setIsAutoPlaying] = useState(true);
     const [speed, setSpeed] = useState(1);
     const logEndRef = useRef<HTMLDivElement>(null);
-    const [hoveredCombatant, setHoveredCombatant] = useState<{ name: string, stats: any, description?: string } | null>(null);
+    const [selectedCombatant, setSelectedCombatant] = useState<{ name: string, stats: any, description?: string } | null>(null);
+    const [copyStatus, setCopyStatus] = useState('');
 
     const log = reward.combatLog || [];
 
-    // Animation Effect
     useEffect(() => {
         if (isAutoPlaying && currentTurn < log.length) {
             const timer = setTimeout(() => {
@@ -54,14 +54,27 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         }
     }, [isAutoPlaying, currentTurn, log.length, speed]);
 
-    // Auto-scroll Effect
     useEffect(() => {
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [currentTurn]);
 
     const displayedLogs = log.slice(0, currentTurn);
 
-    // Damage Calculation for Meter
+    // Grouping logs by round for display
+    const logsWithRoundHeaders = useMemo(() => {
+        const result: (CombatLogEntry | { isHeader: boolean, round: number })[] = [];
+        let lastRound = -1;
+
+        displayedLogs.forEach((entry) => {
+            if (entry.turn > 0 && entry.turn !== lastRound) {
+                result.push({ isHeader: true, round: entry.turn });
+                lastRound = entry.turn;
+            }
+            result.push(entry);
+        });
+        return result;
+    }, [displayedLogs]);
+
     const damageMeterData = useMemo(() => {
         const stats: Record<string, number> = {};
         let turns = 0;
@@ -80,8 +93,15 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         return { stats, totalDamage: Object.values(stats).reduce((a, b) => a + b, 0), turns: Math.max(1, turns), sortedMembers };
     }, [displayedLogs]);
 
-    const handleHover = (name: string, stats: any, description?: string) => {
-        setHoveredCombatant({ name, stats, description });
+    const handleCopyLink = () => {
+        const id = messageId || raidId;
+        if (!id) return;
+        const path = raidId ? 'raid' : 'report';
+        const url = `${window.location.origin}/${path}/${id}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopyStatus('Skopiowano!');
+            setTimeout(() => setCopyStatus(''), 2000);
+        });
     };
 
     const modalBgStyle = backgroundImage 
@@ -89,12 +109,11 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
         : { backgroundColor: 'var(--window-bg, #0f172a)' };
 
     return (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm">
             <div 
                 className="w-full max-w-6xl h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-hidden"
                 style={modalBgStyle}
             >
-                {/* Header Controls */}
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center z-10">
                     <div>
                         <h2 className="text-2xl font-bold text-white uppercase tracking-wider">
@@ -102,8 +121,13 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         </h2>
                         <p className="text-xs text-gray-400">Postęp: {currentTurn} / {log.length}</p>
                     </div>
-                    <div className="flex gap-4 items-center">
-                         <div className="flex bg-slate-900 rounded p-1">
+                    <div className="flex gap-2 items-center">
+                        {(messageId || raidId) && (
+                            <button onClick={handleCopyLink} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md font-bold text-xs transition-colors">
+                                {copyStatus || 'Kopiuj Link'}
+                            </button>
+                        )}
+                         <div className="flex bg-slate-900 rounded p-1 mx-2">
                             {[1, 2, 4].map(s => (
                                 <button key={s} onClick={() => setSpeed(s)} className={`px-2 py-1 text-xs rounded font-bold ${speed === s ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}>{s}x</button>
                             ))}
@@ -117,62 +141,101 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 </div>
 
                 <div className="flex-1 flex overflow-hidden p-6 gap-6 relative">
-                    {/* Left: Stats Panel */}
                     <div className="w-1/4 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar z-10">
-                        {hoveredCombatant ? (
-                             <CombatantStatsPanel name={hoveredCombatant.name} stats={hoveredCombatant.stats} description={hoveredCombatant.description} />
+                        {selectedCombatant ? (
+                             <div className="relative group">
+                                <button 
+                                    className="absolute -top-2 -right-2 z-[110] bg-red-600 text-white w-6 h-6 rounded-full text-xs font-bold shadow-lg"
+                                    onClick={() => setSelectedCombatant(null)}
+                                >✕</button>
+                                <CombatantStatsPanel name={selectedCombatant.name} stats={selectedCombatant.stats} description={selectedCombatant.description} />
+                             </div>
                         ) : isPvp && pvpData ? (
                              <CombatantStatsPanel name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} />
                         ) : isHunting && initialEnemy ? (
                              <CombatantStatsPanel name={initialEnemy.name} stats={initialEnemy.stats} description={initialEnemy.description} />
                         ) : (
                             <div className="text-gray-500 text-sm italic text-center p-8 bg-slate-800/30 rounded-lg border border-dashed border-slate-700">
-                                Najedź na ikonę postaci lub wroga, aby zobaczyć jego statystyki.
+                                Kliknij na ikonę postaci, aby zobaczyć szczegóły.
                             </div>
                         )}
                         
                         <DamageMeter damageData={damageMeterData} title="Statystyki Bojowe" />
                     </div>
 
-                    {/* Middle: Live Combat Log */}
                     <div className="flex-1 bg-black/40 rounded-xl border border-slate-700 p-4 flex flex-col z-10 shadow-inner">
                         <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1">
-                            {displayedLogs.map((entry, idx) => (
-                                <CombatLogRow 
-                                    key={idx} 
-                                    log={entry} 
-                                    characterName={characterName} 
-                                    isHunting={isHunting} 
-                                    huntingMembers={huntingMembers} 
-                                />
-                            ))}
+                            {logsWithRoundHeaders.map((entry, idx) => {
+                                if ('isHeader' in entry) {
+                                    return (
+                                        <div key={`round-${entry.round}`} className="flex items-center gap-4 my-4">
+                                            <div className="flex-1 h-px bg-slate-700"></div>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Runda {entry.round}</span>
+                                            <div className="flex-1 h-px bg-slate-700"></div>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <CombatLogRow 
+                                        key={idx} 
+                                        log={entry} 
+                                        characterName={characterName} 
+                                        isHunting={isHunting} 
+                                        huntingMembers={huntingMembers} 
+                                    />
+                                );
+                            })}
                             <div ref={logEndRef} />
                         </div>
                     </div>
 
-                    {/* Right: Participant Lists */}
                     <div className="w-1/4 flex flex-col gap-4 z-10">
                         {isRaid ? (
                             <>
-                                <PartyMemberList members={huntingMembers || []} finalPartyHealth={{}} onMemberHover={(m) => handleHover(m.characterName, m.stats)} onMemberLeave={() => setHoveredCombatant(null)} />
-                                <PartyMemberList isEnemyTeam members={opponents || []} finalPartyHealth={{}} onMemberHover={(m) => handleHover(m.characterName, m.stats)} onMemberLeave={() => setHoveredCombatant(null)} />
+                                <PartyMemberList 
+                                    members={huntingMembers || []} 
+                                    finalPartyHealth={{}} 
+                                    onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
+                                    selectedName={selectedCombatant?.name}
+                                />
+                                <PartyMemberList 
+                                    isEnemyTeam 
+                                    members={opponents || []} 
+                                    finalPartyHealth={{}} 
+                                    onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
+                                    selectedName={selectedCombatant?.name}
+                                />
                             </>
                         ) : isHunting ? (
                             <>
-                                <PartyMemberList members={huntingMembers || []} finalPartyHealth={{}} onMemberHover={(m) => handleHover(m.characterName, m.stats)} onMemberLeave={() => setHoveredCombatant(null)} />
-                                <EnemyListPanel enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} onEnemyHover={(e) => handleHover(e.name, e.stats, e.description)} onEnemyLeave={() => setHoveredCombatant(null)} />
+                                <PartyMemberList 
+                                    members={huntingMembers || []} 
+                                    finalPartyHealth={{}} 
+                                    onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })}
+                                    selectedName={selectedCombatant?.name}
+                                />
+                                <EnemyListPanel 
+                                    enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} 
+                                    finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} 
+                                    onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })}
+                                    selectedName={selectedCombatant?.name}
+                                />
                             </>
                         ) : isPvp && pvpData ? (
                              <CombatantStatsPanel name={isDefenderView ? pvpData.defender.name : pvpData.attacker.name} stats={isDefenderView ? pvpData.defender.stats : pvpData.attacker.stats} />
                         ) : (
-                             <EnemyListPanel enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} onEnemyHover={(e) => handleHover(e.name, e.stats, e.description)} onEnemyLeave={() => setHoveredCombatant(null)} />
+                             <EnemyListPanel 
+                                enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} 
+                                finalEnemiesHealth={displayedLogs[displayedLogs.length-1]?.allEnemiesHealth} 
+                                onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })}
+                                selectedName={selectedCombatant?.name}
+                             />
                         )}
                     </div>
                 </div>
 
-                {/* Bottom Section: Rewards & Result */}
                 <div className="p-6 border-t border-slate-700 bg-slate-800/50 z-10 flex-shrink-0">
-                    <div className="max-h-48 overflow-y-auto">
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
                         {isRaid ? (
                             <RaidRewardsPanel 
                                 totalGold={reward.totalGold} 
