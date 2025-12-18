@@ -32,6 +32,7 @@ export default {
         confirmMessage: 'Czy na pewno chcesz wybrać klasę {className}? Ten wybór jest permanentny.',
         currentClass: 'Twoja Klasa',
         select: 'Wybierz',
+        // Definicje dla komponentu CharacterCreation
         Mage: 'Mag',
         MageDescription: 'Ataki magiczne mogą teraz zadawać obrażenia krytyczne. Raz na walkę odnawia manę.',
         Warrior: 'Wojownik',
