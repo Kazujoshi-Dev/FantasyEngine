@@ -145,9 +145,15 @@ const AppContent: React.FC = () => {
             {!character ? (
                 <CharacterCreation 
                     onCharacterCreate={async (d) => {
-                        const startLoc = gameData?.locations.find(l => l.isStartLocation)?.id || 'start';
-                        const newChar = await api.createCharacter(d.name, d.race, startLoc);
-                        setCharacter(newChar);
+                        try {
+                            const startLoc = gameData?.locations.find(l => l.isStartLocation)?.id || 'start';
+                            const newChar = await api.createCharacter(d.name, d.race, startLoc);
+                            setCharacter(newChar);
+                        } catch (err: any) {
+                            alert(err.message || 'Nie udało się stworzyć postaci.');
+                            // Przeładowanie strony w celu zresetowania stanu isCreating w komponencie
+                            window.location.reload();
+                        }
                     }} 
                 />
             ) : (
