@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, Quest, QuestType, EssenceType, ItemInstance, ItemTemplate } from '../types.js';
+import { PlayerCharacter, Quest, QuestType, EssenceType, ItemInstance, ItemTemplate, Race, CharacterClass } from '../types.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
@@ -92,7 +92,6 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
         if (objective.type === QuestType.Kill) {
              if (progressEntry.progress >= objective.amount) isComplete = true;
         } else if (objective.type === QuestType.Gather) {
-             // CRITICAL: Exclusion of borrowed items
              const count = character.inventory.filter(i => i.templateId === objective.targetId && !i.isBorrowed).length;
              if (count >= objective.amount) {
                  isComplete = true;
@@ -125,8 +124,16 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
         }
 
         if (quest.rewards) {
-             character.resources.gold += (quest.rewards.gold || 0);
-             character.experience += (quest.rewards.experience || 0);
+             let goldReward = (quest.rewards.gold || 0);
+             let expReward = (quest.rewards.experience || 0);
+
+             // Aplikacja bonusów RPG
+             if (character.race === Race.Human) expReward = Math.floor(expReward * 1.10);
+             if (character.race === Race.Gnome) goldReward = Math.floor(goldReward * 1.20);
+             if (character.characterClass === CharacterClass.Thief) goldReward = Math.floor(goldReward * 1.25);
+
+             character.resources.gold += goldReward;
+             character.experience += expReward;
              
              while (character.experience >= character.experienceToNextLevel) {
                 character.experience -= character.experienceToNextLevel;
@@ -137,7 +144,9 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
 
              if (quest.rewards.resourceRewards) {
                  quest.rewards.resourceRewards.forEach(r => {
-                     (character.resources as any)[r.resource] = ((character.resources as any)[r.resource] || 0) + r.quantity;
+                     let amount = r.quantity;
+                     if (character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) amount *= 2;
+                     (character.resources as any)[r.resource] = ((character.resources as any)[r.resource] || 0) + amount;
                  });
              }
 

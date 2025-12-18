@@ -10,7 +10,7 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-// FIX: Exported upgrade cost and capacity helper functions
+// ... [Koszty ulepszeń bez zmian] ...
 export const getCampUpgradeCost = (level: number) => {
     const gold = Math.floor(150 * Math.pow(level, 1.5));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -47,15 +47,12 @@ export const getBackpackUpgradeCost = (level: number) => {
 };
 
 export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
-
-// Poziom 1 = 5, Poziom 2 = 10, Poziom 3 = 15...
 export const getWarehouseCapacity = (level: number) => 5 + ((level - 1) * 5);
 
 export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
     if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
         return settings.workshopUpgrades[level];
     }
-    // Fallback default logic
     const gold = Math.floor(300 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
     if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
@@ -75,7 +72,6 @@ export const calculateDerivedStatsOnServer = (
     playerRanks: PlayerRank[] = []
 ): PlayerCharacter => {
     
-    // Safety checks: ensure arrays are actually arrays
     const safeItemTemplates = Array.isArray(itemTemplates) ? itemTemplates : [];
     const safeAffixes = Array.isArray(affixes) ? affixes : [];
     const safeEquipment = character.equipment || {};
@@ -97,12 +93,9 @@ export const calculateDerivedStatsOnServer = (
         luck: Number(character.stats.luck) || 0,
     };
     
-    if (guildShrineLevel > 0) {
-        totalPrimaryStats.luck += (guildShrineLevel * 5);
-    }
+    if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
 
     let bonusAttacksFromBuffs = 0;
-
     if (activeGuildBuffs && activeGuildBuffs.length > 0) {
         const now = Date.now();
         activeGuildBuffs.forEach(buff => {
@@ -112,9 +105,7 @@ export const calculateDerivedStatsOnServer = (
                     if (totalPrimaryStats[statKey] !== undefined) {
                         totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
                     }
-                    if (key === 'attacksPerRound') {
-                        bonusAttacksFromBuffs += (Number(buff.stats[key]) || 0);
-                    }
+                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number(buff.stats[key]) || 0);
                 }
             }
         });
@@ -128,7 +119,6 @@ export const calculateDerivedStatsOnServer = (
     let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
     let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
 
-    // Helper to apply stats from rolled affixes with cap at upgrade +5
     const applyAffixBonuses = (source: RolledAffixStats, affixUpgradeBonusFactor: number = 0) => {
         const applyUpgrade = (val: number | undefined) => (Number(val) || 0) + Math.round((Number(val) || 0) * affixUpgradeBonusFactor);
         const applyFloatUpgrade = (val: number | undefined) => (Number(val) || 0) + ((Number(val) || 0) * affixUpgradeBonusFactor);
@@ -137,7 +127,6 @@ export const calculateDerivedStatsOnServer = (
             for (const stat in source.statsBonus) {
                 const key = stat as keyof typeof source.statsBonus;
                 const val = Number(source.statsBonus[key]) || 0;
-                // Stat points from affixes also scale up to +5
                 (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + val + Math.round(val * affixUpgradeBonusFactor);
             }
         }
@@ -149,24 +138,19 @@ export const calculateDerivedStatsOnServer = (
         bonusCritChance += applyFloatUpgrade(source.critChanceBonus);
         bonusMaxHealth += applyUpgrade(source.maxHealthBonus);
         bonusCritDamageModifier += applyUpgrade(source.critDamageModifierBonus);
-        bonusArmorPenetrationPercent += applyUpgrade(source.armorPenetrationPercent); // Percent usually doesn't scale well with integer math if small, but keeping consistent
+        bonusArmorPenetrationPercent += applyUpgrade(source.armorPenetrationPercent);
         bonusArmorPenetrationFlat += applyUpgrade(source.armorPenetrationFlat);
         bonusLifeStealPercent += applyUpgrade(source.lifeStealPercent);
         bonusLifeStealFlat += applyUpgrade(source.lifeStealFlat);
         bonusManaStealPercent += applyUpgrade(source.manaStealPercent);
         bonusManaStealFlat += applyUpgrade(source.manaStealFlat);
-        
-        // Attacks per round on affixes usually don't scale or are small floats, assuming no scale for now or standard logic
         bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
         bonusDodgeChance += applyFloatUpgrade(source.dodgeChanceBonus);
     };
 
-    // Apply Rank Bonus
     if (character.activeRankId && playerRanks && playerRanks.length > 0) {
         const activeRank = playerRanks.find(r => r.id === character.activeRankId);
-        if (activeRank && activeRank.bonus) {
-            applyAffixBonuses(activeRank.bonus, 0); // Rank bonuses don't scale with upgrade level
-        }
+        if (activeRank && activeRank.bonus) applyAffixBonuses(activeRank.bonus, 0);
     }
 
     for (const slot in safeEquipment) {
@@ -174,17 +158,13 @@ export const calculateDerivedStatsOnServer = (
         if (itemInstance && typeof itemInstance === 'object') {
             const template = safeItemTemplates.find(t => t.id === itemInstance.templateId);
             if (!template) continue;
-
             const upgradeLevel = itemInstance.upgradeLevel || 0;
-            // Base items scale infinitely (10% per level)
             const upgradeBonusFactor = upgradeLevel * 0.1;
-            // Affixes scale only up to level 5 (50% max)
             const affixUpgradeBonusFactor = Math.min(upgradeLevel, 5) * 0.1;
 
             if (itemInstance.rolledBaseStats) {
                 const baseStats = itemInstance.rolledBaseStats;
                 const applyUpgrade = (val: number | undefined) => (Number(val) || 0) + Math.round((Number(val) || 0) * upgradeBonusFactor);
-                
                 if (baseStats.statsBonus) {
                     for (const stat in baseStats.statsBonus) {
                         const key = stat as keyof typeof baseStats.statsBonus;
@@ -192,7 +172,6 @@ export const calculateDerivedStatsOnServer = (
                         (totalPrimaryStats as any)[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
-                
                 bonusDamageMin += applyUpgrade(baseStats.damageMin);
                 bonusDamageMax += applyUpgrade(baseStats.damageMax);
                 bonusMagicDamageMin += applyUpgrade(baseStats.magicDamageMin);
@@ -200,16 +179,13 @@ export const calculateDerivedStatsOnServer = (
                 bonusArmor += applyUpgrade(baseStats.armorBonus);
                 bonusMaxHealth += applyUpgrade(baseStats.maxHealthBonus);
                 bonusCritChance += (Number(baseStats.critChanceBonus) || 0) + ((Number(baseStats.critChanceBonus) || 0) * upgradeBonusFactor);
-                
                 bonusCritDamageModifier += applyUpgrade(baseStats.critDamageModifierBonus);
                 bonusArmorPenetrationFlat += applyUpgrade(baseStats.armorPenetrationFlat);
                 bonusLifeStealFlat += applyUpgrade(baseStats.lifeStealFlat);
                 bonusManaStealFlat += applyUpgrade(baseStats.manaStealFlat);
-
                 bonusArmorPenetrationPercent += Number(baseStats.armorPenetrationPercent) || 0;
                 bonusLifeStealPercent += Number(baseStats.lifeStealPercent) || 0;
                 bonusManaStealPercent += Number(baseStats.manaStealPercent) || 0;
-
             } else if (template) {
                  if (template.statsBonus) {
                     for (const stat in template.statsBonus) {
@@ -219,7 +195,6 @@ export const calculateDerivedStatsOnServer = (
                         (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
-    
                 const baseDamageMin = getMaxValue(template.damageMin as any);
                 const baseDamageMax = getMaxValue(template.damageMax as any);
                 const baseMagicDamageMin = getMaxValue(template.magicDamageMin as any);
@@ -227,7 +202,6 @@ export const calculateDerivedStatsOnServer = (
                 const baseArmor = getMaxValue(template.armorBonus as any);
                 const baseCritChance = getMaxValue(template.critChanceBonus as any);
                 const baseMaxHealth = getMaxValue(template.maxHealthBonus as any);
-                
                 bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
                 bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
                 bonusMagicDamageMin += baseMagicDamageMin + Math.round(baseMagicDamageMin * upgradeBonusFactor);
@@ -235,22 +209,18 @@ export const calculateDerivedStatsOnServer = (
                 bonusArmor += baseArmor + Math.round(baseArmor * upgradeBonusFactor);
                 bonusCritChance += baseCritChance + (baseCritChance * upgradeBonusFactor);
                 bonusMaxHealth += baseMaxHealth + Math.round(baseMaxHealth * upgradeBonusFactor);
-
                 const getBaseAndUpgrade = (prop: any) => {
                     const base = getMaxValue(prop);
                     return base + Math.round(base * upgradeBonusFactor);
                 }
-
                 bonusCritDamageModifier += getBaseAndUpgrade(template.critDamageModifierBonus);
                 bonusArmorPenetrationFlat += getBaseAndUpgrade(template.armorPenetrationFlat);
                 bonusLifeStealFlat += getBaseAndUpgrade(template.lifeStealFlat);
                 bonusManaStealFlat += getBaseAndUpgrade(template.manaStealFlat);
-
                 bonusArmorPenetrationPercent += getMaxValue(template.armorPenetrationPercent as any);
                 bonusLifeStealPercent += getMaxValue(template.lifeStealPercent as any);
                 bonusManaStealPercent += getMaxValue(template.manaStealPercent as any);
             }
-
             if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix, affixUpgradeBonusFactor);
             if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix, affixUpgradeBonusFactor);
         }
@@ -258,32 +228,25 @@ export const calculateDerivedStatsOnServer = (
     
     const mainHandItem = safeEquipment[EquipmentSlot.MainHand] || safeEquipment[EquipmentSlot.TwoHand];
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-    
     const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
-    const calculatedAPR = baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs;
-    const attacksPerRound = !isNaN(calculatedAPR) ? parseFloat(calculatedAPR.toFixed(2)) : 1;
+    const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs).toFixed(2)) || 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
-
     let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
-    if (isNaN(maxHealth) || maxHealth < 1) maxHealth = 50;
-
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
     let maxMana = baseMana + totalPrimaryStats.intelligence * 10;
 
     if (character.activeSkills && character.activeSkills.length > 0) {
         character.activeSkills.forEach(skillId => {
             const skill = skills.find(s => s.id === skillId);
-            if (skill && skill.manaMaintenanceCost) {
-                maxMana -= skill.manaMaintenanceCost;
-            }
+            if (skill && skill.manaMaintenanceCost) maxMana -= skill.manaMaintenanceCost;
         });
     }
     maxMana = Math.max(0, maxMana);
     
     let minDamage, maxDamage;
     if (mainHandTemplate?.isMagical) {
-        // FIX: Strength now adds 0.5x scaling to physical damage of magic weapons
+        // Skalowanie Siły dla broni magicznych: 0.5 dla min, 1.0 dla max (zgodnie z opisem)
         minDamage = baseMinDamage + Math.floor(totalPrimaryStats.strength * 0.5) + bonusDamageMin;
         maxDamage = baseMaxDamage + Math.floor(totalPrimaryStats.strength * 1.0) + bonusDamageMax;
     } else if (mainHandTemplate?.isRanged) {
@@ -297,7 +260,6 @@ export const calculateDerivedStatsOnServer = (
     const critChance = totalPrimaryStats.accuracy * 0.5 + bonusCritChance;
     const critDamageModifier = 200 + bonusCritDamageModifier;
     let dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
-
     let armor = bonusArmor;
     let manaRegen = totalPrimaryStats.intelligence * 2;
 
@@ -316,15 +278,13 @@ export const calculateDerivedStatsOnServer = (
         const damageMultiplier = 1 + (guildBarracksLevel * 0.05);
         minDamage = Math.floor(minDamage * damageMultiplier);
         maxDamage = Math.floor(maxDamage * damageMultiplier);
-        
         finalMagicDamageMin = Math.floor(magicDamageMin * damageMultiplier);
         finalMagicDamageMax = Math.floor(magicDamageMax * damageMultiplier);
     }
     
     const valOrMax = (val: any, max: number) => {
         const num = Number(val);
-        if (val === undefined || val === null || isNaN(num)) return max;
-        return num;
+        return (val === undefined || val === null || isNaN(num)) ? max : num;
     }
 
     const currentHealth = Math.min(valOrMax(character.stats.currentHealth, maxHealth), maxHealth);
