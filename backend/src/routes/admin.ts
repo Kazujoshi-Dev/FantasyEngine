@@ -4,6 +4,7 @@ import { pool } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import statsRoutes from './admin/stats.js';
 import characterRoutes from './admin/characters.js';
+import auditRoutes from './admin/audit.js';
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ router.use(authenticateToken, checkAdmin);
 // Delegacja do pod-routerów
 router.use('/stats', statsRoutes);
 router.use('/characters', characterRoutes);
+router.use('/audit', auditRoutes);
 
 // Metody pomocnicze zachowane w głównym pliku dla prostoty (globalne akcje)
 router.post('/global-message', async (req: any, res: any) => {
@@ -45,8 +47,6 @@ router.post('/wipe-game-data', async (req: any, res: any) => {
 
         console.log('[WIPE] Starting full game data wipe...');
 
-        // Truncate czyści tabele i resetuje sekwencje ID (RESTART IDENTITY)
-        // CASCADE zapewnia usunięcie powiązanych rekordów w tabelach zależnych
         await client.query(`
             TRUNCATE 
                 characters, 
@@ -67,8 +67,6 @@ router.post('/wipe-game-data', async (req: any, res: any) => {
             RESTART IDENTITY CASCADE
         `);
 
-        // Opcjonalnie: Możemy też wyczyścić sesje, aby wylogować wszystkich graczy
-        // ale zachowujemy tabelę 'users' i 'game_data'
         await client.query('DELETE FROM sessions');
 
         await client.query('COMMIT');
