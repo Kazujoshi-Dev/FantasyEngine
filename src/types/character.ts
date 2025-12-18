@@ -95,7 +95,7 @@ export interface PlayerCharacter {
     warehouse?: { level: number; items: ItemInstance[] };
     workshop?: { level: number };
     
-    loadouts?: EquipmentLoadout[]; // System zestawów (max 5)
+    loadouts?: EquipmentLoadout[];
 
     acceptedQuests: string[];
     questProgress: PlayerQuestProgress[];
@@ -123,6 +123,7 @@ export interface PlayerCharacter {
     windowBackgroundUrl?: string;
     
     activeTowerRun?: ActiveTowerRun;
+    resetsUsed?: number; // Licznik resetów statystyk
 }
 
 export interface PublicCharacterProfile {

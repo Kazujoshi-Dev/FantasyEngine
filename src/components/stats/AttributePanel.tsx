@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { PlayerCharacter, CharacterStats, GameData } from '../../types';
 import { PlusCircleIcon } from '../icons/PlusCircleIcon';
@@ -91,6 +92,33 @@ export const AttributePanel: React.FC<{
         } catch (e: any) { alert(e.message); }
     };
 
+    const handleReset = async () => {
+        if (spentPoints !== 0) {
+            alert(t('statistics.reset.applyChangesFirst'));
+            return;
+        }
+
+        const primaryStatKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+        let distributedPoints = 0;
+        primaryStatKeys.forEach(k => {
+            distributedPoints += (baseCharacter.stats[k] - 1);
+        });
+
+        const resetsUsed = baseCharacter.resetsUsed || 0;
+        const cost = resetsUsed === 0 ? 0 : distributedPoints * 1000;
+        const costText = resetsUsed === 0 ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: cost.toLocaleString() });
+
+        if (window.confirm(t('statistics.reset.confirm', { costText }))) {
+            try {
+                const updated = await api.resetAttributes();
+                updateCharacter(updated);
+                setPendingStats(updated.stats);
+            } catch (e: any) {
+                alert(e.message);
+            }
+        }
+    };
+
     const previewCharacter = useMemo(() => calculateDerivedStats(
         { ...baseCharacter, stats: pendingStats },
         gameData.itemTemplates, gameData.affixes,
@@ -103,14 +131,14 @@ export const AttributePanel: React.FC<{
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
             {/* Kolumna 1: Atrybuty Podstawowe */}
-            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 flex flex-col">
                 <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.baseAttributes')}</h3>
                 {baseCharacter.stats.statPoints > 0 && (
                     <div className="text-amber-400 font-bold mb-4 text-center bg-slate-800/50 p-2 rounded-lg mx-2">
                         {t('statistics.pointsToSpend')}: {availablePoints}
                     </div>
                 )}
-                <div className="space-y-1">
+                <div className="space-y-1 flex-grow">
                     {baseStatKeys.map(key => {
                         const pendingValue = Number(pendingStats[key]) || 0;
                         const baseValue = Number(baseCharacter.stats[key]) || 0;
@@ -134,12 +162,25 @@ export const AttributePanel: React.FC<{
                         );
                     })}
                 </div>
-                {spentPoints > 0 && (
-                    <div className="flex gap-2 mt-6 px-2">
-                        <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">{t('admin.general.cancel')}</button>
-                        <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
-                    </div>
-                )}
+                
+                <div className="mt-6 px-2 space-y-2">
+                    {spentPoints > 0 ? (
+                        <div className="flex gap-2">
+                            <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">{t('admin.general.cancel')}</button>
+                            <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleReset} 
+                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-gray-400 transition-colors uppercase font-bold tracking-widest"
+                        >
+                            {t('statistics.reset.button')}
+                        </button>
+                    )}
+                    {(baseCharacter.resetsUsed || 0) === 0 && (
+                        <p className="text-[10px] text-gray-500 text-center italic">{t('statistics.reset.freeResetNote')}</p>
+                    )}
+                </div>
             </div>
             
             {/* Kolumna 2: Statystyki Witalne */}

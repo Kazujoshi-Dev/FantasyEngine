@@ -297,6 +297,9 @@ export interface PlayerCharacter {
     windowBackgroundUrl?: string;
     
     activeTowerRun?: ActiveTowerRun;
+
+    // Add resetsUsed to PlayerCharacter to fix backend/src/routes/character.ts errors
+    resetsUsed?: number;
 }
 
 export interface AdminCharacterInfo {
