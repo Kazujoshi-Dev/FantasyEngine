@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GuildRaid, RaidType, RaidStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry, PartyMember, PartyMemberStatus, ItemTemplate, Affix, Enemy } from '../../types';
 import { api } from '../../api';
@@ -133,7 +134,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                         <div className="space-y-4">
                             <select className="w-full bg-slate-800 p-2 rounded border border-slate-600 text-white" value={selectedTarget} onChange={e => setSelectedTarget(e.target.value as any)}>
                                 <option value="">Wybierz Gildię...</option>
-                                {targets.map(t => <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Członków: {t.member_count})</option>)}
+                                {targets.map(t => <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Członków: {t.memberCount})</option>)}
                             </select>
                             <div className="flex gap-4">
                                 <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
@@ -166,7 +167,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                 <div key={raid.id} className="bg-slate-800 p-4 rounded border border-slate-700 hover:border-slate-500 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
-                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">{raid.raid_type === 'RESOURCES' ? 'Wojna o Zasoby' : 'Sparing'}</span>
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">{raid.type === 'RESOURCES' ? 'Wojna o Zasoby' : 'Sparing'}</span>
                                             <h4 className="font-bold text-white text-lg">vs {opposingName}</h4>
                                         </div>
                                         {!alreadyJoined && raid.status === 'PREPARING' && (
@@ -175,7 +176,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                         {alreadyJoined && <span className="text-green-400 text-xs font-bold border border-green-600 px-2 py-0.5 rounded">GOTOWY</span>}
                                     </div>
                                     <div className="flex justify-between text-xs text-gray-400 mt-2">
-                                        <span>Zmobilizowani: {raid.attacker_participants?.length || 0} vs {raid.defender_participants?.length || 0}</span>
+                                        <span>Zmobilizowani: {raid.attackerParticipants?.length || 0} vs {raid.defenderParticipants?.length || 0}</span>
                                         <span className="font-mono text-amber-500">T-30m</span>
                                     </div>
                                 </div>
@@ -200,7 +201,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                 </div>
                                 <div className="text-right">
                                     <span className="text-xs text-gray-500">{new Date(raid.createdAt).toLocaleDateString()}</span>
-                                    <p className="text-[10px] text-gray-600 uppercase tracking-widest">{raid.raid_type}</p>
+                                    <p className="text-[10px] text-gray-600 uppercase tracking-widest">{raid.type}</p>
                                 </div>
                             </div>
                         );

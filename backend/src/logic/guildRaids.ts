@@ -1,3 +1,4 @@
+
 import { pool } from '../db.js';
 import { GuildRaid, RaidStatus, RaidParticipant, ExpeditionRewardSummary, PartyMember, PartyMemberStatus, PlayerCharacter, RaidType } from '../types.js';
 import { simulateTeamVsTeamCombat } from './combat/simulations/index.js';
@@ -7,16 +8,49 @@ import { enforceInboxLimit } from './helpers.js';
  * Logic for managing guild-vs-guild raids.
  */
 
+const mapRaidRow = (row: any): GuildRaid => ({
+    id: row.id,
+    attackerGuildId: Number(row.attacker_guild_id),
+    defenderGuildId: Number(row.defender_guild_id),
+    status: row.status as RaidStatus,
+    type: row.raid_type as RaidType,
+    startTime: row.start_time,
+    createdAt: row.created_at,
+    attackerParticipants: row.attacker_participants || [],
+    defenderParticipants: row.defender_participants || [],
+    winnerGuildId: row.winner_guild_id ? Number(row.winner_guild_id) : undefined,
+    loot: row.loot,
+    combatLog: row.combat_log,
+    attackerGuildName: row.attacker_guild_name,
+    defenderGuildName: row.defender_guild_name
+});
+
 export const getActiveRaids = async (guildId: number) => {
     const active = await pool.query(
-        "SELECT r.*, g1.name as attacker_guild_name, g2.name as defender_guild_name FROM guild_raids r JOIN guilds g1 ON r.attacker_guild_id = g1.id JOIN guilds g2 ON r.defender_guild_id = g2.id WHERE (attacker_guild_id = $1 OR defender_guild_id = $1) AND status != 'FINISHED' AND status != 'CANCELLED'",
+        `SELECT r.*, g1.name as attacker_guild_name, g2.name as defender_guild_name 
+         FROM guild_raids r 
+         JOIN guilds g1 ON r.attacker_guild_id = g1.id 
+         JOIN guilds g2 ON r.defender_guild_id = g2.id 
+         WHERE (attacker_guild_id = $1 OR defender_guild_id = $1) 
+         AND status != 'FINISHED' AND status != 'CANCELLED'`,
         [guildId]
     );
+    
     const history = await pool.query(
-        "SELECT r.*, g1.name as attacker_guild_name, g2.name as defender_guild_name FROM guild_raids r JOIN guilds g1 ON r.attacker_guild_id = g1.id JOIN guilds g2 ON r.defender_guild_id = g2.id WHERE (attacker_guild_id = $1 OR defender_guild_id = $1) AND (status = 'FINISHED' OR status = 'CANCELLED') ORDER BY created_at DESC LIMIT 20",
+        `SELECT r.*, g1.name as attacker_guild_name, g2.name as defender_guild_name 
+         FROM guild_raids r 
+         JOIN guilds g1 ON r.attacker_guild_id = g1.id 
+         JOIN guilds g2 ON r.defender_guild_id = g2.id 
+         WHERE (attacker_guild_id = $1 OR defender_guild_id = $1) 
+         AND (status = 'FINISHED' OR status = 'CANCELLED') 
+         ORDER BY created_at DESC LIMIT 20`,
         [guildId]
     );
-    return { active: active.rows, history: history.rows };
+    
+    return { 
+        active: active.rows.map(mapRaidRow), 
+        history: history.rows.map(mapRaidRow) 
+    };
 };
 
 export const createRaid = async (attackerGuildId: number, leaderId: number, defenderGuildId: number, type: RaidType) => {

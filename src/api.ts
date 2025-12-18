@@ -1,5 +1,5 @@
 
-import { CharacterStats, Race, CharacterClass, EssenceType, EquipmentSlot, ItemRarity } from './types';
+import { CharacterStats, Race, CharacterClass, EssenceType, EquipmentSlot, ItemRarity, RaidType } from './types';
 
 const API_URL = '/api';
 
@@ -179,6 +179,11 @@ export const api = {
     getEspionage: () => fetchApi('/guilds/espionage'),
     startEspionage: (targetGuildId: number) => fetchApi('/guilds/espionage/start', { method: 'POST', body: JSON.stringify({ targetGuildId }) }),
     getGuildTargets: () => fetchApi('/guilds/targets'), 
+
+    // Guild Raids
+    getRaids: () => fetchApi('/guilds/raids'),
+    createRaid: (targetGuildId: number, raidType: RaidType) => fetchApi('/guilds/raids/create', { method: 'POST', body: JSON.stringify({ targetGuildId, raidType }) }),
+    joinRaid: (raidId: number) => fetchApi('/guilds/raids/join', { method: 'POST', body: JSON.stringify({ raidId }) }),
 
     // Towers
     getTowers: () => fetchApi('/towers'),

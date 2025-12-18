@@ -891,28 +891,28 @@ router.post('/espionage/start', authenticateToken, async (req: any, res: any) =>
 
 
 // ==========================================
-//               RAIDS (Included from previous update)
+//               RAIDS
 // ==========================================
 
-// GET /api/guilds/targets - List potential war targets (With total_level fix)
+// GET /api/guilds/targets
 router.get('/targets', authenticateToken, async (req: any, res: any) => {
      try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
-        const guildId = memberRes.rows[0].guild_id;
+        const guildId = Number(memberRes.rows[0].guild_id);
 
         const result = await pool.query(`
             SELECT g.id, g.name, g.tag,
-            (SELECT COUNT(*)::int FROM guild_members gm WHERE gm.guild_id = g.id) as member_count,
+            (SELECT COUNT(*)::int FROM guild_members gm WHERE gm.guild_id = g.id) as "memberCount",
             (
                 SELECT COALESCE(SUM((c.data->>'level')::int), 0)::int 
                 FROM guild_members gm 
                 JOIN characters c ON gm.user_id = c.user_id 
                 WHERE gm.guild_id = g.id
-            ) as total_level
+            ) as "totalLevel"
             FROM guilds g
             WHERE g.id != $1
-            ORDER BY member_count DESC
+            ORDER BY "memberCount" DESC
         `, [guildId]);
         
         res.json(result.rows);
@@ -927,7 +927,7 @@ router.get('/raids', authenticateToken, async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
-        const guildId = memberRes.rows[0].guild_id;
+        const guildId = Number(memberRes.rows[0].guild_id);
 
         const data = await getActiveRaids(guildId);
         res.json(data);
@@ -943,7 +943,7 @@ router.post('/raids/create', authenticateToken, async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
-        const guildId = memberRes.rows[0].guild_id;
+        const guildId = Number(memberRes.rows[0].guild_id);
 
         const raid = await createRaid(guildId, req.user.id, targetGuildId, raidType);
         res.status(201).json(raid);
@@ -959,7 +959,7 @@ router.post('/raids/join', authenticateToken, async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Not in guild' });
-        const guildId = memberRes.rows[0].guild_id;
+        const guildId = Number(memberRes.rows[0].guild_id);
 
         await joinRaid(raidId, req.user.id, guildId);
         res.json({ message: 'Joined raid' });
