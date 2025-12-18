@@ -111,7 +111,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
     return (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm">
             <div 
-                className="w-full max-w-6xl h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-hidden"
+                className="w-full max-w-[1400px] h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-hidden"
                 style={modalBgStyle}
             >
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center z-10">
@@ -141,7 +141,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                 </div>
 
                 <div className="flex-1 flex overflow-hidden p-6 gap-6 relative">
-                    <div className="w-1/4 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar z-10">
+                    {/* Left: Stats Panel - Fixed Width */}
+                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar z-10">
                         {selectedCombatant ? (
                              <div className="relative group">
                                 <button 
@@ -163,6 +164,7 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         <DamageMeter damageData={damageMeterData} title="Statystyki Bojowe" />
                     </div>
 
+                    {/* Middle: Live Combat Log - Expanded space */}
                     <div className="flex-1 bg-black/40 rounded-xl border border-slate-700 p-4 flex flex-col z-10 shadow-inner">
                         <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1">
                             {logsWithRoundHeaders.map((entry, idx) => {
@@ -189,7 +191,8 @@ export const ExpeditionSummaryModal: React.FC<ExpeditionSummaryModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="w-1/4 flex flex-col gap-4 z-10">
+                    {/* Right: Participant Lists - Fixed Width */}
+                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 z-10">
                         {isRaid ? (
                             <>
                                 <PartyMemberList 
