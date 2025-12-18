@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -8,7 +7,7 @@ import { pruneExpiredBuffs } from '../logic/guilds.js';
 // Import sub-routers
 import statsRoutes from './character/stats.js';
 import campRoutes from './character/camp.js';
-import storageRoutes from './character/storage.ts';
+import storageRoutes from './character/storage.js';
 import skillsRoutes from './character/skills.js';
 import loadoutsRoutes from './character/loadouts.js';
 
