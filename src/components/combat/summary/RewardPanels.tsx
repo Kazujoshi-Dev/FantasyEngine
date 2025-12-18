@@ -28,17 +28,17 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
     }
 
     return (
-        <div className="bg-slate-900/80 p-6 rounded-xl border border-amber-600/30 mt-4 shadow-lg relative overflow-hidden group">
+        <div className="bg-slate-900/80 p-4 rounded-xl border border-amber-600/30 mt-4 shadow-lg relative overflow-hidden group">
              <div className="absolute -right-10 -top-10 w-32 h-32 bg-amber-600/10 rounded-full blur-3xl group-hover:opacity-50 transition-all duration-500"></div>
-             <h4 className="font-bold text-amber-500 text-xl text-center border-b border-amber-600/30 pb-3 mb-5 tracking-wider flex items-center justify-center gap-2">
-                <CoinsIcon className="h-6 w-6" />
+             <h4 className="font-bold text-amber-500 text-sm text-center border-b border-amber-600/30 pb-2 mb-3 tracking-wider flex items-center justify-center gap-2">
+                <CoinsIcon className="h-5 w-5" />
                 Zrabowane z Banku Gildii
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {totalGold > 0 && (
-                     <div className="flex flex-col items-center justify-center bg-slate-800/80 p-3 rounded-lg border border-amber-500/30 shadow-md col-span-2 md:col-span-1">
-                        <span className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">{t('resources.gold')}</span>
-                        <span className="font-mono font-bold text-amber-400 flex items-center text-2xl">
+                     <div className="flex flex-col items-center justify-center bg-slate-800/80 p-2 rounded-lg border border-amber-500/30 shadow-md col-span-2 md:col-span-1">
+                        <span className="text-gray-400 text-[9px] uppercase tracking-widest mb-1">{t('resources.gold')}</span>
+                        <span className="font-mono font-bold text-amber-400 flex items-center text-lg">
                             {totalGold.toLocaleString()}
                         </span>
                      </div>
@@ -48,10 +48,10 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
                     const rarity = essenceToRarityMap[type];
                     const style = rarityStyles[rarity];
                     return (
-                        <div key={key} className={`flex flex-col items-center justify-center bg-slate-800/60 p-3 rounded-lg border ${style.border} shadow-sm relative overflow-hidden`}>
+                        <div key={key} className={`flex flex-col items-center justify-center bg-slate-800/60 p-2 rounded-lg border ${style.border} shadow-sm relative overflow-hidden`}>
                              <div className={`absolute inset-0 ${style.bg} opacity-10`}></div>
-                             <span className={`${style.text} text-[10px] uppercase tracking-widest mb-1 z-10 text-center`}>{t(`resources.${type}`).replace(' Esencja', '')}</span>
-                             <span className="font-mono font-bold text-white text-xl z-10">x{amount}</span>
+                             <span className={`${style.text} text-[9px] uppercase tracking-widest mb-1 z-10 text-center`}>{t(`resources.${type}`).replace(' Esencja', '')}</span>
+                             <span className="font-mono font-bold text-white text-base z-10">x{amount}</span>
                         </div>
                     )
                 })}
@@ -63,28 +63,28 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
 export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ reward, itemTemplates, affixes }) => {
     const { t } = useTranslation();
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-900/60 p-6 rounded-xl border border-slate-700/50">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
             <div>
-                <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
-                    <StarIcon className="h-5 w-5 text-yellow-400"/> {t('expedition.totalRewards')}
+                <h3 className="text-base font-bold text-gray-300 mb-3 flex items-center gap-2">
+                    <StarIcon className="h-4 w-4 text-yellow-400"/> {t('expedition.totalRewards')}
                 </h3>
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
-                        <span className="text-gray-400 font-bold">{t('expedition.goldGained')}</span>
-                        <span className="text-amber-400 font-mono text-xl">{reward.totalGold.toLocaleString()}</span>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
+                        <span className="text-gray-400 font-bold text-xs">{t('expedition.goldGained')}</span>
+                        <span className="text-amber-400 font-mono text-lg">{reward.totalGold.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded">
-                        <span className="text-gray-400 font-bold">{t('expedition.experience')}</span>
-                        <span className="text-sky-400 font-mono text-xl">{reward.totalExperience.toLocaleString()} XP</span>
+                    <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
+                        <span className="text-gray-400 font-bold text-xs">{t('expedition.experience')}</span>
+                        <span className="text-sky-400 font-mono text-lg">{reward.totalExperience.toLocaleString()} XP</span>
                     </div>
                     {Object.entries(reward.essencesFound).map(([key, amount]) => {
                         const type = key as EssenceType;
                         const rarity = essenceToRarityMap[type];
                         const style = rarityStyles[rarity];
                         return (
-                            <div key={key} className={`flex justify-between items-center bg-slate-800/50 p-3 rounded border-l-4 ${style.border}`}>
-                                <span className={`${style.text} font-bold text-sm`}>{t(`resources.${type}`)}</span>
-                                <span className="text-white font-mono font-bold">x{amount}</span>
+                            <div key={key} className={`flex justify-between items-center bg-slate-800/50 p-2 rounded border-l-2 ${style.border}`}>
+                                <span className={`${style.text} font-bold text-[11px]`}>{t(`resources.${type}`)}</span>
+                                <span className="text-white font-mono font-bold text-xs">x{amount}</span>
                             </div>
                         )
                     })}
@@ -92,14 +92,14 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
             </div>
 
             <div>
-                <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
-                    <CoinsIcon className="h-5 w-5 text-indigo-400"/> {t('expedition.itemsFound')}
+                <h3 className="text-base font-bold text-gray-300 mb-3 flex items-center gap-2">
+                    <CoinsIcon className="h-4 w-4 text-indigo-400"/> {t('expedition.itemsFound')}
                 </h3>
-                <div className="bg-slate-800/30 rounded-lg p-2 min-h-[100px] border border-slate-700/50">
+                <div className="bg-slate-800/30 rounded-lg p-1.5 min-h-[80px] border border-slate-700/50">
                     {reward.itemsFound.length === 0 ? (
-                        <p className="text-gray-600 text-center py-8 italic text-sm">{t('expedition.noEnemies')}</p>
+                        <p className="text-gray-600 text-center py-6 italic text-xs">{t('expedition.noEnemies')}</p>
                     ) : (
-                        <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                             {reward.itemsFound.map((item, idx) => {
                                 const template = itemTemplates.find(t => t.id === item.templateId);
                                 if (!template) return null;
@@ -107,17 +107,17 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                 const style = rarityStyles[template.rarity];
                                 
                                 return (
-                                    <div key={idx} className="relative group cursor-help flex items-center gap-3 p-2 bg-slate-800/80 rounded border border-slate-700 hover:border-slate-500 transition-colors">
-                                        <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center shadow-lg`}>
+                                    <div key={idx} className="relative group cursor-help flex items-center gap-2 p-1 bg-slate-800/80 rounded border border-slate-700 hover:border-slate-500 transition-colors">
+                                        <div className={`w-8 h-8 rounded border ${style.border} ${style.bg} flex-shrink-0 flex items-center justify-center shadow-sm`}>
                                             {template.icon ? (
-                                                <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain" />
+                                                <img src={template.icon} alt={template.name} className="w-6 h-6 object-contain" />
                                             ) : (
-                                                <span className="text-[10px] font-bold text-white">?</span>
+                                                <span className="text-[9px] font-bold text-white">?</span>
                                             )}
                                         </div>
                                         <div className="flex-grow min-w-0">
-                                            <p className={`text-sm font-bold truncate ${style.text}`}>{fullName}</p>
-                                            <p className="text-[10px] text-gray-500 uppercase">{t(`equipment.slot.${template.slot}`)}</p>
+                                            <p className={`text-[11px] font-bold truncate ${style.text}`}>{fullName}</p>
+                                            <p className="text-[8px] text-gray-500 uppercase leading-none">{t(`equipment.slot.${template.slot}`)}</p>
                                         </div>
                                         <ItemTooltip instance={item} template={template} affixes={affixes} />
                                     </div>
@@ -126,7 +126,7 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                         </div>
                     )}
                     {reward.itemsLostCount && (
-                        <p className="text-red-400 text-[10px] mt-3 font-bold px-2">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
+                        <p className="text-red-400 text-[9px] mt-2 font-bold px-1">{t('expedition.itemsLost', { count: reward.itemsLostCount })}</p>
                     )}
                 </div>
             </div>
