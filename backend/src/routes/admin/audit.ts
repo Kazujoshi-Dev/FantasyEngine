@@ -110,15 +110,15 @@ router.post('/fix-attributes', async (req, res) => {
             const char = row.data as PlayerCharacter;
             const stats = char.stats;
             
-            // Limit = (Level-1)*2 + 20 startowych
-            const maxAllowed = ((char.level - 1) * 2) + 20;
+            // Limit = 20 startowych + (Level-1)*2
+            const maxAllowed = 20 + ((Math.max(1, char.level) - 1) * 2);
             const currentTotal = 
                 (stats.strength - 1) + (stats.agility - 1) + (stats.accuracy - 1) + 
                 (stats.stamina - 1) + (stats.intelligence - 1) + (stats.energy - 1) + 
                 (stats.luck - 1) + (stats.statPoints || 0);
 
             if (currentTotal > maxAllowed) {
-                // Reset do 1 i przyznanie punktów
+                // Reset do 1 i przyznanie punktów wg prawidłowego wzoru
                 char.stats.strength = 1; char.stats.agility = 1; char.stats.accuracy = 1;
                 char.stats.stamina = 1; char.stats.intelligence = 1; char.stats.energy = 1;
                 char.stats.luck = 1;

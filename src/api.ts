@@ -92,7 +92,7 @@ export const api = {
     healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
 
     distributeStatPoints: (stats: Partial<CharacterStats>) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
-    resetAttributes: () => fetchApi('/character/reset-stats', { method: 'POST' }),
+    resetAttributes: () => fetchApi('/character/stats/reset', { method: 'POST' }),
     
     learnSkill: (skillId: string) => fetchApi('/character/skills/learn', { method: 'POST', body: JSON.stringify({ skillId }) }),
     toggleSkill: (skillId: string, isActive: boolean) => fetchApi('/character/skills/toggle', { method: 'POST', body: JSON.stringify({ skillId, isActive }) }),

@@ -33,21 +33,43 @@ router.post('/reset', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona.");
+        
         const character: PlayerCharacter = charRes.rows[0].data;
         const keys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
-        let returned = 0;
-        keys.forEach(k => { if (character.stats[k] > 1) { returned += (character.stats[k] - 1); character.stats[k] = 1; } });
+        
+        // Obliczamy ile punktów zostało już wydanych (wszystko powyżej 1)
+        let spentPoints = 0;
+        keys.forEach(k => { 
+            if (character.stats[k] > 1) { 
+                spentPoints += (character.stats[k] - 1); 
+                character.stats[k] = 1; 
+            } 
+        });
+
         const resets = character.resetsUsed || 0;
-        const cost = resets > 0 ? returned * 1000 : 0;
-        if (character.resources.gold < cost) throw new Error("Brak złota.");
+        // Koszt resetu: darmowy za pierwszym razem, potem 1000 złota za każdy wydany punkt
+        const cost = resets > 0 ? spentPoints * 1000 : 0;
+        
+        if (character.resources.gold < cost) throw new Error("Brak złota na reset atrybutów.");
+        
+        // Prawidłowa całkowita pula punktów dla poziomu postaci
+        // Wzór: 20 (startowe) + (Level - 1) * 2
+        const totalPointsForLevel = 20 + (Math.max(1, character.level) - 1) * 2;
+        
         character.resources.gold -= cost;
-        character.stats.statPoints += returned;
+        character.stats.statPoints = totalPointsForLevel;
         character.resetsUsed = resets + 1;
+        
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         await client.query('COMMIT');
         res.json(character);
-    } catch (err: any) { await client.query('ROLLBACK'); res.status(400).json({ message: err.message }); }
-    finally { client.release(); }
+    } catch (err: any) { 
+        await client.query('ROLLBACK'); 
+        res.status(400).json({ message: err.message }); 
+    } finally { 
+        client.release(); 
+    }
 });
 
 // POST /api/character/stats/class - Wybór klasy
