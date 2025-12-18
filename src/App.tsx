@@ -131,7 +131,6 @@ const AppContent: React.FC = () => {
         return () => clearTimeout(timer);
     }, [character?.activeExpedition, handleExpeditionCompletion]);
 
-    // Strażnik ładowania - zapobiega błyskowi CharacterCreation
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
@@ -141,52 +140,59 @@ const AppContent: React.FC = () => {
         );
     }
 
-    if (!character) return <CharacterCreation onCharacterCreate={async (d) => setCharacter(await api.createCharacter(d.name, d.race, gameData?.locations.find(l => l.isStartLocation)?.id || 'start'))} />;
-    if (!gameData || !derivedCharacter) return null;
-
     return (
-        <LanguageContext.Provider value={{ lang: character.settings?.language || Language.PL, t }}>
-            <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
-                <Sidebar
-                    activeTab={activeTab} setActiveTab={setActiveTab}
-                    playerCharacter={derivedCharacter} onLogout={handleLogout}
-                    hasUnreadMessages={hasUnreadMessages} hasNewTavernMessages={hasNewTavernMessages}
-                    onOpenNews={() => setIsNewsOpen(true)} hasNewNews={false}
-                    settings={gameData.settings}
+        <LanguageContext.Provider value={{ lang: character?.settings?.language || Language.PL, t }}>
+            {!character ? (
+                <CharacterCreation 
+                    onCharacterCreate={async (d) => {
+                        const startLoc = gameData?.locations.find(l => l.isStartLocation)?.id || 'start';
+                        const newChar = await api.createCharacter(d.name, d.race, startLoc);
+                        setCharacter(newChar);
+                    }} 
                 />
-                <main className="flex-1 p-6 relative overflow-hidden" style={gameData.settings?.gameBackground ? { backgroundImage: `url(${gameData.settings.gameBackground})`, backgroundSize: 'cover' } : undefined}>
-                     <div className="relative z-10 h-full">
-                        {activeTab === Tab.Statistics && <Statistics />}
-                        {activeTab === Tab.Equipment && <Equipment />}
-                        {activeTab === Tab.Expedition && <ExpeditionComponent onCompletion={handleExpeditionCompletion} />}
-                        {activeTab === Tab.Tower && <Tower />}
-                        {activeTab === Tab.Camp && <Camp />}
-                        {activeTab === Tab.Location && <Location />}
-                        {activeTab === Tab.Resources && <Resources />}
-                        {activeTab === Tab.Ranking && <Ranking ranking={ranking} isLoading={isRankingLoading} onAttack={async (id) => { const r = await api.attackPlayer(id); setCharacter(r.updatedAttacker); setPvpReport(r.summary); fetchRanking(); }} onComposeMessage={(n) => { setActiveTab(Tab.Messages); setPendingComposeRecipient(n); }} />}
-                        {activeTab === Tab.Messages && <Messages initialRecipient={pendingComposeRecipient} onClearInitialRecipient={() => setPendingComposeRecipient(null)} />}
-                        {activeTab === Tab.Quests && <Quests />}
-                        {activeTab === Tab.Trader && <Trader traderInventory={traderInventory.regularItems} traderSpecialOfferItems={traderInventory.specialOfferItems} onItemBought={() => fetchTrader()} />}
-                        {activeTab === Tab.Blacksmith && <Blacksmith />}
-                        {activeTab === Tab.Tavern && <Tavern messages={tavernMessages} activeUsers={activeUsers} onSendMessage={(c) => api.sendTavernMessage(c).then(checkUpdates)} />}
-                        {activeTab === Tab.Market && <Market />}
-                        {activeTab === Tab.Options && <Options />}
-                        {activeTab === Tab.University && <University />}
-                        {activeTab === Tab.Hunting && <Hunting />}
-                        {activeTab === Tab.Guild && <Guild onCharacterUpdate={() => api.getCharacter().then(setCharacter)} />}
-                        {activeTab === Tab.Admin && <AdminPanel gameData={gameData} onGameDataUpdate={(k, d) => { setGameData(p => p ? ({ ...p, [k]: d }) : null); api.updateGameData(k, d); }} />}
-                    </div>
-                </main>
+            ) : (
+                <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+                    <Sidebar
+                        activeTab={activeTab} setActiveTab={setActiveTab}
+                        playerCharacter={derivedCharacter!} onLogout={handleLogout}
+                        hasUnreadMessages={hasUnreadMessages} hasNewTavernMessages={hasNewTavernMessages}
+                        onOpenNews={() => setIsNewsOpen(true)} hasNewNews={false}
+                        settings={gameData?.settings}
+                    />
+                    <main className="flex-1 p-6 relative overflow-hidden" style={gameData?.settings?.gameBackground ? { backgroundImage: `url(${gameData.settings.gameBackground})`, backgroundSize: 'cover' } : undefined}>
+                        <div className="relative z-10 h-full">
+                            {activeTab === Tab.Statistics && <Statistics />}
+                            {activeTab === Tab.Equipment && <Equipment />}
+                            {activeTab === Tab.Expedition && <ExpeditionComponent onCompletion={handleExpeditionCompletion} />}
+                            {activeTab === Tab.Tower && <Tower />}
+                            {activeTab === Tab.Camp && <Camp />}
+                            {activeTab === Tab.Location && <Location />}
+                            {activeTab === Tab.Resources && <Resources />}
+                            {activeTab === Tab.Ranking && <Ranking ranking={ranking} isLoading={isRankingLoading} onAttack={async (id) => { const r = await api.attackPlayer(id); setCharacter(r.updatedAttacker); setPvpReport(r.summary); fetchRanking(); }} onComposeMessage={(n) => { setActiveTab(Tab.Messages); setPendingComposeRecipient(n); }} />}
+                            {activeTab === Tab.Messages && <Messages initialRecipient={pendingComposeRecipient} onClearInitialRecipient={() => setPendingComposeRecipient(null)} />}
+                            {activeTab === Tab.Quests && <Quests />}
+                            {activeTab === Tab.Trader && <Trader traderInventory={traderInventory.regularItems} traderSpecialOfferItems={traderInventory.specialOfferItems} onItemBought={() => fetchTrader()} />}
+                            {activeTab === Tab.Blacksmith && <Blacksmith />}
+                            {activeTab === Tab.Tavern && <Tavern messages={tavernMessages} activeUsers={activeUsers} onSendMessage={(c) => api.sendTavernMessage(c).then(checkUpdates)} />}
+                            {activeTab === Tab.Market && <Market />}
+                            {activeTab === Tab.Options && <Options />}
+                            {activeTab === Tab.University && <University />}
+                            {activeTab === Tab.Hunting && <Hunting />}
+                            {activeTab === Tab.Guild && <Guild onCharacterUpdate={() => api.getCharacter().then(setCharacter)} />}
+                            {activeTab === Tab.Admin && <AdminPanel gameData={gameData!} onGameDataUpdate={(k, d) => { setGameData(p => p ? ({ ...p, [k]: d }) : null); api.updateGameData(k, d); }} />}
+                        </div>
+                    </main>
 
-                <ModalManager 
-                    expeditionReport={expeditionReport} pvpReport={pvpReport}
-                    news={{ open: isNewsOpen, content: gameData.settings?.newsContent || '' }}
-                    gameData={gameData} character={derivedCharacter}
-                    onCloseExpedition={() => { api.getCharacter().then(updateCharacter); setExpeditionReport(null); }}
-                    onClosePvp={() => { api.getCharacter().then(updateCharacter); setPvpReport(null); }}
-                    onCloseNews={() => setIsNewsOpen(false)}
-                />
-            </div>
+                    <ModalManager 
+                        expeditionReport={expeditionReport} pvpReport={pvpReport}
+                        news={{ open: isNewsOpen, content: gameData?.settings?.newsContent || '' }}
+                        gameData={gameData!} character={derivedCharacter!}
+                        onCloseExpedition={() => { api.getCharacter().then(updateCharacter); setExpeditionReport(null); }}
+                        onClosePvp={() => { api.getCharacter().then(updateCharacter); setPvpReport(null); }}
+                        onCloseNews={() => setIsNewsOpen(false)}
+                    />
+                </div>
+            )}
         </LanguageContext.Provider>
     );
 }
