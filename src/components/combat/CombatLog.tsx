@@ -156,6 +156,8 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             return <div className="text-xs text-red-400 italic text-center">{t('expedition.orcFuryLog', { attacker: log.attacker })}</div>;
         case 'berserker_frenzy':
             return <div className="text-xs text-red-400 italic text-center">{t('expedition.berserkerFrenzyLog', { attacker: log.attacker })}</div>;
+        case 'hardSkinProc':
+            return <div className="text-xs text-amber-500 italic text-center">{t('expedition.hardSkinProc', { attacker: log.attacker })}</div>;
         case 'hunter_bonus_shot':
             actionText = (
                 <span>
