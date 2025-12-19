@@ -2,222 +2,226 @@
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Skill, SkillCategory, SkillCost, SkillRequirements, SkillType, CharacterStats, EssenceType } from '../types';
+import { Skill, SkillCategory, SkillCost, SkillRequirements, SkillType, CharacterStats, EssenceType, CharacterClass } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
+import { CoinsIcon } from './icons/CoinsIcon';
+import { StarIcon } from './icons/StarIcon';
+import { rarityStyles } from './shared/ItemSlot';
 
-type MainTab = 'universal' | 'racial';
-type UniversalSubTab = 'passive' | 'active';
-type RacialSubTab = 'races' | 'classes';
+const SkillCard: React.FC<{
+    skill: Skill;
+    character: any;
+    t: any;
+    onLearn: (id: string) => void;
+}> = ({ skill, character, t, onLearn }) => {
+    const isLearned = (character.learnedSkills || []).includes(skill.id);
+    
+    // Check Stats Requirements
+    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const statsReqsMet = statOrder.every((req) => {
+        const val = skill.requirements[req];
+        if (val === undefined) return true;
+        const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
+        return playerVal >= val;
+    });
+
+    // Check Class/Race
+    const reqClass = skill.requirements.characterClass;
+    const reqRace = skill.requirements.race;
+    
+    let classMatch = !reqClass || character.characterClass === reqClass;
+    // Special handling for multi-class skills like Dual Wield
+    if (skill.id === 'dual-wield-mastery') {
+        const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
+        classMatch = !!character.characterClass && allowed.includes(character.characterClass);
+    }
+    
+    const raceMatch = !reqRace || character.race === reqRace;
+    const reqsMet = statsReqsMet && classMatch && raceMatch;
+
+    // Check Costs
+    const costMet = (Object.entries(skill.cost)).every(([key, val]) => {
+        if (val === undefined) return true;
+        return (character.resources[key as keyof typeof character.resources] || 0) >= val;
+    });
+
+    const canBuy = !isLearned && reqsMet && costMet;
+
+    return (
+        <div className={`p-5 rounded-xl border transition-all duration-300 ${isLearned ? 'bg-indigo-900/20 border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.1)]' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'}`}>
+            <div className="flex justify-between items-start mb-3">
+                <div>
+                    <h4 className="text-lg font-bold text-white mb-0.5">{skill.name}</h4>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${skill.category === SkillCategory.Passive ? 'bg-amber-900/30 border-amber-700 text-amber-500' : 'bg-sky-900/30 border-sky-700 text-sky-500'}`}>
+                        {skill.category === SkillCategory.Passive ? t('university.passive') : t('university.active')}
+                    </span>
+                </div>
+                {isLearned && (
+                    <span className="text-green-500 text-[10px] font-bold uppercase tracking-widest bg-green-900/20 px-2 py-1 rounded border border-green-800">Opanowano</span>
+                )}
+            </div>
+
+            <p className="text-sm text-gray-400 italic mb-6 leading-relaxed">
+                {skill.description}
+            </p>
+
+            <div className="space-y-4 mb-6">
+                <div>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Wymagania</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {reqClass && (
+                            <p className={`text-xs ${classMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>
+                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa' : t(`class.${reqClass}`)}
+                            </p>
+                        )}
+                        {statOrder.map(req => {
+                            const val = skill.requirements[req];
+                            if (val === undefined) return null;
+                            const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
+                            const isMet = playerVal >= val;
+                            return (
+                                <p key={req} className={`text-xs ${isMet ? 'text-gray-400' : 'text-red-500 font-bold'}`}>
+                                    {t(`statistics.${req}` as any)}: {val}
+                                </p>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {!isLearned && (
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Koszt Nauki</p>
+                        <div className="flex flex-wrap gap-3">
+                            {Object.entries(skill.cost).map(([res, val]) => {
+                                if (!val) return null;
+                                const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= val;
+                                const isGold = res === 'gold';
+                                return (
+                                    <div key={res} className="flex items-center gap-1">
+                                        {isGold ? <CoinsIcon className="h-3 w-3 text-amber-500" /> : <StarIcon className="h-3 w-3 text-sky-400" />}
+                                        <span className={`text-xs font-mono font-bold ${hasEnough ? 'text-gray-300' : 'text-red-500'}`}>{val}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {!isLearned && (
+                <button 
+                    onClick={() => onLearn(skill.id)}
+                    disabled={!canBuy}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-gray-500 rounded-lg text-white font-bold text-xs transition-all shadow-lg active:scale-95"
+                >
+                    NAUCZ SIĘ
+                </button>
+            )}
+        </div>
+    );
+};
 
 export const University: React.FC = () => {
     const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [mainTab, setMainTab] = useState<MainTab>('universal');
-    const [universalSubTab, setUniversalSubTab] = useState<UniversalSubTab>('passive');
-    const [racialSubTab, setRacialSubTab] = useState<RacialSubTab>('races');
+    const [mainTab, setMainTab] = useState<SkillType>(SkillType.Universal);
+    const [categoryFilter, setCategoryFilter] = useState<SkillCategory | 'all'>('all');
 
     if (!character || !gameData) return null;
 
     const skills = gameData.skills || [];
-
-    // Define the display order for requirements
-    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const filteredSkills = skills.filter(s => {
+        const tabMatch = s.type === mainTab;
+        const catMatch = categoryFilter === 'all' || s.category === categoryFilter;
+        return tabMatch && catMatch;
+    });
 
     const handleLearnSkill = async (skillId: string) => {
         try {
             const updatedChar = await api.learnSkill(skillId);
             updateCharacter(updatedChar);
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-
-    const renderSkill = (skill: Skill) => {
-        const isLearned = (character.learnedSkills || []).includes(skill.id);
-        
-        // Check standard stats requirements
-        const statsReqsMet = statOrder.every((req) => {
-             const val = skill.requirements[req];
-             if (val === undefined) return true;
-             
-             const playerVal = req === 'level' 
-                ? character.level 
-                : (character.stats[req as keyof CharacterStats] || 0);
-            return playerVal >= val;
-        });
-
-        // Check Class/Race requirements
-        const reqClass = skill.requirements.characterClass;
-        const reqRace = skill.requirements.race;
-        
-        const classMatch = !reqClass || character.characterClass === reqClass;
-        const raceMatch = !reqRace || character.race === reqRace;
-        
-        const reqsMet = statsReqsMet && classMatch && raceMatch;
-
-        const costMet = (Object.entries(skill.cost)).every(([key, costValue]) => {
-            if (costValue === undefined) return true;
-            const resourceKey = key as keyof SkillCost;
-            return (character.resources[resourceKey as keyof typeof character.resources] || 0) >= costValue;
-        });
-
-        const canBuy = !isLearned && reqsMet && costMet;
-
-        return (
-            <div key={skill.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col">
-                <h4 className="text-xl font-bold text-amber-400 mb-2">{skill.name}</h4>
-                <p className="text-sm text-gray-300 flex-grow mb-4">{skill.description}</p>
-                <div className="text-xs space-y-2 mb-4">
-                    <div>
-                        <p className="font-semibold text-gray-400 uppercase tracking-wider">Wymagania</p>
-                        
-                        {reqClass && (
-                            <p className={`flex justify-between ${classMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
-                                <span>Wymagana klasa: {t(`class.${reqClass}`)}</span>
-                                {classMatch ? <span>(OK)</span> : <span>(Brak)</span>}
-                            </p>
-                        )}
-                        
-                        {reqRace && (
-                            <p className={`flex justify-between ${raceMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
-                                <span>Wymagana rasa: {t(`race.${reqRace}`)}</span>
-                                {raceMatch ? <span>(OK)</span> : <span>(Brak)</span>}
-                            </p>
-                        )}
-
-                        {statOrder.map(req => {
-                            const val = skill.requirements[req];
-                            if (val === undefined) return null;
-
-                            const playerVal = req === 'level' 
-                                ? character.level 
-                                : (character.stats[req as keyof CharacterStats] || 0);
-                            
-                            const isMet = playerVal >= val;
-
-                            return (
-                                <p key={req} className={`flex justify-between ${isMet ? 'text-green-400' : 'text-red-400'}`}>
-                                    <span>{t(`statistics.${req}` as any)}: {val}</span>
-                                    <span>(Masz: {playerVal})</span>
-                                </p>
-                            );
-                        })}
-                    </div>
-                    <div>
-                        <p className="font-semibold text-gray-400 uppercase tracking-wider">Koszt</p>
-                        {(Object.entries(skill.cost)).map(([key, val]) => {
-                            if (!val) return null;
-                            const resourceKey = key as keyof SkillCost;
-                            const hasEnough = (character.resources[resourceKey as keyof typeof character.resources] || 0) >= val;
-                            return (
-                                <p key={resourceKey} className={`flex justify-between ${hasEnough ? 'text-green-400' : 'text-red-400'}`}>
-                                    <span>{t(`resources.${resourceKey as any}`)}: {val}</span>
-                                    <span>(Masz: {character.resources[resourceKey as keyof typeof character.resources] || 0})</span>
-                                </p>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <button 
-                    onClick={() => handleLearnSkill(skill.id)}
-                    disabled={!canBuy}
-                    className="mt-auto w-full bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                    {isLearned ? "Nauczono" : "Naucz się"}
-                </button>
-            </div>
-        );
-    };
-
-    const renderContent = () => {
-        if (mainTab === 'universal') {
-            if (universalSubTab === 'passive') {
-                const passiveSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Passive);
-                if (passiveSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{passiveSkills.map(renderSkill)}</div>;
-            }
-            if (universalSubTab === 'active') {
-                 const activeSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Active);
-                 if (activeSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeSkills.map(renderSkill)}</div>;
-            }
-        }
-        if (mainTab === 'racial') {
-            if (racialSubTab === 'races') {
-                 const raceSkills = skills.filter(s => s.type === SkillType.Race);
-                 if (raceSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{raceSkills.map(renderSkill)}</div>;
-            }
-             if (racialSubTab === 'classes') {
-                 const classSkills = skills.filter(s => s.type === SkillType.Class);
-                 if (classSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{classSkills.map(renderSkill)}</div>;
-            }
-        }
-        return <p className="text-gray-500">{t('university.underConstruction')}</p>;
+        } catch (e: any) { alert(e.message); }
     };
 
     return (
         <ContentPanel title={t('university.title')}>
-            <div className="flex border-b border-slate-700 mb-6">
-                <button
-                    onClick={() => setMainTab('universal')}
-                    className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${mainTab === 'universal' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                >
-                    {t('university.universal')}
-                </button>
-                <button
-                    onClick={() => setMainTab('racial')}
-                    className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${mainTab === 'racial' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                >
-                    {t('university.racial')}
-                </button>
+            {/* Nagłówek z zasobami */}
+            <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700 mb-6 flex flex-wrap justify-center gap-6">
+                <div className="flex items-center gap-2">
+                    <CoinsIcon className="h-5 w-5 text-amber-500" />
+                    <span className="font-mono font-bold text-amber-500">{character.resources.gold.toLocaleString()}</span>
+                </div>
+                {Object.values(EssenceType).map(e => (
+                    <div key={e} className="flex items-center gap-2">
+                        <StarIcon className={`h-4 w-4 ${rarityStyles[e === EssenceType.Common ? 'Common' : e === EssenceType.Uncommon ? 'Uncommon' : e === EssenceType.Rare ? 'Rare' : e === EssenceType.Epic ? 'Epic' : 'Legendary'].text}`} />
+                        <span className="font-mono font-bold text-white text-sm">{character.resources[e] || 0}</span>
+                    </div>
+                ))}
             </div>
 
-            <div className="h-[72vh] overflow-y-auto pr-2">
-                <div className="bg-slate-900/40 p-6 rounded-xl mb-6">
-                    <p className="text-gray-400 italic whitespace-pre-line text-center">{t('university.description')}</p>
+            {/* Nawigacja główna */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
+                <div className="flex gap-2">
+                    {Object.values(SkillType).map(type => (
+                        <button
+                            key={type}
+                            onClick={() => setMainTab(type)}
+                            className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${mainTab === type ? 'border-indigo-500 text-white bg-indigo-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            {t(`university.${type.toLowerCase()}` as any)}
+                        </button>
+                    ))}
                 </div>
-
-                {mainTab === 'universal' && (
-                    <div className="flex border-b border-slate-800 mb-6">
-                        <button
-                            onClick={() => setUniversalSubTab('passive')}
-                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'passive' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.passive')}
-                        </button>
-                        <button
-                            onClick={() => setUniversalSubTab('active')}
-                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'active' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.active')}
-                        </button>
-                    </div>
-                )}
-
-                {mainTab === 'racial' && (
-                    <div className="flex border-b border-slate-800 mb-6">
-                        <button
-                            onClick={() => setRacialSubTab('races')}
-                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'races' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.races')}
-                        </button>
-                        <button
-                            onClick={() => setRacialSubTab('classes')}
-                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'classes' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.classes')}
-                        </button>
-                    </div>
-                )}
                 
-                <div className="bg-slate-900/40 p-6 rounded-xl">
-                    {renderContent()}
+                <div className="flex gap-2 mb-2 md:mb-0">
+                    <button 
+                        onClick={() => setCategoryFilter('all')} 
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border transition-all ${categoryFilter === 'all' ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-900 border-slate-800 text-gray-600 hover:text-gray-400'}`}
+                    >
+                        Wszystkie
+                    </button>
+                    <button 
+                        onClick={() => setCategoryFilter(SkillCategory.Passive)} 
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border transition-all ${categoryFilter === SkillCategory.Passive ? 'bg-amber-900/40 border-amber-600 text-amber-400' : 'bg-slate-900 border-slate-800 text-gray-600 hover:text-gray-400'}`}
+                    >
+                        Pasywne
+                    </button>
+                    <button 
+                        onClick={() => setCategoryFilter(SkillCategory.Active)} 
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border transition-all ${categoryFilter === SkillCategory.Active ? 'bg-sky-900/40 border-sky-600 text-sky-400' : 'bg-slate-900 border-slate-800 text-gray-600 hover:text-gray-400'}`}
+                    >
+                        Aktywne
+                    </button>
                 </div>
+            </div>
+
+            <div className="h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {filteredSkills.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                        <StarIcon className="h-16 w-16 mb-4" />
+                        <p className="text-xl font-bold uppercase tracking-widest">Brak dostępnych nauk</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
+                        {filteredSkills.map(skill => (
+                            <SkillCard 
+                                key={skill.id} 
+                                skill={skill} 
+                                character={character} 
+                                t={t} 
+                                onLearn={handleLearnSkill} 
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-8 bg-slate-900/40 p-6 rounded-2xl border border-slate-800">
+                <h4 className="text-indigo-400 font-bold uppercase tracking-tighter mb-2">Kronika Uniwersytetu</h4>
+                <p className="text-sm text-gray-400 leading-relaxed italic">
+                    "{t('university.description')}"
+                </p>
             </div>
         </ContentPanel>
     );
