@@ -30,7 +30,6 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const upgradeFactor = (item.upgradeLevel || 0) * 0.1;
     const affixUpgradeFactor = Math.min(item.upgradeLevel || 0, 5) * 0.1;
 
-    // Podstawa szybkości ataku zawsze z szablonu
     stats.attacksPerRound = template.attacksPerRound || 0;
 
     const applySource = (source: RolledAffixStats | undefined, factor: number) => {
@@ -63,11 +62,8 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
 export const getGrammaticallyCorrectAffixName = (affix: Affix | undefined, template: ItemTemplate): string => {
     if (!affix) return '';
     let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
-    if (template.gender === GrammaticalGender.Feminine) {
-        genderKey = 'feminine';
-    } else if (template.gender === GrammaticalGender.Neuter) {
-        genderKey = 'neuter';
-    }
+    if (template.gender === GrammaticalGender.Feminine) genderKey = 'feminine';
+    else if (template.gender === GrammaticalGender.Neuter) genderKey = 'neuter';
     
     if (typeof affix.name === 'string') return affix.name;
     return (affix.name as any)[genderKey] || affix.name.masculine || '';
@@ -104,15 +100,12 @@ export const ItemDetailsPanel: React.FC<{
     const safeAffixes = affixes || [];
     
     const compareTotalStats = useMemo(() => {
-        // Blokada porównywania, jeśli to ten sam przedmiot (uniqueId match)
         if (!compareWith || !itemTemplates || itemTemplates.length === 0 || !item || compareWith.uniqueId === item.uniqueId) return null;
         const compTemplate = itemTemplates.find(t => t.id === compareWith.templateId);
         return compTemplate ? getItemTotalStats(compareWith, compTemplate) : null;
     }, [compareWith, itemTemplates, item]);
 
-    if (!item || !template) {
-        return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
-    }
+    if (!item || !template) return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
 
     const upgradeLevel = item.upgradeLevel || 0;
     const prefix = safeAffixes.find(a => a.id === item?.prefixId);
@@ -125,18 +118,14 @@ export const ItemDetailsPanel: React.FC<{
         const checkPerfect = (key: string, value: number, isAttribute: boolean = false): boolean => {
             if (!metadata) return false;
             let metaVal = isAttribute ? (metadata as any).statsBonus?.[key] : (metadata as any)[key];
-            if (!metaVal) return false;
-            if (typeof metaVal !== 'object' || metaVal === null) return false;
-            const maxVal = metaVal.max || 0;
-            return value >= maxVal;
+            if (!metaVal || typeof metaVal !== 'object') return false;
+            return value >= (metaVal.max || 0);
         };
 
         const renderStat = (label: string, value: number | [number, number], compareKey: string | [string, string], isPercent = false, isAttribute = false) => {
             const isRange = Array.isArray(value);
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
-            
-            // WYMUSZONE ZAOKRĄGLENIE DO LICZB CAŁKOWITYCH
             const finalVal1 = Math.round(val1 * (1 + upgradeFactor));
             const finalVal2 = isRange ? Math.round(val2 * (1 + upgradeFactor)) : 0;
             
@@ -153,25 +142,18 @@ export const ItemDetailsPanel: React.FC<{
                     delta = (finalVal1 + finalVal2) / 2 - (compVal1 + compVal2) / 2;
                 } else {
                     const ck = compareKey as string;
-                    const compVal = isAttribute 
-                        ? (compareTotalStats.statsBonus?.[ck] || 0)
-                        : (compareTotalStats[ck] || 0);
+                    const compVal = isAttribute ? (compareTotalStats.statsBonus?.[ck] || 0) : (compareTotalStats[ck] || 0);
                     delta = finalVal1 - Math.round(compVal);
                 }
             }
 
-            const perfectClasses = "text-amber-400 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse";
-
             return (
-                <div key={label} className={`flex justify-between items-center py-0.5 ${isPerfect ? 'relative' : ''}`}>
+                <div key={label} className="flex justify-between items-center py-0.5">
                     <span className={`flex items-center gap-1 ${isPerfect ? 'text-amber-300 font-semibold' : 'text-gray-400'}`}>
                         {label}:
                     </span>
-                    <span className={`font-mono flex items-center gap-1 ${isPerfect ? perfectClasses : 'text-gray-200'}`}>
-                        {isRange 
-                            ? `${finalVal1} - ${finalVal2}`
-                            : isPercent ? `${finalVal1}%` : finalVal1}
-                        
+                    <span className={`font-mono flex items-center gap-1 ${isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse' : 'text-gray-200'}`}>
+                        {isRange ? `${finalVal1} - ${finalVal2}` : isPercent ? `${finalVal1}%` : finalVal1}
                         {compareTotalStats && Math.round(delta) !== 0 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 ({delta > 0 ? '+' : ''}{Math.round(delta)})
@@ -184,41 +166,25 @@ export const ItemDetailsPanel: React.FC<{
         };
 
         const entries = [];
-        // Primary Attributes
         if (s.statsBonus) {
             Object.entries(s.statsBonus).forEach(([k, v]) => {
                 if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true));
             });
         }
-        
-        // Base Combat Stats
         if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
-        
-        // SZYBKOŚĆ ATAKU - Naprawione pobieranie z szablonu bazy i bonusów afiksów
-        if (!isAffix && (metadata as ItemTemplate).attacksPerRound) {
-            entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound'));
-        }
-        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) {
-            entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
-        }
-
-        // Obrona i Inne
+        if (!isAffix && (metadata as ItemTemplate).attacksPerRound) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound'));
+        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
-        
-        // Krytyki i Zdrowie
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
         if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
-        
-        // Zaawansowane (Leech & Pen)
         if (s.armorPenetrationPercent !== undefined && s.armorPenetrationPercent > 0) entries.push(renderStat(t('item.armorPenetrationPercent'), s.armorPenetrationPercent, 'armorPenetrationPercent', true));
         if (s.lifeStealPercent !== undefined && s.lifeStealPercent > 0) entries.push(renderStat(t('item.lifeStealPercent'), s.lifeStealPercent, 'lifeStealPercent', true));
         if (s.manaStealPercent !== undefined && s.manaStealPercent > 0) entries.push(renderStat(t('item.manaStealPercent'), s.manaStealPercent, 'manaStealPercent', true));
         
         if (entries.length === 0) return null;
-
         return (
             <div className={`bg-slate-900/60 p-3 rounded-lg mt-2 border border-white/5 ${isSmall ? 'text-xs' : 'text-sm'}`}>
                 {title && <h5 className="font-black uppercase text-[9px] tracking-widest text-indigo-400 border-b border-white/5 mb-2 pb-1">{title}</h5>}
@@ -234,7 +200,6 @@ export const ItemDetailsPanel: React.FC<{
                 <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-lg mb-1' : 'text-xl mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
-                
                 {showIcon && template.icon && (
                     <div className="relative group mb-4">
                         <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
@@ -245,24 +210,9 @@ export const ItemDetailsPanel: React.FC<{
                         )}
                     </div>
                 )}
-                
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
-                {!hideAffixes && item.rolledPrefix && prefix && (
-                    <StatSection 
-                        title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} 
-                        source={item.rolledPrefix} 
-                        metadata={prefix} 
-                        isAffix={true} 
-                    />
-                )}
-                {!hideAffixes && item.rolledSuffix && suffix && (
-                    <StatSection 
-                        title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} 
-                        source={item.rolledSuffix} 
-                        metadata={suffix} 
-                        isAffix={true} 
-                    />
-                )}
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
             </div>
         </div>
     );
@@ -335,7 +285,7 @@ export const ItemTooltip: React.FC<{
     itemTemplates?: ItemTemplate[];
     isCentered?: boolean;
 }> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered }) => {
-    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' });
     
     useEffect(() => {
         if (isCentered) {
@@ -345,20 +295,20 @@ export const ItemTooltip: React.FC<{
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                visibility: 'inherit',
+                visibility: 'visible',
+                display: 'flex',
                 width: `${tooltipWidth}px`,
-                zIndex: 10000,
+                zIndex: 99999,
                 pointerEvents: 'none'
             });
             return;
         }
 
         if (x === undefined || y === undefined) {
-            setStyle({ visibility: 'inherit', width: '300px' });
+            setStyle({ visibility: 'inherit', display: 'flex', width: '300px' });
             return;
         }
 
-        // Jeśli najeżdżamy na ten sam przedmiot, szerokość powinna być standardowa (brak porównania)
         const isSameItem = compareWith?.uniqueId === instance.uniqueId;
         const tooltipWidth = (compareWith && !isSameItem) ? 620 : 300;
         let finalX = x + 20;
@@ -367,7 +317,7 @@ export const ItemTooltip: React.FC<{
         if (finalX + tooltipWidth > window.innerWidth) finalX = x - tooltipWidth - 20;
         if (finalY + 450 > window.innerHeight) finalY = window.innerHeight - 470;
 
-        setStyle({ left: `${finalX}px`, top: `${finalY}px`, visibility: 'visible', width: `${tooltipWidth}px` });
+        setStyle({ left: `${finalX}px`, top: `${finalY}px`, visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, position: 'fixed', zIndex: 9999 });
     }, [x, y, compareWith, instance.uniqueId, isCentered]);
 
     const isSameItem = compareWith?.uniqueId === instance.uniqueId;
@@ -376,34 +326,16 @@ export const ItemTooltip: React.FC<{
 
     return (
         <div 
-            className={`${isCentered ? 'fixed' : (x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block')} z-[9999] bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4`}
+            className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4 ${isCentered ? '' : (x !== undefined ? '' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:flex')}`}
             style={style}
         >
             {actualCompareWith && compareTemplate && (
                 <div className="w-[280px] border-r border-white/5 pr-4">
-                    <ItemDetailsPanel 
-                        item={actualCompareWith} 
-                        template={compareTemplate} 
-                        affixes={affixes} 
-                        size="small" 
-                        compact={true} 
-                        title="OBECNIE ZAŁOŻONY"
-                        itemTemplates={itemTemplates}
-                    />
+                    <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} />
                 </div>
             )}
             <div className={actualCompareWith ? 'w-[280px]' : 'w-full'}>
-                <ItemDetailsPanel 
-                    item={instance} 
-                    template={template} 
-                    affixes={affixes} 
-                    size="small" 
-                    compact={true} 
-                    character={character} 
-                    compareWith={actualCompareWith} 
-                    itemTemplates={itemTemplates} 
-                    title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined}
-                />
+                <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} />
             </div>
         </div>
     );
