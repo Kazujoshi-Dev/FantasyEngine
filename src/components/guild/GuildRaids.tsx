@@ -1,11 +1,46 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GuildRaid, RaidType, RaidStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry, PartyMember, PartyMemberStatus, ItemTemplate, Affix, Enemy } from '../../types';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
+import { ClockIcon } from '../icons/ClockIcon';
 import { ExpeditionSummaryModal } from '../combat/CombatSummary';
+
+const RaidCountdown: React.FC<{ startTime: string; onFinish: () => void }> = ({ startTime, onFinish }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+
+    useEffect(() => {
+        const calculate = () => {
+            const now = Date.now();
+            const start = new Date(startTime).getTime();
+            const diff = start - now;
+
+            if (diff <= 0) {
+                setTimeLeft('STARTUJĘ...');
+                onFinish();
+                return false;
+            }
+
+            const m = Math.floor(diff / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setTimeLeft(`${m}m ${s.toString().padStart(2, '0')}s`);
+            return true;
+        };
+
+        const active = calculate();
+        if (!active) return;
+
+        const interval = setInterval(() => {
+            if (!calculate()) clearInterval(interval);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [startTime, onFinish]);
+
+    return <span className="font-mono text-amber-500 font-bold">{timeLeft}</span>;
+};
 
 interface GuildRaidsProps {
     myGuildId: number;
@@ -43,6 +78,9 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
 
     useEffect(() => {
         fetchData();
+        // Co minutę odświeżamy listę, aby zsynchronizować statusy po zakończeniu walk
+        const interval = setInterval(fetchData, 60000);
+        return () => clearInterval(interval);
     }, []);
 
     const handleCreate = async () => {
@@ -171,13 +209,21 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                             <h4 className="font-bold text-white text-lg">vs {opposingName}</h4>
                                         </div>
                                         {!alreadyJoined && raid.status === 'PREPARING' && (
-                                            <button onClick={() => handleJoin(raid.id)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold transition-all">DOŁĄCZ</button>
+                                            <button onClick={() => handleJoin(raid.id)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold transition-all shadow-lg animate-pulse">DOŁĄCZ DO RAJDU</button>
                                         )}
-                                        {alreadyJoined && <span className="text-green-400 text-xs font-bold border border-green-600 px-2 py-0.5 rounded">GOTOWY</span>}
+                                        {alreadyJoined && raid.status === 'PREPARING' && (
+                                            <span className="text-green-400 text-xs font-bold border border-green-600 px-3 py-1 rounded-full bg-green-900/20">MOBILIZACJA GOTOWA</span>
+                                        )}
+                                        {raid.status === 'FIGHTING' && (
+                                            <span className="text-red-400 text-xs font-bold border border-red-600 px-3 py-1 rounded-full bg-red-900/20 animate-pulse">BITWA TRWA...</span>
+                                        )}
                                     </div>
-                                    <div className="flex justify-between text-xs text-gray-400 mt-2">
-                                        <span>Zmobilizowani: {raid.attackerParticipants?.length || 0} vs {raid.defenderParticipants?.length || 0}</span>
-                                        <span className="font-mono text-amber-500">T-30m</span>
+                                    <div className="flex justify-between items-center text-xs text-gray-400 mt-2">
+                                        <span>Zmobilizowani: <span className="text-white font-bold">{raid.attackerParticipants?.length || 0}</span> vs <span className="text-white font-bold">{raid.defenderParticipants?.length || 0}</span></span>
+                                        <div className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
+                                            <ClockIcon className="h-3 w-3 text-gray-500" />
+                                            <RaidCountdown startTime={raid.startTime} onFinish={fetchData} />
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -201,7 +247,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                 </div>
                                 <div className="text-right">
                                     <span className="text-xs text-gray-500">{new Date(raid.createdAt).toLocaleDateString()}</span>
-                                    <p className="text-[10px] text-gray-600 uppercase tracking-widest">{raid.type}</p>
+                                    <p className="text-[10px] text-gray-600 uppercase tracking-widest">{raid.type === 'RESOURCES' ? 'Wojna' : 'Sparing'}</p>
                                 </div>
                             </div>
                         );
