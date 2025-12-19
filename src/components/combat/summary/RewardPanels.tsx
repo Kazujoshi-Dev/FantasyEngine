@@ -140,7 +140,7 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                             <p className={`text-[11px] font-bold truncate ${style.text}`}>{fullName}</p>
                                             <p className="text-[8px] text-gray-500 uppercase leading-none">{t(`equipment.slot.${template.slot}`)}</p>
                                         </div>
-                                        <ItemTooltip instance={item} template={template} affixes={affixes} />
+                                        <ItemTooltip instance={item} template={template} affixes={affixes} itemTemplates={itemTemplates} />
                                     </div>
                                 );
                             })}

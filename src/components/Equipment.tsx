@@ -82,13 +82,23 @@ export const Equipment: React.FC = () => {
 
     const getCompareItem = (template: ItemTemplate): ItemInstance | null => {
         if (!character) return null;
-        let slotToCompare: EquipmentSlot = template.slot as EquipmentSlot;
         
+        // Specjalna logika dla pierścieni - porównujemy z pierwszym zajętym slotem lub ring1
         if (template.slot === 'ring') {
             return character.equipment.ring1 || character.equipment.ring2 || null;
         }
         
-        return character.equipment[slotToCompare] || null;
+        // Broń dwuręczna porównuje się z bronią w głównej ręce
+        if (template.slot === EquipmentSlot.TwoHand) {
+            return character.equipment.mainHand || character.equipment.twoHand || null;
+        }
+
+        // Broń jednoręczna w głównej ręce porównuje się z bronią w głównej ręce (lub dwuręczną)
+        if (template.slot === EquipmentSlot.MainHand) {
+             return character.equipment.mainHand || character.equipment.twoHand || null;
+        }
+        
+        return character.equipment[template.slot as EquipmentSlot] || null;
     };
 
     return (
@@ -133,13 +143,13 @@ export const Equipment: React.FC = () => {
                 <div className="xl:col-span-4 bg-[#0d111a] p-6 rounded-2xl border border-fantasy-gold/20 flex flex-col min-h-0 shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none"></div>
                     <div className="relative z-10 flex flex-col h-full">
-                        <h3 className="text-lg fantasy-header font-black text-fantasy-gold mb-6 text-center uppercase tracking-[0.2em] border-b border-fantasy-gold/30 pb-4">Archiwum Bojowe</h3>
+                        <h3 className="text-lg fantasy-header font-black text-fantasy-gold mb-6 text-center uppercase tracking-[0.2em] border-b border-fantasy-gold/30 pb-4">Statystyki Bojowe</h3>
                         
                         <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar space-y-6">
                             {/* Sekcja: Atrybuty */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <SparklesIcon className="h-3 w-3" /> Atrybuty Mocy
+                                    <SparklesIcon className="h-3 w-3" /> Atrybuty
                                 </h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label={t('statistics.strength')} value={character.stats.strength} />
@@ -167,7 +177,7 @@ export const Equipment: React.FC = () => {
                             {/* Sekcja: Obrona i Inne */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <ShieldIcon className="h-3 w-3" /> Formacje Obronne
+                                    <ShieldIcon className="h-3 w-3" /> Defensywa
                                 </h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Pancerz" value={character.stats.armor} color="text-sky-300" />
@@ -260,6 +270,7 @@ export const Equipment: React.FC = () => {
                     compareWith={getCompareItem(hoveredItem.template)}
                     x={hoveredItem.x}
                     y={hoveredItem.y}
+                    itemTemplates={gameData.itemTemplates}
                 />
             )}
 

@@ -294,7 +294,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                                             affixes={affixes} 
                                             selectedItem={selectedItem?.item || null} 
                                             onSelectItem={(item) => handleItemClick(item, 'buy')}
-                                            showPrice={(item: any) => 'buy-special'}
+                                            priceSelector={(item) => getBuyPrice(item, true)}
                                         />
                                     </div>
                                 )}
@@ -308,7 +308,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                                         affixes={affixes} 
                                         selectedItem={selectedItem?.item || null} 
                                         onSelectItem={(item) => handleItemClick(item, 'buy')}
-                                        showPrice={(item: any) => 'buy'}
+                                        priceSelector={(item) => getBuyPrice(item, false)}
                                     />
                                     {filteredRegularWares.length === 0 && filteredSpecialOffers.length === 0 && (
                                         <p className="text-gray-500 text-center py-12">Brak przedmiotów.</p>
@@ -323,7 +323,7 @@ export const Trader: React.FC<TraderProps> = ({ traderInventory, traderSpecialOf
                                 selectedItem={selectedItem?.item || null} 
                                 selectedIds={selectedSellIds}
                                 onSelectItem={(item) => handleItemClick(item, 'sell')}
-                                showPrice="sell"
+                                priceSelector={(item) => getSellPrice(item)}
                             />
                         )}
                         {activeTab === 'sell' && sellList.length === 0 && (

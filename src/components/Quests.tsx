@@ -133,7 +133,7 @@ const QuestCard: React.FC<{
                                     <p className={`font-semibold text-sm cursor-help ${rarityStyles[template.rarity].text}`}>
                                         {(reward.quantity || 1)}x {template.name}
                                     </p>
-                                    <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} />
+                                    <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} itemTemplates={itemTemplates} />
                                 </div>
                             );
                         })}
