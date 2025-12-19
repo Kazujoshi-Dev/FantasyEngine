@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
         { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
         { tab: Tab.Tower, icon: IconMap, label: 'Wieża Mroku' },
-        { tab: Tab.Hunting, icon: IconShield, label: t('sidebar.hunting') }, // Changed from CrossIcon to IconShield as a generic sword/shield theme
+        { tab: Tab.Hunting, icon: IconShield, label: t('sidebar.hunting') }, 
         { tab: Tab.Quests, icon: QuestIcon, label: t('sidebar.quests') },
         { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
         { tab: Tab.Location, icon: GlobeIcon, label: t('sidebar.location') },
@@ -242,5 +242,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
         </>
+    );
+};
+
+export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
+    const { t } = useTranslation();
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 className="text-2xl font-bold text-indigo-400">{t('news.title')}</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+                </div>
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar text-gray-300 whitespace-pre-wrap">
+                    {content || 'Brak nowych ogłoszeń.'}
+                </div>
+                <div className="mt-6 text-right">
+                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold transition-all">{t('news.close')}</button>
+                </div>
+            </div>
+        </div>
     );
 };

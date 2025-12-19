@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -338,19 +337,26 @@ export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) 
     </div>
 );
 
+// Fix: Made x and y optional to support both manual positioning and CSS-based group hover tooltips
 export const ItemTooltip: React.FC<{
     instance: ItemInstance;
     template: ItemTemplate;
     affixes: Affix[];
     character?: PlayerCharacter;
     compareWith?: ItemInstance | null;
-    x: number;
-    y: number;
+    x?: number;
+    y?: number;
 }> = ({ instance, template, affixes, character, compareWith, x, y }) => {
     // Positioning logic to keep tooltip within viewport
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
     
     useEffect(() => {
+        // Fix: If coordinates are missing, assume the parent uses 'group' class for display control
+        if (x === undefined || y === undefined) {
+            setStyle({ visibility: 'inherit', width: '320px' });
+            return;
+        }
+
         const tooltipWidth = 320;
         const tooltipHeight = 450;
         let finalX = x + 15;
@@ -369,7 +375,8 @@ export const ItemTooltip: React.FC<{
 
     return (
         <div 
-            className="fixed z-[9999] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 pointer-events-none animate-fade-in"
+            // Fix: Conditional positioning - fixed when x/y provided, absolute with group hover when not
+            className={`${x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block'} z-[9999] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 pointer-events-none animate-fade-in`}
             style={style}
         >
             <ItemDetailsPanel 
