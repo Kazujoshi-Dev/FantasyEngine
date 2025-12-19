@@ -6,10 +6,17 @@ import { GAME_SKILLS } from './content/skills.js';
 
 dotenv.config();
 
+/**
+ * LOGIKA KONFIGURACJI POŁĄCZENIA:
+ * 1. Priorytet ma DATABASE_URL (często używane w chmurze).
+ * 2. Następnie sprawdzane są pojedyncze zmienne (używane w Docker Compose).
+ */
 const getPoolConfig = () => {
     if (process.env.DATABASE_URL) {
         return { connectionString: process.env.DATABASE_URL };
     }
+
+    // Jeśli brak URL, budujemy z pojedynczych zmiennych
     if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER) {
         return {
             host: process.env.POSTGRES_HOST,
@@ -19,27 +26,47 @@ const getPoolConfig = () => {
             port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
         };
     }
+
     return null;
 };
 
 const config = getPoolConfig();
 
 if (!config) {
-    console.error("[DB] Brak konfiguracji bazy danych!");
+    console.error("================================================================");
+    console.error("BŁĄD KRYTYCZNY: Brak konfiguracji bazy danych!");
+    console.error("Upewnij się, że w pliku .env masz zdefiniowane:");
+    console.error("POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB");
+    console.error("================================================================");
     process.exit(1);
 }
 
+// Logowanie parametrów połączenia (bezpieczne)
+const dbUser = (config as any).user || "z DATABASE_URL";
+const dbHost = (config as any).host || "z DATABASE_URL";
+console.log(`[DB] Próba połączenia: Host=${dbHost}, Użytkownik=${dbUser}`);
+
+/**
+ * PROBLEM SSL:
+ * W Dockerze baza danych zazwyczaj nie wspiera SSL. 
+ * Dodajemy opcję wyłączenia SSL nawet jeśli NODE_ENV === 'production'.
+ */
+const sslConfig = process.env.DB_SSL === 'true' 
+    ? { rejectUnauthorized: false } 
+    : false;
+
 export const pool = new Pool({
     ...config,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: sslConfig
 });
 
 export const initializeDatabase = async () => {
     let client;
     try {
         client = await pool.connect();
+        console.log(`[DB] Połączono pomyślnie z bazą danych jako: ${dbUser}`);
         
-        // 1. Tworzenie tabel (Struktura)
+        // 1. Tworzenie tabel
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -99,7 +126,7 @@ export const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tavern_presence (
-                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                user_id PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 last_seen TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tower_runs (
@@ -206,23 +233,17 @@ export const initializeDatabase = async () => {
             );
         `);
 
-        // 2. Synchronizacja Contentu (Skille)
+        // 2. Synchronizacja Umiejętności
         console.log("[DB] Synchronizacja umiejętności...");
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         let dbSkills = Array.isArray(skillsRes.rows[0]?.data) ? skillsRes.rows[0].data : [];
         
         let modified = false;
-        
-        // Dodaj/Aktualizuj skille z pliku GAME_SKILLS
         for (const skill of GAME_SKILLS) {
             const index = dbSkills.findIndex((s: any) => s.id === skill.id);
             if (index === -1) {
                 dbSkills.push(skill);
                 modified = true;
-            } else {
-                // Opcjonalnie: aktualizuj parametry istniejącego skilla
-                // dbSkills[index] = { ...dbSkills[index], ...skill };
-                // modified = true;
             }
         }
 
@@ -231,7 +252,7 @@ export const initializeDatabase = async () => {
             console.log("[DB] Umiejętności zsynchronizowane.");
         }
 
-        console.log("[DB] Baza gotowa.");
+        console.log("[DB] Inicjalizacja bazy zakończona pomyślnie.");
 
     } catch (e) {
         console.error("[DB] Błąd inicjalizacji:", e);
