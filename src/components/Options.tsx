@@ -26,7 +26,6 @@ export const Options: React.FC = () => {
   // Email State
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
-  // Ensure we check if email is present (even if empty string somehow, treat as empty)
   const hasEmail = !!character.email && character.email.length > 0;
 
   const [saveProfileStatus, setSaveProfileStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -35,7 +34,6 @@ export const Options: React.FC = () => {
     setSaveProfileStatus('saving');
     setEmailStatus({ type: null, message: '' });
     
-    // Explicitly define update object to avoid type errors
     const updateData: any = {
         description,
         avatarUrl,
@@ -45,30 +43,22 @@ export const Options: React.FC = () => {
         }
     };
 
-    // Include email only if provided and not already set
     if (!hasEmail && email.trim()) {
         updateData.email = email.trim();
     }
 
     try {
         const updatedChar = await api.updateCharacter(updateData);
-        
-        // Optimistic update of email property if backend confirms update but doesn't return joined user data immediately
-        if (updateData.email && !updatedChar.email) {
-             updatedChar.email = updateData.email;
-        }
-
         updateCharacter(updatedChar);
         setSaveProfileStatus('saved');
         
         if (updateData.email) {
              setEmailStatus({ type: 'success', message: 'Email został przypisany do konta.' });
-             setEmail(''); // Clear input
+             setEmail('');
         }
 
         setTimeout(() => setSaveProfileStatus('idle'), 2000);
     } catch (e: any) {
-        // If it's an email conflict
         if (e.message && e.message.includes('email')) {
              setEmailStatus({ type: 'error', message: 'Ten email jest już zajęty.' });
         } else {
@@ -110,17 +100,17 @@ export const Options: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Column 1: Profile & General */}
           <div className="space-y-6">
-              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('options.profile.title')}</h3>
+              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 shadow-xl">
+                <h3 className="text-xl font-bold text-indigo-400 mb-6 border-b border-indigo-500/20 pb-2">{t('options.profile.title')}</h3>
                 
-                <div className="space-y-4">
+                <div className="space-y-5">
                     <div>
-                        <label htmlFor="language-select" className="block text-sm font-medium text-gray-300 mb-1">{t('options.language')}</label>
+                        <label htmlFor="language-select" className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.language')}</label>
                         <select
                         id="language-select"
                         value={selectedLang}
                         onChange={(e) => setSelectedLang(e.target.value as Language)}
-                        className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
                         >
                         <option value={Language.PL}>{t('languages.pl')}</option>
                         <option value={Language.EN}>{t('languages.en')}</option>
@@ -128,65 +118,65 @@ export const Options: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.profile.avatarUrl')}</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.profile.avatarUrl')}</label>
                         <div className="flex gap-4 items-start">
                             <input 
                                 type="text" 
                                 value={avatarUrl} 
                                 onChange={e => setAvatarUrl(e.target.value)} 
                                 placeholder="https://example.com/avatar.png"
-                                className="flex-grow bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                                className="flex-grow bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
                             />
                             {avatarUrl && (
-                                <img 
-                                    src={avatarUrl} 
-                                    alt="Preview" 
-                                    className="w-10 h-10 rounded-full object-cover border border-slate-500 bg-slate-900"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                />
+                                <div className="w-10 h-10 rounded-full border-2 border-indigo-500 overflow-hidden bg-slate-900 flex-shrink-0">
+                                    <img 
+                                        src={avatarUrl} 
+                                        alt="Preview" 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                                    />
+                                </div>
                             )}
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.profile.description')}</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.profile.description')}</label>
                         <textarea 
                             value={description} 
                             onChange={e => setDescription(e.target.value)} 
                             rows={4}
                             placeholder={t('options.profile.descriptionPlaceholder')}
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 resize-none"
                         />
                     </div>
                     
                     {/* Email Section */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Adres Email (Odzyskiwanie hasła)</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Adres Email (Odzyskiwanie)</label>
                         {hasEmail ? (
-                             <div className="w-full bg-slate-800/80 border border-green-700/50 rounded-md px-4 py-3 flex items-center justify-between">
-                                 <div className="flex items-center gap-2">
-                                     <span className="text-gray-200 font-mono">{character.email}</span>
-                                 </div>
-                                 <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold uppercase tracking-wider bg-green-900/30 px-2 py-1 rounded">
+                             <div className="w-full bg-slate-800/80 border border-green-700/50 rounded-lg px-4 py-3 flex items-center justify-between">
+                                 <span className="text-gray-200 font-mono text-sm">{character.email}</span>
+                                 <div className="flex items-center gap-1.5 text-green-400 text-[10px] font-black uppercase tracking-widest bg-green-900/30 px-2 py-1 rounded border border-green-500/20">
                                      <ShieldIcon className="h-3 w-3" />
                                      Zabezpieczone
                                  </div>
                              </div>
                         ) : (
-                            <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-700/30">
+                            <div className="space-y-2 bg-amber-900/10 p-3 rounded-lg border border-amber-700/30">
                                 <input 
                                     type="email" 
                                     value={email} 
                                     onChange={e => setEmail(e.target.value)} 
                                     placeholder="twoj@email.com"
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
                                     autoComplete="email"
                                 />
-                                <p className="text-xs text-amber-500 mt-1">
-                                    <strong>Uwaga:</strong> Adres email można przypisać do konta tylko raz. Służy on wyłącznie do odzyskiwania hasła.
+                                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-tight">
+                                    Uwaga: Email służy wyłącznie do odzyskiwania hasła.
                                 </p>
                                 {emailStatus.message && (
-                                    <p className={`text-xs ${emailStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                                    <p className={`text-xs font-bold ${emailStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
                                         {emailStatus.message}
                                     </p>
                                 )}
@@ -194,84 +184,84 @@ export const Options: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="flex justify-end items-center h-10 pt-2 border-t border-slate-700/50">
-                        {saveProfileStatus === 'saved' && <p className="text-green-400 mr-4 animate-fade-in">{t('options.saveSuccess')}</p>}
+                    <div className="flex justify-end items-center pt-4 border-t border-slate-700/50">
+                        {saveProfileStatus === 'saved' && <p className="text-green-400 font-bold text-sm mr-4 animate-fade-in">Profil zaktualizowany!</p>}
                         <button
-                        onClick={handleSaveProfile}
-                        disabled={saveProfileStatus !== 'idle'}
-                        className="px-6 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                            onClick={handleSaveProfile}
+                            disabled={saveProfileStatus !== 'idle'}
+                            className="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest disabled:bg-slate-700 disabled:text-gray-500 transition-all shadow-lg active:scale-95"
                         >
-                        {saveProfileStatus === 'saving' ? t('admin.general.saving') + '...' : t('options.save')}
+                            {saveProfileStatus === 'saving' ? 'Zapisywanie...' : 'Zapisz Zmiany'}
                         </button>
                     </div>
                 </div>
               </div>
               
               <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
-                  <h3 className="text-xl font-bold text-gray-300 mb-4">Debugowanie</h3>
+                  <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">Pomoc techniczna</h3>
                   <button 
                     onClick={handleSyncTime}
-                    className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold text-white transition-colors"
+                    className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-black uppercase tracking-widest text-white transition-all"
                   >
-                      Synchronizuj Zegar (Napraw Błędy Czasu)
+                      Synchronizuj Zegar
                   </button>
-                  <p className="text-xs text-gray-500 mt-2">Użyj tej opcji, jeśli liczniki czasu (wyprawy, polowania) nie zgadzają się z rzeczywistością.</p>
+                  <p className="text-[10px] text-gray-500 mt-2 italic">Użyj tej opcji, jeśli liczniki czasu (wyprawy, polowania) nie zgadzają się z rzeczywistością.</p>
               </div>
           </div>
 
           {/* Column 2: Security */}
           <div>
-              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-xl font-bold text-red-400 mb-4">{t('options.security.title')}</h3>
+              <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 shadow-xl">
+                <h3 className="text-xl font-bold text-red-400 mb-6 border-b border-red-500/20 pb-2">{t('options.security.title')}</h3>
                 
                 <form onSubmit={handleChangePassword} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.oldPassword')}</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.security.oldPassword')}</label>
                         <input 
                             type="password" 
                             value={oldPassword} 
                             onChange={e => setOldPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                             required
                             autoComplete="current-password"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.newPassword')}</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.security.newPassword')}</label>
                         <input 
                             type="password" 
                             value={newPassword} 
                             onChange={e => setNewPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                             required
                             autoComplete="new-password"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">{t('options.security.confirmPassword')}</label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.security.confirmPassword')}</label>
                         <input 
                             type="password" 
                             value={confirmPassword} 
                             onChange={e => setConfirmPassword(e.target.value)} 
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                             required
                             autoComplete="new-password"
                         />
                     </div>
 
                     {passwordStatus.message && (
-                        <div className={`p-2 rounded text-center text-sm ${passwordStatus.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                        <div className={`p-2 rounded-lg text-center text-xs font-bold uppercase tracking-tight ${passwordStatus.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
                             {passwordStatus.message}
                         </div>
                     )}
 
-                    <div className="flex justify-end pt-2 border-t border-slate-700/50">
+                    <div className="flex justify-end pt-4 border-t border-slate-700/50">
                         <button
                         type="submit"
                         disabled={!oldPassword || !newPassword || !confirmPassword}
-                        className="px-6 py-2 rounded-md bg-red-700 hover:bg-red-600 text-white font-bold disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                        className="px-8 py-3 rounded-xl bg-red-700 hover:bg-red-600 text-white font-black text-xs uppercase tracking-widest disabled:bg-slate-700 disabled:text-gray-500 transition-all shadow-lg active:scale-95"
                         >
-                        {t('options.security.changePassword')}
+                        Zmień Hasło
                         </button>
                     </div>
                 </form>

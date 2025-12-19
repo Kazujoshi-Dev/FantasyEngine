@@ -11,7 +11,7 @@ import campRoutes from './character/camp.js';
 import storageRoutes from './character/storage.js';
 import skillsRoutes from './character/skills.js';
 import loadoutsRoutes from './character/loadouts.js';
-import equipmentRoutes from './character/equipment.js'; // Dodano
+import equipmentRoutes from './character/equipment.js';
 
 const router = express.Router();
 
@@ -82,6 +82,40 @@ router.get('/', async (req: any, res: any) => {
     }
 });
 
+// POST /api/character/update-profile - Aktualizacja profilu (Avatar, Opis, Settings)
+router.post('/update-profile', async (req: any, res: any) => {
+    const { description, avatarUrl, settings, email } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const character = charRes.rows[0].data;
+        
+        if (description !== undefined) character.description = description;
+        if (avatarUrl !== undefined) character.avatarUrl = avatarUrl;
+        if (settings !== undefined) character.settings = { ...character.settings, ...settings };
+        
+        // Aktualizacja danych w tabeli characters
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        
+        // Opcjonalna aktualizacja emaila w tabeli users
+        if (email) {
+            await client.query('UPDATE users SET email = $1 WHERE id = $2', [email, req.user.id]);
+        }
+
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // POST /api/character - Tworzenie nowej postaci
 router.post('/', async (req: any, res: any) => {
     const { name, race, startLocationId } = req.body;
@@ -113,7 +147,7 @@ router.post('/', async (req: any, res: any) => {
             experienceToNextLevel: 100,
             stats: {
                 strength: 1, agility: 1, accuracy: 1, stamina: 1, intelligence: 1, energy: 1, luck: 1,
-                statPoints: 20, // PRZYZNANO 20 PUNKTÓW NA START
+                statPoints: 20,
                 currentHealth: 60, maxHealth: 60,
                 currentMana: 30, maxMana: 30,
                 currentEnergy: 10, maxEnergy: 10,
@@ -173,6 +207,6 @@ router.use('/camp', campRoutes);
 router.use('/storage', storageRoutes);
 router.use('/skills', skillsRoutes);
 router.use('/loadouts', loadoutsRoutes);
-router.use('/', equipmentRoutes); // Rejestracja logiki ekwipunku
+router.use('/', equipmentRoutes);
 
 export default router;

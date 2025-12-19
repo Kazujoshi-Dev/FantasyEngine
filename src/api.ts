@@ -70,7 +70,7 @@ export const api = {
     // Character
     getCharacter: () => fetchApi('/character'),
     createCharacter: (name: string, race: Race, startLocationId: string) => fetchApi('/character', { method: 'POST', body: JSON.stringify({ name, race, startLocationId }) }),
-    updateCharacter: (data: any) => fetchApi(`/character/${data.id}/update-details`, { method: 'POST', body: JSON.stringify(data) }).then(() => fetchApi('/character')),
+    updateCharacter: (data: any) => fetchApi('/character/update-profile', { method: 'POST', body: JSON.stringify(data) }),
     equipItem: (itemId: string) => fetchApi('/character/equip', { method: 'POST', body: JSON.stringify({ itemId }) }),
     unequipItem: (slot: string) => fetchApi('/character/unequip', { method: 'POST', body: JSON.stringify({ slot }) }),
     
