@@ -53,34 +53,74 @@ export const getActiveRaids = async (guildId: number) => {
     };
 };
 
-export const createRaid = async (attackerGuildId: number, leaderId: number, defenderGuildId: number, type: RaidType) => {
+export const createRaid = async (attackerGuildId: number, initiatorId: number, defenderGuildId: number, type: RaidType) => {
     if (attackerGuildId === defenderGuildId) throw new Error("Cannot raid yourself");
     
-    const targetRes = await pool.query('SELECT 1 FROM guilds WHERE id = $1', [defenderGuildId]);
-    if (targetRes.rowCount === 0) throw new Error("Target guild not found");
+    // 1. Fetch both guilds to get leaders
+    const guildsRes = await pool.query(
+        'SELECT id, leader_id FROM guilds WHERE id IN ($1, $2)', 
+        [attackerGuildId, defenderGuildId]
+    );
+    
+    if (guildsRes.rowCount! < 2) throw new Error("One of the guilds was not found");
+    
+    const attackerGuild = guildsRes.rows.find(r => Number(r.id) === Number(attackerGuildId));
+    const defenderGuild = guildsRes.rows.find(r => Number(r.id) === Number(defenderGuildId));
+    
+    const attackerLeaderId = attackerGuild.leader_id;
+    const defenderLeaderId = defenderGuild.leader_id;
 
+    // 2. Check for existing active raid
     const existing = await pool.query(
         "SELECT 1 FROM guild_raids WHERE status = 'PREPARING' AND ((attacker_guild_id = $1 AND defender_guild_id = $2) OR (attacker_guild_id = $2 AND defender_guild_id = $1))",
         [attackerGuildId, defenderGuildId]
     );
     if (existing.rowCount! > 0) throw new Error("A raid is already being prepared between these guilds");
 
-    const startTime = new Date(Date.now() + 30 * 60 * 1000); 
-    
-    const leaderChar = await pool.query('SELECT data FROM characters WHERE user_id = $1', [leaderId]);
-    const char = leaderChar.rows[0].data;
-    const participant: RaidParticipant = {
-        userId: leaderId,
-        name: char.name,
-        level: char.level,
-        race: char.race,
-        characterClass: char.characterClass
+    // 3. Fetch character data for initiator and leaders
+    const participantsToFetch = Array.from(new Set([initiatorId, attackerLeaderId, defenderLeaderId]));
+    const charRes = await pool.query(
+        'SELECT user_id, data FROM characters WHERE user_id = ANY($1)', 
+        [participantsToFetch]
+    );
+
+    const getParticipantData = (uid: number): RaidParticipant | null => {
+        const row = charRes.rows.find(r => r.user_id === uid);
+        if (!row) return null;
+        const char = row.data;
+        return {
+            userId: uid,
+            name: char.name,
+            level: char.level,
+            race: char.race,
+            characterClass: char.characterClass
+        };
     };
 
+    // 4. Assign to respective lists
+    const attackerList: RaidParticipant[] = [];
+    const defenderList: RaidParticipant[] = [];
+
+    // Defending Leader is automatic
+    const defLeader = getParticipantData(defenderLeaderId);
+    if (defLeader) defenderList.push(defLeader);
+
+    // Attacking Leader is automatic
+    const attLeader = getParticipantData(attackerLeaderId);
+    if (attLeader) attackerList.push(attLeader);
+
+    // Initiator (if different from leader) is automatic for attackers
+    if (initiatorId !== attackerLeaderId) {
+        const initData = getParticipantData(initiatorId);
+        if (initData) attackerList.push(initData);
+    }
+
+    const startTime = new Date(Date.now() + 30 * 60 * 1000); 
+
     const res = await pool.query(
-        `INSERT INTO guild_raids (attacker_guild_id, defender_guild_id, status, raid_type, start_time, attacker_participants) 
-         VALUES ($1, $2, 'PREPARING', $3, $4, $5) RETURNING *`,
-        [attackerGuildId, defenderGuildId, type, startTime, JSON.stringify([participant])]
+        `INSERT INTO guild_raids (attacker_guild_id, defender_guild_id, status, raid_type, start_time, attacker_participants, defender_participants) 
+         VALUES ($1, $2, 'PREPARING', $3, $4, $5, $6) RETURNING *`,
+        [attackerGuildId, defenderGuildId, type, startTime, JSON.stringify(attackerList), JSON.stringify(defenderList)]
     );
     return res.rows[0];
 };
