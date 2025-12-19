@@ -16,7 +16,6 @@ export const rarityStyles = {
     [ItemRarity.Legendary]: { border: 'border-amber-600', bg: 'bg-amber-950', shadow: 'shadow-md shadow-amber-500/10', text: 'text-amber-400' },
 };
 
-// Pomocnicza funkcja do wyciągania sumarycznych statystyk instancji przedmiotu
 const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
@@ -88,16 +87,12 @@ export const ItemDetailsPanel: React.FC<{
     title?: string;
     compact?: boolean;
     compareWith?: ItemInstance | null;
-    itemTemplates?: ItemTemplate[]; // Added prop to fix missing lookup
+    itemTemplates?: ItemTemplate[];
 }> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith, itemTemplates = [] }) => {
     const { t } = useTranslation();
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
     
-    // Total stats calculation moved inside to fix context reference if needed
-    const itemTotalStats = useMemo(() => item && template ? getItemTotalStats(item, template) : null, [item, template]);
-    
-    // Fixed: Use itemTemplates prop instead of non-existent gameData
     const compareTotalStats = useMemo(() => {
         if (!compareWith || !itemTemplates || itemTemplates.length === 0) return null;
         const compTemplate = itemTemplates.find(t => t.id === compareWith.templateId);
@@ -116,8 +111,17 @@ export const ItemDetailsPanel: React.FC<{
         const upgradeFactor = isAffix ? Math.min(upgradeLevel, 5) * 0.1 : upgradeLevel * 0.1;
         const s = source as any;
 
+        const checkPerfect = (key: string, value: number, isAttribute: boolean = false): boolean => {
+            if (!metadata) return false;
+            let metaVal = isAttribute ? metadata.statsBonus?.[key] : metadata[key];
+            if (!metaVal) return false;
+            const maxVal = typeof metaVal === 'number' ? metaVal : metaVal.max;
+            return value >= maxVal;
+        };
+
         const renderStat = (label: string, value: number, compareKey: string, isPercent = false, isAttribute = false) => {
             const finalVal = Math.round(value * (1 + upgradeFactor) * 10) / 10;
+            const isPerfect = checkPerfect(compareKey, value, isAttribute);
             let delta = 0;
             
             if (compareTotalStats) {
@@ -128,8 +132,11 @@ export const ItemDetailsPanel: React.FC<{
             }
 
             return (
-                <p key={label} className="flex justify-between items-center">
-                    <span>{label}:</span>
+                <p key={label} className={`flex justify-between items-center ${isPerfect ? 'text-amber-400 font-bold' : ''}`}>
+                    <span className="flex items-center gap-1">
+                        {label}:
+                        {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 animate-pulse" />}
+                    </span>
                     <span className="font-mono flex items-center gap-1">
                         {isPercent ? `${finalVal.toFixed(1)}%` : Math.round(finalVal)}
                         {compareTotalStats && delta !== 0 && (
@@ -166,10 +173,20 @@ export const ItemDetailsPanel: React.FC<{
     return (
         <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-1' : 'pr-2'}`}>
+                {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-indigo-400 mb-2">{title}</h5>}
                 <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-lg mb-1' : 'text-xl mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
-                {showIcon && template.icon && <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto mb-4 bg-slate-900 rounded-lg p-2 border border-white/5" />}
+                {showIcon && template.icon && (
+                    <div className="relative group">
+                        <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto mb-4 bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
+                        {item.crafterName && (
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
+                                WYKUTY PRZEZ: {item.crafterName.toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+                )}
                 
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={t('admin.affix.prefix')} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
@@ -192,7 +209,7 @@ export const ItemListItem: React.FC<{
     onMouseEnter?: (e: React.MouseEvent) => void;
     onMouseLeave?: (e: React.MouseEvent) => void;
     className?: string;
-    price?: number; // Added prop for price display
+    price?: number;
 }> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price }) => {
     const style = rarityStyles[template.rarity];
     const upgradeLevel = item.upgradeLevel || 0;
@@ -243,7 +260,7 @@ export const ItemTooltip: React.FC<{
     compareWith?: ItemInstance | null;
     x?: number;
     y?: number;
-    itemTemplates?: ItemTemplate[]; // Added prop to support comparison lookups
+    itemTemplates?: ItemTemplate[];
 }> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [] }) => {
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
     
@@ -253,36 +270,49 @@ export const ItemTooltip: React.FC<{
             return;
         }
 
-        const tooltipWidth = 300;
+        const tooltipWidth = compareWith ? 620 : 300;
         let finalX = x + 20;
         let finalY = y + 20;
 
         if (finalX + tooltipWidth > window.innerWidth) finalX = x - tooltipWidth - 20;
-        if (finalY + 400 > window.innerHeight) finalY = window.innerHeight - 420;
+        if (finalY + 450 > window.innerHeight) finalY = window.innerHeight - 470;
 
         setStyle({ left: `${finalX}px`, top: `${finalY}px`, visibility: 'visible', width: `${tooltipWidth}px` });
-    }, [x, y]);
+    }, [x, y, compareWith]);
+
+    const compareTemplate = compareWith ? itemTemplates.find(t => t.id === compareWith.templateId) : null;
 
     return (
         <div 
-            className={`${x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block'} z-[9999] bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in`}
+            className={`${x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block'} z-[9999] bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4`}
             style={style}
         >
-            <ItemDetailsPanel 
-                item={instance} 
-                template={template} 
-                affixes={affixes} 
-                size="small" 
-                compact={true} 
-                character={character} 
-                compareWith={compareWith} 
-                itemTemplates={itemTemplates} 
-            />
-            {compareWith && (
-                <div className="mt-3 pt-2 border-t border-white/10 text-center">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Tryb Porównania Aktywny</span>
+            {compareWith && compareTemplate && (
+                <div className="w-[280px] border-r border-white/5 pr-4">
+                    <ItemDetailsPanel 
+                        item={compareWith} 
+                        template={compareTemplate} 
+                        affixes={affixes} 
+                        size="small" 
+                        compact={true} 
+                        title="OBECNIE ZAŁOŻONY"
+                        itemTemplates={itemTemplates}
+                    />
                 </div>
             )}
+            <div className={compareWith ? 'w-[280px]' : 'w-full'}>
+                <ItemDetailsPanel 
+                    item={instance} 
+                    template={template} 
+                    affixes={affixes} 
+                    size="small" 
+                    compact={true} 
+                    character={character} 
+                    compareWith={compareWith} 
+                    itemTemplates={itemTemplates} 
+                    title={compareWith ? "NOWY PRZEDMIOT" : undefined}
+                />
+            </div>
         </div>
     );
 };
@@ -294,7 +324,7 @@ export const ItemList: React.FC<{
     selectedItem: ItemInstance | null;
     onSelectItem: (item: ItemInstance) => void;
     selectedIds?: Set<string>;
-    priceSelector?: (item: ItemInstance) => number; // Added prop for price calculation
+    priceSelector?: (item: ItemInstance) => number;
 }> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, priceSelector }) => (
     <div className="space-y-1">
         {items.map(item => {

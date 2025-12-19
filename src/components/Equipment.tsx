@@ -139,7 +139,7 @@ export const Equipment: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Arkusz Statystyk Bojowych (Środek) */}
+                {/* Statystyki Bojowe */}
                 <div className="xl:col-span-4 bg-[#0d111a] p-6 rounded-2xl border border-fantasy-gold/20 flex flex-col min-h-0 shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none"></div>
                     <div className="relative z-10 flex flex-col h-full">
@@ -194,7 +194,7 @@ export const Equipment: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Backpack Area */}
+                {/* Plecak */}
                 <div className="xl:col-span-5 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm fantasy-header font-black text-sky-400 uppercase tracking-widest">Plecak</h3>
@@ -203,7 +203,6 @@ export const Equipment: React.FC = () => {
                         </span>
                     </div>
 
-                    {/* Inventory Filters */}
                     <div className="flex gap-2 mb-4">
                         <select 
                             value={filterSlot} 
