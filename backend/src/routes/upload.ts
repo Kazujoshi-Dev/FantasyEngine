@@ -3,16 +3,14 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Adjust path to point to project root/uploads. Assuming dist structure is dist/routes/upload.js
-const uploadDir = path.join(__dirname, '../../../uploads');
+// Robust path resolution based on process CWD
+const projectRoot = path.resolve('..'); // CWD is /app/backend, so '..' gives /app
+const uploadDir = path.join(projectRoot, 'uploads');
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });

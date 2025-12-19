@@ -40,9 +40,6 @@ import expeditionRoutes from './routes/expedition.js';
 import towerRoutes from './routes/towers.js';
 import espionageRoutes from './routes/espionage.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const httpServer = createServer(app);
 
@@ -162,10 +159,13 @@ io.on('connection', (socket) => {
     });
 });
 
-const distPath = path.join(__dirname, '../../dist');
+// Robust path resolution based on process CWD
+const projectRoot = path.resolve('..'); // CWD is /app/backend, so '..' gives /app
+const distPath = path.join(projectRoot, 'dist');
+const uploadsPath = path.join(projectRoot, 'uploads');
+
 app.use(express.static(distPath) as any);
 
-const uploadsPath = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsPath)) {
     fs.mkdirSync(uploadsPath, { recursive: true });
 }
