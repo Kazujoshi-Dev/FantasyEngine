@@ -160,7 +160,7 @@ io.on('connection', (socket) => {
 });
 
 // Robust path resolution based on process CWD
-const projectRoot = path.resolve('..'); // CWD is /app/backend, so '..' gives /app
+const projectRoot = path.resolve(process.cwd(), '..'); // CWD is /app/backend, so '..' gives /app
 const distPath = path.join(projectRoot, 'dist');
 const uploadsPath = path.join(projectRoot, 'uploads');
 

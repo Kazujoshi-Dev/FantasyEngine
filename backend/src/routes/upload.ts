@@ -9,7 +9,7 @@ import { pool } from '../db.js';
 const router = express.Router();
 
 // Robust path resolution based on process CWD
-const projectRoot = path.resolve('..'); // CWD is /app/backend, so '..' gives /app
+const projectRoot = path.resolve(process.cwd(), '..'); // CWD is /app/backend, so '..' gives /app
 const uploadDir = path.join(projectRoot, 'uploads');
 
 if (!fs.existsSync(uploadDir)) {
