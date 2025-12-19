@@ -94,6 +94,28 @@
         border: 1px solid rgba(212, 175, 55, 0.15);
       }
 
+      /* Slider styles */
+      .slider-viewport {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      
+      .slider-track {
+        display: flex;
+        height: 100%;
+        transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform;
+      }
+      
+      .slider-image {
+        flex-shrink: 0;
+        height: 100%;
+        object-fit: cover;
+        cursor: pointer;
+      }
+
       /* Custom scrollbar */
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
