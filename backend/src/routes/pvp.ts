@@ -1,8 +1,7 @@
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass, GuildBuff } from '../types.js';
+import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass, GuildBuff, CombatType } from '../types.js';
 import { calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
@@ -150,7 +149,8 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             combatLog,
             isVictory,
             attacker: attackerWithStats,
-            defender: defenderWithStats
+            defender: defenderWithStats,
+            combatType: CombatType.PVP
         };
 
         // Create messages for both players with limit enforcement
