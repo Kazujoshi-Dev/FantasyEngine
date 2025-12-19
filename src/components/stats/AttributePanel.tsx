@@ -92,21 +92,28 @@ export const AttributePanel: React.FC<{
         } catch (e: any) { alert(e.message); }
     };
 
+    const primaryStatKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+
+    // Obliczanie aktualnego kosztu resetu dla UI
+    const currentResetInfo = useMemo(() => {
+        let distributedPoints = 0;
+        primaryStatKeys.forEach(k => {
+            distributedPoints += (baseCharacter.stats[k] - 1);
+        });
+        const resetsUsed = baseCharacter.resetsUsed || 0;
+        const cost = resetsUsed === 0 ? 0 : distributedPoints * 1000;
+        return { cost, resetsUsed };
+    }, [baseCharacter, primaryStatKeys]);
+
     const handleReset = async () => {
         if (spentPoints !== 0) {
             alert(t('statistics.reset.applyChangesFirst'));
             return;
         }
 
-        const primaryStatKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
-        let distributedPoints = 0;
-        primaryStatKeys.forEach(k => {
-            distributedPoints += (baseCharacter.stats[k] - 1);
-        });
-
-        const resetsUsed = baseCharacter.resetsUsed || 0;
-        const cost = resetsUsed === 0 ? 0 : distributedPoints * 1000;
-        const costText = resetsUsed === 0 ? t('statistics.reset.free') : t('statistics.reset.cost', { cost: cost.toLocaleString() });
+        const costText = currentResetInfo.resetsUsed === 0 
+            ? t('statistics.reset.free') 
+            : t('statistics.reset.cost', { cost: currentResetInfo.cost.toLocaleString() });
 
         if (window.confirm(t('statistics.reset.confirm', { costText }))) {
             try {
@@ -126,8 +133,6 @@ export const AttributePanel: React.FC<{
         gameData.skills, character.activeGuildBuffs
     ), [baseCharacter, pendingStats, gameData, character]);
 
-    const baseStatKeys = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'] as (keyof CharacterStats)[];
-
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
             {/* Kolumna 1: Atrybuty Podstawowe */}
@@ -139,18 +144,25 @@ export const AttributePanel: React.FC<{
                     </div>
                 )}
                 <div className="space-y-1 flex-grow">
-                    {baseStatKeys.map(key => {
-                        const pendingValue = Number(pendingStats[key]) || 0;
+                    {primaryStatKeys.map(key => {
                         const baseValue = Number(baseCharacter.stats[key]) || 0;
+                        const pendingValue = Number(pendingStats[key]) || 0;
                         const itemBonus = (Number(character.stats[key]) || 0) - baseValue;
+                        const totalValue = pendingValue + itemBonus;
+
                         return (
                             <StatRow
                                 key={key}
                                 label={t(`statistics.${key}`)}
                                 value={
                                     <div className="flex items-baseline justify-end">
-                                        <span className="font-mono text-lg font-bold text-white">{pendingValue}</span>
-                                        {itemBonus > 0 && <span className="font-mono text-base text-green-400 ml-2">(+{itemBonus})</span>}
+                                        <span className="text-gray-400 mr-1">{pendingValue}</span>
+                                        {itemBonus > 0 && (
+                                            <>
+                                                <span className="text-green-400 text-xs">(+{itemBonus})</span>
+                                                <span className="text-sky-400 ml-1">({totalValue})</span>
+                                            </>
+                                        )}
                                     </div>
                                 }
                                 onIncrease={() => handleStatChange(key, 1)}
@@ -170,15 +182,23 @@ export const AttributePanel: React.FC<{
                             <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
                         </div>
                     ) : (
-                        <button 
-                            onClick={handleReset} 
-                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-gray-400 transition-colors uppercase font-bold tracking-widest"
-                        >
-                            {t('statistics.reset.button')}
-                        </button>
-                    )}
-                    {(baseCharacter.resetsUsed || 0) === 0 && (
-                        <p className="text-[10px] text-gray-500 text-center italic">{t('statistics.reset.freeResetNote')}</p>
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={handleReset} 
+                                className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-gray-400 transition-colors uppercase font-bold tracking-widest"
+                            >
+                                {t('statistics.reset.button')}
+                            </button>
+                            <div className="text-center">
+                                {currentResetInfo.resetsUsed === 0 ? (
+                                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-tight">{t('statistics.reset.freeResetNote')}</p>
+                                ) : (
+                                    <p className="text-[10px] text-gray-500">
+                                        Koszt kolejnego resetu: <span className="text-amber-500 font-mono font-bold">{currentResetInfo.cost.toLocaleString()} złota</span>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
