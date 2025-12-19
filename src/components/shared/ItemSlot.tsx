@@ -122,12 +122,22 @@ export const ItemDetailsPanel: React.FC<{
             return value >= (metaVal.max || 0);
         };
 
-        const renderStat = (label: string, value: number | [number, number], compareKey: string | [string, string], isPercent = false, isAttribute = false) => {
+        const renderStat = (label: string, value: number | [number, number], compareKey: string | [string, string], isPercent = false, isAttribute = false, noScale = false) => {
             const isRange = Array.isArray(value);
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
-            const finalVal1 = Math.round(val1 * (1 + upgradeFactor));
-            const finalVal2 = isRange ? Math.round(val2 * (1 + upgradeFactor)) : 0;
+            
+            // APR i inne statystyki oznaczone jako noScale nie otrzymują bonusu z ulepszenia
+            const currentFactor = noScale ? 0 : upgradeFactor;
+            
+            // Szybkość ataku i procenty wyświetlamy z dokładnością do 2 miejsc, resztę zaokrąglamy
+            const formatValue = (v: number) => {
+                const scaled = v * (1 + currentFactor);
+                return (noScale || isPercent || scaled % 1 !== 0) ? parseFloat(scaled.toFixed(2)) : Math.round(scaled);
+            };
+
+            const finalVal1 = formatValue(val1);
+            const finalVal2 = isRange ? formatValue(val2) : 0;
             
             const isPerfect = isRange 
                 ? (checkPerfect((compareKey as [string, string])[0], val1) && checkPerfect((compareKey as [string, string])[1], val2))
@@ -137,13 +147,15 @@ export const ItemDetailsPanel: React.FC<{
             if (compareTotalStats) {
                 if (isRange) {
                     const ck = compareKey as [string, string];
-                    const compVal1 = Math.round((compareTotalStats[ck[0]] || 0));
-                    const compVal2 = Math.round((compareTotalStats[ck[1]] || 0));
+                    const compVal1 = formatValue(compareTotalStats[ck[0]] || 0);
+                    const compVal2 = formatValue(compareTotalStats[ck[1]] || 0);
                     delta = (finalVal1 + finalVal2) / 2 - (compVal1 + compVal2) / 2;
                 } else {
                     const ck = compareKey as string;
                     const compVal = isAttribute ? (compareTotalStats.statsBonus?.[ck] || 0) : (compareTotalStats[ck] || 0);
-                    delta = finalVal1 - Math.round(compVal);
+                    // Dla porównania używamy tej samej logiki noScale
+                    const scaledCompVal = noScale ? compVal : compVal * (1 + currentFactor);
+                    delta = finalVal1 - scaledCompVal;
                 }
             }
 
@@ -154,9 +166,9 @@ export const ItemDetailsPanel: React.FC<{
                     </span>
                     <span className={`font-mono flex items-center gap-1 ${isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse' : 'text-gray-200'}`}>
                         {isRange ? `${finalVal1} - ${finalVal2}` : isPercent ? `${finalVal1}%` : finalVal1}
-                        {compareTotalStats && Math.round(delta) !== 0 && (
+                        {compareTotalStats && Math.abs(delta) > 0.01 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                ({delta > 0 ? '+' : ''}{Math.round(delta)})
+                                ({delta > 0 ? '+' : ''}{parseFloat(delta.toFixed(2))})
                             </span>
                         )}
                         {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 ml-1" />}
@@ -173,8 +185,15 @@ export const ItemDetailsPanel: React.FC<{
         }
         if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
-        if (!isAffix && (metadata as ItemTemplate).attacksPerRound) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound'));
-        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
+        
+        // Ataki na rundę nie skalują się u kowala - ustawiamy noScale: true
+        if (!isAffix && (metadata as ItemTemplate).attacksPerRound) {
+            entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
+        }
+        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) {
+            entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
+        }
+
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
