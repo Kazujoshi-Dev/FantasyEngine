@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Skill, SkillCategory, SkillCost, SkillRequirements, SkillType, CharacterStats, EssenceType, CharacterClass } from '../types';
+import { Skill, SkillCategory, SkillType, CharacterStats, EssenceType, CharacterClass, Race } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
 import { CoinsIcon } from './icons/CoinsIcon';
@@ -18,9 +18,9 @@ const SkillCard: React.FC<{
     const isLearned = (character.learnedSkills || []).includes(skill.id);
     
     // Check Stats Requirements
-    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const statOrder: (keyof Skill['requirements'])[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
     const statsReqsMet = statOrder.every((req) => {
-        const val = skill.requirements[req];
+        const val = (skill.requirements as any)[req];
         if (val === undefined) return true;
         const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
         return playerVal >= val;
@@ -31,7 +31,8 @@ const SkillCard: React.FC<{
     const reqRace = skill.requirements.race;
     
     let classMatch = !reqClass || character.characterClass === reqClass;
-    // Special handling for multi-class skills like Dual Wield
+    
+    // Special handling for multi-class skills
     if (skill.id === 'dual-wield-mastery') {
         const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
         classMatch = !!character.characterClass && allowed.includes(character.characterClass);
@@ -72,11 +73,11 @@ const SkillCard: React.FC<{
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                         {reqClass && (
                             <p className={`text-xs ${classMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>
-                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa' : t(`class.${reqClass}`)}
+                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa (Woj/Łotr/Bers/Złodz)' : t(`class.${reqClass}`)}
                             </p>
                         )}
                         {statOrder.map(req => {
-                            const val = skill.requirements[req];
+                            const val = (skill.requirements as any)[req];
                             if (val === undefined) return null;
                             const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
                             const isMet = playerVal >= val;
@@ -95,7 +96,7 @@ const SkillCard: React.FC<{
                         <div className="flex flex-wrap gap-3">
                             {Object.entries(skill.cost).map(([res, val]) => {
                                 if (!val) return null;
-                                const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= val;
+                                const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= (val as number);
                                 const isGold = res === 'gold';
                                 return (
                                     <div key={res} className="flex items-center gap-1">
@@ -146,7 +147,7 @@ export const University: React.FC = () => {
 
     return (
         <ContentPanel title={t('university.title')}>
-            {/* Nagłówek z zasobami */}
+            {/* Header with resources */}
             <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700 mb-6 flex flex-wrap justify-center gap-6">
                 <div className="flex items-center gap-2">
                     <CoinsIcon className="h-5 w-5 text-amber-500" />
@@ -155,12 +156,12 @@ export const University: React.FC = () => {
                 {Object.values(EssenceType).map(e => (
                     <div key={e} className="flex items-center gap-2">
                         <StarIcon className={`h-4 w-4 ${rarityStyles[e === EssenceType.Common ? 'Common' : e === EssenceType.Uncommon ? 'Uncommon' : e === EssenceType.Rare ? 'Rare' : e === EssenceType.Epic ? 'Epic' : 'Legendary'].text}`} />
-                        <span className="font-mono font-bold text-white text-sm">{character.resources[e] || 0}</span>
+                        <span className="font-mono font-bold text-white text-sm">{(character.resources as any)[e] || 0}</span>
                     </div>
                 ))}
             </div>
 
-            {/* Nawigacja główna */}
+            {/* Navigation */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
                     {Object.values(SkillType).map(type => (

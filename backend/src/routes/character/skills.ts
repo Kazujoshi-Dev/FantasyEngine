@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { pool } from '../../db.js';
-import { PlayerCharacter, Skill, CharacterClass, EssenceType } from '../../types.js';
+import { PlayerCharacter, Skill, CharacterClass, EssenceType, ItemTemplate } from '../../types.js';
 import { calculateDerivedStatsOnServer } from '../../logic/stats.js';
 
 const router = express.Router();
@@ -12,7 +12,6 @@ router.post('/learn', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
-        // 1. Pobierz postać i dane gry
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         if (charRes.rows.length === 0) throw new Error("Character not found");
         const character: PlayerCharacter = charRes.rows[0].data;
@@ -26,24 +25,18 @@ router.post('/learn', async (req: any, res: any) => {
         if (!character.learnedSkills) character.learnedSkills = [];
         if (character.learnedSkills.includes(skillId)) throw new Error("Ta umiejętność jest już znana.");
 
-        // 2. Walidacja wymagań (Serwerowa)
-        // Check Level
-        if (character.level < (skill.requirements.level || 0)) throw new Error("Zbyt niski poziom.");
-        
-        // Check Class/Race
-        if (skill.requirements.characterClass && character.characterClass !== skill.requirements.characterClass) {
-             // Specjalny wyjątek dla dual-wield-mastery zdefiniowany w db.ts (obsługa wielu klas)
-             if (skillId === 'dual-wield-mastery') {
-                const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
-                if (!character.characterClass || !allowed.includes(character.characterClass)) {
-                    throw new Error("Twoja klasa nie pozwala na naukę tej umiejętności.");
-                }
-             } else {
-                throw new Error("Nieprawidłowa klasa postaci.");
-             }
+        // Multi-Class check for Dual Wield
+        if (skillId === 'dual-wield-mastery') {
+            const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
+            if (!character.characterClass || !allowed.includes(character.characterClass)) {
+                throw new Error("Ta umiejętność jest dostępna tylko dla klas: Wojownik, Łotrzyk, Berserker, Złodziej.");
+            }
+        } else if (skill.requirements.characterClass && character.characterClass !== skill.requirements.characterClass) {
+            throw new Error("Nieprawidłowa klasa postaci.");
         }
 
-        // Check Stats (using Derived Stats for accuracy)
+        if (character.level < (skill.requirements.level || 0)) throw new Error("Zbyt niski poziom.");
+
         const gDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const gData = gDataRes.rows.reduce((acc: any, r: any) => ({ ...acc, [r.key]: r.data }), {});
         const derived = calculateDerivedStatsOnServer(character, gData.itemTemplates, gData.affixes, 0, 0, skills);
@@ -55,29 +48,22 @@ router.post('/learn', async (req: any, res: any) => {
             }
         }
 
-        // 3. Walidacja i pobranie kosztów
         if (skill.cost.gold && character.resources.gold < skill.cost.gold) throw new Error("Brak złota.");
-        
         for (const [resType, amount] of Object.entries(skill.cost)) {
             if (resType === 'gold') continue;
-            if ((character.resources as any)[resType] < (amount as number)) {
-                throw new Error(`Brak esencji: ${resType}`);
-            }
+            if ((character.resources as any)[resType] < (amount as number)) throw new Error(`Brak esencji: ${resType}`);
         }
 
-        // Pobranie zasobów
         if (skill.cost.gold) character.resources.gold -= skill.cost.gold;
         for (const [resType, amount] of Object.entries(skill.cost)) {
             if (resType === 'gold') continue;
             (character.resources as any)[resType] -= (amount as number);
         }
 
-        // 4. Finalizacja
         character.learnedSkills.push(skillId);
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         await client.query('COMMIT');
         res.json(character);
-
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
         res.status(400).json({ message: err.message }); 
@@ -96,16 +82,17 @@ router.post('/toggle', async (req: any, res: any) => {
         if (!char.learnedSkills?.includes(skillId)) throw new Error("Nie znasz tej umiejętności.");
         if (!char.activeSkills) char.activeSkills = [];
 
-        // Protection for dual wield un-toggle
+        // Dual Wield Deactivation Protection
         if (skillId === 'dual-wield-mastery' && !isActive) {
-            if (char.equipment?.offHand) {
-                 const gDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-                 const templates = gDataRes.rows[0].data;
-                 const offHandItem = char.equipment.offHand;
-                 const template = templates.find((t: any) => t.id === offHandItem.templateId);
-                 if (template && template.category === 'Weapon') {
-                     throw new Error("Najpierw zdejmij broń z drugiej ręki.");
-                 }
+            const offHandItem = char.equipment?.offHand;
+            if (offHandItem) {
+                const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+                const itemTemplates: ItemTemplate[] = gameDataRes.rows[0]?.data || [];
+                const template = itemTemplates.find(t => t.id === offHandItem.templateId);
+                
+                if (template && template.category === 'Weapon') {
+                    throw new Error("Najpierw musisz zdjąć broń z drugiej ręki, aby wyłączyć tę umiejętność.");
+                }
             }
         }
 
