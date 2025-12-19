@@ -91,7 +91,7 @@ export const api = {
     warehouseWithdraw: (itemId: string) => fetchApi('/character/storage/warehouse/withdraw', { method: 'POST', body: JSON.stringify({ itemId }) }),
     
     upgradeBackpack: () => fetchApi('/character/backpack/upgrade', { method: 'POST' }),
-    healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
+    healCharacter: () => fetchApi('/character/camp/heal', { method: 'POST' }),
 
     distributeStatPoints: (stats: Partial<CharacterStats>) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
     resetAttributes: () => fetchApi('/character/reset-stats', { method: 'POST' }),
