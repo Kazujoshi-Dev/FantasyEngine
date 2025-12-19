@@ -181,6 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             const Icon = item.icon;
                             const isActive = activeTab === item.tab;
                             const isDisabled = isLocked && item.tab !== Tab.Tower && item.tab !== Tab.Options;
+                            const isNotified = item.notification && !isDisabled;
 
                             return (
                                 <button
@@ -188,24 +189,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     disabled={isDisabled}
                                     onClick={() => { setActiveTab(item.tab); setIsMobileMenuOpen(false); }}
                                     className={`
-                                        group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
+                                        group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 border
                                         ${isActive 
-                                            ? 'bg-indigo-600/20 text-white border border-fantasy-gold/20 shadow-[0_0_15px_rgba(212,175,55,0.05)]' 
-                                            : isDisabled 
-                                                ? 'text-gray-700 cursor-not-allowed grayscale opacity-50'
-                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                            ? 'bg-indigo-600/20 text-white border-fantasy-gold/20 shadow-[0_0_15px_rgba(212,175,55,0.05)]' 
+                                            : isNotified
+                                                ? 'bg-fantasy-gold/10 text-fantasy-amber border-fantasy-gold/30 shadow-[0_0_12px_rgba(212,175,55,0.15)] animate-pulse'
+                                                : isDisabled 
+                                                    ? 'text-gray-700 cursor-not-allowed grayscale opacity-50 border-transparent'
+                                                    : 'text-gray-400 hover:bg-white/5 hover:text-white border-transparent'
                                         }
                                     `}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-1.5 rounded-md transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'}`}>
+                                        <div className={`p-1.5 rounded-md transition-colors ${
+                                            isActive 
+                                                ? 'bg-indigo-600 text-white' 
+                                                : isNotified
+                                                    ? 'bg-fantasy-gold/20 text-fantasy-amber'
+                                                    : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'
+                                        }`}>
                                             <Icon className="h-4 w-4" />
                                         </div>
                                         <span className="font-medieval">{item.label}</span>
                                     </div>
-                                    {item.notification && !isDisabled && (
-                                        <span className="h-2 w-2 rounded-full bg-fantasy-amber shadow-[0_0_8px_#fbbf24] animate-pulse"></span>
-                                    )}
                                 </button>
                             );
                         })}
