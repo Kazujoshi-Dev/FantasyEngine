@@ -91,7 +91,7 @@ router.get('/my-guild', authenticateToken, async (req: any, res: any) => {
             WHERE gm.guild_id = $1
         `, [guild_id]);
 
-        // 4. Get Transactions (Last 50) - ZMAPOWANO created_at na timestamp
+        // 4. Get Transactions (Last 50)
         const transRes = await client.query(`
             SELECT t.id, t.guild_id, t.user_id, t.type, t.currency, t.amount, t.created_at as "timestamp", c.data->>'name' as "characterName"
             FROM guild_bank_history t
@@ -454,30 +454,21 @@ router.post('/armory/deposit', authenticateToken, async (req: any, res: any) => 
 });
 
 router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
-    const { itemId: armoryId } = req.body; // Map itemId from frontend to armoryId
+    const { armoryId } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
         const memberRes = await client.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
-        if (memberRes.rows.length === 0) {
-            await client.query('ROLLBACK');
-            return res.status(403).json({ message: 'Not in guild' });
-        }
+        if (memberRes.rows.length === 0) throw new Error('Not in guild');
         const guildId = memberRes.rows[0].guild_id;
 
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         const char = charRes.rows[0].data;
-        if (char.inventory.length >= getBackpackCapacity(char)) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Backpack full' });
-        }
+        if (char.inventory.length >= getBackpackCapacity(char)) throw new Error('Backpack full');
 
         const itemRes = await client.query('SELECT * FROM guild_armory_items WHERE id = $1 AND guild_id = $2 FOR UPDATE', [armoryId, guildId]);
-        if (itemRes.rows.length === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'Item not found in guild armory' });
-        }
+        if (itemRes.rows.length === 0) throw new Error('Item not found');
         
         const armoryEntry = itemRes.rows[0];
         const item = armoryEntry.item_data;
@@ -488,16 +479,14 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         const guildRes = await client.query('SELECT rental_tax, resources FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
         const guild = guildRes.rows[0];
         
+        // We need item value. Ideally stored on item or fetched from template. 
+        // For simplicity, we fetch template.
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
-        const templates = gameDataRes.rows[0]?.data || [];
-        const template = templates.find((t: any) => t.id === item.templateId);
+        const template = gameDataRes.rows[0].data.find((t: any) => t.id === item.templateId);
         const value = template ? template.value : 100;
         const tax = Math.ceil(value * (guild.rental_tax / 100));
 
-        if (char.resources.gold < tax) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'Not enough gold for rental tax' });
-        }
+        if (char.resources.gold < tax) throw new Error('Not enough gold for rental tax');
 
         // Process Transaction
         char.resources.gold -= tax;
@@ -522,7 +511,6 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         res.json({ message: 'Borrowed' });
     } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error(err);
         res.status(500).json({ message: err.message });
     } finally {
         client.release();
@@ -892,26 +880,39 @@ router.post('/espionage/start', authenticateToken, async (req: any, res: any) =>
         await client.query('BEGIN');
         
         const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
-        if (memberRes.rows.length === 0) throw new Error('Not in guild');
+        if (memberRes.rows.length === 0) {
+             await client.query('ROLLBACK');
+             return res.status(403).json({ message: 'Not in guild' });
+        }
         const { guild_id: guildId, role } = memberRes.rows[0];
 
-        if (role !== GuildRole.LEADER && role !== GuildRole.OFFICER) {
-             throw new Error('Only Leaders and Officers can send spies.');
+        if (!canManage(role as GuildRole)) {
+             await client.query('ROLLBACK');
+             return res.status(403).json({ message: 'Only Leaders and Officers can send spies.' });
         }
         
-        if (Number(guildId) === Number(targetGuildId)) throw new Error('Cannot spy on yourself');
+        if (Number(guildId) === Number(targetGuildId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Cannot spy on yourself' });
+        }
 
         const guildRes = await client.query('SELECT resources, buildings FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
         const guild = guildRes.rows[0];
         const spyLevel = guild.buildings?.spyHideout || 0;
         
-        if (spyLevel === 0) throw new Error('Spy Hideout required');
+        if (spyLevel === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Spy Hideout required' });
+        }
 
         // Check active limit
         const activeCountRes = await client.query('SELECT COUNT(*) FROM guild_espionage WHERE attacker_guild_id = $1 AND status = \'IN_PROGRESS\'', [guildId]);
-        if (parseInt(activeCountRes.rows[0].count) >= spyLevel) throw new Error('Spy limit reached');
+        if (parseInt(activeCountRes.rows[0].count) >= spyLevel) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Spy limit reached' });
+        }
 
-        // Calculate Cost (Dynamic based on target level)
+        // Calculate Cost (Unified Formula: 1000 base + targetTotalLevel * 50)
         const targetRes = await client.query(`
             SELECT SUM((c.data->>'level')::int) as total_level
             FROM guild_members gm 
@@ -919,9 +920,12 @@ router.post('/espionage/start', authenticateToken, async (req: any, res: any) =>
             WHERE gm.guild_id = $1
         `, [targetGuildId]);
         const targetTotalLevel = parseInt(targetRes.rows[0].total_level) || 1;
-        const cost = targetTotalLevel * 125;
+        const cost = 1000 + (targetTotalLevel * 50);
 
-        if ((guild.resources.gold || 0) < cost) throw new Error('Not enough gold in guild bank');
+        if ((guild.resources.gold || 0) < cost) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Not enough gold in guild bank' });
+        }
         
         // Deduct
         guild.resources.gold -= cost;
@@ -965,8 +969,7 @@ router.get('/targets', authenticateToken, async (req: any, res: any) => {
         const guildId = Number(memberRes.rows[0].guild_id);
 
         const result = await pool.query(`
-            SELECT g.id, g.name, g.tag,
-            (SELECT COUNT(*)::int FROM guild_members gm WHERE gm.guild_id = g.id) as "memberCount",
+            SELECT g.id, g.name, g.tag, g.member_count as "memberCount",
             (
                 SELECT COALESCE(SUM((c.data->>'level')::int), 0)::int 
                 FROM guild_members gm 

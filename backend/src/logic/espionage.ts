@@ -17,7 +17,6 @@ export const processPendingEspionage = async (): Promise<void> => {
         `, [now]);
 
         if (missionsRes.rows.length === 0) {
-            await client.query('ROLLBACK'); // Nothing to do
             return;
         }
 
@@ -27,16 +26,14 @@ export const processPendingEspionage = async (): Promise<void> => {
             // Snapshot the target guild's resources at this moment
             const guildRes = await client.query('SELECT resources FROM guilds WHERE id = $1', [mission.defender_guild_id]);
             
-            // Default empty resources structure to ensure we never save NULL
+            // Default resources structure
             let resources: CharacterResources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
             
             if (guildRes.rows.length > 0 && guildRes.rows[0].resources) {
-                // Merge found resources with defaults to ensure all keys exist
+                // Ensure all fields are present even if target has partial JSON
                 resources = { ...resources, ...guildRes.rows[0].resources };
             }
 
-            // Important: Do NOT use JSON.stringify() here if the column is JSONB and using 'pg' driver.
-            // The driver handles object serialization automatically. Using stringify creates a string-inside-json.
             await client.query(
                 `UPDATE guild_espionage 
                  SET status = 'COMPLETED', result_snapshot = $1 

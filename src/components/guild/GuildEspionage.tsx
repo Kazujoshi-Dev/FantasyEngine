@@ -13,7 +13,7 @@ const Countdown: React.FC<{ until: string; onFinish: () => void }> = ({ until, o
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const now = Date.now(); // Should sync with server time ideally
+            const now = Date.now();
             const diff = new Date(until).getTime() - now;
             if (diff <= 0) {
                 setTimeLeft('00:00');
@@ -42,7 +42,6 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
     const spyLevel = guild.buildings?.spyHideout || 0;
     const maxSpies = spyLevel;
     
-    // Permission check
     const canSpy = guild.myRole === GuildRole.LEADER || guild.myRole === GuildRole.OFFICER;
 
     const fetchData = async () => {
@@ -64,7 +63,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
         fetchData();
         const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [spyLevel]);
 
     const handleSendSpy = async () => {
         if (!selectedTarget) return;
@@ -97,7 +96,6 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
     };
 
     const renderResources = (res: any) => {
-        // Safe parsing logic for double-serialized JSON or missing data
         let data = res;
         if (!data) return <span className="text-gray-500">Brak danych (Błąd szpiega)</span>;
         
@@ -117,10 +115,6 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                     <span className="font-mono text-white">{data.gold?.toLocaleString() ?? '0'}</span>
                 </div>
                 {Object.values(EssenceType).map(e => {
-                    // Filter based on building level
-                    // Lvl 1: Gold only (already handled above)
-                    // Lvl 2: Gold + Common/Uncommon/Rare
-                    // Lvl 3: All
                     if (spyLevel === 1) return null;
                     if (spyLevel === 2 && (e === EssenceType.Epic || e === EssenceType.Legendary)) return null;
 
@@ -137,14 +131,12 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
         );
     };
 
-    // Cost calculation logic
-    const selectedTargetData = useMemo(() => targets.find(t => t.id === selectedTarget), [targets, selectedTarget]);
-    const missionCost = selectedTargetData ? (selectedTargetData.total_level * 125) : 0;
+    const selectedTargetData = useMemo(() => targets.find(t => Number(t.id) === Number(selectedTarget)), [targets, selectedTarget]);
+    const missionCost = selectedTargetData ? 1000 + (selectedTargetData.totalLevel * 50) : 0;
     const canAfford = (guild.resources.gold || 0) >= missionCost;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh] animate-fade-in">
-            {/* Left: Controls & Active */}
             <div className="flex flex-col gap-6">
                 <div className="bg-slate-900/40 p-6 rounded-xl border border-emerald-500/30">
                     <h3 className="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
@@ -162,7 +154,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              >
                                  <option value="">{t('guild.espionage.selectTarget')}</option>
                                  {targets.map(t => (
-                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Lvl: {t.total_level})</option>
+                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Lvl: {t.totalLevel} | Osób: {t.memberCount})</option>
                                  ))}
                              </select>
                         </div>
@@ -176,12 +168,12 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              {selectedTargetData ? (
                                  <div className="space-y-1">
                                      <div className="flex justify-between items-center">
-                                         <span className="text-gray-400">{t('guild.espionage.targetSumLevels')}:</span>
-                                         <span className="text-white">{selectedTargetData.total_level}</span>
+                                         <span className="text-gray-400">Ilość członków:</span>
+                                         <span className="text-white font-bold">{selectedTargetData.memberCount}</span>
                                      </div>
                                      <div className="flex justify-between items-center">
-                                         <span className="text-gray-400">{t('guild.espionage.costBase')}:</span>
-                                         <span className="text-gray-500">125 <CoinsIcon className="h-3 w-3 inline text-amber-500"/></span>
+                                         <span className="text-gray-400">Poziom celności (Suma):</span>
+                                         <span className="text-white">{selectedTargetData.totalLevel}</span>
                                      </div>
                                      <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-700/50">
                                          <span className="text-gray-300 font-bold">{t('guild.espionage.cost')}:</span>
@@ -189,20 +181,10 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                                              {missionCost.toLocaleString()} <CoinsIcon className="h-4 w-4"/>
                                          </span>
                                      </div>
-                                     {!canAfford && (
-                                         <p className="text-xs text-red-400 text-right mt-1">
-                                             Brak złota w skarbcu ({guild.resources.gold.toLocaleString()})
-                                         </p>
-                                     )}
                                  </div>
                              ) : (
                                  <p className="text-gray-500 text-xs italic text-center">{t('guild.espionage.selectTargetHint')}</p>
                              )}
-
-                             <div className="bg-slate-900/50 p-2 rounded text-xs text-gray-400 mt-2">
-                                 <p className="font-bold text-gray-300 mb-1">Dostępne informacje:</p>
-                                 <p>{spyLevel === 1 ? t('guild.espionage.level1Info') : spyLevel === 2 ? t('guild.espionage.level2Info') : t('guild.espionage.level3Info')}</p>
-                             </div>
                         </div>
 
                         <button 
@@ -216,9 +198,9 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                     </div>
                 </div>
 
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex-grow">
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex-grow overflow-hidden">
                     <h4 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">{t('guild.espionage.activeSpies')} ({activeSpies.length}/{maxSpies})</h4>
-                    <div className="space-y-3">
+                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
                          {activeSpies.length === 0 && <p className="text-gray-500 text-center italic">{t('guild.espionage.noActive')}</p>}
                          {activeSpies.map(spy => (
                              <div key={spy.id} className="bg-slate-800 p-3 rounded border border-slate-600 flex justify-between items-center">
@@ -236,7 +218,6 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                 </div>
             </div>
 
-            {/* Right: History */}
             <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 flex flex-col h-full overflow-hidden">
                 <h4 className="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">{t('guild.espionage.reports')}</h4>
                 <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
@@ -250,9 +231,6 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              
                              <div className="bg-slate-900/50 p-3 rounded border border-slate-700/50">
                                  {renderResources(report.resultSnapshot)}
-                             </div>
-                             <div className="mt-2 text-right">
-                                 <span className="text-xs text-gray-500">{t('guild.espionage.cost')}: <span className="text-amber-500">{report.cost}g</span></span>
                              </div>
                          </div>
                      ))}
