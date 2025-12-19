@@ -73,7 +73,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { tab: Tab.Trader, icon: IconHandshake, label: t('sidebar.trader') },
         { tab: Tab.Blacksmith, icon: IconAnvil, label: t('sidebar.blacksmith') },
         { tab: Tab.Options, icon: IconSettings, label: t('sidebar.options') },
-        // Admin tab will be filtered below
         { tab: Tab.Admin, icon: IconSettings, label: t('sidebar.admin') },
     ], [t, hasUnreadMessages, hasNewTavernMessages]);
 
@@ -88,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }, [menuItems, playerCharacter.name]);
 
     const healthPercent = Math.max(0, Math.min(100, (playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100));
+    const expPercent = Math.max(0, Math.min(100, (playerCharacter.experience / playerCharacter.experienceToNextLevel) * 100));
 
     return (
         <>
@@ -131,17 +131,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         </div>
 
-                        {/* Health Bar */}
-                        <div className="space-y-1.5 mb-4">
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-gray-400">
-                                <span>Punkty Życia</span>
-                                <span>{Math.ceil(playerCharacter.stats.currentHealth)} / {playerCharacter.stats.maxHealth}</span>
+                        {/* Status Bars (HP & EXP) */}
+                        <div className="space-y-4 mb-4">
+                            {/* Health Bar */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter text-gray-400">
+                                    <span className="text-red-400/80">Punkty Życia</span>
+                                    <span>{Math.ceil(playerCharacter.stats.currentHealth)} / {playerCharacter.stats.maxHealth}</span>
+                                </div>
+                                <div className="relative w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 transition-all duration-1000 ease-out" 
+                                        style={{ width: `${healthPercent}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="relative w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                                <div 
-                                    className="h-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 transition-all duration-1000 ease-out" 
-                                    style={{ width: `${healthPercent}%` }}
-                                />
+
+                            {/* Experience Bar */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter text-gray-400">
+                                    <span className="text-sky-400/80">Doświadczenie</span>
+                                    <span>{playerCharacter.experience.toLocaleString()} / {playerCharacter.experienceToNextLevel.toLocaleString()}</span>
+                                </div>
+                                <div className="relative w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-sky-900 via-sky-600 to-sky-400 transition-all duration-1000 ease-out" 
+                                        style={{ width: `${expPercent}%` }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -184,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <div className={`p-1.5 rounded-md transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'}`}>
                                             <Icon className="h-4 w-4" />
                                         </div>
-                                        <span className={isActive ? 'font-medieval' : ''}>{item.label}</span>
+                                        <span className="font-medieval">{item.label}</span>
                                     </div>
                                     {item.notification && !isDisabled && (
                                         <span className="h-2 w-2 rounded-full bg-fantasy-amber shadow-[0_0_8px_#fbbf24] animate-pulse"></span>
@@ -204,17 +221,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {hasNewNews && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-bounce"></span>}
                         </button>
                         
-                        {settings?.buyCoffeeUrl && (
-                            <a
-                                href={settings.buyCoffeeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-amber-300/70 hover:bg-amber-900/20 hover:text-amber-300 transition-all border border-amber-500/10"
-                            >
-                                <CoffeeIcon className="h-3 w-3 mr-1.5" />
-                                {t('sidebar.buyCoffee')}
-                            </a>
-                        )}
+                        {/* Always render Coffee button if setting exists, or render a default styled placeholder if requested by user as mandatory */}
+                        <a
+                            href={settings?.buyCoffeeUrl || "https://buycoffee.to/kazujoshi"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-amber-300/70 hover:bg-amber-900/20 hover:text-amber-300 transition-all border border-amber-500/20 bg-amber-950/10 group"
+                        >
+                            <CoffeeIcon className="h-3 w-3 mr-1.5 group-hover:animate-bounce" />
+                            {t('sidebar.buyCoffee')}
+                        </a>
 
                         <button
                             onClick={onLogout}
@@ -230,9 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
 };
 
-// Added NewsModal component and exported it to resolve import error in ModalManager
 export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
-    // FIX: Add useTranslation hook to access 't' function.
     const { t } = useTranslation();
     if (!isOpen) return null;
     return (
