@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -40,6 +40,15 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 }
 
+interface StatComparison {
+    key: string;
+    label: string;
+    currentValue: string | number;
+    diff?: number;
+    color?: string;
+    isPerfect?: boolean;
+}
+
 export const ItemDetailsPanel: React.FC<{
     item: ItemInstance | null;
     template: ItemTemplate | null;
@@ -51,7 +60,8 @@ export const ItemDetailsPanel: React.FC<{
     hideAffixes?: boolean;
     title?: string;
     compact?: boolean;
-}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false }) => {
+    compareWith?: ItemInstance | null;
+}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith }) => {
     const { t } = useTranslation();
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
@@ -269,8 +279,10 @@ export const ItemListItem: React.FC<{
     meetsRequirements?: boolean;
     draggable?: boolean | 'true' | 'false';
     onDragStart?: (e: React.DragEvent) => void;
+    onMouseEnter?: (e: React.MouseEvent) => void;
+    onMouseLeave?: (e: React.MouseEvent) => void;
     className?: string;
-}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, ...props }) => {
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, ...props }) => {
     const { t } = useTranslation();
     const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
     const style = rarityStyles[template.rarity];
@@ -280,6 +292,8 @@ export const ItemListItem: React.FC<{
         <div
             onClick={onClick}
             onDoubleClick={onDoubleClick}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
             className={`flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-200 ${
                 isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent'
             } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${props.className || ''}`}
@@ -328,10 +342,51 @@ export const ItemTooltip: React.FC<{
     instance: ItemInstance;
     template: ItemTemplate;
     affixes: Affix[];
-}> = ({ instance, template, affixes }) => {
+    character?: PlayerCharacter;
+    compareWith?: ItemInstance | null;
+    x: number;
+    y: number;
+}> = ({ instance, template, affixes, character, compareWith, x, y }) => {
+    // Positioning logic to keep tooltip within viewport
+    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+    
+    useEffect(() => {
+        const tooltipWidth = 320;
+        const tooltipHeight = 450;
+        let finalX = x + 15;
+        let finalY = y + 15;
+
+        if (finalX + tooltipWidth > window.innerWidth) finalX = x - tooltipWidth - 15;
+        if (finalY + tooltipHeight > window.innerHeight) finalY = y - tooltipHeight - 15;
+
+        setStyle({
+            left: `${finalX}px`,
+            top: `${finalY}px`,
+            visibility: 'visible',
+            width: `${tooltipWidth}px`
+        });
+    }, [x, y]);
+
     return (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mb-2 w-72 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[9999]">
-            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} />
+        <div 
+            className="fixed z-[9999] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 pointer-events-none animate-fade-in"
+            style={style}
+        >
+            <ItemDetailsPanel 
+                item={instance} 
+                template={template} 
+                affixes={affixes} 
+                size="small" 
+                compact={true} 
+                character={character}
+                compareWith={compareWith}
+            />
+            {compareWith && (
+                <div className="mt-4 pt-2 border-t border-white/10">
+                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Porównanie z założonym</p>
+                    <p className="text-[9px] text-gray-500 italic">Zielone wartości wskazują zysk, czerwone stratę po założeniu.</p>
+                </div>
+            )}
         </div>
     );
 };
