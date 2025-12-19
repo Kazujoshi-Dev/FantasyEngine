@@ -363,7 +363,8 @@ export const ItemTooltip: React.FC<{
                 display: 'flex',
                 width: `${tooltipWidth}px`,
                 zIndex: 99999,
-                pointerEvents: 'auto'
+                // Jeśli nie ma onClose, to znaczy że to tryb hover w ekwipunku -> wyłączamy pointer events
+                pointerEvents: onClose ? 'auto' : 'none'
             });
             return;
         }
@@ -382,7 +383,7 @@ export const ItemTooltip: React.FC<{
         if (finalY + 450 > window.innerHeight) finalY = window.innerHeight - 470;
 
         setStyle({ left: `${finalX}px`, top: `${finalY}px`, visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, position: 'fixed', zIndex: 9999 });
-    }, [x, y, compareWith, instance.uniqueId, isCentered]);
+    }, [x, y, compareWith, instance.uniqueId, isCentered, onClose]);
 
     const isSameItem = compareWith?.uniqueId === instance.uniqueId;
     const actualCompareWith = isSameItem ? null : compareWith;
@@ -390,10 +391,17 @@ export const ItemTooltip: React.FC<{
 
     if (isCentered) {
         return (
-            <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+            <div 
+                className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} 
+                onClick={onClose}
+            >
                 <div 
                     className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative z-[200]" 
-                    style={{ width: style.width, maxWidth: '95vw' }}
+                    style={{ 
+                        width: style.width, 
+                        maxWidth: '95vw',
+                        pointerEvents: onClose ? 'auto' : 'none' // Potwierdzenie braku reakcji w trybie hover
+                    }}
                     onClick={e => e.stopPropagation()}
                 >
                     {onClose && (
