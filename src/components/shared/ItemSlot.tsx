@@ -105,7 +105,7 @@ export const ItemDetailsPanel: React.FC<{
         return compTemplate ? getItemTotalStats(compareWith, compTemplate) : null;
     }, [compareWith, itemTemplates, item]);
 
-    if (!item || !template) return <div className="flex items-center justify-center h-full text-slate-500">{title ? null : t('equipment.selectItemPrompt')}</div>;
+    if (!item || !template) return null;
 
     const upgradeLevel = item.upgradeLevel || 0;
     const prefix = safeAffixes.find(a => a.id === item?.prefixId);
@@ -363,7 +363,7 @@ export const ItemTooltip: React.FC<{
                 display: 'flex',
                 width: `${tooltipWidth}px`,
                 zIndex: 99999,
-                pointerEvents: 'auto'
+                pointerEvents: 'none' // Włączone dla hovera, aby nie blokować ruchu myszy
             });
             return;
         }
@@ -390,17 +390,11 @@ export const ItemTooltip: React.FC<{
 
     if (isCentered) {
         return (
-            <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+            <div className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center p-4 animate-fade-in">
                 <div 
-                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative" 
+                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative pointer-events-none" 
                     style={{ width: style.width, maxWidth: '95vw' }}
-                    onClick={e => e.stopPropagation()}
                 >
-                    {onClose && (
-                        <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors z-20">
-                            ✕
-                        </button>
-                    )}
                     {actualCompareWith && compareTemplate && (
                         <div className="w-[280px] border-r border-white/5 pr-4 hidden md:block">
                             <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} />

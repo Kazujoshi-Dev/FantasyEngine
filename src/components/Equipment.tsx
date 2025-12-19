@@ -119,7 +119,9 @@ export const Equipment: React.FC = () => {
                                         template={template}
                                         affixes={gameData.affixes}
                                         isSelected={false}
-                                        onClick={() => setInspectedItem({ item, template })}
+                                        onClick={() => {}} // Wyłączamy klik na rzecz hovera
+                                        onMouseEnter={() => setInspectedItem({ item, template })}
+                                        onMouseLeave={() => setInspectedItem(null)}
                                         onDoubleClick={() => handleUnequip(slot)}
                                     />
                                 </div>
@@ -232,7 +234,9 @@ export const Equipment: React.FC = () => {
                                         template={template}
                                         affixes={gameData.affixes}
                                         isSelected={false}
-                                        onClick={() => setInspectedItem({ item, template })}
+                                        onClick={() => {}}
+                                        onMouseEnter={() => setInspectedItem({ item, template })}
+                                        onMouseLeave={() => setInspectedItem(null)}
                                         onDoubleClick={() => handleEquip(item)}
                                     />
                                 </div>
@@ -245,7 +249,7 @@ export const Equipment: React.FC = () => {
                 </div>
             </div>
 
-            {/* Scentrowany Tooltip Modal */}
+            {/* Scentrowany Tooltip Modal (Hover-driven) */}
             {inspectedItem && (
                 <ItemTooltip 
                     instance={inspectedItem.item}
@@ -255,7 +259,6 @@ export const Equipment: React.FC = () => {
                     compareWith={getCompareItem(inspectedItem.template)}
                     itemTemplates={gameData.itemTemplates}
                     isCentered={true}
-                    onClose={() => setInspectedItem(null)}
                 />
             )}
 
