@@ -1,23 +1,27 @@
 
 import express from 'express';
 import { pool } from '../../db.js';
-import { PlayerCharacter, GameData, ItemTemplate, CharacterStats, EquipmentSlot, ItemInstance } from '../../types.js';
+import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData } from '../../types.js';
 import { calculateDerivedStatsOnServer } from '../../logic/stats.js';
 import { getBackpackCapacity } from '../../logic/helpers.js';
 
 const router = express.Router();
 
 /**
- * Validates if a character meets the requirements to equip a specific item.
+ * Helper do sprawdzania wymagań przedmiotu.
+ * UWAGA: Używa wyliczonych statystyk (totalStats), nie bazowych.
  */
-const canEquip = (character: PlayerCharacter, template: ItemTemplate, stats: CharacterStats) => {
+const canEquip = (character: PlayerCharacter, template: ItemTemplate, totalStats: CharacterStats): { success: boolean; message?: string } => {
     if (character.level < template.requiredLevel) {
-        return { success: false, message: "Poziom zbyt niski" };
+        return { success: false, message: `Wymagany poziom: ${template.requiredLevel}` };
     }
+
     if (template.requiredStats) {
         for (const [stat, value] of Object.entries(template.requiredStats)) {
-            if ((stats as any)[stat] < (value as number)) {
-                return { success: false, message: `Wymagana ${stat}: ${value}` };
+            const key = stat as keyof CharacterStats;
+            const playerValue = Number(totalStats[key]) || 0;
+            if (playerValue < (value as number)) {
+                return { success: false, message: `Niewystarczająca ilość statystyki: ${stat} (Wymagane: ${value}, Posiadasz: ${playerValue})` };
             }
         }
     }
@@ -31,6 +35,7 @@ router.post('/equip', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
+        // 1. Pobierz postać i dane gildii dla statystyk
         const charRes = await client.query(`
             SELECT c.data, g.buildings, g.active_buffs 
             FROM characters c 
@@ -44,16 +49,19 @@ router.post('/equip', async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const activeGuildBuffs = charRes.rows[0].active_buffs || [];
 
+        // 2. Znajdź przedmiot w ekwipunku
         const itemIndex = character.inventory.findIndex(i => i.uniqueId === itemId);
         if (itemIndex === -1) throw new Error("Item not found in inventory");
         const item = character.inventory[itemIndex];
 
+        // 3. Pobierz dane gry dla statystyk
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
-        const gameData: Partial<GameData> = gameDataRes.rows.reduce((acc: any, row: any) => ({ ...acc, [row.key]: row.data }), {});
+        const gameData: Partial<GameData> = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
         
         const template = (gameData.itemTemplates || []).find(t => t.id === item.templateId);
         if (!template) throw new Error("Item template missing");
 
+        // 4. Oblicz AKTUALNE pełne statystyki (uwzględniając obecny sprzęt i gildie)
         const derivedChar = calculateDerivedStatsOnServer(
             character, 
             gameData.itemTemplates || [], 
@@ -64,31 +72,21 @@ router.post('/equip', async (req: any, res: any) => {
             activeGuildBuffs
         );
 
+        // 5. Walidacja wymagań na bazie wyliczonych statystyk (totalStats)
         const validation = canEquip(character, template, derivedChar.stats);
         if (!validation.success) throw new Error(validation.message);
 
+        // 6. Określ slot docelowy
         let targetSlot: EquipmentSlot;
-        
-        // --- Dual Wield Equip Logic ---
-        const canDualWield = character.activeSkills?.includes('dual-wield-mastery');
-        
         if (template.slot === 'ring') {
             targetSlot = !character.equipment.ring1 ? EquipmentSlot.Ring1 : EquipmentSlot.Ring2;
-        } else if (template.slot === EquipmentSlot.MainHand && canDualWield && !template.isMagical) {
-            if (!character.equipment.mainHand) {
-                targetSlot = EquipmentSlot.MainHand;
-            } else if (!character.equipment.offHand) {
-                targetSlot = EquipmentSlot.OffHand;
-            } else {
-                targetSlot = EquipmentSlot.MainHand;
-            }
         } else {
             targetSlot = template.slot as EquipmentSlot;
         }
-        // ------------------------------
 
         const itemsToUnequip: EquipmentSlot[] = [];
 
+        // Logika broni 2H vs 1H
         if (targetSlot === EquipmentSlot.TwoHand) {
             if (character.equipment.mainHand) itemsToUnequip.push(EquipmentSlot.MainHand);
             if (character.equipment.offHand) itemsToUnequip.push(EquipmentSlot.OffHand);
@@ -96,16 +94,19 @@ router.post('/equip', async (req: any, res: any) => {
             if (character.equipment.twoHand) itemsToUnequip.push(EquipmentSlot.TwoHand);
         }
 
+        // Standardowe zdejmowanie przedmiotu z zajętego slotu
         if (character.equipment[targetSlot]) {
             itemsToUnequip.push(targetSlot);
         }
 
+        // 7. Sprawdź miejsce w plecaku po uwzględnieniu rotacji
         const backpackCap = getBackpackCapacity(character);
         const uniqueUnequips = Array.from(new Set(itemsToUnequip));
         if (character.inventory.length - 1 + uniqueUnequips.length > backpackCap) {
             throw new Error("Brak miejsca w plecaku na zamianę przedmiotów");
         }
 
+        // 8. Wykonaj rotację
         uniqueUnequips.forEach(slot => {
             const oldItem = character.equipment[slot];
             if (oldItem) {
@@ -114,6 +115,7 @@ router.post('/equip', async (req: any, res: any) => {
             }
         });
 
+        // 9. Załóż nowy przedmiot
         character.inventory.splice(itemIndex, 1);
         character.equipment[targetSlot] = item;
 
@@ -134,14 +136,17 @@ router.post('/unequip', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
         const character: PlayerCharacter = charRes.rows[0].data;
 
         const item = character.equipment[slot as EquipmentSlot];
         if (!item) throw new Error("Slot jest pusty");
 
-        const backpackCap = getBackpackCapacity(character);
-        if (character.inventory.length >= backpackCap) throw new Error("Plecak pełny");
+        if (character.inventory.length >= getBackpackCapacity(character)) {
+            throw new Error("Plecak jest pełny");
+        }
 
         character.inventory.push(item);
         character.equipment[slot as EquipmentSlot] = null;
