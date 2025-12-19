@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -183,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <div className={`p-1.5 rounded-md transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'}`}>
                                             <Icon className="h-4 w-4" />
                                         </div>
-                                        <span className={`${isActive ? 'font-medieval' : ''} group-hover:font-medieval`}>{item.label}</span>
+                                        <span className={isActive ? 'font-medieval' : ''}>{item.label}</span>
                                     </div>
                                     {item.notification && !isDisabled && (
                                         <span className="h-2 w-2 rounded-full bg-fantasy-amber shadow-[0_0_8px_#fbbf24] animate-pulse"></span>
