@@ -5,20 +5,51 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Krytyczna walidacja konfiguracji przed utworzeniem puli
-if (!process.env.DATABASE_URL) {
+/**
+ * ARCHITEKTURA POŁĄCZENIA:
+ * 1. Sprawdzamy DATABASE_URL (format: postgres://user:pass@host:port/db)
+ * 2. Jeśli brak, budujemy konfigurację z pojedynczych zmiennych (używanych w Dockerze)
+ */
+
+const getPoolConfig = () => {
+    if (process.env.DATABASE_URL) {
+        return { connectionString: process.env.DATABASE_URL };
+    }
+
+    // Fallback do pojedynczych zmiennych z docker-compose.yml
+    if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER) {
+        return {
+            host: process.env.POSTGRES_HOST,
+            user: process.env.POSTGRES_USER,
+            password: process.env.POSTGRES_PASSWORD,
+            database: process.env.POSTGRES_DB,
+            port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+        };
+    }
+
+    return null;
+};
+
+const config = getPoolConfig();
+
+if (!config) {
     console.error("================================================================");
-    console.error("BŁĄD KRYTYCZNY: Brak zmiennej DATABASE_URL!");
-    console.error("Biblioteka 'pg' próbowałaby teraz domyślnie użyć usera 'postgres'.");
-    console.error("Upewnij się, że plik .env istnieje i zawiera DATABASE_URL.");
+    console.error("BŁĄD KRYTYCZNY: Brak konfiguracji bazy danych!");
+    console.error("Upewnij się, że w .env masz DATABASE_URL");
+    console.error("LUB zmienne: POSTGRES_HOST, POSTGRES_USER, POSTGRES_DB, POSTGRES_PASSWORD");
     console.error("================================================================");
-    process.exit(1); 
+    process.exit(1);
 }
 
-console.log(`[DB] Próba połączenia z bazą danych przy użyciu URL: ${process.env.DATABASE_URL.split('@')[1] || 'ukryty'}`);
+// Logujemy (bezpiecznie) parametry połączenia
+const debugConn = (config as any).connectionString 
+    ? "używając DATABASE_URL" 
+    : `używając hosta: ${config.host}, bazy: ${config.database}, użytkownika: ${config.user}`;
+
+console.log(`[DB] Inicjalizacja połączenia ${debugConn}`);
 
 export const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    ...config,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -26,7 +57,7 @@ export const initializeDatabase = async () => {
     let client;
     try {
         client = await pool.connect();
-        console.log("Połączono z bazą PostgreSQL pomyślnie.");
+        console.log(`[DB] Połączono pomyślnie z bazą danych.`);
         
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -201,7 +232,7 @@ export const initializeDatabase = async () => {
             );
         `);
 
-        // Migration: Skills (Dual Wield)
+        // Migration: Skills
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         let skills = skillsRes.rows[0]?.data || [];
         
@@ -241,7 +272,7 @@ export const initializeDatabase = async () => {
         }
 
     } catch (e) {
-        console.error("Inicjalizacja bazy danych nie powiodła się podczas startu:", e);
+        console.error("Database initialization failed during start up:", e);
         throw e;
     } finally {
         if (client) client.release();
