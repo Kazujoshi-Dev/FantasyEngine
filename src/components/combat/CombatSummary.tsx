@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race } from '../../types';
+import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race, ItemInstance } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CombatLogRow } from './CombatLog';
 import { DamageMeter } from './summary/DamageMeter';
 import { EnemyListPanel, PartyMemberList } from './summary/CombatLists';
 import { StandardRewardsPanel, RaidRewardsPanel, PvpRewardsPanel } from './summary/RewardPanels';
 import { CombatantStatsPanel } from './summary/CombatantStatsPanel';
+import { ItemTooltip } from '../shared/ItemSlot';
 
 interface CombatReportModalProps {
     reward: ExpeditionRewardSummary;
@@ -42,6 +43,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
     const [speed, setSpeed] = useState(1);
     const logEndRef = useRef<HTMLDivElement>(null);
     const [selectedCombatant, setSelectedCombatant] = useState<{ name: string, stats: any, description?: string } | null>(null);
+    const [inspectedRewardItem, setInspectedRewardItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
     const [copyStatus, setCopyStatus] = useState('');
 
     const log = reward.combatLog || [];
@@ -129,11 +131,21 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         if (!isAnimationFinished) return null;
         if (isPvp && pvpData) return <PvpRewardsPanel isVictory={reward.isVictory} gold={reward.totalGold} experience={reward.totalExperience} />;
         if (isRaid) return <RaidRewardsPanel totalGold={reward.totalGold} essencesFound={reward.essencesFound} />;
-        return <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} />;
+        return <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} onInspectItem={setInspectedRewardItem} />;
     };
 
     return (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm overflow-hidden">
+            {inspectedRewardItem && (
+                <ItemTooltip 
+                    instance={inspectedRewardItem.item} 
+                    template={inspectedRewardItem.template} 
+                    affixes={affixes} 
+                    itemTemplates={itemTemplates} 
+                    isCentered={true} 
+                    onClose={() => setInspectedRewardItem(null)} 
+                />
+            )}
             <div className="w-full max-w-[1400px] h-full max-h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-y-auto custom-scrollbar" 
                  style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover' } : { backgroundColor: 'var(--window-bg, #0f172a)' }}>
                 

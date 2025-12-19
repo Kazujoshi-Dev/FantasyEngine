@@ -392,7 +392,7 @@ export const ItemTooltip: React.FC<{
         return (
             <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                 <div 
-                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative" 
+                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative z-[200]" 
                     style={{ width: style.width, maxWidth: '95vw' }}
                     onClick={e => e.stopPropagation()}
                 >

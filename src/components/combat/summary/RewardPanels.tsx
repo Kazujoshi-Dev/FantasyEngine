@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix, ItemInstance } from '../../../types';
 import { CoinsIcon } from '../../icons/CoinsIcon';
 import { StarIcon } from '../../icons/StarIcon';
-import { rarityStyles, ItemTooltip, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
+import { rarityStyles, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -81,22 +81,16 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
     );
 };
 
-export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ reward, itemTemplates, affixes }) => {
+export const StandardRewardsPanel: React.FC<{ 
+    reward: ExpeditionRewardSummary, 
+    itemTemplates: ItemTemplate[], 
+    affixes: Affix[],
+    onInspectItem: (data: { item: ItemInstance, template: ItemTemplate }) => void
+}> = ({ reward, itemTemplates, affixes, onInspectItem }) => {
     const { t } = useTranslation();
-    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
-            {inspectedItem && (
-                <ItemTooltip 
-                    instance={inspectedItem.item} 
-                    template={inspectedItem.template} 
-                    affixes={affixes} 
-                    itemTemplates={itemTemplates} 
-                    isCentered={true} 
-                    onClose={() => setInspectedItem(null)} 
-                />
-            )}
             <div>
                 <h3 className="text-base font-bold text-gray-300 mb-3 flex items-center gap-2">
                     <StarIcon className="h-4 w-4 text-yellow-400"/> {t('expedition.totalRewards')}
@@ -143,7 +137,7 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                     <div 
                                         key={idx} 
                                         className="flex items-center gap-2 p-1 bg-slate-800/80 rounded border border-slate-700 hover:border-indigo-500 transition-colors cursor-pointer group"
-                                        onClick={() => setInspectedItem({ item, template })}
+                                        onClick={() => onInspectItem({ item, template })}
                                     >
                                         <div className={`w-8 h-8 rounded border ${style.border} ${style.bg} flex-shrink-0 flex items-center justify-center shadow-sm`}>
                                             {template.icon ? (
