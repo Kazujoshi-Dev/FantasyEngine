@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../../../contexts/LanguageContext';
-import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix } from '../../../types';
+import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix, ItemInstance } from '../../../types';
 import { CoinsIcon } from '../../icons/CoinsIcon';
 import { StarIcon } from '../../icons/StarIcon';
 import { rarityStyles, ItemTooltip, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
@@ -83,8 +83,20 @@ export const RaidRewardsPanel: React.FC<{ totalGold: number, essencesFound: Part
 
 export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, itemTemplates: ItemTemplate[], affixes: Affix[] }> = ({ reward, itemTemplates, affixes }) => {
     const { t } = useTranslation();
+    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
+            {inspectedItem && (
+                <ItemTooltip 
+                    instance={inspectedItem.item} 
+                    template={inspectedItem.template} 
+                    affixes={affixes} 
+                    itemTemplates={itemTemplates} 
+                    isCentered={true} 
+                    onClose={() => setInspectedItem(null)} 
+                />
+            )}
             <div>
                 <h3 className="text-base font-bold text-gray-300 mb-3 flex items-center gap-2">
                     <StarIcon className="h-4 w-4 text-yellow-400"/> {t('expedition.totalRewards')}
@@ -128,7 +140,11 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                 const style = rarityStyles[template.rarity];
                                 
                                 return (
-                                    <div key={idx} className="relative group cursor-help flex items-center gap-2 p-1 bg-slate-800/80 rounded border border-slate-700 hover:border-slate-500 transition-colors">
+                                    <div 
+                                        key={idx} 
+                                        className="flex items-center gap-2 p-1 bg-slate-800/80 rounded border border-slate-700 hover:border-indigo-500 transition-colors cursor-pointer group"
+                                        onClick={() => setInspectedItem({ item, template })}
+                                    >
                                         <div className={`w-8 h-8 rounded border ${style.border} ${style.bg} flex-shrink-0 flex items-center justify-center shadow-sm`}>
                                             {template.icon ? (
                                                 <img src={template.icon} alt={template.name} className="w-6 h-6 object-contain" />
@@ -140,7 +156,9 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                             <p className={`text-[11px] font-bold truncate ${style.text}`}>{fullName}</p>
                                             <p className="text-[8px] text-gray-500 uppercase leading-none">{t(`equipment.slot.${template.slot}`)}</p>
                                         </div>
-                                        <ItemTooltip instance={item} template={template} affixes={affixes} itemTemplates={itemTemplates} isCentered={true} />
+                                        <div className="text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            LUPA
+                                        </div>
                                     </div>
                                 );
                             })}

@@ -4,7 +4,7 @@ import { useTranslation } from '../../contexts/LanguageContext';
 import { ItemInstance, EssenceType, ItemTemplate, ItemRarity } from '../../types';
 import { StarIcon } from '../icons/StarIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
-import { rarityStyles, ItemListItem, ItemDetailsPanel } from '../shared/ItemSlot';
+import { rarityStyles, ItemListItem, ItemTooltip } from '../shared/ItemSlot';
 
 interface TowerSummaryProps {
     outcome: 'VICTORY' | 'DEFEAT' | 'RETREAT';
@@ -29,7 +29,7 @@ const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
 
 export const TowerSummaryView: React.FC<TowerSummaryProps> = ({ outcome, rewards, onClose, itemTemplates, affixes }) => {
     const { t } = useTranslation();
-    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     const title = outcome === 'VICTORY' ? 'Wieża Ukończona!' : outcome === 'RETREAT' ? 'Ucieczka z Wieży' : 'Porażka';
     const titleColor = outcome === 'VICTORY' ? 'text-green-400' : outcome === 'RETREAT' ? 'text-amber-400' : 'text-red-500';
@@ -39,19 +39,15 @@ export const TowerSummaryView: React.FC<TowerSummaryProps> = ({ outcome, rewards
 
     return (
         <div className="flex flex-col h-full items-center justify-center animate-fade-in p-4 relative z-10">
-             {/* Tooltip Overlay */}
-             {hoveredItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                         <ItemDetailsPanel 
-                            item={hoveredItem.item} 
-                            template={hoveredItem.template} 
-                            affixes={affixes} 
-                            size="small"
-                            compact={true}
-                         />
-                    </div>
-                </div>
+            {inspectedItem && (
+                <ItemTooltip 
+                    instance={inspectedItem.item} 
+                    template={inspectedItem.template} 
+                    affixes={affixes} 
+                    itemTemplates={itemTemplates} 
+                    isCentered={true} 
+                    onClose={() => setInspectedItem(null)} 
+                />
             )}
 
             <div className="bg-slate-900/90 border border-slate-700 p-8 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col items-center backdrop-blur-md">
@@ -95,7 +91,7 @@ export const TowerSummaryView: React.FC<TowerSummaryProps> = ({ outcome, rewards
                             </h3>
                             <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar max-h-[300px]">
                                 {rewards.items.length === 0 ? (
-                                    <p className="text-gray-500 italic text-center py-10">Brak przedmiotów.</p>
+                                    <p className="text-gray-600 text-center py-10">Brak przedmiotów.</p>
                                 ) : (
                                     <div className="space-y-2">
                                         {rewards.items.map((item) => {
@@ -104,9 +100,8 @@ export const TowerSummaryView: React.FC<TowerSummaryProps> = ({ outcome, rewards
                                             return (
                                                 <div 
                                                     key={item.uniqueId} 
-                                                    className="relative group cursor-help bg-slate-900/80 p-1 rounded hover:bg-slate-800 transition-colors"
-                                                    onMouseEnter={() => setHoveredItem({ item, template })}
-                                                    onMouseLeave={() => setHoveredItem(null)}
+                                                    className="cursor-pointer hover:ring-1 ring-indigo-500 rounded transition-all"
+                                                    onClick={() => setInspectedItem({ item, template })}
                                                 >
                                                     <ItemListItem 
                                                         item={item} 

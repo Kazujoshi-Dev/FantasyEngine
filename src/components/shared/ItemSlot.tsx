@@ -127,12 +127,8 @@ export const ItemDetailsPanel: React.FC<{
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
             
-            // APR i inne statystyki oznaczone jako noScale nie otrzymują bonusu z ulepszenia (ale mogą mieć bazowe ułamki)
             const currentFactor = noScale ? 0 : upgradeFactor;
             
-            // Logika formatowania:
-            // 1. APR (noScale) i Procenty -> Zawsze precyzja dziesiętna (2 miejsca)
-            // 2. Pozostałe (Atrybuty, Obrażenia, Pancerz) -> Zawsze zaokrąglamy do całkowitych (Math.round)
             const formatValue = (v: number) => {
                 const scaled = v * (1 + currentFactor);
                 if (noScale || isPercent) {
@@ -158,7 +154,6 @@ export const ItemDetailsPanel: React.FC<{
                 } else {
                     const ck = compareKey as string;
                     const compValRaw = isAttribute ? (compareTotalStats.statsBonus?.[ck] || 0) : (compareTotalStats[ck] || 0);
-                    // Dla porównania używamy tej samej logiki co dla formatowania głównego
                     const finalCompVal = formatValue(compValRaw);
                     delta = finalVal1 - finalCompVal;
                 }
@@ -191,7 +186,6 @@ export const ItemDetailsPanel: React.FC<{
         if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         
-        // Ataki na rundę nie skalują się u kowala - ustawiamy noScale: true, co wymusi precyzję dziesiętną
         if (!isAffix && (metadata as ItemTemplate).attacksPerRound) {
             entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
         }
@@ -308,7 +302,8 @@ export const ItemTooltip: React.FC<{
     y?: number;
     itemTemplates?: ItemTemplate[];
     isCentered?: boolean;
-}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered }) => {
+    onClose?: () => void;
+}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose }) => {
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' });
     
     useEffect(() => {
@@ -323,7 +318,7 @@ export const ItemTooltip: React.FC<{
                 display: 'flex',
                 width: `${tooltipWidth}px`,
                 zIndex: 99999,
-                pointerEvents: 'none'
+                pointerEvents: 'auto'
             });
             return;
         }
@@ -348,9 +343,35 @@ export const ItemTooltip: React.FC<{
     const actualCompareWith = isSameItem ? null : compareWith;
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
+    if (isCentered) {
+        return (
+            <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                <div 
+                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] overflow-y-auto relative" 
+                    style={{ width: style.width, maxWidth: '95vw' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {onClose && (
+                        <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors z-20">
+                            ✕
+                        </button>
+                    )}
+                    {actualCompareWith && compareTemplate && (
+                        <div className="w-[280px] border-r border-white/5 pr-4 hidden md:block">
+                            <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} />
+                        </div>
+                    )}
+                    <div className={actualCompareWith ? 'w-[280px]' : 'w-full'}>
+                        <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div 
-            className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4 ${isCentered ? '' : (x !== undefined ? '' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:flex')}`}
+            className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4 ${x !== undefined ? '' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:flex'}`}
             style={style}
         >
             {actualCompareWith && compareTemplate && (
