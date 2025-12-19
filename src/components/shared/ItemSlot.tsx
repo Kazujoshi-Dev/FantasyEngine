@@ -148,7 +148,7 @@ export const ItemDetailsPanel: React.FC<{
         if (reqs.length === 0) return null;
 
         return (
-            <div className={`bg-red-950/20 p-3 rounded-lg mt-2 border border-red-900/20 ${isSmall ? 'text-xs' : 'text-sm'}`}>
+            <div className={`bg-red-950/20 p-3 rounded-lg mt-4 border border-red-900/20 ${isSmall ? 'text-xs' : 'text-sm'}`}>
                 <h5 className="font-black uppercase text-[9px] tracking-widest text-red-400/60 border-b border-red-900/20 mb-2 pb-1">Wymagania</h5>
                 <div className="space-y-0.5">{reqs}</div>
             </div>
@@ -273,12 +273,13 @@ export const ItemDetailsPanel: React.FC<{
                     </div>
                 )}
                 
-                {/* Nowa sekcja wymagań */}
-                <RequirementsSection />
-
+                {/* Statystyki przedmiotu */}
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
+                
+                {/* Wymagania przeniesione na sam dół */}
+                <RequirementsSection />
             </div>
         </div>
     );
