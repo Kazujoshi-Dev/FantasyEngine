@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings, PlayerRank, CharacterClass } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -176,6 +177,7 @@ export const calculateDerivedStatsOnServer = (
         }
     }
     
+    // --- POPRAWIONA LOGIKA DUAL WIELD ---
     const isDualWieldSkillActive = character.activeSkills?.includes('dual-wield-mastery');
     const mainHandItem = safeEquipment[EquipmentSlot.MainHand];
     const offHandItem = safeEquipment[EquipmentSlot.OffHand];
@@ -188,7 +190,13 @@ export const calculateDerivedStatsOnServer = (
         mainHandTemplate?.category === 'Weapon' && 
         offHandTemplate?.category === 'Weapon';
 
-    const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
+    let baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
+    if (isActuallyDualWielding && offHandTemplate) {
+        // Sumujemy bazowe ataki z obu broni dla pełnego efektu Sztuki Dwóch Mieczy
+        baseAttacksPerRound += (Number(offHandTemplate.attacksPerRound) || 1);
+    }
+    // ------------------------------------
+
     const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs).toFixed(2)) || 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
@@ -227,6 +235,7 @@ export const calculateDerivedStatsOnServer = (
         maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
     }
 
+    // Kara -25% do obrażeń przy dual-wieldingu (bilansuje dużą liczbę APR)
     if (isActuallyDualWielding) {
         minDamage = Math.floor(minDamage * 0.75);
         maxDamage = Math.floor(maxDamage * 0.75);

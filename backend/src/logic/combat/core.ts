@@ -37,20 +37,33 @@ export interface DefenderState {
 }
 
 export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
-    if (!playerData.equipment) {
-        return undefined;
+    if (!playerData.equipment) return undefined;
+
+    const mainHand = playerData.equipment.mainHand;
+    const offHand = playerData.equipment.offHand;
+    const twoHand = playerData.equipment.twoHand;
+    const templates = gameData.itemTemplates || [];
+    const affixes = gameData.affixes || [];
+
+    // Logika dla Dwóch Mieczy - pokazujemy obie nazwy
+    if (mainHand && offHand && playerData.activeSkills?.includes('dual-wield-mastery')) {
+        const t1 = templates.find(t => t.id === mainHand.templateId);
+        const t2 = templates.find(t => t.id === offHand.templateId);
+        if (t1 && t2) {
+            const name1 = getGrammaticallyCorrectFullName(mainHand, t1, affixes);
+            const name2 = getGrammaticallyCorrectFullName(offHand, t2, affixes);
+            return `${name1} & ${name2}`;
+        }
     }
-    const weaponInstance = playerData.equipment.mainHand || playerData.equipment.twoHand;
+
+    const weaponInstance = mainHand || twoHand;
     if (weaponInstance) {
-        const templates = gameData.itemTemplates || [];
-        const affixes = gameData.affixes || [];
         const template = templates.find(t => t.id === weaponInstance.templateId);
         if (template) {
             const baseName = getGrammaticallyCorrectFullName(weaponInstance, template, affixes);
-            if (weaponInstance.upgradeLevel && weaponInstance.upgradeLevel > 0) {
-                return `${baseName} +${weaponInstance.upgradeLevel}`;
-            }
-            return baseName;
+            return weaponInstance.upgradeLevel && weaponInstance.upgradeLevel > 0 
+                ? `${baseName} +${weaponInstance.upgradeLevel}` 
+                : baseName;
         }
     }
     return undefined;
@@ -73,7 +86,6 @@ export const performAttack = <
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;
     
-    // This is now a placeholder; the caller (simulation) is responsible for the full health snapshot.
     const getHealthState = (currentAttacker: TAttacker, currentDefender: TDefender) => ({
         playerHealth: defenderIsPlayer ? currentDefender.currentHealth : currentAttacker.currentHealth,
         playerMana: defenderIsPlayer ? currentDefender.currentMana : currentAttacker.currentMana,
@@ -95,7 +107,6 @@ export const performAttack = <
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     
-    // Apply ignoreDodge option (e.g. for Warrior class bonus) or frozen status
     if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
     }
@@ -113,12 +124,12 @@ export const performAttack = <
 
     if (attackerIsPlayer) {
         const playerData = (attacker as any).data as PlayerCharacter;
+        weaponName = getFullWeaponName(playerData, gameData);
+        
         const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
-        weaponName = template ? getFullWeaponName(playerData, gameData) : undefined;
 
         if (template?.isMagical && template.magicAttackType) {
-            // FIX: Calculate random mana cost within range instead of average
             let manaCost = 0;
             if (template.manaCost) {
                 const min = template.manaCost.min;
@@ -133,9 +144,7 @@ export const performAttack = <
                     attacker.manaSurgeUsed = true;
                     const maxMana = (attacker.stats as CharacterStats).maxMana;
                     attacker.currentMana = maxMana;
-                    
                     logs.push({ turn, attacker: attacker.name, defender: '', action: 'manaSurge', ...getHealthState(attacker, defender) });
-                    
                     useMagicAttack = true;
                     magicAttackType = template.magicAttackType;
                     attacker.currentMana -= manaCost;
@@ -168,11 +177,6 @@ export const performAttack = <
         damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
 
         const attackerClass = (attacker as any).data?.characterClass;
-        
-        // Critical Magic Logic
-        // Allow crit if:
-        // 1. It is a player AND they are Mage or Wizard (Class Bonus)
-        // 2. OR It is NOT a player (Boss/Enemy always has potential to crit with magic if stats allow)
         if ((attackerIsPlayer && (attackerClass === CharacterClass.Mage || attackerClass === CharacterClass.Wizard)) || !attackerIsPlayer) {
             if (Math.random() * 100 < attacker.stats.critChance) {
                 isCrit = true;
@@ -194,7 +198,6 @@ export const performAttack = <
         
         let effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
         
-        // Apply armor break status effect or explicit ignore option
         if (options.ignoreArmor || defender.statusEffects.some(e => e.type === 'armor_broken')) {
             effectiveArmor = 0;
         }
@@ -207,10 +210,7 @@ export const performAttack = <
     if (attackerIsPlayer && attacker.data?.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
         damage = Math.floor(damage * 1.25);
         logs.push({
-            turn, 
-            attacker: attacker.name, 
-            defender: defender.name, 
-            action: 'orc_fury',
+            turn, attacker: attacker.name, defender: defender.name, action: 'orc_fury',
             ...getHealthState(attacker, defender)
         });
     }
@@ -218,19 +218,12 @@ export const performAttack = <
         const reduction = Math.floor(damage * 0.20);
         damage -= reduction;
         damageReduced += reduction;
-        
         logs.push({
-            turn,
-            attacker: attacker.name,
-            defender: defender.name,
-            action: 'dwarf_defense',
-            damageReduced: reduction,
-            ...getHealthState(attacker, defender)
+            turn, attacker: attacker.name, defender: defender.name, action: 'dwarf_defense',
+            damageReduced: reduction, ...getHealthState(attacker, defender)
         });
     }
 
-    // --- Passive Skill: Hard Skin (Twarda skóra) ---
-    // Effect: Reduces first critical hit received in combat by 50%
     if (isCrit && defenderIsPlayer && !defender.hardSkinTriggered) {
         const defenderChar = defender.data as PlayerCharacter;
         if (defenderChar.learnedSkills && defenderChar.learnedSkills.includes('twarda-skora-1')) {
@@ -238,36 +231,22 @@ export const performAttack = <
             damage -= reduction;
             damageReduced += reduction;
             defender.hardSkinTriggered = true;
-            
             logs.push({
-                turn,
-                attacker: attacker.name,
-                defender: defender.name,
-                action: 'hardSkinProc',
+                turn, attacker: attacker.name, defender: defender.name, action: 'hardSkinProc',
                 ...getHealthState(attacker, defender)
             });
         }
     }
 
-    // --- Apply Magic Effects via Registry ---
     let aoeData;
     let chainData;
     
     if (useMagicAttack && magicAttackType) {
         const spellLogic = spellRegistry[magicAttackType];
         if (spellLogic) {
-            const context: SpellContext = {
-                attacker,
-                defender,
-                turn,
-                baseDamage: damage,
-                allEnemies
-            };
+            const context: SpellContext = { attacker, defender, turn, baseDamage: damage, allEnemies };
             const result = spellLogic(context);
-            
-            // Merge spell logs with health context
             logs.push(...result.logs.map(log => ({ ...log, ...getHealthState(attacker, defender) })));
-            
             if (result.bonusDamage) arcaneMissileBonusDamage = result.bonusDamage;
             if (result.healthGained) healthGained += result.healthGained;
             if (result.damageMultiplier) damage = Math.floor(damage * result.damageMultiplier);

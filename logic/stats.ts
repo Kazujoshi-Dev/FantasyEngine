@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType } from '../types';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings } from '../types';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -313,4 +313,17 @@ export const getBackpackUpgradeCost = (level: number) => {
 
 export const getWarehouseCapacity = (level: number) => {
     return 5 + ((level - 1) * 3);
+};
+
+// Fix: Missing getWorkshopUpgradeCost export
+export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
+    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
+        return settings.workshopUpgrades[level];
+    }
+    const gold = Math.floor(300 * Math.pow(level, 1.6));
+    const essences: { type: EssenceType, amount: number }[] = [];
+    if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
+    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
+    if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
+    return { gold, essences };
 };
