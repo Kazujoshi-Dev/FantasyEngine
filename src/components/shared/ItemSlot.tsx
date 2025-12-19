@@ -111,6 +111,50 @@ export const ItemDetailsPanel: React.FC<{
     const prefix = safeAffixes.find(a => a.id === item?.prefixId);
     const suffix = safeAffixes.find(a => a.id === item?.suffixId);
 
+    const RequirementsSection: React.FC = () => {
+        const reqs = [];
+        
+        // Sprawdzanie poziomu
+        if (template.requiredLevel > 1) {
+            const levelMet = !character || character.level >= template.requiredLevel;
+            reqs.push(
+                <div key="req-lvl" className="flex justify-between items-center py-0.5">
+                    <span className="text-gray-500">{t('statistics.level')}:</span>
+                    <span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>
+                        {template.requiredLevel}
+                    </span>
+                </div>
+            );
+        }
+
+        // Sprawdzanie statystyk
+        if (template.requiredStats) {
+            Object.entries(template.requiredStats).forEach(([stat, val]) => {
+                if (val && val > 0) {
+                    const playerVal = character ? (character.stats as any)[stat] : 0;
+                    const statMet = !character || playerVal >= val;
+                    reqs.push(
+                        <div key={`req-${stat}`} className="flex justify-between items-center py-0.5">
+                            <span className="text-gray-500">{t(`statistics.${stat}`)}:</span>
+                            <span className={`font-mono font-bold ${statMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>
+                                {val}
+                            </span>
+                        </div>
+                    );
+                }
+            });
+        }
+
+        if (reqs.length === 0) return null;
+
+        return (
+            <div className={`bg-red-950/20 p-3 rounded-lg mt-2 border border-red-900/20 ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                <h5 className="font-black uppercase text-[9px] tracking-widest text-red-400/60 border-b border-red-900/20 mb-2 pb-1">Wymagania</h5>
+                <div className="space-y-0.5">{reqs}</div>
+            </div>
+        );
+    };
+
     const StatSection: React.FC<{title?: string, source: RolledAffixStats | ItemTemplate, metadata: ItemTemplate | Affix, isAffix: boolean}> = ({title, source, metadata, isAffix}) => {
         const upgradeFactor = isAffix ? Math.min(upgradeLevel, 5) * 0.1 : upgradeLevel * 0.1;
         const s = source as any;
@@ -228,6 +272,10 @@ export const ItemDetailsPanel: React.FC<{
                         )}
                     </div>
                 )}
+                
+                {/* Nowa sekcja wymagań */}
+                <RequirementsSection />
+
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
