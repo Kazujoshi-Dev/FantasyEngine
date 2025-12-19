@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { pool } from '../../db.js';
 import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData } from '../../types.js';

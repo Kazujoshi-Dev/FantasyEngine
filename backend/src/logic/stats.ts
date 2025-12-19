@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings, PlayerRank, CharacterClass } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';

@@ -2,21 +2,14 @@
 import pg from 'pg';
 const { Pool } = pg;
 import dotenv from 'dotenv';
+import { GAME_SKILLS } from './content/skills.js';
 
 dotenv.config();
-
-/**
- * ARCHITEKTURA POŁĄCZENIA:
- * 1. Sprawdzamy DATABASE_URL (format: postgres://user:pass@host:port/db)
- * 2. Jeśli brak, budujemy konfigurację z pojedynczych zmiennych (używanych w Dockerze)
- */
 
 const getPoolConfig = () => {
     if (process.env.DATABASE_URL) {
         return { connectionString: process.env.DATABASE_URL };
     }
-
-    // Fallback do pojedynczych zmiennych z docker-compose.yml
     if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER) {
         return {
             host: process.env.POSTGRES_HOST,
@@ -26,27 +19,15 @@ const getPoolConfig = () => {
             port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
         };
     }
-
     return null;
 };
 
 const config = getPoolConfig();
 
 if (!config) {
-    console.error("================================================================");
-    console.error("BŁĄD KRYTYCZNY: Brak konfiguracji bazy danych!");
-    console.error("Upewnij się, że w .env masz DATABASE_URL");
-    console.error("LUB zmienne: POSTGRES_HOST, POSTGRES_USER, POSTGRES_DB, POSTGRES_PASSWORD");
-    console.error("================================================================");
+    console.error("[DB] Brak konfiguracji bazy danych!");
     process.exit(1);
 }
-
-// Logujemy (bezpiecznie) parametry połączenia
-const debugConn = (config as any).connectionString 
-    ? "używając DATABASE_URL" 
-    : `używając hosta: ${config.host}, bazy: ${config.database}, użytkownika: ${config.user}`;
-
-console.log(`[DB] Inicjalizacja połączenia ${debugConn}`);
 
 export const pool = new Pool({
     ...config,
@@ -57,8 +38,8 @@ export const initializeDatabase = async () => {
     let client;
     try {
         client = await pool.connect();
-        console.log(`[DB] Połączono pomyślnie z bazą danych.`);
         
+        // 1. Tworzenie tabel (Struktura)
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -110,44 +91,6 @@ export const initializeDatabase = async () => {
                 status TEXT NOT NULL,
                 updated_at TIMESTAMP DEFAULT NOW()
             );
-            CREATE TABLE IF NOT EXISTS market_bids (
-                id SERIAL PRIMARY KEY,
-                listing_id INTEGER NOT NULL REFERENCES market_listings(id) ON DELETE CASCADE,
-                bidder_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                amount INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-            CREATE TABLE IF NOT EXISTS guild_chat (
-                id SERIAL PRIMARY KEY,
-                guild_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-            CREATE TABLE IF NOT EXISTS guild_members (
-                guild_id INTEGER NOT NULL,
-                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-                role TEXT NOT NULL,
-                joined_at TIMESTAMP DEFAULT NOW()
-            );
-            CREATE TABLE IF NOT EXISTS guilds (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                tag TEXT NOT NULL,
-                description TEXT,
-                crest_url TEXT,
-                leader_id INTEGER NOT NULL,
-                resources JSONB DEFAULT '{"gold": 0, "commonEssence": 0, "uncommonEssence": 0, "rareEssence": 0, "epicEssence": 0, "legendaryEssence": 0}'::jsonb,
-                buildings JSONB DEFAULT '{}'::jsonb,
-                active_buffs JSONB DEFAULT '[]'::jsonb,
-                member_count INTEGER DEFAULT 1,
-                max_members INTEGER DEFAULT 10,
-                min_level INTEGER DEFAULT 1,
-                is_public BOOLEAN DEFAULT TRUE,
-                rental_tax INTEGER DEFAULT 10,
-                hunting_tax INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
             CREATE TABLE IF NOT EXISTS tavern_messages (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -168,6 +111,37 @@ export const initializeDatabase = async () => {
                 current_mana NUMERIC NOT NULL,
                 accumulated_rewards JSONB NOT NULL,
                 status TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS guilds (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                description TEXT,
+                crest_url TEXT,
+                leader_id INTEGER NOT NULL,
+                resources JSONB DEFAULT '{"gold": 0, "commonEssence": 0, "uncommonEssence": 0, "rareEssence": 0, "epicEssence": 0, "legendaryEssence": 0}'::jsonb,
+                buildings JSONB DEFAULT '{}'::jsonb,
+                active_buffs JSONB DEFAULT '[]'::jsonb,
+                member_count INTEGER DEFAULT 1,
+                max_members INTEGER DEFAULT 10,
+                min_level INTEGER DEFAULT 1,
+                is_public BOOLEAN DEFAULT TRUE,
+                rental_tax INTEGER DEFAULT 10,
+                hunting_tax INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS guild_members (
+                guild_id INTEGER NOT NULL,
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT NOT NULL,
+                joined_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS guild_chat (
+                id SERIAL PRIMARY KEY,
+                guild_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS guild_armory_items (
@@ -232,47 +206,35 @@ export const initializeDatabase = async () => {
             );
         `);
 
-        // Migration: Skills
+        // 2. Synchronizacja Contentu (Skille)
+        console.log("[DB] Synchronizacja umiejętności...");
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
-        let skills = skillsRes.rows[0]?.data || [];
+        let dbSkills = Array.isArray(skillsRes.rows[0]?.data) ? skillsRes.rows[0].data : [];
         
-        const skillsToAdd = [
-            {
-                id: 'dual-wield-mastery',
-                name: 'Sztuka Dwóch Mieczy',
-                description: 'Pozwala władać dwiema broniami jednoręcznymi jednocześnie (niemagicznymi). Używanie dwóch ostrzy nakłada karę -25% do całkowitych zadawanych obrażeń.',
-                type: 'Universal',
-                category: 'Active',
-                manaMaintenanceCost: 125,
-                requirements: {
-                    strength: 25,
-                    agility: 30,
-                    stamina: 10,
-                    intelligence: 10,
-                    level: 10
-                },
-                cost: {
-                    gold: 50000,
-                    epicEssence: 10,
-                    legendaryEssence: 3
-                }
-            }
-        ];
-
         let modified = false;
-        for (const s of skillsToAdd) {
-            if (!skills.find((existing: any) => existing.id === s.id)) {
-                skills.push(s);
+        
+        // Dodaj/Aktualizuj skille z pliku GAME_SKILLS
+        for (const skill of GAME_SKILLS) {
+            const index = dbSkills.findIndex((s: any) => s.id === skill.id);
+            if (index === -1) {
+                dbSkills.push(skill);
                 modified = true;
+            } else {
+                // Opcjonalnie: aktualizuj parametry istniejącego skilla
+                // dbSkills[index] = { ...dbSkills[index], ...skill };
+                // modified = true;
             }
         }
 
         if (modified) {
-            await client.query("INSERT INTO game_data (key, data) VALUES ('skills', $1) ON CONFLICT (key) DO UPDATE SET data = $1", [JSON.stringify(skills)]);
+            await client.query("INSERT INTO game_data (key, data) VALUES ('skills', $1) ON CONFLICT (key) DO UPDATE SET data = $1", [JSON.stringify(dbSkills)]);
+            console.log("[DB] Umiejętności zsynchronizowane.");
         }
 
+        console.log("[DB] Baza gotowa.");
+
     } catch (e) {
-        console.error("Database initialization failed during start up:", e);
+        console.error("[DB] Błąd inicjalizacji:", e);
         throw e;
     } finally {
         if (client) client.release();
