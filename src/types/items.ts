@@ -1,6 +1,5 @@
-
-import { CharacterStats } from './character';
-import { EssenceType, ResourceCost } from './common';
+import { CharacterStats } from './character.js';
+import { EssenceType, ResourceCost } from './common.js';
 
 export enum ItemRarity {
     Common = 'Common',

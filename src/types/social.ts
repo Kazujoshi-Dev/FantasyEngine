@@ -1,8 +1,7 @@
-
-import { CurrencyType } from './common';
-import { ItemInstance } from './items';
-import { CharacterStats } from './character';
-import { EquipmentSlot } from './items';
+import { CurrencyType } from './common.js';
+import { ItemInstance } from './items.js';
+import { CharacterStats } from './character.js';
+import { EquipmentSlot } from './items.js';
 
 export type MessageType = 'player_message' | 'system' | 'expedition_report' | 'pvp_report' | 'market_notification' | 'guild_invite' | 'raid_report';
 

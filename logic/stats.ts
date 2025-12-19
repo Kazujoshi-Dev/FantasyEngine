@@ -1,5 +1,4 @@
-
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings } from '../types';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -315,7 +314,6 @@ export const getWarehouseCapacity = (level: number) => {
     return 5 + ((level - 1) * 3);
 };
 
-// Fix: Missing getWorkshopUpgradeCost export
 export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
     if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
         return settings.workshopUpgrades[level];

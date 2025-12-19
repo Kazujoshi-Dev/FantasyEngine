@@ -1,8 +1,7 @@
-
-import { Language, Tab } from './common';
-import { ItemRarity, ItemTemplate, Affix, CraftingSettings } from './items';
-import { Location, Expedition, Quest, Skill, Ritual, Tower } from './world';
-import { Enemy } from './combat';
+import { Language, Tab } from './common.js';
+import { ItemRarity, ItemTemplate, Affix, CraftingSettings } from './items.js';
+import { Location, Expedition, Quest, Skill, Ritual, Tower } from './world.js';
+import { Enemy } from './combat.js';
 
 export interface TraderSettings {
     rarityChances: Partial<Record<ItemRarity, number>>;

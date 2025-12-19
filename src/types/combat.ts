@@ -1,8 +1,7 @@
-
-import { EssenceType } from './common';
-import { MagicAttackType, ItemInstance, LootDrop, ResourceDrop } from './items';
-import { CharacterStats, PlayerCharacter } from './character';
-import { Enemy, PartyMember } from './index';
+import { EssenceType } from './common.js';
+import { MagicAttackType, ItemInstance, LootDrop, ResourceDrop } from './items.js';
+import { CharacterStats, PlayerCharacter } from './character.js';
+import { Enemy, PartyMember } from './index.js';
 
 export enum CombatType {
     PVE = 'PVE',

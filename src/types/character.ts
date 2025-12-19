@@ -1,11 +1,10 @@
-
-import { EssenceType, Language, Race, CharacterClass } from './common';
-import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items';
-import { GuildBuff } from './guild';
-import { PlayerQuestProgress } from './world';
-import { ActiveTowerRun } from './world'; // Circular but needed
-import { CombatLogEntry } from './combat';
-import { TraderData } from './social';
+import { EssenceType, Language, Race, CharacterClass } from './common.js';
+import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items.js';
+import { GuildBuff } from './guild.js';
+import { PlayerQuestProgress } from './world.js';
+import { ActiveTowerRun } from './world.js'; // Circular but needed
+import { CombatLogEntry } from './combat.js';
+import { TraderData } from './social.js';
 
 export interface EquipmentLoadout {
     id: number;

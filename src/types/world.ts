@@ -1,8 +1,6 @@
-
-
-import { Tab, EssenceType, CharacterClass, Race } from './common';
-import { CharacterStats } from './character';
-import { LootDrop, ResourceDrop, ItemInstance, ItemRarity } from './items';
+import { Tab, EssenceType, CharacterClass, Race } from './common.js';
+import { CharacterStats } from './character.js';
+import { LootDrop, ResourceDrop, ItemInstance, ItemRarity } from './items.js';
 
 export interface Location {
     id: string;

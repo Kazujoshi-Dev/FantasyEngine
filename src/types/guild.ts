@@ -1,6 +1,6 @@
-import { CharacterResources, CharacterStats } from './character';
-import { CurrencyType, EssenceType, Race, CharacterClass } from './common';
-import { CombatLogEntry, ItemInstance } from './index';
+import { CharacterResources, CharacterStats } from './character.js';
+import { CurrencyType, EssenceType, Race, CharacterClass } from './common.js';
+import { CombatLogEntry, ItemInstance } from './index.js';
 
 export enum GuildRole {
     LEADER = 'LEADER',
