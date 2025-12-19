@@ -21,6 +21,9 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
         critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRoundBonus: 0,
         dodgeChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
+        armorPenetrationPercent: 0, armorPenetrationFlat: 0,
+        lifeStealPercent: 0, lifeStealFlat: 0,
+        manaStealPercent: 0, manaStealFlat: 0,
         statsBonus: {} as any
     };
 
@@ -39,6 +42,12 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         if (source.dodgeChanceBonus) stats.dodgeChanceBonus += source.dodgeChanceBonus * (1 + factor);
         if (source.magicDamageMin) stats.magicDamageMin += source.magicDamageMin * (1 + factor);
         if (source.magicDamageMax) stats.magicDamageMax += source.magicDamageMax * (1 + factor);
+        if (source.armorPenetrationPercent) stats.armorPenetrationPercent += source.armorPenetrationPercent;
+        if (source.armorPenetrationFlat) stats.armorPenetrationFlat += source.armorPenetrationFlat * (1 + factor);
+        if (source.lifeStealPercent) stats.lifeStealPercent += source.lifeStealPercent;
+        if (source.lifeStealFlat) stats.lifeStealFlat += source.lifeStealFlat * (1 + factor);
+        if (source.manaStealPercent) stats.manaStealPercent += source.manaStealPercent;
+        if (source.manaStealFlat) stats.manaStealFlat += source.manaStealFlat * (1 + factor);
         
         if (source.statsBonus) {
             Object.entries(source.statsBonus).forEach(([k, v]) => {
@@ -115,57 +124,95 @@ export const ItemDetailsPanel: React.FC<{
             if (!metadata) return false;
             let metaVal = isAttribute ? metadata.statsBonus?.[key] : metadata[key];
             if (!metaVal) return false;
-            const maxVal = typeof metaVal === 'number' ? metaVal : metaVal.max;
+            const maxVal = typeof metaVal === 'number' ? metaVal : (metaVal.max || 0);
             return value >= maxVal;
         };
 
-        const renderStat = (label: string, value: number, compareKey: string, isPercent = false, isAttribute = false) => {
-            const finalVal = Math.round(value * (1 + upgradeFactor) * 10) / 10;
-            const isPerfect = checkPerfect(compareKey, value, isAttribute);
-            let delta = 0;
+        const renderStat = (label: string, value: number | [number, number], compareKey: string | [string, string], isPercent = false, isAttribute = false) => {
+            const isRange = Array.isArray(value);
+            const val1 = isRange ? value[0] : value;
+            const val2 = isRange ? value[1] : 0;
             
+            const finalVal1 = Math.round(val1 * (1 + upgradeFactor) * 10) / 10;
+            const finalVal2 = isRange ? Math.round(val2 * (1 + upgradeFactor) * 10) / 10 : 0;
+            
+            const isPerfect = isRange 
+                ? (checkPerfect((compareKey as [string, string])[0], val1) && checkPerfect((compareKey as [string, string])[1], val2))
+                : checkPerfect(compareKey as string, val1, isAttribute);
+
+            let delta = 0;
             if (compareTotalStats) {
-                const compVal = isAttribute 
-                    ? (compareTotalStats.statsBonus?.[compareKey] || 0)
-                    : (compareTotalStats[compareKey] || 0);
-                delta = finalVal - Math.round(compVal * 10) / 10;
+                if (isRange) {
+                    const ck = compareKey as [string, string];
+                    const compVal1 = Math.round((compareTotalStats[ck[0]] || 0) * 10) / 10;
+                    const compVal2 = Math.round((compareTotalStats[ck[1]] || 0) * 10) / 10;
+                    delta = (finalVal1 + finalVal2) / 2 - (compVal1 + compVal2) / 2;
+                } else {
+                    const ck = compareKey as string;
+                    const compVal = isAttribute 
+                        ? (compareTotalStats.statsBonus?.[ck] || 0)
+                        : (compareTotalStats[ck] || 0);
+                    delta = finalVal1 - Math.round(compVal * 10) / 10;
+                }
             }
 
+            const perfectClasses = "text-amber-400 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse";
+
             return (
-                <p key={label} className={`flex justify-between items-center ${isPerfect ? 'text-amber-400 font-bold' : ''}`}>
-                    <span className="flex items-center gap-1">
+                <div key={label} className={`flex justify-between items-center py-0.5 ${isPerfect ? 'relative' : ''}`}>
+                    <span className={`flex items-center gap-1 ${isPerfect ? 'text-amber-300 font-semibold' : 'text-gray-400'}`}>
                         {label}:
-                        {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 animate-pulse" />}
                     </span>
-                    <span className="font-mono flex items-center gap-1">
-                        {isPercent ? `${finalVal.toFixed(1)}%` : Math.round(finalVal)}
+                    <span className={`font-mono flex items-center gap-1 ${isPerfect ? perfectClasses : 'text-gray-200'}`}>
+                        {isRange 
+                            ? `${Math.round(finalVal1)} - ${Math.round(finalVal2)}`
+                            : isPercent ? `${finalVal1.toFixed(1)}%` : Math.round(finalVal1)}
+                        
                         {compareTotalStats && delta !== 0 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 ({delta > 0 ? '+' : ''}{isPercent ? delta.toFixed(1) : Math.round(delta)})
                             </span>
                         )}
+                        {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 ml-1" />}
                     </span>
-                </p>
+                </div>
             );
         };
 
         const entries = [];
+        // Primary Attributes
         if (s.statsBonus) {
             Object.entries(s.statsBonus).forEach(([k, v]) => {
                 if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true));
             });
         }
-        if (s.damageMin !== undefined) entries.push(renderStat(t('item.damage'), s.damageMax, 'damageMax'));
+        
+        // Base Combat Stats
+        if (s.damageMin !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
+        if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
+        
+        // Szybkość i Obrona
+        if (s.attacksPerRound !== undefined) entries.push(renderStat(t('item.attacksPerRound'), s.attacksPerRound, 'attacksPerRound'));
+        if (s.attacksPerRoundBonus !== undefined) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
         if (s.armorBonus !== undefined) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
+        if (s.dodgeChanceBonus !== undefined) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
+        
+        // Krytyki i Zdrowie
         if (s.critChanceBonus !== undefined) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
+        if (s.critDamageModifierBonus !== undefined) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
+        
+        // Zaawansowane (Leech & Pen)
+        if (s.armorPenetrationPercent !== undefined) entries.push(renderStat(t('item.armorPenetrationPercent'), s.armorPenetrationPercent, 'armorPenetrationPercent', true));
+        if (s.lifeStealPercent !== undefined) entries.push(renderStat(t('item.lifeStealPercent'), s.lifeStealPercent, 'lifeStealPercent', true));
+        if (s.manaStealPercent !== undefined) entries.push(renderStat(t('item.manaStealPercent'), s.manaStealPercent, 'manaStealPercent', true));
         
         if (entries.length === 0) return null;
 
         return (
-            <div className={`bg-slate-800/50 p-2 rounded-lg mt-2 ${isSmall ? 'text-xs space-y-0.5' : 'text-sm space-y-1'}`}>
-                {title && <h5 className="font-semibold text-gray-400 border-b border-white/5 mb-1">{title}</h5>}
-                {entries}
+            <div className={`bg-slate-900/60 p-3 rounded-lg mt-2 border border-white/5 ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                {title && <h5 className="font-black uppercase text-[9px] tracking-widest text-gray-500 border-b border-white/5 mb-2 pb-1">{title}</h5>}
+                <div className="space-y-0.5">{entries}</div>
             </div>
         );
     };
@@ -177,11 +224,12 @@ export const ItemDetailsPanel: React.FC<{
                 <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-lg mb-1' : 'text-xl mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
+                
                 {showIcon && template.icon && (
-                    <div className="relative group">
-                        <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto mb-4 bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
+                    <div className="relative group mb-4">
+                        <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
                         {item.crafterName && (
-                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50">
                                 WYKUTY PRZEZ: {item.crafterName.toUpperCase()}
                             </div>
                         )}
