@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Skill, SkillCategory, SkillType, CharacterStats, EssenceType, CharacterClass, Race } from '../types';
+import { Skill, SkillCategory, SkillType, CharacterStats, EssenceType, CharacterClass } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
 import { CoinsIcon } from './icons/CoinsIcon';
@@ -18,28 +18,29 @@ const SkillCard: React.FC<{
     const isLearned = (character.learnedSkills || []).includes(skill.id);
     
     // Check Stats Requirements
-    const statOrder: (keyof Skill['requirements'])[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const statOrder: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
     const statsReqsMet = statOrder.every((req) => {
         const val = (skill.requirements as any)[req];
         if (val === undefined) return true;
-        const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
+        const playerVal = (character.stats[req] || 0);
         return playerVal >= val;
     });
+
+    const levelMatch = character.level >= (skill.requirements.level || 0);
 
     // Check Class/Race
     const reqClass = skill.requirements.characterClass;
     const reqRace = skill.requirements.race;
     
     let classMatch = !reqClass || character.characterClass === reqClass;
-    
-    // Special handling for multi-class skills
+    // Special handling for multi-class skills like Dual Wield
     if (skill.id === 'dual-wield-mastery') {
         const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
         classMatch = !!character.characterClass && allowed.includes(character.characterClass);
     }
     
     const raceMatch = !reqRace || character.race === reqRace;
-    const reqsMet = statsReqsMet && classMatch && raceMatch;
+    const reqsMet = statsReqsMet && classMatch && raceMatch && levelMatch;
 
     // Check Costs
     const costMet = (Object.entries(skill.cost)).every(([key, val]) => {
@@ -71,15 +72,18 @@ const SkillCard: React.FC<{
                 <div>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Wymagania</p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {skill.requirements.level && (
+                             <p className={`text-xs ${levelMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Poziom: {skill.requirements.level}</p>
+                        )}
                         {reqClass && (
                             <p className={`text-xs ${classMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>
-                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa (Woj/Łotr/Bers/Złodz)' : t(`class.${reqClass}`)}
+                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa' : t(`class.${reqClass}`)}
                             </p>
                         )}
                         {statOrder.map(req => {
                             const val = (skill.requirements as any)[req];
                             if (val === undefined) return null;
-                            const playerVal = req === 'level' ? character.level : (character.stats[req as keyof CharacterStats] || 0);
+                            const playerVal = (character.stats[req] || 0);
                             const isMet = playerVal >= val;
                             return (
                                 <p key={req} className={`text-xs ${isMet ? 'text-gray-400' : 'text-red-500 font-bold'}`}>

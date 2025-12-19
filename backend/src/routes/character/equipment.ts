@@ -2,8 +2,7 @@
 import express from 'express';
 import { pool } from '../../db.js';
 import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData } from '../../types.js';
-import { calculateDerivedStatsOnServer } from '../../logic/stats.js';
-import { getBackpackCapacity } from '../../logic/helpers.js';
+import { calculateDerivedStatsOnServer, getBackpackCapacity } from '../../logic/stats.js';
 
 const router = express.Router();
 

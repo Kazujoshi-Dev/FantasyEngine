@@ -5,14 +5,21 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+if (!process.env.DATABASE_URL) {
+    console.error("FATAL ERROR: DATABASE_URL environment variable is missing!");
+}
+
 export const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 export const initializeDatabase = async () => {
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
+        console.log("Connected to PostgreSQL database successfully.");
+        
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -110,7 +117,7 @@ export const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tavern_presence (
-                user_id PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 last_seen TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tower_runs (
@@ -226,8 +233,9 @@ export const initializeDatabase = async () => {
         }
 
     } catch (e) {
-        console.error("Database initialization failed:", e);
+        console.error("Database initialization failed during start up:", e);
+        throw e; // Rethrow to let server.ts handle the crash reporting
     } finally {
-        client.release();
+        if (client) client.release();
     }
 };

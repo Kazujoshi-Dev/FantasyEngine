@@ -177,7 +177,6 @@ export const calculateDerivedStatsOnServer = (
         }
     }
     
-    // Detect Dual Wielding
     const isDualWieldSkillActive = character.activeSkills?.includes('dual-wield-mastery');
     const mainHandItem = safeEquipment[EquipmentSlot.MainHand];
     const offHandItem = safeEquipment[EquipmentSlot.OffHand];
@@ -197,7 +196,6 @@ export const calculateDerivedStatsOnServer = (
     let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
     
-    // Raw Max Mana calculation
     let rawMaxMana = baseMana + totalPrimaryStats.intelligence * 10;
     let totalMaintenance = 0;
     if (character.activeSkills && character.activeSkills.length > 0) {
@@ -207,7 +205,6 @@ export const calculateDerivedStatsOnServer = (
         });
     }
 
-    // Force Deactivation Check
     if (totalMaintenance > rawMaxMana) {
         character.activeSkills = character.activeSkills?.filter(id => id !== 'dual-wield-mastery') || [];
         totalMaintenance = 0;
@@ -231,7 +228,6 @@ export const calculateDerivedStatsOnServer = (
         maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
     }
 
-    // Apply Dual Wield Penalty (-25% to all sources)
     if (isActuallyDualWielding) {
         minDamage = Math.floor(minDamage * 0.75);
         maxDamage = Math.floor(maxDamage * 0.75);
@@ -301,8 +297,6 @@ export const calculateDerivedStatsOnServer = (
     };
 };
 
-/** Ported upgrade and capacity helpers from frontend logic to support backend routes **/
-
 export const getCampUpgradeCost = (level: number) => {
     const gold = Math.floor(150 * Math.pow(level, 1.5));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -346,7 +340,6 @@ export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSetting
     if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
         return settings.workshopUpgrades[level];
     }
-    // Fallback default logic
     const gold = Math.floor(300 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
     if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
