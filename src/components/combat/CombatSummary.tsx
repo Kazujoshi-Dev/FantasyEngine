@@ -145,10 +145,10 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
 
     return (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm">
-            <div className="w-full max-w-[1400px] h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-hidden" 
+            <div className="w-full max-w-[1400px] h-[90vh] rounded-2xl border-2 border-slate-700 shadow-2xl flex flex-col relative overflow-y-auto custom-scrollbar" 
                  style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover' } : { backgroundColor: 'var(--window-bg, #0f172a)' }}>
                 
-                <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center z-10">
+                <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center z-10 sticky top-0">
                     <div>
                         <h2 className="text-2xl font-bold text-white uppercase tracking-wider">
                             {isPvp ? 'Pojedynek PvP' : isRaid ? 'Bitwa Gildii' : isHunting ? `Polowanie: ${bossName || 'Boss'}` : t('expedition.combatReport')}
@@ -173,8 +173,8 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                     </div>
                 </div>
 
-                <div className="flex-1 flex overflow-hidden p-6 gap-6 relative">
-                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar z-10">
+                <div className="flex-1 flex overflow-visible p-6 gap-6 relative min-h-fit">
+                    <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 z-10">
                         {selectedCombatant ? (
                              <CombatantStatsPanel 
                                 name={selectedCombatant.name} 
@@ -189,7 +189,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                         )}
                     </div>
 
-                    <div className="flex-1 bg-black/40 rounded-xl border border-slate-700 p-4 flex flex-col z-10 shadow-inner">
+                    <div className="flex-1 bg-black/40 rounded-xl border border-slate-700 p-4 flex flex-col z-10 shadow-inner min-h-[400px]">
                         <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1">
                             {logsWithRoundHeaders.map((entry, idx) => (
                                 'isHeader' in entry ? 

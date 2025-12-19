@@ -333,10 +333,26 @@ export const ItemTooltip: React.FC<{
     x?: number;
     y?: number;
     itemTemplates?: ItemTemplate[];
-}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [] }) => {
+    isCentered?: boolean;
+}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered }) => {
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
     
     useEffect(() => {
+        if (isCentered) {
+            const tooltipWidth = compareWith ? 620 : 300;
+            setStyle({
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                visibility: 'inherit',
+                width: `${tooltipWidth}px`,
+                zIndex: 10000,
+                pointerEvents: 'none'
+            });
+            return;
+        }
+
         if (x === undefined || y === undefined) {
             setStyle({ visibility: 'inherit', width: '300px' });
             return;
@@ -352,7 +368,7 @@ export const ItemTooltip: React.FC<{
         if (finalY + 450 > window.innerHeight) finalY = window.innerHeight - 470;
 
         setStyle({ left: `${finalX}px`, top: `${finalY}px`, visibility: 'visible', width: `${tooltipWidth}px` });
-    }, [x, y, compareWith, instance.uniqueId]);
+    }, [x, y, compareWith, instance.uniqueId, isCentered]);
 
     const isSameItem = compareWith?.uniqueId === instance.uniqueId;
     const actualCompareWith = isSameItem ? null : compareWith;
@@ -360,7 +376,7 @@ export const ItemTooltip: React.FC<{
 
     return (
         <div 
-            className={`${x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block'} z-[9999] bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4`}
+            className={`${isCentered ? 'fixed' : (x !== undefined ? 'fixed' : 'absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block')} z-[9999] bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 pointer-events-none backdrop-blur-md animate-fade-in flex gap-4`}
             style={style}
         >
             {actualCompareWith && compareTemplate && (
