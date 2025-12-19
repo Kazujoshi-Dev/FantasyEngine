@@ -11,6 +11,7 @@ import campRoutes from './character/camp.js';
 import storageRoutes from './character/storage.js';
 import skillsRoutes from './character/skills.js';
 import loadoutsRoutes from './character/loadouts.js';
+import equipmentRoutes from './character/equipment.js'; // Dodano
 
 const router = express.Router();
 
@@ -172,12 +173,6 @@ router.use('/camp', campRoutes);
 router.use('/storage', storageRoutes);
 router.use('/skills', skillsRoutes);
 router.use('/loadouts', loadoutsRoutes);
-
-// Zachowanie kompatybilności wstecznej dla ścieżek wywoływanych bezpośrednio
-router.use('/', statsRoutes);
-router.use('/', campRoutes);
-router.use('/', storageRoutes);
-router.use('/', skillsRoutes);
-router.use('/', loadoutsRoutes);
+router.use('/', equipmentRoutes); // Rejestracja logiki ekwipunku
 
 export default router;
