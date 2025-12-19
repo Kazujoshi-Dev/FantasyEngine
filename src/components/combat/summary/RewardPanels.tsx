@@ -157,7 +157,7 @@ export const StandardRewardsPanel: React.FC<{ reward: ExpeditionRewardSummary, i
                                             <p className="text-[8px] text-gray-500 uppercase leading-none">{t(`equipment.slot.${template.slot}`)}</p>
                                         </div>
                                         <div className="text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            LUPA
+                                            INFO
                                         </div>
                                     </div>
                                 );
