@@ -25,14 +25,14 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({ title, children, cla
             )}
             
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
-                {/* Subtle fantasy texture bg */}
+                {/* Immersive fantasy texture bg */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-10 pointer-events-none"></div>
-                <div className="relative z-10">
+                <div className="relative z-10 p-1">
                     {children}
                 </div>
             </div>
             
-            {/* Corner Ornaments */}
+            {/* Decorative Corner Ornaments */}
             <div className="absolute top-0 right-0 w-8 h-8 border-t border-r border-fantasy-gold/10 rounded-tr-xl pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-fantasy-gold/10 rounded-bl-xl pointer-events-none"></div>
         </div>

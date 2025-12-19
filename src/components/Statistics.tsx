@@ -22,50 +22,49 @@ export const Statistics: React.FC = () => {
 
     return (
         <ContentPanel title={t('statistics.title')}>
-            <div className="flex border-b border-white/5 mb-8 overflow-x-auto gap-2">
-                <button 
-                    onClick={() => setActiveTab('stats')} 
-                    className={`px-6 py-4 text-sm font-bold transition-all whitespace-nowrap uppercase tracking-widest font-cinzel ${activeTab === 'stats' ? 'text-fantasy-amber border-b-2 border-fantasy-amber bg-white/5' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    {t('statistics.tabs.stats')}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('progression')} 
-                    className={`px-6 py-4 text-sm font-bold transition-all whitespace-nowrap uppercase tracking-widest font-cinzel ${activeTab === 'progression' ? 'text-fantasy-amber border-b-2 border-fantasy-amber bg-white/5' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    {t('statistics.tabs.developmentPath')}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('skills')} 
-                    className={`px-6 py-4 text-sm font-bold transition-all whitespace-nowrap uppercase tracking-widest font-cinzel ${activeTab === 'skills' ? 'text-fantasy-amber border-b-2 border-fantasy-amber bg-white/5' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    {t('statistics.tabs.skills')}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('knowledge')} 
-                    className={`px-6 py-4 text-sm font-bold transition-all whitespace-nowrap uppercase tracking-widest font-cinzel ${activeTab === 'knowledge' ? 'text-fantasy-amber border-b-2 border-fantasy-amber bg-white/5' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    {t('statistics.tabs.knowledge')}
-                </button>
+            <div className="flex border-b border-white/5 mb-8 overflow-x-auto gap-4">
+                {[
+                    { id: 'stats', label: t('statistics.tabs.stats') },
+                    { id: 'progression', label: t('statistics.tabs.developmentPath') },
+                    { id: 'skills', label: t('statistics.tabs.skills') },
+                    { id: 'knowledge', label: t('statistics.tabs.knowledge') }
+                ].map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as StatTab)} 
+                        className={`
+                            px-6 py-4 text-xs font-black transition-all whitespace-nowrap uppercase tracking-widest fantasy-header
+                            ${activeTab === tab.id ? 'text-fantasy-amber border-b-2 border-fantasy-amber bg-white/5' : 'text-gray-500 hover:text-gray-300'}
+                        `}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
             </div>
 
-            <div className="mb-8 bg-[#1a2133]/60 p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+            {/* Experience Card */}
+            <div className="mb-8 bg-[#1a2133]/60 p-6 rounded-2xl border border-white/5 shadow-2xl relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-1 h-full bg-sky-500 group-hover:h-1/2 transition-all"></div>
-                <div className="flex justify-between items-end mb-3">
+                <div className="flex justify-between items-end mb-4">
                     <div>
-                        <span className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Poziom Doświadczenia</span>
-                        <span className="font-medieval text-3xl text-white tracking-tighter">{t('statistics.level')} {character.level}</span>
+                        <span className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Poziom Bohatera</span>
+                        <span className="font-medieval text-4xl text-white tracking-tighter">Level {character.level}</span>
                     </div>
                     <div className="text-right">
-                        <span className="font-mono text-sm font-bold text-sky-400">{character.experience.toLocaleString()} <span className="text-gray-600">/</span> {character.experienceToNextLevel.toLocaleString()} XP</span>
+                        <span className="font-mono text-sm font-bold text-sky-400">
+                            {character.experience.toLocaleString()} <span className="text-gray-600">/</span> {character.experienceToNextLevel.toLocaleString()} XP
+                        </span>
                     </div>
                 </div>
                 <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-white/5 p-[1px]">
-                    <div className="bg-gradient-to-r from-sky-900 to-sky-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(56,189,248,0.5)]" style={{ width: `${experiencePercentage}%` }}></div>
+                    <div 
+                        className="bg-gradient-to-r from-sky-900 to-sky-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(56,189,248,0.5)]" 
+                        style={{ width: `${experiencePercentage}%` }}
+                    />
                 </div>
-                <div className="mt-2 flex justify-between">
-                     <span className="text-[10px] text-gray-500 uppercase font-bold">{Math.floor(experiencePercentage)}% Postępu</span>
-                     <SparklesIcon className="h-3 w-3 text-sky-500/50 animate-pulse" />
+                <div className="mt-3 flex justify-between items-center">
+                     <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{Math.floor(experiencePercentage)}% Postępu do awansu</span>
+                     <SparklesIcon className="h-4 w-4 text-sky-500/50 animate-pulse" />
                 </div>
             </div>
 
