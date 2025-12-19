@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -19,7 +18,7 @@ export const rarityStyles = {
 const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
-        critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRoundBonus: 0,
+        critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRound: 0, attacksPerRoundBonus: 0,
         dodgeChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
         armorPenetrationPercent: 0, armorPenetrationFlat: 0,
         lifeStealPercent: 0, lifeStealFlat: 0,
@@ -39,15 +38,10 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         if (source.critChanceBonus) stats.critChanceBonus += source.critChanceBonus * (1 + factor);
         if (source.critDamageModifierBonus) stats.critDamageModifierBonus += source.critDamageModifierBonus * (1 + factor);
         if (source.attacksPerRoundBonus) stats.attacksPerRoundBonus += source.attacksPerRoundBonus * (1 + factor);
+        // Fixed: attacksPerRound does not exist on RolledAffixStats
         if (source.dodgeChanceBonus) stats.dodgeChanceBonus += source.dodgeChanceBonus * (1 + factor);
         if (source.magicDamageMin) stats.magicDamageMin += source.magicDamageMin * (1 + factor);
         if (source.magicDamageMax) stats.magicDamageMax += source.magicDamageMax * (1 + factor);
-        if (source.armorPenetrationPercent) stats.armorPenetrationPercent += source.armorPenetrationPercent;
-        if (source.armorPenetrationFlat) stats.armorPenetrationFlat += source.armorPenetrationFlat * (1 + factor);
-        if (source.lifeStealPercent) stats.lifeStealPercent += source.lifeStealPercent;
-        if (source.lifeStealFlat) stats.lifeStealFlat += source.lifeStealFlat * (1 + factor);
-        if (source.manaStealPercent) stats.manaStealPercent += source.manaStealPercent;
-        if (source.manaStealFlat) stats.manaStealFlat += source.manaStealFlat * (1 + factor);
         
         if (source.statsBonus) {
             Object.entries(source.statsBonus).forEach(([k, v]) => {
@@ -63,25 +57,27 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     return stats;
 };
 
-export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
-    const safeAffixes = affixes || [];
-    const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
-    const suffixAffix = safeAffixes.find(a => a.id === item.suffixId);
-    
+export const getGrammaticallyCorrectAffixName = (affix: Affix | undefined, template: ItemTemplate): string => {
+    if (!affix) return '';
     let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
     if (template.gender === GrammaticalGender.Feminine) {
         genderKey = 'feminine';
     } else if (template.gender === GrammaticalGender.Neuter) {
         genderKey = 'neuter';
     }
-    
-    const getName = (affix: Affix | undefined) => {
-        if (!affix) return '';
-        if (typeof affix.name === 'string') return affix.name;
-        return (affix.name as any)[genderKey] || affix.name.masculine || '';
-    };
+    if (typeof affix.name === 'string') return affix.name;
+    return (affix.name as any)[genderKey] || affix.name.masculine || '';
+};
 
-    return [getName(prefixAffix), template.name, getName(suffixAffix)].filter(Boolean).join(' ');
+export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
+    const safeAffixes = affixes || [];
+    const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
+    const suffixAffix = safeAffixes.find(a => a.id === item.suffixId);
+    return [
+        getGrammaticallyCorrectAffixName(prefixAffix, template),
+        template.name,
+        getGrammaticallyCorrectAffixName(suffixAffix, template)
+    ].filter(Boolean).join(' ');
 }
 
 export const ItemDetailsPanel: React.FC<{
@@ -124,7 +120,9 @@ export const ItemDetailsPanel: React.FC<{
             if (!metadata) return false;
             let metaVal = isAttribute ? metadata.statsBonus?.[key] : metadata[key];
             if (!metaVal) return false;
-            const maxVal = typeof metaVal === 'number' ? metaVal : (metaVal.max || 0);
+            // PERFECT ROLL TYLKO DLA ZAKRESÓW (OBJECT)
+            if (typeof metaVal !== 'object' || metaVal === null) return false;
+            const maxVal = metaVal.max || 0;
             return value >= maxVal;
         };
 
@@ -166,11 +164,11 @@ export const ItemDetailsPanel: React.FC<{
                     <span className={`font-mono flex items-center gap-1 ${isPerfect ? perfectClasses : 'text-gray-200'}`}>
                         {isRange 
                             ? `${Math.round(finalVal1)} - ${Math.round(finalVal2)}`
-                            : isPercent ? `${finalVal1.toFixed(1)}%` : Math.round(finalVal1)}
+                            : isPercent ? `${finalVal1.toFixed(1)}%` : Math.round(finalVal1 * 10) / 10}
                         
                         {compareTotalStats && delta !== 0 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                ({delta > 0 ? '+' : ''}{isPercent ? delta.toFixed(1) : Math.round(delta)})
+                                ({delta > 0 ? '+' : ''}{isPercent ? delta.toFixed(1) : Math.round(delta * 10) / 10})
                             </span>
                         )}
                         {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 ml-1" />}
@@ -188,30 +186,30 @@ export const ItemDetailsPanel: React.FC<{
         }
         
         // Base Combat Stats
-        if (s.damageMin !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
+        if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         
         // Szybkość i Obrona
-        if (s.attacksPerRound !== undefined) entries.push(renderStat(t('item.attacksPerRound'), s.attacksPerRound, 'attacksPerRound'));
-        if (s.attacksPerRoundBonus !== undefined) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
-        if (s.armorBonus !== undefined) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
-        if (s.dodgeChanceBonus !== undefined) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
+        if (s.attacksPerRound !== undefined && s.attacksPerRound > 0) entries.push(renderStat(t('item.attacksPerRound'), s.attacksPerRound, 'attacksPerRound'));
+        if (s.attacksPerRoundBonus !== undefined && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
+        if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
+        if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
         
         // Krytyki i Zdrowie
-        if (s.critChanceBonus !== undefined) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
-        if (s.critDamageModifierBonus !== undefined) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
-        if (s.maxHealthBonus !== undefined) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
+        if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
+        if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
+        if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
         
         // Zaawansowane (Leech & Pen)
-        if (s.armorPenetrationPercent !== undefined) entries.push(renderStat(t('item.armorPenetrationPercent'), s.armorPenetrationPercent, 'armorPenetrationPercent', true));
-        if (s.lifeStealPercent !== undefined) entries.push(renderStat(t('item.lifeStealPercent'), s.lifeStealPercent, 'lifeStealPercent', true));
-        if (s.manaStealPercent !== undefined) entries.push(renderStat(t('item.manaStealPercent'), s.manaStealPercent, 'manaStealPercent', true));
+        if (s.armorPenetrationPercent !== undefined && s.armorPenetrationPercent > 0) entries.push(renderStat(t('item.armorPenetrationPercent'), s.armorPenetrationPercent, 'armorPenetrationPercent', true));
+        if (s.lifeStealPercent !== undefined && s.lifeStealPercent > 0) entries.push(renderStat(t('item.lifeStealPercent'), s.lifeStealPercent, 'lifeStealPercent', true));
+        if (s.manaStealPercent !== undefined && s.manaStealPercent > 0) entries.push(renderStat(t('item.manaStealPercent'), s.manaStealPercent, 'manaStealPercent', true));
         
         if (entries.length === 0) return null;
 
         return (
             <div className={`bg-slate-900/60 p-3 rounded-lg mt-2 border border-white/5 ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                {title && <h5 className="font-black uppercase text-[9px] tracking-widest text-gray-500 border-b border-white/5 mb-2 pb-1">{title}</h5>}
+                {title && <h5 className="font-black uppercase text-[9px] tracking-widest text-indigo-400 border-b border-white/5 mb-2 pb-1">{title}</h5>}
                 <div className="space-y-0.5">{entries}</div>
             </div>
         );
@@ -220,7 +218,7 @@ export const ItemDetailsPanel: React.FC<{
     return (
         <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-1' : 'pr-2'}`}>
-                {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-indigo-400 mb-2">{title}</h5>}
+                {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-2">{title}</h5>}
                 <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-lg mb-1' : 'text-xl mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
@@ -237,8 +235,8 @@ export const ItemDetailsPanel: React.FC<{
                 )}
                 
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={t('admin.affix.prefix')} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={t('admin.affix.suffix')} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
+                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
+                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
             </div>
         </div>
     );
