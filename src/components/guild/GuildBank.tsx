@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Guild, PlayerCharacter, EssenceType, ItemRarity } from '../../types';
 import { api } from '../../api';
@@ -39,6 +40,18 @@ export const GuildBank: React.FC<{ guild: Guild, character: PlayerCharacter | nu
             case 'WAR_LOSS': return t('guild.bank.warLoss');
             default: return type;
         }
+    };
+
+    const formatCurrencyName = (curr: string) => {
+        if (curr === 'gold') return 'Złoto';
+        return t(`resources.${curr}` as any).replace(' Esencja', '');
+    };
+
+    const getCurrencyColor = (curr: string) => {
+        if (curr === 'gold') return 'text-amber-400';
+        const type = curr as EssenceType;
+        const rarity = essenceToRarityMap[type];
+        return rarityStyles[rarity]?.text || 'text-white';
     };
 
     return (
@@ -95,21 +108,30 @@ export const GuildBank: React.FC<{ guild: Guild, character: PlayerCharacter | nu
                 <h3 className="text-xl font-bold text-gray-300 mb-4 flex-shrink-0 border-b border-slate-700 pb-2">Księga Transakcji</h3>
                 <div className="flex-grow overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                     {(guild.transactions || []).length === 0 && <p className="text-gray-500 text-center py-20 italic text-sm">Pusta księga. Czas na pierwsze darowizny!</p>}
-                    {(guild.transactions || []).map(t => (
-                        <div key={t.id} className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center text-sm hover:bg-slate-700/50 transition-colors">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 font-mono mb-1">{new Date(t.timestamp).toLocaleString()}</span>
-                                <p className="font-bold text-gray-200 tracking-wide">{getTransactionLabel(t.type)}</p>
-                                <p className="text-[11px] text-gray-400 italic">Podróżnik: {t.characterName}</p>
+                    {(guild.transactions || []).map(t => {
+                        const date = new Date(t.timestamp);
+                        const isValidDate = !isNaN(date.getTime());
+                        
+                        return (
+                            <div key={t.id} className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center text-sm hover:bg-slate-700/50 transition-colors">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-gray-500 font-mono mb-1">
+                                        {isValidDate ? date.toLocaleString() : 'Data nieznana'}
+                                    </span>
+                                    <p className="font-bold text-gray-200 tracking-wide">{getTransactionLabel(t.type)}</p>
+                                    <p className="text-[11px] text-gray-400 italic">Podróżnik: {t.characterName}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className={`font-mono font-extrabold text-lg ${t.type === 'DEPOSIT' || t.type === 'LOOT' || t.type === 'TAX' || t.type === 'RENTAL' ? 'text-green-400' : 'text-red-400'}`}>
+                                        {t.type === 'DEPOSIT' || t.type === 'LOOT' || t.type === 'TAX' || t.type === 'RENTAL' ? '+' : '-'}{t.amount.toLocaleString()}
+                                    </p>
+                                    <p className={`text-[9px] uppercase font-bold tracking-widest ${getCurrencyColor(t.currency)}`}>
+                                        {formatCurrencyName(t.currency)}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className={`font-mono font-extrabold text-lg ${t.type === 'DEPOSIT' || t.type === 'LOOT' || t.type === 'TAX' || t.type === 'RENTAL' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {t.type === 'DEPOSIT' || t.type === 'LOOT' || t.type === 'TAX' || t.type === 'RENTAL' ? '+' : '-'}{t.amount.toLocaleString()}
-                                </p>
-                                <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{t.currency === 'gold' ? 'Złoto' : 'Esencja'}</p>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
