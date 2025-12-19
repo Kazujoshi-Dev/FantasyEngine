@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -38,7 +39,6 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         if (source.critChanceBonus) stats.critChanceBonus += source.critChanceBonus * (1 + factor);
         if (source.critDamageModifierBonus) stats.critDamageModifierBonus += source.critDamageModifierBonus * (1 + factor);
         if (source.attacksPerRoundBonus) stats.attacksPerRoundBonus += source.attacksPerRoundBonus * (1 + factor);
-        // Fixed: attacksPerRound does not exist on RolledAffixStats
         if (source.dodgeChanceBonus) stats.dodgeChanceBonus += source.dodgeChanceBonus * (1 + factor);
         if (source.magicDamageMin) stats.magicDamageMin += source.magicDamageMin * (1 + factor);
         if (source.magicDamageMax) stats.magicDamageMax += source.magicDamageMax * (1 + factor);
@@ -49,6 +49,9 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
             });
         }
     };
+
+    // Base attacks from template are special (not rolled but static)
+    stats.attacksPerRound = (template.attacksPerRound || 0);
 
     applySource(item.rolledBaseStats, upgradeFactor);
     applySource(item.rolledPrefix, affixUpgradeFactor);
@@ -120,7 +123,6 @@ export const ItemDetailsPanel: React.FC<{
             if (!metadata) return false;
             let metaVal = isAttribute ? metadata.statsBonus?.[key] : metadata[key];
             if (!metaVal) return false;
-            // PERFECT ROLL TYLKO DLA ZAKRESÓW (OBJECT)
             if (typeof metaVal !== 'object' || metaVal === null) return false;
             const maxVal = metaVal.max || 0;
             return value >= maxVal;
@@ -131,8 +133,9 @@ export const ItemDetailsPanel: React.FC<{
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
             
-            const finalVal1 = Math.round(val1 * (1 + upgradeFactor) * 10) / 10;
-            const finalVal2 = isRange ? Math.round(val2 * (1 + upgradeFactor) * 10) / 10 : 0;
+            // PEŁNE ZAOKRĄGLENIE DO LICZB CAŁKOWITYCH (Integer logic)
+            const finalVal1 = Math.round(val1 * (1 + upgradeFactor));
+            const finalVal2 = isRange ? Math.round(val2 * (1 + upgradeFactor)) : 0;
             
             const isPerfect = isRange 
                 ? (checkPerfect((compareKey as [string, string])[0], val1) && checkPerfect((compareKey as [string, string])[1], val2))
@@ -142,15 +145,15 @@ export const ItemDetailsPanel: React.FC<{
             if (compareTotalStats) {
                 if (isRange) {
                     const ck = compareKey as [string, string];
-                    const compVal1 = Math.round((compareTotalStats[ck[0]] || 0) * 10) / 10;
-                    const compVal2 = Math.round((compareTotalStats[ck[1]] || 0) * 10) / 10;
+                    const compVal1 = Math.round((compareTotalStats[ck[0]] || 0));
+                    const compVal2 = Math.round((compareTotalStats[ck[1]] || 0));
                     delta = (finalVal1 + finalVal2) / 2 - (compVal1 + compVal2) / 2;
                 } else {
                     const ck = compareKey as string;
                     const compVal = isAttribute 
                         ? (compareTotalStats.statsBonus?.[ck] || 0)
                         : (compareTotalStats[ck] || 0);
-                    delta = finalVal1 - Math.round(compVal * 10) / 10;
+                    delta = finalVal1 - Math.round(compVal);
                 }
             }
 
@@ -164,11 +167,11 @@ export const ItemDetailsPanel: React.FC<{
                     <span className={`font-mono flex items-center gap-1 ${isPerfect ? perfectClasses : 'text-gray-200'}`}>
                         {isRange 
                             ? `${Math.round(finalVal1)} - ${Math.round(finalVal2)}`
-                            : isPercent ? `${finalVal1.toFixed(1)}%` : Math.round(finalVal1 * 10) / 10}
+                            : isPercent ? `${Math.round(finalVal1)}%` : Math.round(finalVal1)}
                         
                         {compareTotalStats && delta !== 0 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                ({delta > 0 ? '+' : ''}{isPercent ? delta.toFixed(1) : Math.round(delta * 10) / 10})
+                                ({delta > 0 ? '+' : ''}{Math.round(delta)})
                             </span>
                         )}
                         {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 ml-1" />}
@@ -189,9 +192,12 @@ export const ItemDetailsPanel: React.FC<{
         if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         
-        // Szybkość i Obrona
-        if (s.attacksPerRound !== undefined && s.attacksPerRound > 0) entries.push(renderStat(t('item.attacksPerRound'), s.attacksPerRound, 'attacksPerRound'));
-        if (s.attacksPerRoundBonus !== undefined && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus'));
+        // Szybkość i Obrona (Jawne wywołanie attacksPerRound dla broni)
+        const currentAttacks = isAffix ? s.attacksPerRoundBonus : s.attacksPerRound;
+        if (currentAttacks !== undefined && currentAttacks > 0) {
+            entries.push(renderStat(isAffix ? t('item.attacksPerRoundBonus') : t('item.attacksPerRound'), currentAttacks, isAffix ? 'attacksPerRoundBonus' : 'attacksPerRound'));
+        }
+
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
         
@@ -235,8 +241,22 @@ export const ItemDetailsPanel: React.FC<{
                 )}
                 
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
-                {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
-                {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
+                {!hideAffixes && item.rolledPrefix && prefix && (
+                    <StatSection 
+                        title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} 
+                        source={item.rolledPrefix} 
+                        metadata={prefix} 
+                        isAffix={true} 
+                    />
+                )}
+                {!hideAffixes && item.rolledSuffix && suffix && (
+                    <StatSection 
+                        title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} 
+                        source={item.rolledSuffix} 
+                        metadata={suffix} 
+                        isAffix={true} 
+                    />
+                )}
             </div>
         </div>
     );
