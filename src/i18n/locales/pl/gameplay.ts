@@ -147,5 +147,8 @@ export default {
         DeathTouch: 'POCZUJ CHŁÓD PUSTKI...',
         EmpoweredStrikes: 'MOJA SIŁA NIE MA GRANIC!',
         Earthquake: 'DRŻYJCIE PRZED MOIM GNIEWEM!'
-    }
+    },
+    orcFuryLog: '{attacker} wpada w szał orka!',
+    berserkerFrenzyLog: '{attacker} wpada w furię berserkera!',
+    hardSkinProc: 'Twarda skóra {defender} pochłania część ciosu!',
 };

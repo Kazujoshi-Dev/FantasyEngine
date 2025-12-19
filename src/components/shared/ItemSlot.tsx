@@ -127,13 +127,18 @@ export const ItemDetailsPanel: React.FC<{
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
             
-            // APR i inne statystyki oznaczone jako noScale nie otrzymują bonusu z ulepszenia
+            // APR i inne statystyki oznaczone jako noScale nie otrzymują bonusu z ulepszenia (ale mogą mieć bazowe ułamki)
             const currentFactor = noScale ? 0 : upgradeFactor;
             
-            // Szybkość ataku i procenty wyświetlamy z dokładnością do 2 miejsc, resztę zaokrąglamy
+            // Logika formatowania:
+            // 1. APR (noScale) i Procenty -> Zawsze precyzja dziesiętna (2 miejsca)
+            // 2. Pozostałe (Atrybuty, Obrażenia, Pancerz) -> Zawsze zaokrąglamy do całkowitych (Math.round)
             const formatValue = (v: number) => {
                 const scaled = v * (1 + currentFactor);
-                return (noScale || isPercent || scaled % 1 !== 0) ? parseFloat(scaled.toFixed(2)) : Math.round(scaled);
+                if (noScale || isPercent) {
+                    return parseFloat(scaled.toFixed(2));
+                }
+                return Math.round(scaled);
             };
 
             const finalVal1 = formatValue(val1);
@@ -152,10 +157,10 @@ export const ItemDetailsPanel: React.FC<{
                     delta = (finalVal1 + finalVal2) / 2 - (compVal1 + compVal2) / 2;
                 } else {
                     const ck = compareKey as string;
-                    const compVal = isAttribute ? (compareTotalStats.statsBonus?.[ck] || 0) : (compareTotalStats[ck] || 0);
-                    // Dla porównania używamy tej samej logiki noScale
-                    const scaledCompVal = noScale ? compVal : compVal * (1 + currentFactor);
-                    delta = finalVal1 - scaledCompVal;
+                    const compValRaw = isAttribute ? (compareTotalStats.statsBonus?.[ck] || 0) : (compareTotalStats[ck] || 0);
+                    // Dla porównania używamy tej samej logiki co dla formatowania głównego
+                    const finalCompVal = formatValue(compValRaw);
+                    delta = finalVal1 - finalCompVal;
                 }
             }
 
@@ -166,9 +171,9 @@ export const ItemDetailsPanel: React.FC<{
                     </span>
                     <span className={`font-mono flex items-center gap-1 ${isPerfect ? 'text-amber-400 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse' : 'text-gray-200'}`}>
                         {isRange ? `${finalVal1} - ${finalVal2}` : isPercent ? `${finalVal1}%` : finalVal1}
-                        {compareTotalStats && Math.abs(delta) > 0.01 && (
+                        {compareTotalStats && Math.abs(delta) >= 0.01 && (
                             <span className={`text-[10px] font-bold ${delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                ({delta > 0 ? '+' : ''}{parseFloat(delta.toFixed(2))})
+                                ({delta > 0 ? '+' : ''}{noScale || isPercent ? parseFloat(delta.toFixed(2)) : Math.round(delta)})
                             </span>
                         )}
                         {isPerfect && <SparklesIcon className="h-3 w-3 text-amber-400 ml-1" />}
@@ -186,7 +191,7 @@ export const ItemDetailsPanel: React.FC<{
         if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         
-        // Ataki na rundę nie skalują się u kowala - ustawiamy noScale: true
+        // Ataki na rundę nie skalują się u kowala - ustawiamy noScale: true, co wymusi precyzję dziesiętną
         if (!isAffix && (metadata as ItemTemplate).attacksPerRound) {
             entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
         }
