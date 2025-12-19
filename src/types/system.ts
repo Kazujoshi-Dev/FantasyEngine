@@ -25,6 +25,8 @@ export interface GameSettings {
         images: string[];
     };
     crafting?: CraftingSettings;
+    // FIX: Add buyCoffeeUrl property to GameSettings type
+    buyCoffeeUrl?: string;
 }
 
 export interface GameData {

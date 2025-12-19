@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -24,6 +23,7 @@ import { UsersIcon as IconUsers } from './icons/UsersIcon';
 import { BookOpenIcon as IconBook } from './icons/BookOpenIcon';
 import { CrossIcon } from './icons/CrossIcon';
 import { GlobeIcon } from './icons/GlobeIcon';
+import { CoffeeIcon } from './icons/CoffeeIcon';
 
 interface SidebarProps {
     activeTab: Tab;
@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const isLocked = !!playerCharacter.activeTowerRun;
 
-    const menuItems = [
+    const menuItems = useMemo(() => [
         { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
         { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
         { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
@@ -72,7 +72,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { tab: Tab.Trader, icon: IconHandshake, label: t('sidebar.trader') },
         { tab: Tab.Blacksmith, icon: IconAnvil, label: t('sidebar.blacksmith') },
         { tab: Tab.Options, icon: IconSettings, label: t('sidebar.options') },
-    ];
+        // Admin tab will be filtered below
+        { tab: Tab.Admin, icon: IconSettings, label: t('sidebar.admin') },
+    ], [t, hasUnreadMessages, hasNewTavernMessages]);
+
+    const visibleMenuItems = useMemo(() => {
+        const isAdmin = playerCharacter.name === 'Kazujoshi';
+        return menuItems.filter(item => {
+            if (item.tab === Tab.Admin && !isAdmin) {
+                return false;
+            }
+            return true;
+        });
+    }, [menuItems, playerCharacter.name]);
 
     const healthPercent = Math.max(0, Math.min(100, (playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100));
 
@@ -147,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     {/* Navigation Scrollable */}
                     <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-3 custom-scrollbar">
-                        {menuItems.map((item) => {
+                        {visibleMenuItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = activeTab === item.tab;
                             const isDisabled = isLocked && item.tab !== Tab.Tower && item.tab !== Tab.Options;
@@ -171,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <div className={`p-1.5 rounded-md transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'}`}>
                                             <Icon className="h-4 w-4" />
                                         </div>
-                                        <span className={isActive ? 'font-medieval' : ''}>{item.label}</span>
+                                        <span className={`${isActive ? 'font-medieval' : ''} group-hover:font-medieval`}>{item.label}</span>
                                     </div>
                                     {item.notification && !isDisabled && (
                                         <span className="h-2 w-2 rounded-full bg-fantasy-amber shadow-[0_0_8px_#fbbf24] animate-pulse"></span>
@@ -182,21 +194,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </nav>
 
                     {/* Footer Actions */}
-                    <div className="p-4 border-t border-white/5 bg-[#0e121d] flex gap-2">
+                    <div className="p-4 border-t border-white/5 bg-[#0e121d] flex flex-col gap-2">
                         <button
                             onClick={onOpenNews}
                             className="flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-slate-800 hover:text-white transition-all border border-white/5 relative"
                         >
-                            <span>Nowości</span>
+                            <span>{t('sidebar.news')}</span>
                             {hasNewNews && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-bounce"></span>}
                         </button>
                         
+                        {settings?.buyCoffeeUrl && (
+                            <a
+                                href={settings.buyCoffeeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-amber-300/70 hover:bg-amber-900/20 hover:text-amber-300 transition-all border border-amber-500/10"
+                            >
+                                <CoffeeIcon className="h-3 w-3 mr-1.5" />
+                                {t('sidebar.buyCoffee')}
+                            </a>
+                        )}
+
                         <button
                             onClick={onLogout}
                             className="flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-red-400/70 hover:bg-red-900/20 hover:text-red-400 transition-all border border-red-500/10"
                         >
                             <LogoutIcon className="h-3 w-3 mr-1.5" />
-                            Wyloguj
+                            {t('sidebar.logout')}
                         </button>
                     </div>
                 </div>
@@ -207,19 +231,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 // Added NewsModal component and exported it to resolve import error in ModalManager
 export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
+    // FIX: Add useTranslation hook to access 't' function.
+    const { t } = useTranslation();
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <h2 className="text-2xl font-bold text-indigo-400">Nowości</h2>
+                    <h2 className="text-2xl font-bold text-indigo-400">{t('news.title')}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
                 </div>
                 <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar text-gray-300 whitespace-pre-wrap">
                     {content || 'Brak nowych ogłoszeń.'}
                 </div>
                 <div className="mt-6 text-right">
-                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold transition-all">Zamknij</button>
+                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold transition-all">{t('news.close')}</button>
                 </div>
             </div>
         </div>
