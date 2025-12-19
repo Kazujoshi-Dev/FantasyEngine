@@ -5,9 +5,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Krytyczna walidacja konfiguracji przed utworzeniem puli
 if (!process.env.DATABASE_URL) {
-    console.error("FATAL ERROR: DATABASE_URL environment variable is missing!");
+    console.error("================================================================");
+    console.error("BŁĄD KRYTYCZNY: Brak zmiennej DATABASE_URL!");
+    console.error("Biblioteka 'pg' próbowałaby teraz domyślnie użyć usera 'postgres'.");
+    console.error("Upewnij się, że plik .env istnieje i zawiera DATABASE_URL.");
+    console.error("================================================================");
+    process.exit(1); 
 }
+
+console.log(`[DB] Próba połączenia z bazą danych przy użyciu URL: ${process.env.DATABASE_URL.split('@')[1] || 'ukryty'}`);
 
 export const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -18,7 +26,7 @@ export const initializeDatabase = async () => {
     let client;
     try {
         client = await pool.connect();
-        console.log("Connected to PostgreSQL database successfully.");
+        console.log("Połączono z bazą PostgreSQL pomyślnie.");
         
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -193,7 +201,7 @@ export const initializeDatabase = async () => {
             );
         `);
 
-        // Migration: Skills
+        // Migration: Skills (Dual Wield)
         const skillsRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         let skills = skillsRes.rows[0]?.data || [];
         
@@ -233,8 +241,8 @@ export const initializeDatabase = async () => {
         }
 
     } catch (e) {
-        console.error("Database initialization failed during start up:", e);
-        throw e; // Rethrow to let server.ts handle the crash reporting
+        console.error("Inicjalizacja bazy danych nie powiodła się podczas startu:", e);
+        throw e;
     } finally {
         if (client) client.release();
     }
