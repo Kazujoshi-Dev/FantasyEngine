@@ -66,7 +66,7 @@ export const initializeDatabase = async () => {
         client = await pool.connect();
         console.log(`[DB] Połączono pomyślnie z bazą danych jako: ${dbUser}`);
         
-        // 1. Tworzenie tabel
+        // 1. Tworzenie tabel (Poprawione typy danych INTEGER przed PRIMARY KEY)
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -126,7 +126,7 @@ export const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tavern_presence (
-                user_id PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 last_seen TIMESTAMP DEFAULT NOW()
             );
             CREATE TABLE IF NOT EXISTS tower_runs (
