@@ -1,28 +1,20 @@
 
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { useTranslation } from '../contexts/LanguageContext';
-import { Skill, SkillCategory, SkillCost, SkillRequirements, SkillType, CharacterStats, EssenceType } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
-import { api } from '../api';
-
-type MainTab = 'universal' | 'racial';
-type UniversalSubTab = 'passive' | 'active';
-type RacialSubTab = 'races' | 'classes';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { CharacterClass, Skill, SkillType, SkillCategory, Race } from '@/types';
+import { api } from '@/api';
 
 export const University: React.FC = () => {
     const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [mainTab, setMainTab] = useState<MainTab>('universal');
-    const [universalSubTab, setUniversalSubTab] = useState<UniversalSubTab>('passive');
-    const [racialSubTab, setRacialSubTab] = useState<RacialSubTab>('races');
+    const [selectedTab, setSelectedTab] = useState<SkillType>(SkillType.Universal);
 
     if (!character || !gameData) return null;
 
     const skills = gameData.skills || [];
-
-    // Define the display order for requirements
-    const statOrder: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const filteredSkills = skills.filter(s => s.type === selectedTab);
 
     const handleLearnSkill = async (skillId: string) => {
         try {
@@ -33,191 +25,77 @@ export const University: React.FC = () => {
         }
     };
 
-    const renderSkill = (skill: Skill) => {
-        const isLearned = (character.learnedSkills || []).includes(skill.id);
-        
-        // Check standard stats requirements
-        const statsReqsMet = statOrder.every((req) => {
-             const val = skill.requirements[req];
-             if (val === undefined) return true;
-             
-             const playerVal = req === 'level' 
-                ? character.level 
-                : (character.stats[req as keyof CharacterStats] || 0);
-            return playerVal >= val;
-        });
-
-        // Check Class/Race requirements
-        const reqClass = skill.requirements.characterClass;
-        const reqRace = skill.requirements.race;
-        
-        const classMatch = !reqClass || character.characterClass === reqClass;
-        const raceMatch = !reqRace || character.race === reqRace;
-        
-        const reqsMet = statsReqsMet && classMatch && raceMatch;
-
-        const costMet = (Object.entries(skill.cost)).every(([key, costValue]) => {
-            if (costValue === undefined) return true;
-            const resourceKey = key as keyof SkillCost;
-            return (character.resources[resourceKey as keyof typeof character.resources] || 0) >= costValue;
-        });
-
-        const canBuy = !isLearned && reqsMet && costMet;
-
-        return (
-            <div key={skill.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex flex-col">
-                <h4 className="text-xl font-bold text-amber-400 mb-2">{skill.name}</h4>
-                <p className="text-sm text-gray-300 flex-grow mb-4">{skill.description}</p>
-                <div className="text-xs space-y-2 mb-4">
-                    <div>
-                        <p className="font-semibold text-gray-400 uppercase tracking-wider">Wymagania</p>
-                        
-                        {reqClass && (
-                            <p className={`flex justify-between ${classMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
-                                <span>Wymagana klasa: {t(`class.${reqClass}`)}</span>
-                                {classMatch ? <span>(OK)</span> : <span>(Brak)</span>}
-                            </p>
-                        )}
-                        
-                        {reqRace && (
-                            <p className={`flex justify-between ${raceMatch ? 'text-green-400' : 'text-red-500 font-bold'}`}>
-                                <span>Wymagana rasa: {t(`race.${reqRace}`)}</span>
-                                {raceMatch ? <span>(OK)</span> : <span>(Brak)</span>}
-                            </p>
-                        )}
-
-                        {statOrder.map(req => {
-                            const val = skill.requirements[req];
-                            if (val === undefined) return null;
-
-                            const playerVal = req === 'level' 
-                                ? character.level 
-                                : (character.stats[req as keyof CharacterStats] || 0);
-                            
-                            const isMet = playerVal >= val;
-
-                            return (
-                                <p key={req} className={`flex justify-between ${isMet ? 'text-green-400' : 'text-red-400'}`}>
-                                    <span>{t(`statistics.${req}` as any)}: {val}</span>
-                                    <span>(Masz: {playerVal})</span>
-                                </p>
-                            );
-                        })}
-                    </div>
-                    <div>
-                        <p className="font-semibold text-gray-400 uppercase tracking-wider">Koszt</p>
-                        {(Object.entries(skill.cost)).map(([key, val]) => {
-                            if (!val) return null;
-                            const resourceKey = key as keyof SkillCost;
-                            const hasEnough = (character.resources[resourceKey as keyof typeof character.resources] || 0) >= val;
-                            return (
-                                <p key={resourceKey} className={`flex justify-between ${hasEnough ? 'text-green-400' : 'text-red-400'}`}>
-                                    <span>{t(`resources.${resourceKey as any}`)}: {val}</span>
-                                    <span>(Masz: {character.resources[resourceKey as keyof typeof character.resources] || 0})</span>
-                                </p>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <button 
-                    onClick={() => handleLearnSkill(skill.id)}
-                    disabled={!canBuy}
-                    className="mt-auto w-full bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                    {isLearned ? "Nauczono" : "Naucz się"}
-                </button>
-            </div>
-        );
-    };
-
-    const renderContent = () => {
-        if (mainTab === 'universal') {
-            if (universalSubTab === 'passive') {
-                const passiveSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Passive);
-                if (passiveSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{passiveSkills.map(renderSkill)}</div>;
-            }
-            if (universalSubTab === 'active') {
-                 const activeSkills = skills.filter(s => s.type === SkillType.Universal && s.category === SkillCategory.Active);
-                 if (activeSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeSkills.map(renderSkill)}</div>;
-            }
-        }
-        if (mainTab === 'racial') {
-            if (racialSubTab === 'races') {
-                 const raceSkills = skills.filter(s => s.type === SkillType.Race);
-                 if (raceSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{raceSkills.map(renderSkill)}</div>;
-            }
-             if (racialSubTab === 'classes') {
-                 const classSkills = skills.filter(s => s.type === SkillType.Class);
-                 if (classSkills.length === 0) return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-                 return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{classSkills.map(renderSkill)}</div>;
-            }
-        }
-        return <p className="text-gray-500">{t('university.underConstruction')}</p>;
-    };
-
     return (
         <ContentPanel title={t('university.title')}>
             <div className="flex border-b border-slate-700 mb-6">
-                <button
-                    onClick={() => setMainTab('universal')}
-                    className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${mainTab === 'universal' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                >
-                    {t('university.universal')}
-                </button>
-                <button
-                    onClick={() => setMainTab('racial')}
-                    className={`px-4 py-3 text-sm font-medium transition-colors duration-200 border-b-2 ${mainTab === 'racial' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
-                >
-                    {t('university.racial')}
-                </button>
+                {Object.values(SkillType).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setSelectedTab(type)}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${selectedTab === type ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                    >
+                        {t(`university.${type.toLowerCase()}` as any)}
+                    </button>
+                ))}
             </div>
 
-            <div className="h-[72vh] overflow-y-auto pr-2">
-                <div className="bg-slate-900/40 p-6 rounded-xl mb-6">
-                    <p className="text-gray-400 italic whitespace-pre-line text-center">{t('university.description')}</p>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filteredSkills.map(skill => {
+                    const isLearned = character.learnedSkills?.includes(skill.id);
+                    const canAffordGold = (character.resources?.gold || 0) >= (skill.cost?.gold || 0);
+                    
+                    // Requirement Checks
+                    const reqClass = skill.requirements.characterClass;
+                    const reqRace = skill.requirements.race;
+                    
+                    // Special Class Logic for Dual Wield
+                    let classMatch = !reqClass || character.characterClass === reqClass;
+                    if (skill.id === 'dual-wield-mastery') {
+                        const allowed = [CharacterClass.Warrior, CharacterClass.Rogue, CharacterClass.Berserker, CharacterClass.Thief];
+                        classMatch = !!character.characterClass && allowed.includes(character.characterClass);
+                    }
 
-                {mainTab === 'universal' && (
-                    <div className="flex border-b border-slate-800 mb-6">
-                        <button
-                            onClick={() => setUniversalSubTab('passive')}
-                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'passive' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.passive')}
-                        </button>
-                        <button
-                            onClick={() => setUniversalSubTab('active')}
-                            className={`px-4 py-2 text-xs font-medium ${universalSubTab === 'active' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.active')}
-                        </button>
-                    </div>
-                )}
+                    const raceMatch = !reqRace || character.race === reqRace;
+                    const levelMatch = character.level >= (skill.requirements.level || 0);
+                    
+                    const canLearn = !isLearned && classMatch && raceMatch && levelMatch && canAffordGold;
 
-                {mainTab === 'racial' && (
-                    <div className="flex border-b border-slate-800 mb-6">
-                        <button
-                            onClick={() => setRacialSubTab('races')}
-                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'races' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.races')}
-                        </button>
-                        <button
-                            onClick={() => setRacialSubTab('classes')}
-                            className={`px-4 py-2 text-xs font-medium ${racialSubTab === 'classes' ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                            {t('university.classes')}
-                        </button>
-                    </div>
-                )}
-                
-                <div className="bg-slate-900/40 p-6 rounded-xl">
-                    {renderContent()}
-                </div>
+                    return (
+                        <div key={skill.id} className={`p-5 rounded-xl border ${isLearned ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-800/50 border-slate-700'}`}>
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <h4 className="text-lg font-bold text-white">{skill.name}</h4>
+                                    <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${skill.category === SkillCategory.Passive ? 'bg-amber-900/30 text-amber-500 border border-amber-800' : 'bg-sky-900/30 text-sky-500 border border-sky-800'}`}>
+                                        {t(`university.${skill.category.toLowerCase()}` as any)}
+                                    </span>
+                                </div>
+                                {!isLearned && (
+                                    <button
+                                        onClick={() => handleLearnSkill(skill.id)}
+                                        disabled={!canLearn}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 rounded text-xs font-bold text-white shadow-lg transition-all"
+                                    >
+                                        Naucz się ({skill.cost?.gold}g)
+                                    </button>
+                                )}
+                                {isLearned && <span className="text-green-500 font-bold text-xs uppercase tracking-widest">Opanowano</span>}
+                            </div>
+                            <p className="text-sm text-gray-400 italic mb-4">{skill.description}</p>
+                            
+                            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700/50">
+                                {skill.requirements.level && (
+                                    <p className={`text-[10px] ${levelMatch ? 'text-gray-500' : 'text-red-500'}`}>Min. Poziom: {skill.requirements.level}</p>
+                                )}
+                                {reqClass && (
+                                    <p className={`text-[10px] ${classMatch ? 'text-gray-500' : 'text-red-500'}`}>Klasa: {t(`class.${reqClass}` as any)}</p>
+                                )}
+                                {skill.id === 'dual-wield-mastery' && !character.characterClass && (
+                                    <p className="text-[10px] text-red-500 col-span-2">Wymagana klasa bojowa.</p>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </ContentPanel>
     );

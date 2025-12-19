@@ -1,6 +1,7 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings, PlayerRank } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CraftingSettings, PlayerRank, CharacterClass } from '../types.js';
 
+// Helper to calculate total experience based on level and current progress
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
     for (let i = 1; i < level; i++) {
@@ -10,7 +11,7 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-// ... [Koszty ulepszeń bez zmian] ...
+// Cost and capacity helpers for buildings and storage
 export const getCampUpgradeCost = (level: number) => {
     const gold = Math.floor(150 * Math.pow(level, 1.5));
     const essences: { type: EssenceType, amount: number }[] = [];
@@ -26,8 +27,6 @@ export const getTreasuryUpgradeCost = (level: number) => {
     if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) });
     return { gold, essences };
 };
-
-export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
 export const getWarehouseUpgradeCost = (level: number) => {
     const baseCost = getTreasuryUpgradeCost(level);
@@ -46,9 +45,6 @@ export const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
-export const getWarehouseCapacity = (level: number) => 5 + ((level - 1) * 5);
-
 export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
     if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
         return settings.workshopUpgrades[level];
@@ -61,6 +57,12 @@ export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSetting
     return { gold, essences };
 };
 
+export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
+export const getWarehouseCapacity = (level: number) => 5 + ((level - 1) * 3);
+
+/**
+ * Calculates total stats for a character including bonuses from items and guild buildings.
+ */
 export const calculateDerivedStatsOnServer = (
     character: PlayerCharacter, 
     itemTemplates: ItemTemplate[], 
@@ -105,7 +107,7 @@ export const calculateDerivedStatsOnServer = (
                     if (totalPrimaryStats[statKey] !== undefined) {
                         totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
                     }
-                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number(buff.stats[key]) || 0);
+                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number(buff.stats[key as keyof CharacterStats]) || 0);
                 }
             }
         });
@@ -226,27 +228,53 @@ export const calculateDerivedStatsOnServer = (
         }
     }
     
+    // --- Dual Wield Detection ---
+    const isDualWieldingActive = character.activeSkills?.includes('dual-wield-mastery');
     const mainHandItem = safeEquipment[EquipmentSlot.MainHand] || safeEquipment[EquipmentSlot.TwoHand];
+    const offHandItem = safeEquipment[EquipmentSlot.OffHand];
+    
     const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
+    const offHandTemplate = offHandItem ? safeItemTemplates.find(t => t.id === offHandItem.templateId) : null;
+
+    const isActuallyDualWielding = isDualWieldingActive && 
+        mainHandItem && offHandItem && 
+        mainHandTemplate?.category === 'Weapon' && 
+        offHandTemplate?.category === 'Weapon';
+    // ----------------------------
+
     const baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
     const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs).toFixed(2)) || 1;
 
     const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
     let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
     const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
-    let maxMana = baseMana + totalPrimaryStats.intelligence * 10;
+    
+    // Calculate raw max mana
+    let baseMaxMana = baseMana + totalPrimaryStats.intelligence * 10;
+    let maintenanceCost = 0;
 
     if (character.activeSkills && character.activeSkills.length > 0) {
         character.activeSkills.forEach(skillId => {
             const skill = skills.find(s => s.id === skillId);
-            if (skill && skill.manaMaintenanceCost) maxMana -= skill.manaMaintenanceCost;
+            if (skill && skill.manaMaintenanceCost) maintenanceCost += skill.manaMaintenanceCost;
         });
     }
-    maxMana = Math.max(0, maxMana);
+
+    // --- Automatic Maintenance Check ---
+    if (baseMaxMana < maintenanceCost) {
+        character.activeSkills = character.activeSkills?.filter(id => id !== 'dual-wield-mastery') || [];
+        maintenanceCost = 0;
+        character.activeSkills.forEach(skillId => {
+            const skill = skills.find(s => s.id === skillId);
+            if (skill && skill.manaMaintenanceCost) maintenanceCost += skill.manaMaintenanceCost;
+        });
+    }
+    // ------------------------------------
+
+    let maxMana = Math.max(0, baseMaxMana - maintenanceCost);
     
     let minDamage, maxDamage;
     if (mainHandTemplate?.isMagical) {
-        // Skalowanie Siły dla broni magicznych: 0.5 dla min, 1.0 dla max (zgodnie z opisem)
         minDamage = baseMinDamage + Math.floor(totalPrimaryStats.strength * 0.5) + bonusDamageMin;
         maxDamage = baseMaxDamage + Math.floor(totalPrimaryStats.strength * 1.0) + bonusDamageMax;
     } else if (mainHandTemplate?.isRanged) {
@@ -255,6 +283,14 @@ export const calculateDerivedStatsOnServer = (
     } else {
         minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
         maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
+    }
+
+    // Apply Dual Wield Multiplier if active
+    if (isActuallyDualWielding) {
+        minDamage = Math.floor(minDamage * 0.75);
+        maxDamage = Math.floor(maxDamage * 0.75);
+        bonusMagicDamageMin = Math.floor(bonusMagicDamageMin * 0.75);
+        bonusMagicDamageMax = Math.floor(bonusMagicDamageMax * 0.75);
     }
     
     const critChance = totalPrimaryStats.accuracy * 0.5 + bonusCritChance;
@@ -268,8 +304,13 @@ export const calculateDerivedStatsOnServer = (
     if (character.race === Race.Gnome) dodgeChance += 10;
     
     const intelligenceDamageBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
-    const magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
-    const magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
+    let magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
+    let magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
+
+    if (isActuallyDualWielding) {
+        magicDamageMin = Math.floor(magicDamageMin * 0.75);
+        magicDamageMax = Math.floor(magicDamageMax * 0.75);
+    }
 
     let finalMagicDamageMin = magicDamageMin;
     let finalMagicDamageMax = magicDamageMax;
