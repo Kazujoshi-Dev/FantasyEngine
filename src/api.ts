@@ -80,13 +80,15 @@ export const api = {
     renameLoadout: (loadoutId: number, name: string) => fetchApi('/character/loadouts/rename', { method: 'PUT', body: JSON.stringify({ loadoutId, name }) }),
 
     upgradeCamp: () => fetchApi('/character/camp/upgrade', { method: 'POST' }),
-    upgradeChest: () => fetchApi('/character/treasury/upgrade', { method: 'POST' }),
-    chestDeposit: (amount: number) => fetchApi('/character/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
-    chestWithdraw: (amount: number) => fetchApi('/character/treasury/withdraw', { method: 'POST', body: JSON.stringify({ amount }) }),
     
-    upgradeWarehouse: () => fetchApi('/character/warehouse/upgrade', { method: 'POST' }),
-    warehouseDeposit: (itemId: string) => fetchApi('/character/warehouse/deposit', { method: 'POST', body: JSON.stringify({ itemId }) }),
-    warehouseWithdraw: (itemId: string) => fetchApi('/character/warehouse/withdraw', { method: 'POST', body: JSON.stringify({ itemId }) }),
+    // Treasury & Warehouse (Fixed paths with /storage prefix)
+    upgradeChest: () => fetchApi('/character/storage/treasury/upgrade', { method: 'POST' }),
+    chestDeposit: (amount: number) => fetchApi('/character/storage/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
+    chestWithdraw: (amount: number) => fetchApi('/character/storage/treasury/withdraw', { method: 'POST', body: JSON.stringify({ amount }) }),
+    
+    upgradeWarehouse: () => fetchApi('/character/storage/warehouse/upgrade', { method: 'POST' }),
+    warehouseDeposit: (itemId: string) => fetchApi('/character/storage/warehouse/deposit', { method: 'POST', body: JSON.stringify({ itemId }) }),
+    warehouseWithdraw: (itemId: string) => fetchApi('/character/storage/warehouse/withdraw', { method: 'POST', body: JSON.stringify({ itemId }) }),
     
     upgradeBackpack: () => fetchApi('/character/backpack/upgrade', { method: 'POST' }),
     healCharacter: () => fetchApi('/character/heal', { method: 'POST' }),
