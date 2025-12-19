@@ -35,14 +35,14 @@ router.post('/upgrade', authenticateToken, async (req: any, res: any) => {
              return res.status(400).json({ message: 'Not enough gold' });
         }
         for (const e of essences) {
-            if ((character.resources[e.type] || 0) < e.amount) {
+            if (((character.resources as any)[e.type] || 0) < e.amount) {
                 await client.query('ROLLBACK');
                 return res.status(400).json({ message: `Not enough ${e.type}` });
             }
         }
         
         character.resources.gold -= gold;
-        essences.forEach(e => character.resources[e.type] -= e.amount);
+        essences.forEach((e: any) => (character.resources as any)[e.type] -= e.amount);
         character.workshop.level = currentLevel + 1;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);

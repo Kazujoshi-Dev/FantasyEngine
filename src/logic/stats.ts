@@ -1,4 +1,5 @@
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass } from '../types';
+
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass } from '../types.js';
 
 /**
  * STAŁE FORMUIŁY GRY (Single Source of Truth)
@@ -106,9 +107,9 @@ export const calculateDerivedStats = (
                 for (const key in buff.stats) {
                     const statKey = key as keyof typeof totalPrimaryStats;
                     if (totalPrimaryStats[statKey] !== undefined) {
-                        totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                        totalPrimaryStats[statKey] += (Number((buff.stats as any)[statKey]) || 0);
                     }
-                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number(buff.stats[key as keyof CharacterStats]) || 0);
+                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number((buff.stats as any)[key]) || 0);
                 }
             }
         });
@@ -126,7 +127,7 @@ export const calculateDerivedStats = (
         if (source.statsBonus) {
             for (const stat in source.statsBonus) {
                 const key = stat as keyof typeof source.statsBonus;
-                const val = Number(source.statsBonus[key]) || 0;
+                const val = Number((source.statsBonus as any)[key]) || 0;
                 (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + val;
             }
         }
@@ -162,7 +163,7 @@ export const calculateDerivedStats = (
                 if (baseStats.statsBonus) {
                     for (const stat in baseStats.statsBonus) {
                         const key = stat as keyof typeof baseStats.statsBonus;
-                        const baseBonus = Number(baseStats.statsBonus[key]) || 0;
+                        const baseBonus = Number((baseStats.statsBonus as any)[key]) || 0;
                         (totalPrimaryStats as any)[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
                     }
                 }
@@ -218,7 +219,7 @@ export const calculateDerivedStats = (
 
     // Konserwacja many umiejętności aktywnych
     if (character.activeSkills) {
-        character.activeSkills.forEach(skillId => {
+        character.activeSkills.forEach((skillId: string) => {
             const s = skills.find(sk => sk.id === skillId);
             if (s?.manaMaintenanceCost) maxMana -= s.manaMaintenanceCost;
         });

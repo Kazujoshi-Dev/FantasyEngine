@@ -28,7 +28,6 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     return [prefixName, template.name, suffixName].filter(Boolean).join(' ');
 };
 
-// ... [pozostała część pliku bez zmian]
 export const rollValueWithLuck = (minMax: number | { min: number; max: number } | undefined, luck: number = 0): number | undefined => {
     if (typeof minMax === 'number') return minMax;
     if (minMax === undefined || minMax === null) return undefined;
@@ -62,7 +61,7 @@ export const rollAffixStats = (affix: Affix, luck: number = 0): RolledAffixStats
     if (affix.statsBonus) {
         rolled.statsBonus = {};
         for (const key in affix.statsBonus) {
-            const rolledStat = rollValueWithLuck(affix.statsBonus[key], luck);
+            const rolledStat = rollValueWithLuck((affix.statsBonus as any)[key], luck);
             if (rolledStat !== undefined) (rolled.statsBonus as any)[key] = rolledStat;
         }
     }
@@ -79,7 +78,7 @@ export const rollTemplateStats = (template: ItemTemplate, luck: number = 0): Rol
     if (template.statsBonus) {
         rolled.statsBonus = {};
         for (const key in template.statsBonus) {
-            const rolledStat = rollValueWithLuck(template.statsBonus[key], luck);
+            const rolledStat = rollValueWithLuck((template.statsBonus as any)[key], luck);
             if (rolledStat !== undefined) (rolled.statsBonus as any)[key] = rolledStat;
         }
     }
