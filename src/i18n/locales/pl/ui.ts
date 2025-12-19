@@ -421,6 +421,29 @@ export default {
             upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie może zniszczyć przedmiot. Czy na pewno chcesz spróbować?',
             upgradeSuccess: 'Ulepszono przedmiot do poziomu +{level}!',
             upgradeFailure: 'Ulepszenie nie powiodło się!',
+            upgrade: 'Ulepsz',
         }
+    },
+    tavern: {
+        title: 'Tawerna',
+        send: 'Wyślij',
+        placeholder: 'Napisz wiadomość...',
+        activePatrons: 'Goście w Tawernie',
+    },
+    quests: {
+        title: 'Zadania',
+        acceptedQuests: 'Przyjęte Zadania',
+        availableQuests: 'Dostępne Zadania',
+        noQuests: 'Brak dostępnych zadań w tej okolicy.',
+        objective: 'Cel',
+        rewards: 'Nagrody',
+        accept: 'Przyjmij',
+        complete: 'Ukończ',
+        completed: 'Ukończono',
+        objectiveKill: 'Pokonaj: {amount}x {targetName}',
+        objectiveGather: 'Zbierz: {amount}x {targetName}',
+        objectiveGatherResource: 'Zbierz: {amount}x {targetName}',
+        objectivePayGold: 'Zapłać: {amount} złota',
+        completions: 'Ukończono: {count} / {total}'
     }
 };
