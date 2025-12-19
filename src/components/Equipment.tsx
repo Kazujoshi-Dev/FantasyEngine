@@ -40,7 +40,7 @@ const StatRow: React.FC<{ label: string; value: React.ReactNode; color?: string;
 export const Equipment: React.FC = () => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance; template: ItemTemplate; x: number; y: number } | null>(null);
+    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
@@ -63,7 +63,7 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.equipItem(item.uniqueId);
             updateCharacter(updatedChar);
-            setHoveredItem(null);
+            setInspectedItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
@@ -71,7 +71,7 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.unequipItem(slot);
             updateCharacter(updatedChar);
-            setHoveredItem(null);
+            setInspectedItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
@@ -82,22 +82,15 @@ export const Equipment: React.FC = () => {
 
     const getCompareItem = (template: ItemTemplate): ItemInstance | null => {
         if (!character) return null;
-        
-        // Specjalna logika dla pierścieni - porównujemy z pierwszym zajętym slotem lub ring1
         if (template.slot === 'ring') {
             return character.equipment.ring1 || character.equipment.ring2 || null;
         }
-        
-        // Broń dwuręczna porównuje się z bronią w głównej ręce
         if (template.slot === EquipmentSlot.TwoHand) {
             return character.equipment.mainHand || character.equipment.twoHand || null;
         }
-
-        // Broń jednoręczna w głównej ręce porównuje się z bronią w głównej ręce (lub dwuręczną)
         if (template.slot === EquipmentSlot.MainHand) {
              return character.equipment.mainHand || character.equipment.twoHand || null;
         }
-        
         return character.equipment[template.slot as EquipmentSlot] || null;
     };
 
@@ -120,15 +113,13 @@ export const Equipment: React.FC = () => {
                                 <div 
                                     key={slot} 
                                     onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}
-                                    onMouseEnter={(e) => setHoveredItem({ item, template, x: e.clientX, y: e.clientY })}
-                                    onMouseLeave={() => setHoveredItem(null)}
                                 >
                                     <ItemListItem
                                         item={item}
                                         template={template}
                                         affixes={gameData.affixes}
                                         isSelected={false}
-                                        onClick={() => {}}
+                                        onClick={() => setInspectedItem({ item, template })}
                                         onDoubleClick={() => handleUnequip(slot)}
                                     />
                                 </div>
@@ -146,7 +137,6 @@ export const Equipment: React.FC = () => {
                         <h3 className="text-lg fantasy-header font-black text-fantasy-gold mb-6 text-center uppercase tracking-[0.2em] border-b border-fantasy-gold/30 pb-4">Statystyki Bojowe</h3>
                         
                         <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar space-y-6">
-                            {/* Sekcja: Atrybuty */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <SparklesIcon className="h-3 w-3" /> Atrybuty
@@ -160,7 +150,6 @@ export const Equipment: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Sekcja: Walka */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <SwordsIcon className="h-3 w-3" /> Potencjał Ofensywny
@@ -174,7 +163,6 @@ export const Equipment: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Sekcja: Obrona i Inne */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <ShieldIcon className="h-3 w-3" /> Defensywa
@@ -238,15 +226,13 @@ export const Equipment: React.FC = () => {
                                 <div 
                                     key={item.uniqueId} 
                                     onContextMenu={(e) => handleRightClick(e, item, 'inventory')}
-                                    onMouseEnter={(e) => setHoveredItem({ item, template, x: e.clientX, y: e.clientY })}
-                                    onMouseLeave={() => setHoveredItem(null)}
                                 >
                                     <ItemListItem
                                         item={item}
                                         template={template}
                                         affixes={gameData.affixes}
                                         isSelected={false}
-                                        onClick={() => {}}
+                                        onClick={() => setInspectedItem({ item, template })}
                                         onDoubleClick={() => handleEquip(item)}
                                     />
                                 </div>
@@ -259,17 +245,17 @@ export const Equipment: React.FC = () => {
                 </div>
             </div>
 
-            {/* Hover Tooltip with Comparison */}
-            {hoveredItem && (
+            {/* Scentrowany Tooltip Modal */}
+            {inspectedItem && (
                 <ItemTooltip 
-                    instance={hoveredItem.item}
-                    template={hoveredItem.template}
+                    instance={inspectedItem.item}
+                    template={inspectedItem.template}
                     affixes={gameData.affixes}
                     character={character}
-                    compareWith={getCompareItem(hoveredItem.template)}
-                    x={hoveredItem.x}
-                    y={hoveredItem.y}
+                    compareWith={getCompareItem(inspectedItem.template)}
                     itemTemplates={gameData.itemTemplates}
+                    isCentered={true}
+                    onClose={() => setInspectedItem(null)}
                 />
             )}
 

@@ -114,7 +114,6 @@ export const ItemDetailsPanel: React.FC<{
     const RequirementsSection: React.FC = () => {
         const reqs = [];
         
-        // Sprawdzanie poziomu
         if (template.requiredLevel > 1) {
             const levelMet = !character || character.level >= template.requiredLevel;
             reqs.push(
@@ -127,7 +126,6 @@ export const ItemDetailsPanel: React.FC<{
             );
         }
 
-        // Sprawdzanie statystyk
         if (template.requiredStats) {
             Object.entries(template.requiredStats).forEach(([stat, val]) => {
                 if (val && val > 0) {
@@ -273,12 +271,10 @@ export const ItemDetailsPanel: React.FC<{
                     </div>
                 )}
                 
-                {/* Statystyki przedmiotu */}
                 <StatSection source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
                 
-                {/* Wymagania przeniesione na sam dół */}
                 <RequirementsSection />
             </div>
         </div>
