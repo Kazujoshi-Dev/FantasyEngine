@@ -1,3 +1,4 @@
+
 import { Tab, EssenceType, CharacterClass, Race } from './common.js';
 import { CharacterStats } from './character.js';
 import { LootDrop, ResourceDrop, ItemInstance, ItemRarity } from './items.js';

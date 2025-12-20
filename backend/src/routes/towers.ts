@@ -37,6 +37,35 @@ const getActiveRun = async (userId: number, client: any): Promise<ActiveTowerRun
     };
 };
 
+// Helper to generate random items with specific affix counts
+const generateRandomTowerItem = (rarity: ItemRarity, affixCount: number, gameData: GameData, character: PlayerCharacter): ItemInstance => {
+    const templates = gameData.itemTemplates.filter(t => t.rarity === rarity && t.slot !== 'consumable');
+    const template = templates[Math.floor(Math.random() * templates.length)];
+    
+    // We create a base instance
+    const item = createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, character, false);
+    
+    // Manual affix control
+    if (affixCount > 0) {
+        const prefixes = gameData.affixes.filter(a => a.type === AffixType.Prefix && a.spawnChances[template.category]);
+        if (prefixes.length > 0) {
+            const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+            item.prefixId = p.id;
+            item.rolledPrefix = rollAffixStats(p, character.stats.luck);
+        }
+    }
+    if (affixCount > 1) {
+        const suffixes = gameData.affixes.filter(a => a.type === AffixType.Suffix && a.spawnChances[template.category]);
+        if (suffixes.length > 0) {
+            const s = suffixes[Math.floor(Math.random() * suffixes.length)];
+            item.suffixId = s.id;
+            item.rolledSuffix = rollAffixStats(s, character.stats.luck);
+        }
+    }
+    
+    return item;
+};
+
 router.get('/', authenticateToken, async (req: any, res: any) => {
     const userId = req.user.id;
     const client = await pool.connect();
@@ -226,7 +255,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         let finalMana = Math.max(0, Math.floor(lastLog.playerMana));
 
         if (isVictory) {
-            // Druid Heal Bonus
             if (charData.characterClass === CharacterClass.Druid) {
                 const healAmount = Math.floor(derivedChar.stats.maxHealth * 0.5);
                 finalHealth = Math.min(derivedChar.stats.maxHealth, finalHealth + healAmount);
@@ -234,11 +262,11 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
 
             const rewards = activeRun.accumulated_rewards;
             
+            // 1. Process Enemy Drops
             for (const enemy of enemiesToFight) {
                 let goldGain = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
                 let xpGain = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
                 
-                // RPG Multipliers
                 if (charData.race === Race.Human) xpGain = Math.floor(xpGain * 1.10);
                 if (charData.race === Race.Gnome) goldGain = Math.floor(goldGain * 1.20);
                 if (charData.characterClass === CharacterClass.Thief) goldGain = Math.floor(goldGain * 1.25);
@@ -253,37 +281,87 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                         }
                     }
                 }
+                if (enemy.resourceLootTable) {
+                    for (const resDrop of enemy.resourceLootTable) {
+                        if (Math.random() * 100 < resDrop.weight) {
+                             const amount = Math.floor(Math.random() * (resDrop.max - resDrop.min + 1)) + resDrop.min;
+                             rewards.essences[resDrop.resource] = (rewards.essences[resDrop.resource] || 0) + amount;
+                        }
+                    }
+                }
             }
             
+            // 2. Process Floor Guaranteed Rewards (Gold/XP)
             if (floorConfig.guaranteedReward) {
                 let fGold = (floorConfig.guaranteedReward.gold || 0);
                 let fXp = (floorConfig.guaranteedReward.experience || 0);
-
                 if (charData.race === Race.Human) fXp = Math.floor(fXp * 1.10);
                 if (charData.race === Race.Gnome) fGold = Math.floor(fGold * 1.20);
                 if (charData.characterClass === CharacterClass.Thief) fGold = Math.floor(fGold * 1.25);
-
                 rewards.gold += fGold;
                 rewards.experience += fXp;
             }
-            
-            // ... (Reszta logiki dodawania przedmiotów bez zmian dla oszczędności miejsca)
-            // [Logika SpecificItemRewards, RandomItemRewards, LootTable, Essences pozostaje]
+
+            // 3. Process Floor Specific Item Rewards
+            if (floorConfig.specificItemRewards) {
+                for (const item of floorConfig.specificItemRewards) {
+                    rewards.items.push({ ...item, uniqueId: randomUUID() });
+                }
+            }
+
+            // 4. Process Floor Random Item Rewards
+            if (floorConfig.randomItemRewards) {
+                for (const reg of floorConfig.randomItemRewards) {
+                    if (Math.random() * 100 < reg.chance) {
+                        for (let i = 0; i < reg.amount; i++) {
+                            rewards.items.push(generateRandomTowerItem(reg.rarity, reg.affixCount || 0, gameData, derivedChar));
+                        }
+                    }
+                }
+            }
+
+            // 5. Process Floor Weighted Essences (from resourceLootTable)
+            if (floorConfig.resourceLootTable) {
+                for (const resDrop of floorConfig.resourceLootTable) {
+                    if (Math.random() * 100 < resDrop.weight) {
+                        const amount = Math.floor(Math.random() * (resDrop.max - resDrop.min + 1)) + resDrop.min;
+                        rewards.essences[resDrop.resource] = (rewards.essences[resDrop.resource] || 0) + amount;
+                    }
+                }
+            }
 
             const isTowerComplete = activeRun.current_floor >= tower.totalFloors;
             
             if (isTowerComplete) {
+                // 6. Process Grand Prize
                 if (tower.grandPrize) {
                     let gpGold = (tower.grandPrize.gold || 0);
                     let gpXp = (tower.grandPrize.experience || 0);
-
                     if (charData.race === Race.Human) gpXp = Math.floor(gpXp * 1.10);
                     if (charData.race === Race.Gnome) gpGold = Math.floor(gpGold * 1.20);
                     if (charData.characterClass === CharacterClass.Thief) gpGold = Math.floor(gpGold * 1.25);
-
                     rewards.gold += gpGold;
                     rewards.experience += gpXp;
-                    // ... [Dodawanie przedmiotów z nagrody głównej]
+
+                    if (tower.grandPrize.items) {
+                        for (const item of tower.grandPrize.items) {
+                            rewards.items.push({ ...item, uniqueId: randomUUID() });
+                        }
+                    }
+                    if (tower.grandPrize.essences) {
+                        for (const [e, amt] of Object.entries(tower.grandPrize.essences)) {
+                            rewards.essences[e] = (rewards.essences[e] || 0) + (amt as number);
+                        }
+                    }
+                    if (tower.grandPrize.randomItemRewards) {
+                         for (const reg of tower.grandPrize.randomItemRewards) {
+                            if (Math.random() * 100 < reg.chance) {
+                                for (let i = 0; i < reg.amount; i++) {
+                                    rewards.items.push(generateRandomTowerItem(reg.rarity, reg.affixCount || 0, gameData, derivedChar));
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 const dbChar: PlayerCharacter = charRes.rows[0].data;
@@ -342,7 +420,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// ... (retreat endpoint)
 router.post('/retreat', authenticateToken, async (req: any, res: any) => {
     const userId = req.user.id;
     const client = await pool.connect();
