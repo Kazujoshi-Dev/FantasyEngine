@@ -166,7 +166,7 @@ export default {
         shamanPower: 'używa mocy przodków na',
         orcFuryLog: '{attacker} wpada w szał orka!',
         berserkerFrenzyLog: '{attacker} wpada w furię berserkera!',
-        hardSkinProc: 'Twarda skóra {attacker} pochłania część ciosu!',
+        hardSkinProc: 'Twarda skóra {defender} pochłania część ciosu!',
         totalRewards: 'Nagrody Całkowite',
         goldGained: 'Złoto',
         experience: 'Doświadczenie',
@@ -190,7 +190,7 @@ export default {
                 armor_broken: 'Pancerz {target} zostaje strzaskany!',
                 shadowBoltStack: 'Cień wokół {attacker} gęstnieje! (Stosy: {stacks})',
                 earthquakeSplash: 'Ziemia drży pod całą grupą!',
-                meteorSwarmSplash: 'Deszcz ognia uderza w całą grupę!'
+                meteorSwarmSplash: 'Deszcz ognia uderza w całą grupą!'
             }
         }
     },

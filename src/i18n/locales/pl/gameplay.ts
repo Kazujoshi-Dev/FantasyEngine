@@ -152,5 +152,4 @@ export default {
     },
     orcFuryLog: '{attacker} wpada w szał orka!',
     berserkerFrenzyLog: '{attacker} wpada w furię berserkera!',
-    hardSkinProc: 'Twarda skóra {defender} pochłania część ciosu!',
 };
