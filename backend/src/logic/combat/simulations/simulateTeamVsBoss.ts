@@ -97,6 +97,10 @@ export const simulateTeamVsBossCombat = (
              Object.assign(player, attackerState);
              bossState.currentHealth = defenderState.currentHealth;
              log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
+
+             if (bossState.currentHealth <= 0) {
+                 log.push({ turn: 0, attacker: player.data.name, defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
+             }
         }
     }
 
@@ -110,8 +114,6 @@ export const simulateTeamVsBossCombat = (
             if (stats?.manaRegen) combatant.currentMana = Math.min(stats.maxMana || 0, combatant.currentMana + stats.manaRegen);
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
-
-        // [Specjalne Ataki Bossa - bez zmian]
 
         // Kolejka Akcji
         interface ActionEntity { type: 'player' | 'boss'; index: number; name: string; agility: number; }
@@ -143,6 +145,11 @@ export const simulateTeamVsBossCombat = (
                         Object.assign(player, attackerState);
                         Object.assign(bossState, defenderState);
                         log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
+
+                        if (bossState.currentHealth <= 0) {
+                            log.push({ turn, attacker: player.data.name, defender: bossState.name, action: 'enemy_death', ...getHealthStateForLog() });
+                            break;
+                        }
                     }
                 }
             } else {
@@ -156,6 +163,11 @@ export const simulateTeamVsBossCombat = (
                     Object.assign(bossState, attackerState);
                     Object.assign(playersState[tIdx], defenderState);
                     log.push(...logs.map(l => ({...l, ...getHealthStateForLog()})));
+
+                    if (playersState[tIdx].currentHealth <= 0) {
+                        playersState[tIdx].isDead = true;
+                        log.push({ turn, attacker: bossState.name, defender: playersState[tIdx].data.name, action: 'death', ...getHealthStateForLog() });
+                    }
                 }
             }
         }

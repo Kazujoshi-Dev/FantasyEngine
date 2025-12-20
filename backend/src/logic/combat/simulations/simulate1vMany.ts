@@ -106,6 +106,10 @@ export const simulate1vManyCombat = (
             const tIdx = enemiesState.findIndex(e => e.uniqueId === target.uniqueId);
             enemiesState[tIdx] = defenderState as any;
             log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
+
+            if (enemiesState[tIdx].currentHealth <= 0) {
+                log.push({ turn: 0, attacker: playerState.name, defender: enemiesState[tIdx].name, action: 'enemy_death', ...getHealthState() });
+            }
         }
     }
 
@@ -121,6 +125,11 @@ export const simulate1vManyCombat = (
                 const dmg = Math.floor(combatant.stats.maxHealth * 0.05);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - dmg);
                 log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: dmg, ...getHealthState() });
+                
+                if (combatant.currentHealth <= 0) {
+                    const isPlayer = combatant.name === playerState.name;
+                    log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: isPlayer ? 'death' : 'enemy_death', ...getHealthState() });
+                }
             }
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
         }
@@ -150,13 +159,14 @@ export const simulate1vManyCombat = (
                             attackOptions.ignoreDodge = true;
                         }
 
-                        const { logs: attackLogs, attackerState, defenderState, aoeData, chainData } = performAttack(playerState, target, turn, gameData, enemiesState, false, attackOptions);
+                        const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState, false, attackOptions);
                         Object.assign(playerState, attackerState);
                         enemiesState[targetIndex] = defenderState as any;
                         log.push(...attackLogs.map(l => ({...l, ...getHealthState()})));
                         
-                        // [Obsługa AoE / Chain Lightning - bez zmian]
-                        if (aoeData) { /* ... same logic as before ... */ }
+                        if (enemiesState[targetIndex].currentHealth <= 0) {
+                            log.push({ turn, attacker: playerState.name, defender: enemiesState[targetIndex].name, action: 'enemy_death', ...getHealthState() });
+                        }
                     }
                 }
             }
@@ -174,6 +184,11 @@ export const simulate1vManyCombat = (
                 Object.assign(enemiesState[eIdx], attackerState);
                 Object.assign(playerState, defenderState);
                 log.push(...attLogs.map(l => ({...l, ...getHealthState()})));
+
+                if (playerState.currentHealth <= 0) {
+                    log.push({ turn, attacker: enemy.name, defender: playerState.name, action: 'death', ...getHealthState() });
+                    break;
+                }
             }
         }
     }

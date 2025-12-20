@@ -50,6 +50,11 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     const log: CombatLogEntry[] = [];
     let turn = 0;
 
+    const getHealthState = (pState: typeof playerState, eState: typeof enemyState) => ({
+        playerHealth: pState.currentHealth, playerMana: pState.currentMana,
+        enemyHealth: eState.currentHealth, enemyMana: eState.currentMana
+    });
+
     log.push({
         turn, attacker: playerState.name, defender: enemyState.name, action: 'starts a fight with',
         playerHealth: playerState.currentHealth, playerMana: playerState.currentMana,
@@ -94,11 +99,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        const getHealthState = (pState: typeof playerState, eState: typeof enemyState) => ({
-            playerHealth: pState.currentHealth, playerMana: pState.currentMana,
-            enemyHealth: eState.currentHealth, enemyMana: eState.currentMana
-        });
-
         // --- Efekty początku tury ---
         const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
         for(const combatant of turnParticipants) {
@@ -195,6 +195,13 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         }
 
         playerAttacksFirst = playerState.stats.agility >= enemyState.stats.agility;
+    }
+
+    // Dodanie logu o śmierci po zakończeniu pętli
+    if (enemyState.currentHealth <= 0) {
+        log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...getHealthState(playerState, enemyState) });
+    } else if (playerState.currentHealth <= 0) {
+        log.push({ turn, attacker: enemyState.name, defender: playerState.name, action: 'death', ...getHealthState(playerState, enemyState) });
     }
     
     return log;
