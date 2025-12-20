@@ -160,7 +160,8 @@ io.on('connection', (socket) => {
 });
 
 // Robust path resolution based on process CWD
-const projectRoot = path.resolve(process.cwd(), '..'); // CWD is /app/backend, so '..' gives /app
+// Fix: cast process to any to access cwd() if environment types are missing
+const projectRoot = path.resolve((process as any).cwd(), '..'); // CWD is /app/backend, so '..' gives /app
 const distPath = path.join(projectRoot, 'dist');
 const uploadsPath = path.join(projectRoot, 'uploads');
 
@@ -265,5 +266,6 @@ initializeDatabase().then(() => {
 
 }).catch((err: Error) => {
     console.error('BŁĄD STARTU SERWERA:', err);
-    process.exit(1);
+    // Fix: cast process to any to access exit() if environment types are missing
+    (process as any).exit(1);
 });

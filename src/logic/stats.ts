@@ -1,12 +1,5 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass } from '../types.js';
-
-/**
- * STAŁE FORMUIŁY GRY (Single Source of Truth)
- */
-export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
-export const getWarehouseCapacity = (level: number): number => 5 + ((level - 1) * 3);
-export const getTreasuryCapacity = (level: number): number => Math.floor(500 * Math.pow(level, 1.8));
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass, CraftingSettings } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -15,6 +8,240 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
         totalXp += xpForPrevLevel;
     }
     return totalXp;
+};
+
+// Fix: Add missing exports
+export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
+export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
+
+export const calculateDerivedStats = (
+    character: PlayerCharacter, 
+    itemTemplates: ItemTemplate[], 
+    affixes: Affix[], 
+    guildBarracksLevel: number = 0, 
+    guildShrineLevel: number = 0, 
+    skills: Skill[] = [],
+    activeGuildBuffs: GuildBuff[] = []
+): PlayerCharacter => {
+    
+    const safeItemTemplates = Array.isArray(itemTemplates) ? itemTemplates : [];
+    const safeAffixes = Array.isArray(affixes) ? affixes : [];
+    const safeEquipment = character.equipment || {};
+    const safeSkills = Array.isArray(skills) ? skills : [];
+
+    const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'> = {
+        strength: Number(character.stats.strength) || 0, 
+        agility: Number(character.stats.agility) || 0, 
+        accuracy: Number(character.stats.accuracy) || 0,
+        stamina: Number(character.stats.stamina) || 0, 
+        intelligence: Number(character.stats.intelligence) || 0, 
+        energy: Number(character.stats.energy) || 0,
+        luck: Number(character.stats.luck) || 0,
+    };
+    
+    if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
+
+    if (activeGuildBuffs && activeGuildBuffs.length > 0) {
+        const now = Date.now();
+        activeGuildBuffs.forEach(buff => {
+            if (buff.expiresAt > now) {
+                for (const key in buff.stats) {
+                    const statKey = key as keyof typeof totalPrimaryStats;
+                    if (totalPrimaryStats[statKey] !== undefined) {
+                        totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                    }
+                }
+            }
+        });
+    }
+
+    // Pule bonusów
+    let globalBonusDmgMin = 0, globalBonusDmgMax = 0;
+    let mhWeaponBonusDmgMin = 0, mhWeaponBonusDmgMax = 0;
+    let ohWeaponBonusDmgMin = 0, ohWeaponBonusDmgMax = 0;
+    let bonusMagicDmgMin = 0, bonusMagicDmgMax = 0;
+    let ohMagicDmgMin = 0, ohMagicDmgMax = 0;
+
+    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
+    let bonusAttacksPerRound = 0;
+    let bonusCritDamageModifier = 0;
+    let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
+    let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
+    let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
+
+    const isDualWieldActive = character.activeSkills?.includes('dual-wield-mastery');
+
+    const applyStatsFromRolled = (source: RolledAffixStats, isMHWeapon: boolean, isOHWeapon: boolean) => {
+        if (source.statsBonus) {
+            for (const stat in source.statsBonus) {
+                const val = Number((source.statsBonus as any)[stat]) || 0;
+                (totalPrimaryStats as any)[stat] = ((totalPrimaryStats as any)[stat] || 0) + val;
+            }
+        }
+        
+        const dmgMin = Number(source.damageMin) || 0;
+        const dmgMax = Number(source.damageMax) || 0;
+        const mDmgMin = Number(source.magicDamageMin) || 0;
+        const mDmgMax = Number(source.magicDamageMax) || 0;
+
+        if (isMHWeapon) {
+            mhWeaponBonusDmgMin += dmgMin;
+            mhWeaponBonusDmgMax += dmgMax;
+            bonusMagicDmgMin += mDmgMin;
+            bonusMagicDmgMax += mDmgMax;
+        } else if (isOHWeapon) {
+            ohWeaponBonusDmgMin += dmgMin;
+            ohWeaponBonusDmgMax += dmgMax;
+            ohMagicDmgMin += mDmgMin;
+            ohMagicDmgMax += mDmgMax;
+        } else {
+            globalBonusDmgMin += dmgMin;
+            globalBonusDmgMax += dmgMax;
+            bonusMagicDmgMin += mDmgMin;
+            bonusMagicDmgMax += mDmgMax;
+        }
+
+        bonusArmor += Number(source.armorBonus) || 0;
+        bonusCritChance += Number(source.critChanceBonus) || 0;
+        bonusMaxHealth += Number(source.maxHealthBonus) || 0;
+        bonusCritDamageModifier += Number(source.critDamageModifierBonus) || 0;
+        bonusArmorPenetrationPercent += Number(source.armorPenetrationPercent) || 0;
+        bonusArmorPenetrationFlat += Number(source.armorPenetrationFlat) || 0;
+        bonusLifeStealPercent += Number(source.lifeStealPercent) || 0;
+        bonusLifeStealFlat += Number(source.lifeStealFlat) || 0;
+        bonusManaStealPercent += Number(source.manaStealPercent) || 0;
+        bonusManaStealFlat += Number(source.manaStealFlat) || 0;
+        bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
+        bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
+    };
+
+    for (const slot in safeEquipment) {
+        const item = safeEquipment[slot as EquipmentSlot];
+        if (!item) continue;
+        const template = safeItemTemplates.find(t => t.id === item.templateId);
+        if (!template) continue;
+
+        const isMH = slot === EquipmentSlot.MainHand || slot === EquipmentSlot.TwoHand;
+        const isOH = slot === EquipmentSlot.OffHand;
+        const upLvl = item.upgradeLevel || 0;
+        const upFact = upLvl * 0.1;
+
+        if (item.rolledBaseStats) {
+            const base = item.rolledBaseStats;
+            const applyUp = (v: number | undefined) => (Number(v) || 0) + Math.round((Number(v) || 0) * upFact);
+            
+            // Re-map to applyStatsFromRolled logic with upgrades
+            const upgradedSource: RolledAffixStats = {
+                ...base,
+                damageMin: applyUp(base.damageMin),
+                damageMax: applyUp(base.damageMax),
+                magicDamageMin: applyUp(base.magicDamageMin),
+                magicDamageMax: applyUp(base.magicDamageMax),
+                armorBonus: applyUp(base.armorBonus),
+                maxHealthBonus: applyUp(base.maxHealthBonus),
+                critChanceBonus: (Number(base.critChanceBonus) || 0) * (1 + upFact),
+                critDamageModifierBonus: applyUp(base.critDamageModifierBonus),
+                armorPenetrationFlat: applyUp(base.armorPenetrationFlat),
+                lifeStealFlat: applyUp(base.lifeStealFlat),
+                manaStealFlat: applyUp(base.manaStealFlat)
+            };
+            applyStatsFromRolled(upgradedSource, isMH, isOH);
+        }
+        if (item.rolledPrefix) applyStatsFromRolled(item.rolledPrefix, isMH, isOH);
+        if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOH);
+    }
+    
+    const mhItem = safeEquipment[EquipmentSlot.MainHand] || safeEquipment[EquipmentSlot.TwoHand];
+    const ohItem = safeEquipment[EquipmentSlot.OffHand];
+    const mhTemplate = mhItem ? safeItemTemplates.find(t => t.id === mhItem.templateId) : null;
+    const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
+    
+    // Obliczanie Ataków
+    const attacksPerRound = parseFloat(((mhTemplate?.attacksPerRound || 1) + bonusAttacksPerRound).toFixed(2));
+
+    // Bazowe zasoby
+    let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+    let maxMana = 20 + totalPrimaryStats.intelligence * 10;
+    if (character.activeSkills) {
+        character.activeSkills.forEach(sId => {
+            const s = safeSkills.find(sk => sk.id === sId);
+            if (s?.manaMaintenanceCost) maxMana -= s.manaMaintenanceCost;
+        });
+    }
+    maxMana = Math.max(0, maxMana);
+    
+    // Obliczanie obrażeń MH
+    let mhMin, mhMax;
+    const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
+    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin;
+    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
+
+    // Obliczanie obrażeń OH (tylko Dual Wield)
+    let ohMin = 0, ohMax = 0;
+    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
+        const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
+        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
+        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
+    }
+
+    // Kara -25% przy Dual Wield
+    if (isDualWieldActive && ohItem) {
+        mhMin = Math.floor(mhMin * 0.75);
+        mhMax = Math.floor(mhMax * 0.75);
+        ohMin = Math.floor(ohMin * 0.75);
+        ohMax = Math.floor(ohMax * 0.75);
+    }
+
+    // Magiczne
+    const intBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
+    let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
+    let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
+    let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus : 0;
+
+    if (isDualWieldActive && ohItem) {
+        mhMagMin = Math.floor(mhMagMin * 0.75);
+        mhMagMax = Math.floor(mhMagMax * 0.75);
+        ohMagMin = Math.floor(ohMagMin * 0.75);
+        ohMagMax = Math.floor(ohMagMax * 0.75);
+    }
+
+    // Bonusy Gildii
+    if (guildBarracksLevel > 0) {
+        const mult = 1 + (guildBarracksLevel * 0.05);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
+    }
+
+    return {
+        ...character,
+        stats: {
+            ...character.stats, ...totalPrimaryStats,
+            maxHealth, maxMana,
+            minDamage: mhMin, maxDamage: mhMax,
+            offHandMinDamage: ohMin, offHandMaxDamage: ohMax,
+            magicDamageMin: mhMagMin, magicDamageMax: mhMagMax,
+            offHandMagicDamageMin: ohMagMin, offHandMagicDamageMax: ohMagMax,
+            attacksPerRound, 
+            currentHealth: Math.min(Number(character.stats.currentHealth) || maxHealth, maxHealth),
+            currentMana: Math.min(Number(character.stats.currentMana) || maxMana, maxMana),
+            currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
+            maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
+            armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
+            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
+            critDamageModifier: 200 + bonusCritDamageModifier,
+            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0),
+            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
+            armorPenetrationPercent: bonusArmorPenetrationPercent,
+            armorPenetrationFlat: bonusArmorPenetrationFlat,
+            lifeStealPercent: bonusLifeStealPercent,
+            lifeStealFlat: bonusLifeStealFlat,
+            manaStealPercent: bonusManaStealPercent,
+            manaStealFlat: bonusManaStealFlat,
+        }
+    };
 };
 
 export const getCampUpgradeCost = (level: number) => {
@@ -33,7 +260,6 @@ export const getTreasuryUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-// Added export alias for TreasuryPanel compatibility
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
 
 export const getWarehouseUpgradeCost = (level: number) => {
@@ -53,245 +279,18 @@ export const getBackpackUpgradeCost = (level: number) => {
     return { gold, essences };
 };
 
-export const getWorkshopUpgradeCost = (level: number, settings?: any) => {
-    if (settings?.workshopUpgrades?.[level]) return settings.workshopUpgrades[level];
+export const getWarehouseCapacity = (level: number) => {
+    return 5 + ((level - 1) * 3);
+};
+
+export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
+    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
+        return settings.workshopUpgrades[level];
+    }
     const gold = Math.floor(300 * Math.pow(level, 1.6));
     const essences: { type: EssenceType, amount: number }[] = [];
     if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
     if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
     if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
     return { gold, essences };
-};
-
-/**
- * GŁÓWNY SILNIK STATYSTYK
- */
-export const calculateDerivedStats = (
-    character: PlayerCharacter, 
-    itemTemplates: ItemTemplate[], 
-    affixes: Affix[], 
-    guildBarracksLevel: number = 0, 
-    guildShrineLevel: number = 0, 
-    skills: Skill[] = [],
-    activeGuildBuffs: GuildBuff[] = []
-): PlayerCharacter => {
-    
-    const safeItemTemplates = Array.isArray(itemTemplates) ? itemTemplates : [];
-    const safeAffixes = Array.isArray(affixes) ? affixes : [];
-    const safeEquipment = character.equipment || {};
-
-    const getMaxValue = (value: number | { min: number; max: number } | undefined): number => {
-        if (value === undefined || value === null) return 0;
-        if (typeof value === 'number') return value;
-        if (typeof value === 'object' && 'max' in value) return value.max;
-        return 0;
-    };
-
-    const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'> = {
-        strength: Number(character.stats.strength) || 0, 
-        agility: Number(character.stats.agility) || 0, 
-        accuracy: Number(character.stats.accuracy) || 0,
-        stamina: Number(character.stats.stamina) || 0, 
-        intelligence: Number(character.stats.intelligence) || 0, 
-        energy: Number(character.stats.energy) || 0,
-        luck: Number(character.stats.luck) || 0,
-    };
-    
-    if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
-
-    let bonusAttacksFromBuffs = 0;
-    if (activeGuildBuffs && activeGuildBuffs.length > 0) {
-        const now = Date.now();
-        activeGuildBuffs.forEach(buff => {
-            if (buff.expiresAt > now) {
-                for (const key in buff.stats) {
-                    const statKey = key as keyof typeof totalPrimaryStats;
-                    if (totalPrimaryStats[statKey] !== undefined) {
-                        totalPrimaryStats[statKey] += (Number((buff.stats as any)[statKey]) || 0);
-                    }
-                    if (key === 'attacksPerRound') bonusAttacksFromBuffs += (Number((buff.stats as any)[key]) || 0);
-                }
-            }
-        });
-    }
-
-    let bonusDamageMin = 0, bonusDamageMax = 0, bonusMagicDamageMin = 0, bonusMagicDamageMax = 0;
-    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
-    let bonusAttacksPerRound = 0;
-    let bonusCritDamageModifier = 0;
-    let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
-    let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
-    let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
-
-    const applyAffixBonuses = (source: RolledAffixStats) => {
-        if (source.statsBonus) {
-            for (const stat in source.statsBonus) {
-                const key = stat as keyof typeof source.statsBonus;
-                const val = Number((source.statsBonus as any)[key]) || 0;
-                (totalPrimaryStats as any)[key] = ((totalPrimaryStats as any)[key] || 0) + val;
-            }
-        }
-        bonusDamageMin += Number(source.damageMin) || 0;
-        bonusDamageMax += Number(source.damageMax) || 0;
-        bonusMagicDamageMin += Number(source.magicDamageMin) || 0;
-        bonusMagicDamageMax += Number(source.magicDamageMax) || 0;
-        bonusArmor += Number(source.armorBonus) || 0;
-        bonusCritChance += Number(source.critChanceBonus) || 0;
-        bonusMaxHealth += Number(source.maxHealthBonus) || 0;
-        bonusCritDamageModifier += Number(source.critDamageModifierBonus) || 0;
-        bonusArmorPenetrationPercent += Number(source.armorPenetrationPercent) || 0;
-        bonusArmorPenetrationFlat += Number(source.armorPenetrationFlat) || 0;
-        bonusLifeStealPercent += Number(source.lifeStealPercent) || 0;
-        bonusLifeStealFlat += Number(source.lifeStealFlat) || 0;
-        bonusManaStealPercent += Number(source.manaStealPercent) || 0;
-        bonusManaStealFlat += Number(source.manaStealFlat) || 0;
-        bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
-        bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
-    };
-
-    for (const slot in safeEquipment) {
-        const itemInstance = safeEquipment[slot as EquipmentSlot];
-        if (itemInstance && typeof itemInstance === 'object') {
-            const template = safeItemTemplates.find(t => t.id === itemInstance.templateId);
-            if (!template) continue;
-            const upgradeLevel = itemInstance.upgradeLevel || 0;
-            const upgradeBonusFactor = upgradeLevel * 0.1;
-
-            if (itemInstance.rolledBaseStats) {
-                const baseStats = itemInstance.rolledBaseStats;
-                const applyUpgrade = (val: number | undefined) => (Number(val) || 0) + Math.round((Number(val) || 0) * upgradeBonusFactor);
-                if (baseStats.statsBonus) {
-                    for (const stat in baseStats.statsBonus) {
-                        const key = stat as keyof typeof baseStats.statsBonus;
-                        const baseBonus = Number((baseStats.statsBonus as any)[key]) || 0;
-                        (totalPrimaryStats as any)[key] += baseBonus + Math.round(baseBonus * upgradeBonusFactor);
-                    }
-                }
-                bonusDamageMin += applyUpgrade(baseStats.damageMin);
-                bonusDamageMax += applyUpgrade(baseStats.damageMax);
-                bonusMagicDamageMin += applyUpgrade(baseStats.magicDamageMin);
-                bonusMagicDamageMax += applyUpgrade(baseStats.magicDamageMax);
-                bonusArmor += applyUpgrade(baseStats.armorBonus);
-                bonusMaxHealth += applyUpgrade(baseStats.maxHealthBonus);
-                bonusCritChance += (Number(baseStats.critChanceBonus) || 0) + ((Number(baseStats.critChanceBonus) || 0) * upgradeBonusFactor);
-                bonusCritDamageModifier += applyUpgrade(baseStats.critDamageModifierBonus);
-                bonusArmorPenetrationFlat += applyUpgrade(baseStats.armorPenetrationFlat);
-                bonusLifeStealFlat += applyUpgrade(baseStats.lifeStealFlat);
-                bonusManaStealFlat += applyUpgrade(baseStats.manaStealFlat);
-                bonusArmorPenetrationPercent += Number(baseStats.armorPenetrationPercent) || 0;
-                bonusLifeStealPercent += Number(baseStats.lifeStealPercent) || 0;
-                bonusManaStealPercent += Number(baseStats.manaStealPercent) || 0;
-            } else if (template) {
-                // Obsługa szablonów bez rolledBaseStats
-                const baseDamageMin = getMaxValue(template.damageMin as any);
-                const baseDamageMax = getMaxValue(template.damageMax as any);
-                bonusDamageMin += baseDamageMin + Math.round(baseDamageMin * upgradeBonusFactor);
-                bonusDamageMax += baseDamageMax + Math.round(baseDamageMax * upgradeBonusFactor);
-                // ... (pozostałe statystyki szablonu)
-            }
-            if (itemInstance.rolledPrefix) applyAffixBonuses(itemInstance.rolledPrefix);
-            if (itemInstance.rolledSuffix) applyAffixBonuses(itemInstance.rolledSuffix);
-        }
-    }
-    
-    // --- LOGIKA SZTUKI DWÓCH MIECZY ---
-    const isDualWieldActive = character.activeSkills?.includes('dual-wield-mastery');
-    const mainHandItem = safeEquipment[EquipmentSlot.MainHand];
-    const offHandItem = safeEquipment[EquipmentSlot.OffHand];
-    const mainHandTemplate = mainHandItem ? safeItemTemplates.find(t => t.id === mainHandItem.templateId) : null;
-    const offHandTemplate = offHandItem ? safeItemTemplates.find(t => t.id === offHandItem.templateId) : null;
-
-    const isActuallyDualWielding = isDualWieldActive && mainHandItem && offHandItem && 
-        mainHandTemplate?.category === 'Weapon' && offHandTemplate?.category === 'Weapon';
-
-    let baseAttacksPerRound = Number(mainHandTemplate?.attacksPerRound) || 1;
-    if (isActuallyDualWielding && offHandTemplate) {
-        baseAttacksPerRound += (Number(offHandTemplate.attacksPerRound) || 1);
-    }
-    // ---------------------------------
-
-    const attacksPerRound = parseFloat((baseAttacksPerRound + bonusAttacksPerRound + bonusAttacksFromBuffs).toFixed(2)) || 1;
-    const baseHealth = 50, baseEnergy = 10, baseMana = 20, baseMinDamage = 1, baseMaxDamage = 2;
-    
-    let maxHealth = baseHealth + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
-    const maxEnergy = baseEnergy + Math.floor(totalPrimaryStats.energy / 2);
-    let maxMana = baseMana + totalPrimaryStats.intelligence * 10;
-
-    // Konserwacja many umiejętności aktywnych
-    if (character.activeSkills) {
-        character.activeSkills.forEach((skillId: string) => {
-            const s = skills.find(sk => sk.id === skillId);
-            if (s?.manaMaintenanceCost) maxMana -= s.manaMaintenanceCost;
-        });
-    }
-    maxMana = Math.max(0, maxMana);
-    
-    let minDamage, maxDamage;
-    if (mainHandTemplate?.isMagical) {
-        minDamage = baseMinDamage + Math.floor(totalPrimaryStats.strength * 0.5) + bonusDamageMin;
-        maxDamage = baseMaxDamage + Math.floor(totalPrimaryStats.strength * 1.0) + bonusDamageMax;
-    } else if (mainHandTemplate?.isRanged) {
-        minDamage = baseMinDamage + (totalPrimaryStats.agility * 1) + bonusDamageMin;
-        maxDamage = baseMaxDamage + (totalPrimaryStats.agility * 2) + bonusDamageMax;
-    } else {
-        minDamage = baseMinDamage + (totalPrimaryStats.strength * 1) + bonusDamageMin;
-        maxDamage = baseMaxDamage + (totalPrimaryStats.strength * 2) + bonusDamageMax;
-    }
-
-    if (isActuallyDualWielding) {
-        minDamage = Math.floor(minDamage * 0.75);
-        maxDamage = Math.floor(maxDamage * 0.75);
-    }
-    
-    const critChance = totalPrimaryStats.accuracy * 0.5 + bonusCritChance;
-    const critDamageModifier = 200 + bonusCritDamageModifier;
-    let dodgeChance = totalPrimaryStats.agility * 0.1 + bonusDodgeChance;
-    let armor = bonusArmor;
-    let manaRegen = totalPrimaryStats.intelligence * 2;
-
-    if (character.race === Race.Dwarf) armor += 5;
-    if (character.race === Race.Elf) manaRegen += 10;
-    if (character.race === Race.Gnome) dodgeChance += 10;
-    
-    const intelligenceDamageBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
-    let magicDamageMin = bonusMagicDamageMin > 0 ? bonusMagicDamageMin + intelligenceDamageBonus : 0;
-    let magicDamageMax = bonusMagicDamageMax > 0 ? bonusMagicDamageMax + intelligenceDamageBonus : 0;
-
-    if (isActuallyDualWielding) {
-        magicDamageMin = Math.floor(magicDamageMin * 0.75);
-        magicDamageMax = Math.floor(magicDamageMax * 0.75);
-    }
-
-    if (guildBarracksLevel > 0) {
-        const mult = 1 + (guildBarracksLevel * 0.05);
-        minDamage = Math.floor(minDamage * mult);
-        maxDamage = Math.floor(maxDamage * mult);
-        magicDamageMin = Math.floor(magicDamageMin * mult);
-        magicDamageMax = Math.floor(magicDamageMax * mult);
-    }
-    
-    const currentHealth = Math.min(Number(character.stats.currentHealth) ?? maxHealth, maxHealth);
-    const currentMana = Math.min(Number(character.stats.currentMana) ?? maxMana, maxMana);
-    const currentEnergy = Math.min(Number(character.stats.currentEnergy) ?? maxEnergy, maxEnergy);
-
-    return {
-        ...character,
-        stats: {
-            ...character.stats, ...totalPrimaryStats,
-            maxHealth, maxEnergy, maxMana, 
-            minDamage, maxDamage, 
-            critChance, armor,
-            magicDamageMin, magicDamageMax, 
-            attacksPerRound, manaRegen,
-            currentHealth, currentMana, currentEnergy,
-            critDamageModifier,
-            armorPenetrationPercent: bonusArmorPenetrationPercent,
-            armorPenetrationFlat: bonusArmorPenetrationFlat,
-            lifeStealPercent: bonusLifeStealPercent,
-            lifeStealFlat: bonusLifeStealFlat,
-            manaStealPercent: bonusManaStealPercent,
-            manaStealFlat: bonusManaStealFlat,
-            dodgeChance
-        }
-    };
 };

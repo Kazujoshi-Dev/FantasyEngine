@@ -38,7 +38,8 @@ if (!config) {
     console.error("Upewnij się, że w pliku .env masz zdefiniowane:");
     console.error("POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB");
     console.error("================================================================");
-    process.exit(1);
+    // Fix: cast process to any to access exit() if environment types are missing
+    (process as any).exit(1);
 }
 
 // Logowanie parametrów połączenia (bezpieczne)

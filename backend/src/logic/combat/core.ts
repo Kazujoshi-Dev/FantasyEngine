@@ -36,36 +36,25 @@ export interface DefenderState {
     uniqueId?: string;
 }
 
-export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData): string | undefined => {
+export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData, hand: 'main' | 'off' = 'main'): string | undefined => {
     if (!playerData.equipment) return undefined;
 
-    const mainHand = playerData.equipment.mainHand;
-    const offHand = playerData.equipment.offHand;
-    const twoHand = playerData.equipment.twoHand;
     const templates = gameData.itemTemplates || [];
     const affixes = gameData.affixes || [];
 
-    // Logika dla Dwóch Mieczy - pokazujemy obie nazwy
-    if (mainHand && offHand && playerData.activeSkills?.includes('dual-wield-mastery')) {
-        const t1 = templates.find(t => t.id === mainHand.templateId);
-        const t2 = templates.find(t => t.id === offHand.templateId);
-        if (t1 && t2) {
-            const name1 = getGrammaticallyCorrectFullName(mainHand, t1, affixes);
-            const name2 = getGrammaticallyCorrectFullName(offHand, t2, affixes);
-            return `${name1} & ${name2}`;
-        }
+    if (hand === 'off') {
+        const offHand = playerData.equipment.offHand;
+        if (!offHand) return undefined;
+        const t = templates.find(temp => temp.id === offHand.templateId);
+        return t ? getGrammaticallyCorrectFullName(offHand, t, affixes) : undefined;
     }
 
-    const weaponInstance = mainHand || twoHand;
-    if (weaponInstance) {
-        const template = templates.find(t => t.id === weaponInstance.templateId);
-        if (template) {
-            const baseName = getGrammaticallyCorrectFullName(weaponInstance, template, affixes);
-            return weaponInstance.upgradeLevel && weaponInstance.upgradeLevel > 0 
-                ? `${baseName} +${weaponInstance.upgradeLevel}` 
-                : baseName;
-        }
+    const mainHand = playerData.equipment.mainHand || playerData.equipment.twoHand;
+    if (mainHand) {
+        const t = templates.find(temp => temp.id === mainHand.templateId);
+        return t ? getGrammaticallyCorrectFullName(mainHand, t, affixes) : undefined;
     }
+    
     return undefined;
 };
 
@@ -79,12 +68,13 @@ export const performAttack = <
     gameData: GameData,
     allEnemies: DefenderState[],
     isBossAttacking: boolean = false,
-    options: { ignoreArmor?: boolean; ignoreDodge?: boolean, critChanceOverride?: number } = {}
+    options: { ignoreArmor?: boolean; ignoreDodge?: boolean, critChanceOverride?: number, hand?: 'main' | 'off' } = {}
 ): { logs: CombatLogEntry[], attackerState: TAttacker, defenderState: TDefender, aoeData?: any, chainData?: any } => {
 
     const logs: CombatLogEntry[] = [];
     const attackerIsPlayer = 'statPoints' in attacker.stats;
     const defenderIsPlayer = 'statPoints' in defender.stats;
+    const hand = options.hand || 'main';
     
     const getHealthState = (currentAttacker: TAttacker, currentDefender: TDefender) => ({
         playerHealth: defenderIsPlayer ? currentDefender.currentHealth : currentAttacker.currentHealth,
@@ -124,9 +114,9 @@ export const performAttack = <
 
     if (attackerIsPlayer) {
         const playerData = (attacker as any).data as PlayerCharacter;
-        weaponName = getFullWeaponName(playerData, gameData);
+        weaponName = getFullWeaponName(playerData, gameData, hand);
         
-        const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
+        const weapon = hand === 'off' ? playerData.equipment?.offHand : (playerData.equipment?.mainHand || playerData.equipment?.twoHand);
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
 
         if (template?.isMagical && template.magicAttackType) {
@@ -172,8 +162,8 @@ export const performAttack = <
     }
 
     if (useMagicAttack) {
-        const magicDmgMin = attacker.stats.magicDamageMin || 0;
-        const magicDmgMax = attacker.stats.magicDamageMax || 0;
+        const magicDmgMin = hand === 'off' ? (attacker.stats as CharacterStats).offHandMagicDamageMin || 0 : attacker.stats.magicDamageMin || 0;
+        const magicDmgMax = hand === 'off' ? (attacker.stats as CharacterStats).offHandMagicDamageMax || 0 : attacker.stats.magicDamageMax || 0;
         damage = Math.floor(Math.random() * (magicDmgMax - magicDmgMin + 1)) + magicDmgMin;
 
         const attackerClass = (attacker as any).data?.characterClass;
@@ -185,7 +175,10 @@ export const performAttack = <
             }
         }
     } else {
-        damage = Math.floor(Math.random() * (attacker.stats.maxDamage - attacker.stats.minDamage + 1)) + attacker.stats.minDamage;
+        const min = hand === 'off' ? (attacker.stats as CharacterStats).offHandMinDamage || 0 : attacker.stats.minDamage;
+        const max = hand === 'off' ? (attacker.stats as CharacterStats).offHandMaxDamage || 0 : attacker.stats.maxDamage;
+        
+        damage = Math.floor(Math.random() * (max - min + 1)) + min;
         const critChance = options.critChanceOverride ?? (attacker.stats.critChance + (attacker.isEmpowered ? 15 : 0));
         if (Math.random() * 100 < critChance) {
             isCrit = true;

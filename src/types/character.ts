@@ -1,3 +1,4 @@
+
 import { EssenceType, Language, Race, CharacterClass } from './common.js';
 import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items.js';
 import { GuildBuff } from './guild.js';
@@ -10,6 +11,16 @@ export interface EquipmentLoadout {
     id: number;
     name: string;
     equipment: Record<EquipmentSlot, string | null>; // Przechowuje uniqueId przedmiotów
+}
+
+// Fix: Define CharacterResources
+export interface CharacterResources {
+    gold: number;
+    commonEssence: number;
+    uncommonEssence: number;
+    rareEssence: number;
+    epicEssence: number;
+    legendaryEssence: number;
 }
 
 export interface CharacterStats {
@@ -33,6 +44,12 @@ export interface CharacterStats {
     maxDamage: number;
     magicDamageMin: number;
     magicDamageMax: number;
+
+    // Statystyki dla drugiej ręki (Dual Wield)
+    offHandMinDamage?: number;
+    offHandMaxDamage?: number;
+    offHandMagicDamageMin?: number;
+    offHandMagicDamageMax?: number;
     
     armor: number;
     critChance: number;
@@ -47,15 +64,6 @@ export interface CharacterStats {
     lifeStealFlat: number;
     manaStealPercent: number;
     manaStealFlat: number;
-}
-
-export interface CharacterResources {
-    gold: number;
-    commonEssence: number;
-    uncommonEssence: number;
-    rareEssence: number;
-    epicEssence: number;
-    legendaryEssence: number;
 }
 
 export interface PlayerCharacter {
