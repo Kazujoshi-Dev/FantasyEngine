@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ExpeditionRewardSummary, CombatLogEntry, ItemTemplate, Affix, Enemy, PartyMember, PvpRewardSummary, CombatType, PartyMemberStatus, Race, ItemInstance } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CombatLogRow } from './CombatLog';
@@ -134,7 +135,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         return <StandardRewardsPanel reward={reward} itemTemplates={itemTemplates} affixes={affixes} onInspectItem={setInspectedRewardItem} />;
     };
 
-    return (
+    const modalContent = (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[9999] animate-fade-in backdrop-blur-sm overflow-hidden">
             {inspectedRewardItem && (
                 <ItemTooltip 
@@ -208,4 +209,6 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };

@@ -82,10 +82,11 @@ export const useTowerGame = () => {
         try {
             const res = await api.fightTower();
             
-            // Pobieramy przeciwników dla aktualnego piętra do raportu
-            const floorConfig = state.activeTower.floors.find(f => f.floorNumber === state.activeRun!.currentFloor);
-            const floorEnemies: Enemy[] = floorConfig 
-                ? floorConfig.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(Boolean) as Enemy[]
+            // ARCHITEKTURA NAPRAWY: Pobieramy przeciwników aktualnego piętra dla EnemyListPanel
+            const currentFloorNum = state.activeRun.currentFloor;
+            const floorConfig = state.activeTower.floors.find(f => f.floorNumber === currentFloorNum);
+            const encounteredEnemies: Enemy[] = floorConfig 
+                ? floorConfig.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter((e): e is Enemy => !!e)
                 : [];
 
             if (res.victory) {
@@ -115,7 +116,7 @@ export const useTowerGame = () => {
                             essencesFound: {},
                             combatLog: res.combatLog,
                             rewardBreakdown: [{ source: `Finałowa Walka: ${state.activeTower?.name}`, gold: 0, experience: 0 }],
-                            encounteredEnemies: floorEnemies
+                            encounteredEnemies: encounteredEnemies
                         }
                     }));
                 } else {
@@ -129,7 +130,7 @@ export const useTowerGame = () => {
                             essencesFound: {},
                             combatLog: res.combatLog,
                             rewardBreakdown: [{ source: `Ukończono Piętro ${state.activeRun?.currentFloor}`, gold: 0, experience: 0 }],
-                            encounteredEnemies: floorEnemies
+                            encounteredEnemies: encounteredEnemies
                         }
                     }));
                 }
@@ -148,7 +149,7 @@ export const useTowerGame = () => {
                         essencesFound: {},
                         combatLog: res.combatLog,
                         rewardBreakdown: [],
-                        encounteredEnemies: floorEnemies
+                        encounteredEnemies: encounteredEnemies
                     }
                 }));
             }
