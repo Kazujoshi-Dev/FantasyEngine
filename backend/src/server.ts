@@ -84,7 +84,6 @@ app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/game-data', gameDataRoutes);
 app.use('/api/character', characterRoutes);
-// ... [pozostałe ruty bez zmian]
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/trader', traderRoutes);
 app.use('/api/blacksmith', blacksmithRoutes);
@@ -159,9 +158,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Robust path resolution based on process CWD
-// Fix: cast process to any to access cwd() if environment types are missing
-const projectRoot = path.resolve((process as any).cwd(), '..'); // CWD is /app/backend, so '..' gives /app
+const projectRoot = path.resolve((process as any).cwd(), '..'); 
 const distPath = path.join(projectRoot, 'dist');
 const uploadsPath = path.join(projectRoot, 'uploads');
 
@@ -190,7 +187,9 @@ initializeDatabase().then(() => {
         processPendingEspionage().catch(err => console.error("Error processing espionage:", err));
     }, 60000);
 
+    // REGENERACJA ENERGII O KAŻDEJ PEŁNEJ GODZINIE
     cron.schedule('0 * * * *', async () => {
+        console.log(`[ENERGY REGEN] Start regeneracji energii: ${new Date().toLocaleTimeString()}`);
         const client = await pool.connect();
         try {
             const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
@@ -199,6 +198,7 @@ initializeDatabase().then(() => {
             const skills = gameDataRes.rows.find(r => r.key === 'skills')?.data || [];
 
             await client.query('BEGIN');
+            // Pobieramy wszystkich graczy wraz z danymi gildii do obliczenia maxEnergy
             const charsRes = await client.query(`
                 SELECT c.user_id, c.data, g.buildings, g.active_buffs
                 FROM characters c
@@ -212,20 +212,24 @@ initializeDatabase().then(() => {
                 const shrine = row.buildings?.shrine || 0;
                 const activeBuffs = row.active_buffs || [];
 
+                // Obliczamy statystyki pochodne (Derived Stats) uwzględniając bonusy
                 const derivedChar = calculateDerivedStatsOnServer(char, itemTemplates, affixes, barracks, shrine, skills, activeBuffs);
+                
                 const maxEnergy = derivedChar.stats.maxEnergy || 10;
                 const currentEnergy = char.stats.currentEnergy || 0;
 
+                // Jeśli gracz ma mniej niż aktualne maksimum (po wszystkich bonusach)
                 if (currentEnergy < maxEnergy) {
-                    char.stats.currentEnergy = currentEnergy + 1;
+                    char.stats.currentEnergy = Math.min(maxEnergy, currentEnergy + 1);
                     char.lastEnergyUpdateTime = Date.now();
                     await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), row.user_id]);
                 }
             }
             await client.query('COMMIT');
+            console.log(`[ENERGY REGEN] Zakończono pomyślnie dla ${charsRes.rows.length} postaci.`);
         } catch (err) {
             await client.query('ROLLBACK');
-            console.error('[ENERGY REGEN] Błąd:', err);
+            console.error('[ENERGY REGEN] Błąd krytyczny:', err);
         } finally {
             client.release();
         }
@@ -266,6 +270,5 @@ initializeDatabase().then(() => {
 
 }).catch((err: Error) => {
     console.error('BŁĄD STARTU SERWERA:', err);
-    // Fix: cast process to any to access exit() if environment types are missing
     (process as any).exit(1);
 });
