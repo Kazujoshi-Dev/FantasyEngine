@@ -156,8 +156,9 @@ export const calculateDerivedStats = (
     const mhTemplate = mhItem ? safeItemTemplates.find(t => t.id === mhItem.templateId) : null;
     const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
     
-    // Obliczanie Ataków
-    const attacksPerRound = parseFloat(((mhTemplate?.attacksPerRound || 1) + bonusAttacksPerRound).toFixed(2));
+    // Obliczanie Ataków - Jawne rzutowanie Number zapobiega błędom TypeError przy toFixed
+    const baseAPR = Number(mhTemplate?.attacksPerRound) || 1;
+    const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound).toFixed(2));
 
     // Bazowe zasoby
     let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
@@ -212,7 +213,7 @@ export const calculateDerivedStats = (
         mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
         ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
         mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
-        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
     }
 
     return {
