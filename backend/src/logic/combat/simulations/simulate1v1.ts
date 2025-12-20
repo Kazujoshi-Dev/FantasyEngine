@@ -126,14 +126,16 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         // --- Ruch Atakującego ---
         if (attacker.currentHealth > 0) {
             const isPlayer = 'data' in attacker;
-            const attacks = isPlayer ? (attacker.stats as CharacterStats).attacksPerRound : (attacker.stats as EnemyStats).attacksPerTurn || 1;
+            const stats = attacker.stats;
+            const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
             const reducedAttacks = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
             
             if (attacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
                 log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
-                const isDualWielding = isPlayer && attacker.data.activeSkills?.includes('dual-wield-mastery') && attacker.data.equipment?.offHand;
+                const pData = isPlayer ? (attacker as any).data as PlayerCharacter : null;
+                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
                 
                 // Pętla ataku
                 for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
@@ -141,7 +143,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                     
                     for (const hand of hands) {
                         if (defender.currentHealth <= 0) break;
-                        const isWarrior = isPlayer && (attacker as any).data.characterClass === CharacterClass.Warrior;
+                        const isWarrior = pData?.characterClass === CharacterClass.Warrior;
                         const attackOptions: any = { hand };
                         if (isWarrior && i === 0 && hand === 'main') {
                             attackOptions.ignoreDodge = true;
@@ -160,21 +162,23 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         // --- Ruch Obrońcy ---
         if (defender.currentHealth > 0) {
             const isPlayer = 'data' in defender;
-            const attacks = isPlayer ? (defender.stats as CharacterStats).attacksPerRound : (defender.stats as EnemyStats).attacksPerTurn || 1;
+            const stats = defender.stats;
+            const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
             const reducedAttacks = defender.statusEffects.filter(e => e.type === 'reduced_attacks').length;
             const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
 
              if (defender.statusEffects.some(e => e.type === 'frozen_no_attack')) {
                 log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
-                const isDualWielding = isPlayer && defender.data.activeSkills?.includes('dual-wield-mastery') && defender.data.equipment?.offHand;
+                const pData = isPlayer ? (defender as any).data as PlayerCharacter : null;
+                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
 
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
                     const hands: ('main' | 'off')[] = isDualWielding ? ['main', 'off'] : ['main'];
 
                     for (const hand of hands) {
                         if (attacker.currentHealth <= 0) break;
-                        const isWarrior = isPlayer && (defender as any).data.characterClass === CharacterClass.Warrior;
+                        const isWarrior = pData?.characterClass === CharacterClass.Warrior;
                         const attackOptions: any = { hand };
                         if (isWarrior && i === 0 && hand === 'main') {
                             attackOptions.ignoreDodge = true;

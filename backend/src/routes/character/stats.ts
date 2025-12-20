@@ -12,6 +12,7 @@ router.post('/', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
         const character: PlayerCharacter = charRes.rows[0].data;
         let spent = 0;
         for (const [k, v] of Object.entries(stats)) {
@@ -36,14 +37,17 @@ router.post('/reset', async (req: any, res: any) => {
         if (charRes.rows.length === 0) throw new Error("Postać nie znaleziona.");
         
         const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character || !character.stats) throw new Error("Błędne dane postaci.");
+
         const keys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
         
         // Obliczamy ile punktów zostało już wydanych (wszystko powyżej 1)
         let spentPoints = 0;
         keys.forEach(k => { 
-            if (character.stats[k] > 1) { 
-                spentPoints += (character.stats[k] - 1); 
-                character.stats[k] = 1; 
+            const currentVal = (character.stats as any)[k] || 0;
+            if (currentVal > 1) { 
+                spentPoints += (currentVal - 1); 
+                (character.stats as any)[k] = 1; 
             } 
         });
 
@@ -79,6 +83,7 @@ router.post('/class', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
         const character: PlayerCharacter = charRes.rows[0].data;
         if (character.level < 10) throw new Error("Wymagany 10 poziom.");
         if (character.characterClass) throw new Error("Klasa została już wybrana.");
