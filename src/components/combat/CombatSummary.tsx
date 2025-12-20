@@ -135,7 +135,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] animate-fade-in backdrop-blur-sm overflow-hidden">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[9999] animate-fade-in backdrop-blur-sm overflow-hidden">
             {inspectedRewardItem && (
                 <ItemTooltip 
                     instance={inspectedRewardItem.item} 

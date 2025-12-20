@@ -61,6 +61,7 @@ export const Tower: React.FC = () => {
                         affixes={gameData.affixes}
                         enemies={gameData.enemies}
                         isHunting={false}
+                        backgroundImage={gameData.settings?.reportBackgroundUrl}
                     />
                 )}
 

@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '../api';
 import { useCharacter } from '../contexts/CharacterContext';
-import { Tower as TowerType, ActiveTowerRun, ExpeditionRewardSummary, ItemInstance, EssenceType } from '../types';
+import { Tower as TowerType, ActiveTowerRun, ExpeditionRewardSummary, ItemInstance, EssenceType, Enemy } from '../types';
 
 interface TowerGameState {
     towers: TowerType[];
@@ -23,7 +23,7 @@ interface TowerGameState {
 }
 
 export const useTowerGame = () => {
-    const { character, updateCharacter } = useCharacter();
+    const { character, updateCharacter, gameData } = useCharacter();
     const [state, setState] = useState<TowerGameState>({
         towers: [],
         activeRun: null,
@@ -37,7 +37,6 @@ export const useTowerGame = () => {
     });
 
     const fetchData = useCallback(async () => {
-        // Block fetching if any modal is open to prevent state jump
         if (state.endGameSummary || state.floorReport || state.pendingFinalVictory) return;
 
         setState(prev => ({ ...prev, loading: true }));
@@ -78,23 +77,28 @@ export const useTowerGame = () => {
     };
 
     const performFight = async () => {
+        if (!state.activeTower || !state.activeRun || !gameData) return;
+        
         try {
             const res = await api.fightTower();
             
+            // Pobieramy przeciwników dla aktualnego piętra do raportu
+            const floorConfig = state.activeTower.floors.find(f => f.floorNumber === state.activeRun!.currentFloor);
+            const floorEnemies: Enemy[] = floorConfig 
+                ? floorConfig.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(Boolean) as Enemy[]
+                : [];
+
             if (res.victory) {
-                // Optimistic UI update
-                if (state.activeRun) {
-                    const newFloor = res.currentFloor || state.activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);
-                    const updatedRun = {
-                        ...state.activeRun,
-                        currentFloor: newFloor,
-                        currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
-                        currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
-                        accumulatedRewards: res.rewards 
-                    };
-                    setState(prev => ({ ...prev, activeRun: updatedRun }));
-                    api.getCharacter().then(updateCharacter);
-                }
+                const newFloor = res.currentFloor || state.activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);
+                const updatedRun = {
+                    ...state.activeRun,
+                    currentFloor: newFloor,
+                    currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
+                    currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
+                    accumulatedRewards: res.rewards 
+                };
+                setState(prev => ({ ...prev, activeRun: updatedRun }));
+                api.getCharacter().then(updateCharacter);
 
                 if (res.isTowerComplete) {
                     setState(prev => ({
@@ -110,7 +114,8 @@ export const useTowerGame = () => {
                             itemsFound: [], 
                             essencesFound: {},
                             combatLog: res.combatLog,
-                            rewardBreakdown: [{ source: `Finałowa Walka: ${state.activeTower?.name}`, gold: 0, experience: 0 }]
+                            rewardBreakdown: [{ source: `Finałowa Walka: ${state.activeTower?.name}`, gold: 0, experience: 0 }],
+                            encounteredEnemies: floorEnemies
                         }
                     }));
                 } else {
@@ -123,7 +128,8 @@ export const useTowerGame = () => {
                             itemsFound: [], 
                             essencesFound: {},
                             combatLog: res.combatLog,
-                            rewardBreakdown: [{ source: `Ukończono Piętro ${state.activeRun?.currentFloor}`, gold: 0, experience: 0 }]
+                            rewardBreakdown: [{ source: `Ukończono Piętro ${state.activeRun?.currentFloor}`, gold: 0, experience: 0 }],
+                            encounteredEnemies: floorEnemies
                         }
                     }));
                 }
@@ -141,7 +147,8 @@ export const useTowerGame = () => {
                         itemsFound: [],
                         essencesFound: {},
                         combatLog: res.combatLog,
-                        rewardBreakdown: [] 
+                        rewardBreakdown: [],
+                        encounteredEnemies: floorEnemies
                     }
                 }));
             }
@@ -161,7 +168,7 @@ export const useTowerGame = () => {
 
         if (durationSeconds > 0) {
             setState(prev => ({ ...prev, isMoving: true, progress: 0 }));
-            const interval = 100; // ms
+            const interval = 100;
             const steps = (durationSeconds * 1000) / interval;
             let currentStep = 0;
 
@@ -202,7 +209,7 @@ export const useTowerGame = () => {
         setState(prev => {
             const newState = { ...prev, floorReport: null };
             if (prev.pendingFinalVictory) {
-                newState.endGameSummary = { ...prev.pendingFinalVictory, outcome: prev.pendingFinalVictory.outcome === 'VICTORY' ? 'VICTORY' : 'DEFEAT' }; // Correct type mapping
+                newState.endGameSummary = { ...prev.pendingFinalVictory, outcome: prev.pendingFinalVictory.outcome === 'VICTORY' ? 'VICTORY' : 'DEFEAT' };
                 newState.pendingFinalVictory = null;
                 newState.activeRun = null;
             }
