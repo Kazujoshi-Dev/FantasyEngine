@@ -42,7 +42,8 @@ const StatRow: React.FC<{ label: string; value: React.ReactNode; color?: string;
 export const Equipment: React.FC = () => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [stickyItem, setStickyItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
@@ -79,7 +80,8 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.equipItem(item.uniqueId);
             updateCharacter(updatedChar);
-            setInspectedItem(null);
+            setHoveredItem(null);
+            setStickyItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
@@ -87,9 +89,14 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.unequipItem(slot);
             updateCharacter(updatedChar);
-            setInspectedItem(null);
+            setHoveredItem(null);
+            setStickyItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
+
+    const handleItemClick = (item: ItemInstance, template: ItemTemplate) => {
+        setStickyItem({ item, template });
+    };
 
     const handleRightClick = (e: React.MouseEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
         e.preventDefault();
@@ -125,7 +132,7 @@ export const Equipment: React.FC = () => {
                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) return null;
                             return item && template ? (
                                 <div key={slot} onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleUnequip(slot)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => handleItemClick(item, template)} onMouseEnter={() => setHoveredItem({ item, template })} onMouseLeave={() => setHoveredItem(null)} onDoubleClick={() => handleUnequip(slot)} />
                                 </div>
                             ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
@@ -208,10 +215,10 @@ export const Equipment: React.FC = () => {
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-2 content-start">
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                            if (!template) return null;
+                            if (!template) return false;
                             return (
                                 <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleEquip(item)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => handleItemClick(item, template)} onMouseEnter={() => setHoveredItem({ item, template })} onMouseLeave={() => setHoveredItem(null)} onDoubleClick={() => handleEquip(item)} />
                                 </div>
                             );
                         })}
@@ -219,8 +226,23 @@ export const Equipment: React.FC = () => {
                 </div>
             </div>
 
-            {inspectedItem && (
-                <ItemTooltip instance={inspectedItem.item} template={inspectedItem.template} affixes={gameData.affixes} character={character} compareWith={getCompareItem(inspectedItem.template)} itemTemplates={gameData.itemTemplates} isCentered={true} />
+            {/* Hover Tooltip (Podgląd) */}
+            {!stickyItem && hoveredItem && (
+                <ItemTooltip instance={hoveredItem.item} template={hoveredItem.template} affixes={gameData.affixes} character={character} compareWith={getCompareItem(hoveredItem.template)} itemTemplates={gameData.itemTemplates} isCentered={false} />
+            )}
+
+            {/* Sticky Tooltip (Inspekcja) */}
+            {stickyItem && (
+                <ItemTooltip 
+                    instance={stickyItem.item} 
+                    template={stickyItem.template} 
+                    affixes={gameData.affixes} 
+                    character={character} 
+                    compareWith={getCompareItem(stickyItem.template)} 
+                    itemTemplates={gameData.itemTemplates} 
+                    isSticky={true} 
+                    onClose={() => setStickyItem(null)} 
+                />
             )}
 
             {contextMenu && (
