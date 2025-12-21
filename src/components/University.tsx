@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -74,9 +75,9 @@ const SkillCard: React.FC<{
                         {skill.requirements.level && (
                              <p className={`text-xs ${levelMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Poziom: {skill.requirements.level}</p>
                         )}
-                        {reqClass && (
+                        {(reqClass || skill.id === 'dual-wield-mastery') && (
                             <p className={`text-xs ${classMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>
-                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Bojowa' : t(`class.${reqClass}`)}
+                                Klasa: {skill.id === 'dual-wield-mastery' ? 'Wojownik, Łotrzyk, Berserker, Złodziej' : t(`class.${reqClass}`)}
                             </p>
                         )}
                         {statOrder.map(req => {
