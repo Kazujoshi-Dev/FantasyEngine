@@ -243,8 +243,15 @@ export const initializeDatabase = async () => {
         for (const skill of GAME_SKILLS) {
             const index = dbSkills.findIndex((s: any) => s.id === skill.id);
             if (index === -1) {
+                // Nowa umiejętność
                 dbSkills.push(skill);
                 modified = true;
+            } else {
+                // Aktualizacja istniejącej umiejętności (np. zmiana typu z Universal na Class)
+                if (JSON.stringify(dbSkills[index]) !== JSON.stringify(skill)) {
+                    dbSkills[index] = skill;
+                    modified = true;
+                }
             }
         }
 

@@ -10,7 +10,7 @@ export const GAME_SKILLS: Skill[] = [
         id: 'dual-wield-mastery',
         name: 'Sztuka Dwóch Mieczy',
         description: 'Pozwala władać dwiema broniami jednoręcznymi jednocześnie (niemagicznymi). Używanie dwóch ostrzy nakłada karę -25% do całkowitych zadawanych obrażeń.',
-        type: SkillType.Universal,
+        type: SkillType.Class,
         category: SkillCategory.Active,
         manaMaintenanceCost: 125,
         requirements: {
