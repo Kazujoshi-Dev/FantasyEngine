@@ -68,10 +68,14 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
         });
     };
 
-    const handleLocationChange = (locId: string) => {
-        const currentLocs = formData.locationIds || [];
-        const newLocs = currentLocs.includes(locId) ? currentLocs.filter(id => id !== locId) : [...currentLocs, locId];
-        setFormData(prev => ({ ...prev, locationIds: newLocs }));
+    const handleLocationToggle = (locId: string) => {
+        setFormData(prev => {
+            const currentLocs = prev.locationIds || [];
+            const newLocs = currentLocs.includes(locId) 
+                ? currentLocs.filter(id => id !== locId) 
+                : [...currentLocs, locId];
+            return { ...prev, locationIds: newLocs };
+        });
     };
 
     // --- Item Rewards Handlers ---
@@ -150,6 +154,24 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
                  <div className="md:col-span-3"><label className="text-sm font-bold text-gray-400">Opis:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" rows={2}/></label></div>
                  <div><label className="text-sm font-bold text-gray-400">Limit Powtórzeń (0=∞):<input name="repeatable" type="number" value={formData.repeatable ?? 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </div>
+
+            <fieldset className="border p-4 rounded-md border-slate-700">
+                <legend className="px-2 font-bold text-sky-400">Dostępność w Lokacjach</legend>
+                <p className="text-[10px] text-gray-500 mb-3 italic">Jeśli nie wybierzesz żadnej lokacji, zadanie będzie dostępne wszędzie.</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {gameData.locations.map(loc => (
+                        <label key={loc.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-800 p-1 rounded transition-colors">
+                            <input 
+                                type="checkbox" 
+                                checked={formData.locationIds?.includes(loc.id)} 
+                                onChange={() => handleLocationToggle(loc.id)}
+                                className="rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500"
+                            />
+                            <span className="text-xs text-gray-300">{loc.name}</span>
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
 
             <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-bold text-indigo-300">Cel Zadania</legend>

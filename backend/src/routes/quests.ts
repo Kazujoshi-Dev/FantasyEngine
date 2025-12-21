@@ -42,6 +42,12 @@ router.post('/accept', authenticateToken, async (req: any, res: any) => {
              return res.status(400).json({ message: 'Quest already accepted' });
         }
         
+        // --- LOCATION VALIDATION ---
+        if (quest.locationIds && quest.locationIds.length > 0 && !quest.locationIds.includes(character.currentLocationId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Musisz być w odpowiedniej lokacji, aby przyjąć to zadanie.' });
+        }
+
         // Sprawdzenie limitu dziennego przy akceptacji (na wypadek manipulacji frontem)
         if (quest.category === QuestCategory.Daily) {
             const progress = character.questProgress.find(p => p.questId === questId);
