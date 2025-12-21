@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix } from '../types';
@@ -43,9 +42,14 @@ export const Equipment: React.FC = () => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
     const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
+    
+    // Fix: replaced NodeJS.Timeout with ReturnType<typeof setTimeout> to resolve type error in browser environment
+    // Timer do debouncowania zamykania tooltipa
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (!character || !gameData) return null;
 
@@ -91,6 +95,29 @@ export const Equipment: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
+    const handleMouseEnter = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
+        setMousePos({ x: e.clientX, y: e.clientY });
+        setInspectedItem({ item, template });
+    };
+
+    const handleMouseLeave = () => {
+        // Opóźniamy zamknięcie, aby dać czas na przejście do tooltipa
+        closeTimerRef.current = setTimeout(() => {
+            setInspectedItem(null);
+        }, 150);
+    };
+
+    const handleTooltipEnter = () => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
+    };
+
     const handleRightClick = (e: React.MouseEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY, item, source, fromSlot });
@@ -125,7 +152,7 @@ export const Equipment: React.FC = () => {
                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) return null;
                             return item && template ? (
                                 <div key={slot} onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleUnequip(slot)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleUnequip(slot)} />
                                 </div>
                             ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
@@ -211,7 +238,7 @@ export const Equipment: React.FC = () => {
                             if (!template) return null;
                             return (
                                 <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleEquip(item)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleEquip(item)} />
                                 </div>
                             );
                         })}
@@ -220,7 +247,18 @@ export const Equipment: React.FC = () => {
             </div>
 
             {inspectedItem && (
-                <ItemTooltip instance={inspectedItem.item} template={inspectedItem.template} affixes={gameData.affixes} character={character} compareWith={getCompareItem(inspectedItem.template)} itemTemplates={gameData.itemTemplates} isCentered={true} />
+                <ItemTooltip 
+                    instance={inspectedItem.item} 
+                    template={inspectedItem.template} 
+                    affixes={gameData.affixes} 
+                    character={character} 
+                    compareWith={getCompareItem(inspectedItem.template)} 
+                    itemTemplates={gameData.itemTemplates} 
+                    x={mousePos.x}
+                    y={mousePos.y}
+                    onMouseEnter={handleTooltipEnter}
+                    onMouseLeave={handleMouseLeave}
+                />
             )}
 
             {contextMenu && (
