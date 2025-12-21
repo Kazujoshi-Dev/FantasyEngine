@@ -5,6 +5,10 @@ import { authenticateToken } from '../middleware/auth.js';
 import statsRoutes from './admin/stats.js';
 import characterRoutes from './admin/characters.js';
 import auditRoutes from './admin/audit.js';
+import { PlayerCharacter, ItemTemplate, Affix } from '../types.js';
+import { rollTemplateStats, rollAffixStats } from '../logic/items.js';
+import { randomUUID } from 'crypto';
+import { getBackpackCapacity } from '../logic/helpers.js';
 
 const router = express.Router();
 
@@ -25,6 +29,81 @@ router.use(authenticateToken, checkAdmin);
 router.use('/stats', statsRoutes);
 router.use('/characters', characterRoutes);
 router.use('/audit', auditRoutes);
+
+// Endpoint do dawania konkretnych przedmiotów (Kreator Admina)
+router.post('/give-item', async (req: any, res: any) => {
+    const { userId, templateId, prefixId, suffixId, upgradeLevel } = req.body;
+    
+    if (!userId || !templateId) {
+        return res.status(400).json({ message: 'User ID and Template ID are required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Pobierz postać
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found.' });
+        }
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        // 2. Sprawdź miejsce w plecaku
+        const backpackCap = getBackpackCapacity(character);
+        if (character.inventory.length >= backpackCap) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Target inventory is full.' });
+        }
+
+        // 3. Pobierz dane gry
+        const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
+        const itemTemplates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
+        const affixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
+
+        const template = itemTemplates.find(t => t.id === templateId);
+        if (!template) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Item template not found.' });
+        }
+
+        // 4. Skonstruuj przedmiot
+        const luck = character.stats?.luck || 0;
+        const newItem = {
+            uniqueId: randomUUID(),
+            templateId: templateId,
+            upgradeLevel: parseInt(upgradeLevel) || 0,
+            rolledBaseStats: rollTemplateStats(template, luck),
+            prefixId: prefixId || undefined,
+            suffixId: suffixId || undefined,
+            crafterName: 'Administrator'
+        } as any;
+
+        if (prefixId) {
+            const p = affixes.find(a => a.id === prefixId);
+            if (p) newItem.rolledPrefix = rollAffixStats(p, luck);
+        }
+        if (suffixId) {
+            const s = affixes.find(a => a.id === suffixId);
+            if (s) newItem.rolledSuffix = rollAffixStats(s, luck);
+        }
+
+        // 5. Dodaj do inventory i zapisz
+        character.inventory.push(newItem);
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Item granted successfully', itemUniqueId: newItem.uniqueId });
+
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        console.error("ADMIN GIVE ITEM ERROR:", err);
+        res.status(500).json({ message: 'Failed to grant item: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
 
 // Metody pomocnicze zachowane w głównym pliku dla prostoty (globalne akcje)
 router.post('/global-message', async (req: any, res: any) => {
