@@ -100,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <div 
                 className={`
-                    fixed lg:static inset-y-0 left-0 z-40 w-72 bg-[#121826] border-r border-fantasy-gold/20 flex flex-col transition-transform duration-500 ease-in-out
+                    fixed lg:static inset-y-0 left-0 z-40 w-64 lg:w-72 bg-[#121826] border-r border-fantasy-gold/20 flex flex-col transition-transform duration-500 ease-in-out
                     ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                     shadow-[5px_0_30px_rgba(0,0,0,0.5)]
                 `}
