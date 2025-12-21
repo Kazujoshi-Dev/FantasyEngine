@@ -38,23 +38,19 @@ export interface DefenderState {
 
 export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameData, hand: 'main' | 'off' = 'main'): string | undefined => {
     if (!playerData.equipment) return undefined;
-
     const templates = gameData.itemTemplates || [];
     const affixes = gameData.affixes || [];
-
     if (hand === 'off') {
         const offHand = playerData.equipment.offHand;
         if (!offHand) return undefined;
         const t = templates.find(temp => temp.id === offHand.templateId);
         return t ? getGrammaticallyCorrectFullName(offHand, t, affixes) : undefined;
     }
-
     const mainHand = playerData.equipment.mainHand || playerData.equipment.twoHand;
     if (mainHand) {
         const t = templates.find(temp => temp.id === mainHand.templateId);
         return t ? getGrammaticallyCorrectFullName(mainHand, t, affixes) : undefined;
     }
-    
     return undefined;
 };
 
@@ -83,7 +79,6 @@ export const performAttack = <
         enemyMana: defenderIsPlayer ? currentAttacker.currentMana : currentDefender.currentMana,
     });
 
-
     let damage = 0;
     let isCrit = false;
     let damageReduced = 0;
@@ -96,17 +91,11 @@ export const performAttack = <
     let manaSpent = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
-    
-    if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
-        tempDodgeChance = 0;
-    }
+    if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) tempDodgeChance = 0;
 
     if (Math.random() * 100 < tempDodgeChance) {
         return {
-            logs: [{
-                turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true,
-                ...getHealthState(attacker, defender)
-            }],
+            logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true, ...getHealthState(attacker, defender) }],
             attackerState: attacker,
             defenderState: defender,
         };
@@ -115,7 +104,6 @@ export const performAttack = <
     if (attackerIsPlayer) {
         const playerData = (attacker as any).data as PlayerCharacter;
         weaponName = getFullWeaponName(playerData, gameData, hand);
-        
         const weapon = hand === 'off' ? playerData.equipment?.offHand : (playerData.equipment?.mainHand || playerData.equipment?.twoHand);
         const template = weapon ? gameData.itemTemplates.find(t => t.id === weapon.templateId) : null;
 
@@ -129,11 +117,9 @@ export const performAttack = <
 
             if (attacker.currentMana < manaCost) {
                 const canUseManaSurge = (playerData.characterClass === CharacterClass.Mage || playerData.characterClass === CharacterClass.Wizard) && !attacker.manaSurgeUsed;
-
                 if (canUseManaSurge) {
                     attacker.manaSurgeUsed = true;
-                    const maxMana = (attacker.stats as CharacterStats).maxMana;
-                    attacker.currentMana = maxMana;
+                    attacker.currentMana = (attacker.stats as CharacterStats).maxMana;
                     logs.push({ turn, attacker: attacker.name, defender: '', action: 'manaSurge', ...getHealthState(attacker, defender) });
                     useMagicAttack = true;
                     magicAttackType = template.magicAttackType;
@@ -177,7 +163,6 @@ export const performAttack = <
     } else {
         const min = hand === 'off' ? (attacker.stats as CharacterStats).offHandMinDamage || 0 : attacker.stats.minDamage;
         const max = hand === 'off' ? (attacker.stats as CharacterStats).offHandMaxDamage || 0 : attacker.stats.maxDamage;
-        
         damage = Math.floor(Math.random() * (max - min + 1)) + min;
         const critChance = options.critChanceOverride ?? (attacker.stats.critChance + (attacker.isEmpowered ? 15 : 0));
         if (Math.random() * 100 < critChance) {
@@ -188,33 +173,30 @@ export const performAttack = <
 
         const armorPenPercent = 'armorPenetrationPercent' in attacker.stats ? (attacker.stats as any).armorPenetrationPercent : 0;
         const armorPenFlat = 'armorPenetrationFlat' in attacker.stats ? (attacker.stats as any).armorPenetrationFlat : 0;
-        
         let effectiveArmor = Math.max(0, defender.stats.armor * (1 - armorPenPercent / 100) - armorPenFlat);
-        
-        if (options.ignoreArmor || defender.statusEffects.some(e => e.type === 'armor_broken')) {
-            effectiveArmor = 0;
-        }
-
+        if (options.ignoreArmor || defender.statusEffects.some(e => e.type === 'armor_broken')) effectiveArmor = 0;
         const armorReduction = Math.min(damage, Math.floor(effectiveArmor));
         damage -= armorReduction;
         damageReduced += armorReduction;
     }
 
+    // Aplikacja redukcji obrażeń (np. z zestawów)
+    const reductionPercent = (defender.stats as CharacterStats).damageReductionPercent || 0;
+    if (reductionPercent > 0) {
+        const reductionVal = Math.floor(damage * (reductionPercent / 100));
+        damage -= reductionVal;
+        damageReduced += reductionVal;
+    }
+
     if (attackerIsPlayer && attacker.data?.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
         damage = Math.floor(damage * 1.25);
-        logs.push({
-            turn, attacker: attacker.name, defender: defender.name, action: 'orc_fury',
-            ...getHealthState(attacker, defender)
-        });
+        logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'orc_fury', ...getHealthState(attacker, defender) });
     }
     if (defenderIsPlayer && defender.data?.race === Race.Dwarf && defender.currentHealth < defender.stats.maxHealth * 0.5) {
         const reduction = Math.floor(damage * 0.20);
         damage -= reduction;
         damageReduced += reduction;
-        logs.push({
-            turn, attacker: attacker.name, defender: defender.name, action: 'dwarf_defense',
-            damageReduced: reduction, ...getHealthState(attacker, defender)
-        });
+        logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'dwarf_defense', damageReduced: reduction, ...getHealthState(attacker, defender) });
     }
 
     if (isCrit && defenderIsPlayer && !defender.hardSkinTriggered) {
@@ -224,16 +206,12 @@ export const performAttack = <
             damage -= reduction;
             damageReduced += reduction;
             defender.hardSkinTriggered = true;
-            logs.push({
-                turn, attacker: attacker.name, defender: defender.name, action: 'hardSkinProc',
-                ...getHealthState(attacker, defender)
-            });
+            logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'hardSkinProc', ...getHealthState(attacker, defender) });
         }
     }
 
     let aoeData;
     let chainData;
-    
     if (useMagicAttack && magicAttackType) {
         const spellLogic = spellRegistry[magicAttackType];
         if (spellLogic) {
@@ -266,21 +244,7 @@ export const performAttack = <
     
     const totalDamage = damage + arcaneMissileBonusDamage;
     defender.currentHealth = Math.max(0, defender.currentHealth - totalDamage);
-
-    const finalLogEntry: CombatLogEntry = {
-        turn, attacker: attacker.name, defender: defender.name,
-        action: useMagicAttack ? 'magicAttack' : 'attacks',
-        damage: totalDamage,
-        bonusDamage: arcaneMissileBonusDamage > 0 ? arcaneMissileBonusDamage : undefined,
-        isCrit,
-        damageReduced: damageReduced > 0 ? damageReduced : undefined,
-        healthGained: healthGained > 0 ? healthGained : undefined,
-        manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined,
-        magicAttackType, weaponName,
-        manaSpent: manaSpent > 0 ? manaSpent : undefined,
-        ...getHealthState(attacker, defender),
-    };
+    const finalLogEntry: CombatLogEntry = { turn, attacker: attacker.name, defender: defender.name, action: useMagicAttack ? 'magicAttack' : 'attacks', damage: totalDamage, bonusDamage: arcaneMissileBonusDamage > 0 ? arcaneMissileBonusDamage : undefined, isCrit, damageReduced: damageReduced > 0 ? damageReduced : undefined, healthGained: healthGained > 0 ? healthGained : undefined, manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined, magicAttackType, weaponName, manaSpent: manaSpent > 0 ? manaSpent : undefined, ...getHealthState(attacker, defender), };
     logs.push(finalLogEntry);
-
     return { logs, attackerState: attacker, defenderState: defender, aoeData, chainData };
 };

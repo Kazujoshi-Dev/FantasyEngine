@@ -19,7 +19,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         };
     }
     
-    // 1. Determine enemies for this expedition
     const encounteredEnemies: Enemy[] = [];
     const maxEnemies = expedition.maxEnemies || (expedition.enemies || []).length;
     let enemiesFoughtCount = 0;
@@ -35,8 +34,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
     }
 
-    // 2. Simulate combat and gather logs/results
-    // Pass guild barracks level, shrine level AND active buffs to stat calculation
+    // Oblicz statystyki przed walką, aby uwzględnić zestawy przedmiotów
     const characterWithStats = calculateDerivedStatsOnServer(
         character, 
         gameData.itemTemplates || [], 
@@ -44,17 +42,12 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         guildBarracksLevel, 
         shrineLevel, 
         gameData.skills || [],
-        character.activeGuildBuffs || [] // Pass buffs present on character object
+        character.activeGuildBuffs || [] 
     );
     
-    // Create a combat-ready version of the character with full mana for the simulation.
-    // Health carries over from the character's state before the expedition.
     const combatReadyCharacter = {
         ...characterWithStats,
-        stats: {
-            ...characterWithStats.stats,
-            currentMana: characterWithStats.stats.maxMana
-        }
+        stats: { ...characterWithStats.stats, currentMana: characterWithStats.stats.maxMana }
     };
     
     let fullCombatLog: CombatLogEntry[] = [];
@@ -63,31 +56,20 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     let isVictory: boolean;
 
     if (encounteredEnemies.length > 1) {
-        // Use 1vMany logic for simultaneous combat against multiple enemies
         const combatLogs = simulate1vManyCombat(combatReadyCharacter, encounteredEnemies, gameData);
         fullCombatLog = combatLogs;
-        
         const lastLog = combatLogs[combatLogs.length - 1];
         if (lastLog) {
             finalPlayerHealth = lastLog.playerHealth;
             finalPlayerMana = lastLog.playerMana;
-            
-            // Victory if player is alive AND all enemies are dead
-            // Check last log's allEnemiesHealth if available
-            const areAllEnemiesDead = lastLog.allEnemiesHealth 
-                ? lastLog.allEnemiesHealth.every(e => e.currentHealth <= 0)
-                : (lastLog.enemyHealth <= 0); // Fallback though likely inaccurate for groups without the snapshot
-
+            const areAllEnemiesDead = lastLog.allEnemiesHealth ? lastLog.allEnemiesHealth.every(e => e.currentHealth <= 0) : (lastLog.enemyHealth <= 0);
             isVictory = finalPlayerHealth > 0 && areAllEnemiesDead;
         } else {
-            // Fallback
             finalPlayerHealth = characterWithStats.stats.currentHealth;
             finalPlayerMana = characterWithStats.stats.currentMana;
             isVictory = true; 
         }
-
     } else if (encounteredEnemies.length === 1) {
-        // Use single combat for one enemy
         const singleCombatLog = simulate1v1Combat(combatReadyCharacter, encounteredEnemies[0], gameData);
         fullCombatLog = singleCombatLog;
         const lastLog = singleCombatLog.length > 0 ? singleCombatLog[singleCombatLog.length - 1] : null;
@@ -95,20 +77,17 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             finalPlayerHealth = lastLog.playerHealth;
             finalPlayerMana = lastLog.playerMana;
             isVictory = finalPlayerHealth > 0 && lastLog.enemyHealth <= 0;
-        } else { // Should not happen if an enemy was encountered
+        } else {
             finalPlayerHealth = characterWithStats.stats.currentHealth;
             finalPlayerMana = characterWithStats.stats.currentMana;
             isVictory = true;
         }
     } else {
-        // No enemies encountered
         finalPlayerHealth = characterWithStats.stats.currentHealth;
         finalPlayerMana = characterWithStats.stats.currentMana;
         isVictory = true;
     }
 
-
-    // 3. Calculate final rewards and update character state
     let finalCharacter = { ...character };
     finalCharacter.stats.currentHealth = finalPlayerHealth;
     finalCharacter.stats.currentMana = finalPlayerMana;
@@ -123,9 +102,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     if (isVictory) {
         const backpackCapacity = getBackpackCapacity(finalCharacter);
         
-        // --- PHASE A: Enemy Rewards (Gold, XP, Items) ---
         for (const enemy of encounteredEnemies) {
-            // Gold & XP
             const minGold = enemy.rewards?.minGold ?? 0;
             const maxGold = enemy.rewards?.maxGold ?? 0;
             const goldReward = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
@@ -134,13 +111,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             const maxExp = enemy.rewards?.maxExperience ?? 0;
             const experienceReward = Math.floor(Math.random() * (maxExp - minExp + 1)) + minExp;
             
-            rewardBreakdown.push({
-                source: `Pokonano: ${enemy.name}`,
-                gold: goldReward,
-                experience: experienceReward
-            });
+            rewardBreakdown.push({ source: `Pokonano: ${enemy.name}`, gold: goldReward, experience: experienceReward });
 
-            // Enemy Loot (Independent roll per enemy)
             if (enemy.lootTable && enemy.lootTable.length > 0) {
                  const droppedTemplateId = pickWeighted(enemy.lootTable)?.templateId;
                  if (droppedTemplateId) {
@@ -148,13 +120,10 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
                         const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
                         finalCharacter.inventory.push(newItem);
                         itemsFound.push(newItem);
-                    } else {
-                        itemsLostCount++;
-                    }
+                    } else { itemsLostCount++; }
                  }
             }
             
-            // Enemy Resources
             if (enemy.resourceLootTable && enemy.resourceLootTable.length > 0) {
                  const drop = pickWeighted(enemy.resourceLootTable);
                  if (drop) {
@@ -173,22 +142,16 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             });
         }
 
-        // --- PHASE B: Expedition Base Rewards (Completion) ---
         const baseGold = Math.floor(Math.random() * (expedition.maxBaseGoldReward - expedition.minBaseGoldReward + 1)) + expedition.minBaseGoldReward;
         const baseExperience = Math.floor(Math.random() * (expedition.maxBaseExperienceReward - expedition.minBaseExperienceReward + 1)) + expedition.minBaseExperienceReward;
-        rewardBreakdown.unshift({
-            source: `Nagroda z Wyprawy: ${expedition.name}`,
-            gold: baseGold,
-            experience: baseExperience
-        });
+        rewardBreakdown.unshift({ source: `Nagroda z Wyprawy: ${expedition.name}`, gold: baseGold, experience: baseExperience });
         
-        // Sum up all monetary rewards
         rewardBreakdown.forEach(rb => {
             totalGold += rb.gold;
             totalExperience += rb.experience;
         });
         
-        // Apply Bonuses
+        // Aplikacja bonusów (Rasa/Klasa/Gildia)
         if(character.race === Race.Human) totalExperience = Math.floor(totalExperience * 1.10);
         if(character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.20);
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
@@ -197,76 +160,50 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         if (expBuffs && expBuffs.length > 0) {
             expBuffs.forEach(b => {
                  const bonus = (b.stats as any).expBonus || 0;
-                 const bonusAmount = Math.floor(totalExperience * (bonus / 100));
-                 totalExperience += bonusAmount;
+                 totalExperience += Math.floor(totalExperience * (bonus / 100));
             });
         }
-        
-        // --- PHASE C: Expedition Scavenging (Loot from Map) ---
-        // Calculate "Potential" items count (Max possible items you COULD find)
-        let maxPotentialItems = (expedition.maxItems || 0);
-        
-        if (!expedition.maxItems) {
-            maxPotentialItems = 1; // Base 1 potential item per expedition if not configured
-        }
-        
-        maxPotentialItems += scoutHouseLevel;
 
-        if (character.activeSkills?.includes('dokladne-przeszukiwanie')) {
-            maxPotentialItems += 1;
+        // APLIKACJA BONUSÓW Z ZESTAWÓW (Nowość)
+        if (characterWithStats.stats.goldBonusPercent > 0) {
+            totalGold += Math.floor(totalGold * (characterWithStats.stats.goldBonusPercent / 100));
+        }
+        if (characterWithStats.stats.expBonusPercent > 0) {
+            totalExperience += Math.floor(totalExperience * (characterWithStats.stats.expBonusPercent / 100));
         }
         
+        // Przeszukiwanie (Scavenging)
+        let maxPotentialItems = (expedition.maxItems || 0) || 1;
+        maxPotentialItems += scoutHouseLevel;
+        if (character.activeSkills?.includes('dokladne-przeszukiwanie')) maxPotentialItems += 1;
         if(character.characterClass === CharacterClass.DungeonHunter) {
              if (Math.random() < 0.3) maxPotentialItems += 1;
              if (Math.random() < 0.15) maxPotentialItems += 1;
         }
-        
-        const expeditionLootTable = expedition.lootTable || [];
-        
-        // --- New Logic: Randomized Scavenging based on Luck ---
-        // Instead of getting ALL potential items, we roll for each potential slot.
-        // Base chance: 40% per slot.
-        // Luck bonus: 0.25% chance per 1 Luck point.
-        // Example: 0 Luck = 40% chance per slot. 100 Luck = 65% chance. 240 Luck = 100% chance.
         
         const baseFindChance = 40;
         const luckBonus = (characterWithStats.stats.luck || 0) * 0.25;
         const totalFindChance = Math.min(100, baseFindChance + luckBonus);
 
         for (let i = 0; i < maxPotentialItems; i++) {
-             // Roll to see if we find anything in this "slot"
-             if (Math.random() * 100 > totalFindChance) {
-                 continue; // Failed to find item in this attempt
-             }
-
-             if (expeditionLootTable.length > 0) {
-                 const droppedTemplateId = pickWeighted(expeditionLootTable)?.templateId;
-                 
-                 if (droppedTemplateId) {
-                     if (finalCharacter.inventory.length < backpackCapacity) {
-                        const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
-                        finalCharacter.inventory.push(newItem);
-                        itemsFound.push(newItem);
-                    } else {
-                        itemsLostCount++;
-                    }
-                 }
+             if (Math.random() * 100 > totalFindChance) continue;
+             if (expedition.lootTable && expedition.lootTable.length > 0) {
+                 const droppedTemplateId = pickWeighted(expedition.lootTable)?.templateId;
+                 if (droppedTemplateId && finalCharacter.inventory.length < backpackCapacity) {
+                    const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
+                    finalCharacter.inventory.push(newItem);
+                    itemsFound.push(newItem);
+                } else if (droppedTemplateId) { itemsLostCount++; }
              }
         }
         
-        // Expedition Resources (Scavenging)
-        const expeditionResourceTable = expedition.resourceLootTable || [];
-        // Roll 1-2 times for resources
         const resourceRolls = 1 + (scoutHouseLevel > 0 ? 1 : 0);
-        
         for (let i = 0; i < resourceRolls; i++) {
-            if (expeditionResourceTable.length > 0) {
-                const drop = pickWeighted(expeditionResourceTable);
+            if (expedition.resourceLootTable && expedition.resourceLootTable.length > 0) {
+                const drop = pickWeighted(expedition.resourceLootTable);
                 if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
-                    if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) {
-                        amount *= 2;
-                    }
+                    if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) amount *= 2;
                     essencesFound[drop.resource] = (essencesFound[drop.resource] || 0) + amount;
                     finalCharacter.resources[drop.resource] = (finalCharacter.resources[drop.resource] || 0) + amount;
                 }
@@ -281,27 +218,14 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
     }
 
-    // Level up check
     while (finalCharacter.experience >= finalCharacter.experienceToNextLevel) {
         finalCharacter.experience -= finalCharacter.experienceToNextLevel;
         finalCharacter.level += 1;
-        finalCharacter.stats.statPoints += 2; // Updated to 2
+        finalCharacter.stats.statPoints += 2; 
         finalCharacter.experienceToNextLevel = Math.floor(100 * Math.pow(finalCharacter.level, 1.3));
     }
     
     finalCharacter.activeExpedition = null;
-
-    const summary: ExpeditionRewardSummary = {
-        rewardBreakdown,
-        totalGold,
-        totalExperience,
-        combatLog: fullCombatLog,
-        isVictory,
-        itemsFound,
-        essencesFound,
-        itemsLostCount: itemsLostCount > 0 ? itemsLostCount : undefined,
-        encounteredEnemies: encounteredEnemies
-    };
-
+    const summary: ExpeditionRewardSummary = { rewardBreakdown, totalGold, totalExperience, combatLog: fullCombatLog, isVictory, itemsFound, essencesFound, itemsLostCount: itemsLostCount > 0 ? itemsLostCount : undefined, encounteredEnemies: encounteredEnemies };
     return { updatedCharacter: finalCharacter, summary, expeditionName: expedition.name };
 };

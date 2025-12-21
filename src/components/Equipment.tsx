@@ -11,6 +11,8 @@ import { ShieldIcon } from './icons/ShieldIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { StarIcon } from './icons/StarIcon';
+import { CoinsIcon } from './icons/CoinsIcon';
 
 const slotOrder: EquipmentSlot[] = [
     EquipmentSlot.Head,
@@ -98,41 +100,25 @@ export const Equipment: React.FC = () => {
         <ContentPanel title={t('equipment.title')}>
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[80vh]">
                 
-                {/* Paper Doll: Equipped Items */}
+                {/* Paper Doll */}
                 <div className="xl:col-span-3 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
                     <h3 className="text-sm fantasy-header font-black text-indigo-400 mb-4 px-2 uppercase tracking-widest border-b border-indigo-500/20 pb-2">Wyposażenie</h3>
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-2">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
                             const template = item ? gameData.itemTemplates.find(t => t.id === item.templateId) : null;
-                            
                             if (slot === EquipmentSlot.TwoHand && character.equipment.mainHand) return null;
                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) return null;
-
                             return item && template ? (
-                                <div 
-                                    key={slot} 
-                                    onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}
-                                >
-                                    <ItemListItem
-                                        item={item}
-                                        template={template}
-                                        affixes={gameData.affixes}
-                                        isSelected={false}
-                                        onClick={() => {}} // Wyłączamy klik na rzecz hovera
-                                        onMouseEnter={() => setInspectedItem({ item, template })}
-                                        onMouseLeave={() => setInspectedItem(null)}
-                                        onDoubleClick={() => handleUnequip(slot)}
-                                    />
+                                <div key={slot} onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}>
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleUnequip(slot)} />
                                 </div>
-                            ) : (
-                                <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} />
-                            );
+                            ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
                     </div>
                 </div>
 
-                {/* Statystyki Bojowe */}
+                {/* ŚRODKOWA KOLUMNA: Statystyki Bojowe */}
                 <div className="xl:col-span-4 bg-[#0d111a] p-6 rounded-2xl border border-fantasy-gold/20 flex flex-col min-h-0 shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none"></div>
                     <div className="relative z-10 flex flex-col h-full">
@@ -140,9 +126,7 @@ export const Equipment: React.FC = () => {
                         
                         <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar space-y-6">
                             <div className="space-y-2">
-                                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <SparklesIcon className="h-3 w-3" /> Atrybuty
-                                </h4>
+                                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2"><SparklesIcon className="h-3 w-3" /> Atrybuty</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label={t('statistics.strength')} value={character.stats.strength} />
                                     <StatRow label={t('statistics.agility')} value={character.stats.agility} />
@@ -153,34 +137,36 @@ export const Equipment: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <SwordsIcon className="h-3 w-3" /> Potencjał Ofensywny
-                                </h4>
+                                <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><SwordsIcon className="h-3 w-3" /> Ofensywa</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Obrażenia Fizyczne" value={`${character.stats.minDamage} - ${character.stats.maxDamage}`} color="text-white" />
                                     {character.stats.magicDamageMax > 0 && <StatRow label="Obrażenia Magiczne" value={`${character.stats.magicDamageMin} - ${character.stats.magicDamageMax}`} color="text-purple-400" />}
                                     <StatRow label="Szansa na Krytyk" value={`${character.stats.critChance.toFixed(1)}%`} color="text-red-400" />
-                                    <StatRow label="Modyfikator Kryt." value={`${character.stats.critDamageModifier}%`} />
                                     <StatRow label="Ataki na Rundę" value={character.stats.attacksPerRound} />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <ShieldIcon className="h-3 w-3" /> Defensywa
-                                </h4>
+                                <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ShieldIcon className="h-3 w-3" /> Defensywa</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Pancerz" value={character.stats.armor} color="text-sky-300" />
                                     <StatRow label="Szansa na Unik" value={`${character.stats.dodgeChance.toFixed(1)}%`} color="text-blue-400" />
                                     <StatRow label="Zdrowie" value={`${Math.ceil(character.stats.currentHealth)} / ${character.stats.maxHealth}`} color="text-green-400" />
-                                    <StatRow label="Regeneracja Many" value={character.stats.manaRegen} color="text-indigo-400" />
+                                </div>
+                            </div>
+
+                            {/* NOWA SEKCJA: BONUSY ZESTAWÓW */}
+                            <div className="space-y-2">
+                                <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2"><SparklesIcon className="h-3 w-3" /> Bonusy Zestawów</h4>
+                                <div className="grid grid-cols-1 gap-1">
+                                    <StatRow label="Bonus Obrażeń" value={`+${character.stats.damageBonusPercent}%`} color="text-red-400" icon={<SwordsIcon className="h-3 w-3"/>} />
+                                    <StatRow label="Redukcja Obrażeń" value={`+${character.stats.damageReductionPercent}%`} color="text-sky-400" icon={<ShieldIcon className="h-3 w-3"/>} />
+                                    <StatRow label="Bonus Złota" value={`+${character.stats.goldBonusPercent}%`} color="text-amber-400" icon={<CoinsIcon className="h-3 w-3"/>} />
+                                    <StatRow label="Bonus Doświadczenia" value={`+${character.stats.expBonusPercent}%`} color="text-sky-300" icon={<StarIcon className="h-3 w-3"/>} />
                                 </div>
                             </div>
                         </div>
-
-                        <div className="mt-6 pt-4 border-t border-white/5 text-[9px] text-gray-500 text-center uppercase tracking-tighter">
-                            Wartości uwzględniają bonusy z przedmiotów, gildii oraz umiejętności aktywnych.
-                        </div>
+                        <div className="mt-6 pt-4 border-t border-white/5 text-[9px] text-gray-500 text-center uppercase tracking-tighter">Wartości uwzględniają wszystkie aktywne bonusy.</div>
                     </div>
                 </div>
 
@@ -188,89 +174,38 @@ export const Equipment: React.FC = () => {
                 <div className="xl:col-span-5 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm fantasy-header font-black text-sky-400 uppercase tracking-widest">Plecak</h3>
-                        <span className="font-mono text-xs font-bold text-gray-500 bg-slate-950 px-3 py-1 rounded-full border border-white/5">
-                            {character.inventory.length} / {backpackCapacity}
-                        </span>
+                        <span className="font-mono text-xs font-bold text-gray-500 bg-slate-950 px-3 py-1 rounded-full border border-white/5">{character.inventory.length} / {backpackCapacity}</span>
                     </div>
-
                     <div className="flex gap-2 mb-4">
-                        <select 
-                            value={filterSlot} 
-                            onChange={(e) => setFilterSlot(e.target.value)}
-                            className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none"
-                        >
+                        <select value={filterSlot} onChange={(e) => setFilterSlot(e.target.value)} className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none">
                             <option value="all">Wszystkie typy</option>
-                            <option value="head">Głowa</option>
-                            <option value="chest">Tors</option>
-                            <option value="mainHand">Broń</option>
-                            <option value="legs">Nogi</option>
-                            <option value="feet">Stopy</option>
-                            <option value="hands">Ręce</option>
-                            <option value="waist">Pas</option>
-                            <option value="neck">Szyja</option>
-                            <option value="ring">Pierścienie</option>
+                            {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <select 
-                            value={rarityFilter} 
-                            onChange={(e) => setRarityFilter(e.target.value as ItemRarity | 'all')}
-                            className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none"
-                        >
+                        <select value={rarityFilter} onChange={(e) => setRarityFilter(e.target.value as ItemRarity | 'all')} className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none">
                             <option value="all">Wszystkie jakości</option>
                             {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
                         </select>
                     </div>
-
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-2 content-start">
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return null;
                             return (
-                                <div 
-                                    key={item.uniqueId} 
-                                    onContextMenu={(e) => handleRightClick(e, item, 'inventory')}
-                                >
-                                    <ItemListItem
-                                        item={item}
-                                        template={template}
-                                        affixes={gameData.affixes}
-                                        isSelected={false}
-                                        onClick={() => {}}
-                                        onMouseEnter={() => setInspectedItem({ item, template })}
-                                        onMouseLeave={() => setInspectedItem(null)}
-                                        onDoubleClick={() => handleEquip(item)}
-                                    />
+                                <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={() => setInspectedItem({ item, template })} onMouseLeave={() => setInspectedItem(null)} onDoubleClick={() => handleEquip(item)} />
                                 </div>
                             );
                         })}
-                        {filteredInventory.length === 0 && (
-                            <p className="text-center py-12 text-gray-600 italic text-sm col-span-full">Brak przedmiotów.</p>
-                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Scentrowany Tooltip Modal (Hover-driven) */}
             {inspectedItem && (
-                <ItemTooltip 
-                    instance={inspectedItem.item}
-                    template={inspectedItem.template}
-                    affixes={gameData.affixes}
-                    character={character}
-                    compareWith={getCompareItem(inspectedItem.template)}
-                    itemTemplates={gameData.itemTemplates}
-                    isCentered={true}
-                />
+                <ItemTooltip instance={inspectedItem.item} template={inspectedItem.template} affixes={gameData.affixes} character={character} compareWith={getCompareItem(inspectedItem.template)} itemTemplates={gameData.itemTemplates} isCentered={true} />
             )}
 
             {contextMenu && (
-                <ContextMenu 
-                    {...contextMenu} 
-                    options={contextMenu.source === 'inventory' 
-                        ? [{ label: t('equipment.equip'), action: () => handleEquip(contextMenu.item) }]
-                        : [{ label: t('equipment.unequip'), action: () => handleUnequip(contextMenu.fromSlot!) }]
-                    } 
-                    onClose={() => setContextMenu(null)} 
-                />
+                <ContextMenu {...contextMenu} options={contextMenu.source === 'inventory' ? [{ label: t('equipment.equip'), action: () => handleEquip(contextMenu.item) }] : [{ label: t('equipment.unequip'), action: () => handleUnequip(contextMenu.fromSlot!) }]} onClose={() => setContextMenu(null)} />
             )}
         </ContentPanel>
     );
