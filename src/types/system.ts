@@ -1,5 +1,6 @@
+
 import { Language, Tab } from './common.js';
-import { ItemRarity, ItemTemplate, Affix, CraftingSettings } from './items.js';
+import { ItemRarity, ItemTemplate, Affix, CraftingSettings, ItemSet } from './items.js';
 import { Location, Expedition, Quest, Skill, Ritual, Tower } from './world.js';
 import { Enemy } from './combat.js';
 
@@ -39,6 +40,7 @@ export interface GameData {
     skills: Skill[];
     rituals: Ritual[];
     towers: Tower[];
+    itemSets: ItemSet[];
     settings?: GameSettings;
 }
 

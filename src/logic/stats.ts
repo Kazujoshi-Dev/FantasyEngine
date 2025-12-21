@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass, CraftingSettings } from '../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass, CraftingSettings, ItemSet } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
     let totalXp = Number(currentExperience);
@@ -10,7 +10,6 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
-// Fix: Add missing exports
 export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
@@ -21,7 +20,8 @@ export const calculateDerivedStats = (
     guildBarracksLevel: number = 0, 
     guildShrineLevel: number = 0, 
     skills: Skill[] = [],
-    activeGuildBuffs: GuildBuff[] = []
+    activeGuildBuffs: GuildBuff[] = [],
+    itemSets: ItemSet[] = []
 ): PlayerCharacter => {
     
     const safeItemTemplates = Array.isArray(itemTemplates) ? itemTemplates : [];
@@ -29,7 +29,7 @@ export const calculateDerivedStats = (
     const safeEquipment = character.equipment || {};
     const safeSkills = Array.isArray(skills) ? skills : [];
 
-    const totalPrimaryStats: Pick<CharacterStats, 'strength' | 'agility' | 'accuracy' | 'stamina' | 'intelligence' | 'energy' | 'luck'> = {
+    const totalPrimaryStats: CharacterStats = {
         strength: Number(character.stats.strength) || 0, 
         agility: Number(character.stats.agility) || 0, 
         accuracy: Number(character.stats.accuracy) || 0,
@@ -37,6 +37,33 @@ export const calculateDerivedStats = (
         intelligence: Number(character.stats.intelligence) || 0, 
         energy: Number(character.stats.energy) || 0,
         luck: Number(character.stats.luck) || 0,
+        statPoints: character.stats.statPoints || 0,
+        currentHealth: character.stats.currentHealth,
+        maxHealth: 0,
+        currentMana: character.stats.currentMana,
+        maxMana: 0,
+        currentEnergy: character.stats.currentEnergy,
+        maxEnergy: 0,
+        minDamage: 0,
+        maxDamage: 0,
+        magicDamageMin: 0,
+        magicDamageMax: 0,
+        armor: 0,
+        critChance: 0,
+        critDamageModifier: 200,
+        attacksPerRound: 1,
+        dodgeChance: 0,
+        manaRegen: 0,
+        armorPenetrationPercent: 0,
+        armorPenetrationFlat: 0,
+        lifeStealPercent: 0,
+        lifeStealFlat: 0,
+        manaStealPercent: 0,
+        manaStealFlat: 0,
+        expBonusPercent: 0,
+        goldBonusPercent: 0,
+        damageBonusPercent: 0,
+        damageReductionPercent: 0
     };
     
     if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
@@ -46,16 +73,15 @@ export const calculateDerivedStats = (
         activeGuildBuffs.forEach(buff => {
             if (buff.expiresAt > now) {
                 for (const key in buff.stats) {
-                    const statKey = key as keyof typeof totalPrimaryStats;
+                    const statKey = key as keyof CharacterStats;
                     if (totalPrimaryStats[statKey] !== undefined) {
-                        totalPrimaryStats[statKey] += (Number(buff.stats[statKey as keyof CharacterStats]) || 0);
+                        (totalPrimaryStats as any)[statKey] += (Number(buff.stats[statKey]) || 0);
                     }
                 }
             }
         });
     }
 
-    // Pule bonusów
     let globalBonusDmgMin = 0, globalBonusDmgMax = 0;
     let mhWeaponBonusDmgMin = 0, mhWeaponBonusDmgMax = 0;
     let ohWeaponBonusDmgMin = 0, ohWeaponBonusDmgMax = 0;
@@ -115,11 +141,18 @@ export const calculateDerivedStats = (
         bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
     };
 
+    // Liczenie aktywnych afiksów dla zestawów
+    const equippedAffixCounts: Record<string, number> = {};
+
     for (const slot in safeEquipment) {
         const item = safeEquipment[slot as EquipmentSlot];
         if (!item) continue;
         const template = safeItemTemplates.find(t => t.id === item.templateId);
         if (!template) continue;
+
+        // Zliczanie afiksów
+        if (item.prefixId) equippedAffixCounts[item.prefixId] = (equippedAffixCounts[item.prefixId] || 0) + 1;
+        if (item.suffixId) equippedAffixCounts[item.suffixId] = (equippedAffixCounts[item.suffixId] || 0) + 1;
 
         const isMH = slot === EquipmentSlot.MainHand || slot === EquipmentSlot.TwoHand;
         const isOH = slot === EquipmentSlot.OffHand;
@@ -130,7 +163,6 @@ export const calculateDerivedStats = (
             const base = item.rolledBaseStats;
             const applyUp = (v: number | undefined) => (Number(v) || 0) + Math.round((Number(v) || 0) * upFact);
             
-            // Re-map to applyStatsFromRolled logic with upgrades
             const upgradedSource: RolledAffixStats = {
                 ...base,
                 damageMin: applyUp(base.damageMin),
@@ -150,17 +182,39 @@ export const calculateDerivedStats = (
         if (item.rolledPrefix) applyStatsFromRolled(item.rolledPrefix, isMH, isOH);
         if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOH);
     }
+
+    // Aplikacja bonusów zestawów
+    if (Array.isArray(itemSets)) {
+        itemSets.forEach(set => {
+            const count = equippedAffixCounts[set.affixId] || 0;
+            if (count > 0) {
+                set.tiers.forEach(tier => {
+                    if (count >= tier.requiredPieces) {
+                        // Dodaj statystyki podstawowe
+                        for (const key in tier.bonuses) {
+                            if (totalPrimaryStats[key as keyof CharacterStats] !== undefined) {
+                                (totalPrimaryStats as any)[key] += (Number((tier.bonuses as any)[key]) || 0);
+                            }
+                        }
+                        // Statystyki procentowe (specjalne)
+                        if (tier.bonuses.expBonusPercent) totalPrimaryStats.expBonusPercent += tier.bonuses.expBonusPercent;
+                        if (tier.bonuses.goldBonusPercent) totalPrimaryStats.goldBonusPercent += tier.bonuses.goldBonusPercent;
+                        if (tier.bonuses.damageBonusPercent) totalPrimaryStats.damageBonusPercent += tier.bonuses.damageBonusPercent;
+                        if (tier.bonuses.damageReductionPercent) totalPrimaryStats.damageReductionPercent += tier.bonuses.damageReductionPercent;
+                    }
+                });
+            }
+        });
+    }
     
     const mhItem = safeEquipment[EquipmentSlot.MainHand] || safeEquipment[EquipmentSlot.TwoHand];
     const ohItem = safeEquipment[EquipmentSlot.OffHand];
     const mhTemplate = mhItem ? safeItemTemplates.find(t => t.id === mhItem.templateId) : null;
     const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
     
-    // Obliczanie Ataków - Jawne rzutowanie Number zapobiega błędom TypeError przy toFixed
     const baseAPR = Number(mhTemplate?.attacksPerRound) || 1;
     const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound).toFixed(2));
 
-    // Bazowe zasoby
     let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
     let maxMana = 20 + totalPrimaryStats.intelligence * 10;
     if (character.activeSkills) {
@@ -171,13 +225,11 @@ export const calculateDerivedStats = (
     }
     maxMana = Math.max(0, maxMana);
     
-    // Obliczanie obrażeń MH
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
     mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin;
     mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
-    // Obliczanie obrażeń OH (tylko Dual Wield)
     let ohMin = 0, ohMax = 0;
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
@@ -185,7 +237,6 @@ export const calculateDerivedStats = (
         ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
     }
 
-    // Kara -25% przy Dual Wield
     if (isDualWieldActive && ohItem) {
         mhMin = Math.floor(mhMin * 0.75);
         mhMax = Math.floor(mhMax * 0.75);
@@ -193,7 +244,6 @@ export const calculateDerivedStats = (
         ohMax = Math.floor(ohMax * 0.75);
     }
 
-    // Magiczne
     const intBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
     let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
     let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
@@ -207,9 +257,17 @@ export const calculateDerivedStats = (
         ohMagMax = Math.floor(ohMagMax * 0.75);
     }
 
-    // Bonusy Gildii
     if (guildBarracksLevel > 0) {
         const mult = 1 + (guildBarracksLevel * 0.05);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
+    }
+
+    // Aplikacja globalnego bonusu obrażeń z zestawów
+    if (totalPrimaryStats.damageBonusPercent > 0) {
+        const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
         mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
         ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
         mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
@@ -244,54 +302,11 @@ export const calculateDerivedStats = (
         }
     };
 };
-
-export const getCampUpgradeCost = (level: number) => {
-    const gold = Math.floor(150 * Math.pow(level, 1.5));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 });
-    if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 });
-    return { gold, essences };
-};
-
-export const getTreasuryUpgradeCost = (level: number) => {
-    const gold = Math.floor(200 * Math.pow(level, 1.6));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: level * 2 });
-    if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) });
-    return { gold, essences };
-};
-
+// Pozostałe funkcje pomocnicze...
+export const getCampUpgradeCost = (level: number) => { const gold = Math.floor(150 * Math.pow(level, 1.5)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 }); if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 }); return { gold, essences }; };
+export const getTreasuryUpgradeCost = (level: number) => { const gold = Math.floor(200 * Math.pow(level, 1.6)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: level * 2 }); if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) }); return { gold, essences }; };
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
-
-export const getWarehouseUpgradeCost = (level: number) => {
-    const baseCost = getTreasuryUpgradeCost(level);
-    return {
-        gold: baseCost.gold * 2,
-        essences: baseCost.essences.map(e => ({ type: e.type, amount: e.amount * 2 }))
-    };
-};
-
-export const getBackpackUpgradeCost = (level: number) => {
-    const gold = Math.floor(150 * Math.pow(level, 1.5));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 });
-    if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 });
-    if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 });
-    return { gold, essences };
-};
-
-export const getWarehouseCapacity = (level: number) => {
-    return 5 + ((level - 1) * 3);
-};
-
-export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => {
-    if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) {
-        return settings.workshopUpgrades[level];
-    }
-    const gold = Math.floor(300 * Math.pow(level, 1.6));
-    const essences: { type: EssenceType, amount: number }[] = [];
-    if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 });
-    if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 });
-    if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 });
-    return { gold, essences };
-};
+export const getWarehouseUpgradeCost = (level: number) => { const baseCost = getTreasuryUpgradeCost(level); return { gold: baseCost.gold * 2, essences: baseCost.essences.map(e => ({ type: e.type, amount: e.amount * 2 })) }; };
+export const getBackpackUpgradeCost = (level: number) => { const gold = Math.floor(150 * Math.pow(level, 1.5)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: (level - 3) * 5 }); if (level >= 7 && level <= 8) essences.push({ type: EssenceType.Uncommon, amount: (level - 6) * 3 }); if (level >= 9) essences.push({ type: EssenceType.Rare, amount: level - 8 }); return { gold, essences }; };
+export const getWarehouseCapacity = (level: number) => { return 5 + ((level - 1) * 3); };
+export const getWorkshopUpgradeCost = (level: number, settings?: CraftingSettings) => { if (settings && settings.workshopUpgrades && settings.workshopUpgrades[level]) { return settings.workshopUpgrades[level]; } const gold = Math.floor(300 * Math.pow(level, 1.6)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 2 && level <= 4) essences.push({ type: EssenceType.Common, amount: (level - 1) * 3 }); if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Uncommon, amount: (level - 4) * 2 }); if (level >= 8) essences.push({ type: EssenceType.Rare, amount: level - 7 }); return { gold, essences }; };

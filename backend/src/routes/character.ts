@@ -78,7 +78,7 @@ router.get('/', async (req: any, res: any) => {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Błąd pobierania postaci' });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 
@@ -112,7 +112,7 @@ router.post('/update-profile', async (req: any, res: any) => {
         await client.query('ROLLBACK');
         res.status(500).json({ message: err.message });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 
@@ -139,6 +139,7 @@ router.post('/', async (req: any, res: any) => {
             return res.status(400).json({ message: 'To imię jest już zajęte.' });
         }
 
+        // Fix: Add missing CharacterStats fields to resolve type errors
         const initialCharacter: Partial<PlayerCharacter> = {
             name: name,
             race: race as Race,
@@ -157,7 +158,9 @@ router.post('/', async (req: any, res: any) => {
                 attacksPerRound: 1, dodgeChance: 0, manaRegen: 2,
                 armorPenetrationPercent: 0, armorPenetrationFlat: 0,
                 lifeStealPercent: 0, lifeStealFlat: 0,
-                manaStealPercent: 0, manaStealFlat: 0
+                manaStealPercent: 0, manaStealFlat: 0,
+                expBonusPercent: 0, goldBonusPercent: 0, 
+                damageBonusPercent: 0, damageReductionPercent: 0
             },
             resources: { gold: 100, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 },
             equipment: { head: null, neck: null, chest: null, hands: null, waist: null, legs: null, feet: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null },
@@ -197,7 +200,7 @@ router.post('/', async (req: any, res: any) => {
         console.error("CREATE CHARACTER ERROR:", err);
         res.status(500).json({ message: 'Błąd serwera podczas tworzenia postaci.' });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 

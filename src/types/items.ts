@@ -1,3 +1,4 @@
+
 import { CharacterStats } from './character.js';
 import { EssenceType, ResourceCost } from './common.js';
 
@@ -131,7 +132,7 @@ export interface ItemInstance {
     originalOwnerName?: string;
     borrowedAt?: number;
 
-    crafterName?: string; // Name of the character who crafted this item
+    crafterName?: string; 
 }
 
 export interface Affix {
@@ -139,7 +140,7 @@ export interface Affix {
     name: string | { masculine: string; feminine: string; neuter: string };
     type: AffixType;
     value?: number;
-    spawnChances: Partial<Record<ItemCategory, number>>; // Now interpreted as Weights
+    spawnChances: Partial<Record<ItemCategory, number>>; 
     
     statsBonus?: Record<string, { min: number; max: number }>;
     
@@ -165,16 +166,33 @@ export interface Affix {
     requiredStats?: Partial<CharacterStats>;
 }
 
+export interface ItemSetTier {
+    requiredPieces: number;
+    bonuses: Partial<CharacterStats> & {
+        expBonusPercent?: number;
+        goldBonusPercent?: number;
+        damageBonusPercent?: number;
+        damageReductionPercent?: number;
+    };
+}
+
+export interface ItemSet {
+    id: string;
+    name: string;
+    affixId: string; // Afiks który "aktywuje" zestaw
+    tiers: ItemSetTier[];
+}
+
 export interface LootDrop {
     templateId: string;
-    weight: number; // Changed from chance
+    weight: number; 
 }
 
 export interface ResourceDrop {
     resource: EssenceType;
     min: number;
     max: number;
-    weight: number; // Changed from chance
+    weight: number; 
 }
 
 export interface CraftingSettings {

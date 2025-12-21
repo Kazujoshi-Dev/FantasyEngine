@@ -8,15 +8,13 @@ import { api } from '../api';
 import { GeneralTab } from './admin/tabs/GeneralTab';
 import { UsersTab } from './admin/tabs/UsersTab';
 import { TriviaTab } from './admin/tabs/TriviaTab';
-
-// Dedykowane Tabs (zawierają zaawansowane edytory)
 import { LocationsTab } from './admin/tabs/LocationsTab';
 import { ExpeditionsTab } from './admin/tabs/ExpeditionsTab';
 import { EnemiesTab } from './admin/tabs/EnemiesTab';
 import { BossesTab } from './admin/tabs/BossesTab';
 import { ItemsTab } from './admin/tabs/ItemsTab';
 import { AffixesTab } from './admin/tabs/AffixesTab';
-import QuestsTab from './admin/tabs/QuestsTab'; // Default export w tym pliku
+import QuestsTab from './admin/tabs/QuestsTab'; 
 import { UniversityTab } from './admin/tabs/UniversityTab';
 import { RitualsTab } from './admin/tabs/RitualsTab';
 import { GuildsTab } from './admin/tabs/GuildsTab';
@@ -29,21 +27,22 @@ import { OrphanAuditTab } from './admin/tabs/OrphanAuditTab';
 import { DataIntegrityTab } from './admin/tabs/DataIntegrityTab';
 import { DatabaseEditorTab } from './admin/tabs/DatabaseEditorTab';
 import { TowersTab } from './admin/tabs/TowersTab';
-import { CraftingSettingsTab } from './admin/tabs/CraftingSettingsTab'; // NEW
+import { CraftingSettingsTab } from './admin/tabs/CraftingSettingsTab';
+import { ItemSetsTab } from './admin/tabs/ItemSetsTab'; // NEW
 
 interface AdminPanelProps {
   gameData: GameData;
   onGameDataUpdate: (key: string, data: any) => void;
 }
 
-type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor' | 'towers' | 'crafting';
+type AdminTab = 'general' | 'users' | 'locations' | 'expeditions' | 'enemies' | 'bosses' | 'items' | 'itemSets' | 'itemCreator' | 'affixes' | 'quests' | 'pvp' | 'itemInspector' | 'duplicationAudit' | 'orphanAudit' | 'dataIntegrity' | 'university' | 'hunting' | 'trivia' | 'rituals' | 'guilds' | 'databaseEditor' | 'towers' | 'crafting';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpdate }) => {
   const { t } = useTranslation();
   const [adminTab, setAdminTab] = useState<AdminTab>('general');
 
   const safeGameData: GameData = gameData || {
-      locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], towers: [], settings: { language: 'pl' as any }
+      locations: [], expeditions: [], enemies: [], itemTemplates: [], quests: [], affixes: [], skills: [], rituals: [], towers: [], itemSets: [], settings: { language: 'pl' as any }
   };
   
   const settings = safeGameData.settings;
@@ -55,47 +54,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
 
   const renderActiveTab = () => {
     switch (adminTab) {
-      // Zakładki Ogólne
       case 'general': return <GeneralTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onForceTraderRefresh={() => api.getTraderInventory(true)} onSendGlobalMessage={api.sendGlobalMessage} />;
       case 'users': return <UsersTab gameData={safeGameData} />;
       case 'trivia': return <TriviaTab gameData={safeGameData} />;
-      
-      // Zakładki Contentu Gry (Używają dedykowanych komponentów zamiast GenericAdminTab)
-      case 'locations': 
-          return <LocationsTab locations={safeGameData.locations} onGameDataUpdate={onGameDataUpdate} />;
-      case 'expeditions': 
-          return <ExpeditionsTab expeditions={safeGameData.expeditions} locations={safeGameData.locations} enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'enemies': 
-          return <EnemiesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'bosses': 
-          return <BossesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'items': 
-          return <ItemsTab itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
-      case 'affixes': 
-          return <AffixesTab affixes={safeGameData.affixes} onGameDataUpdate={onGameDataUpdate} />;
-      case 'quests': 
-          return <QuestsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
-      case 'university': 
-          return <UniversityTab skills={safeGameData.skills} onGameDataUpdate={onGameDataUpdate} />;
-      case 'rituals': 
-          return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
-      case 'towers': 
-          return <TowersTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
-      
-      // Zakładki Zarządzania Systemami
+      case 'locations': return <LocationsTab locations={safeGameData.locations} onGameDataUpdate={onGameDataUpdate} />;
+      case 'expeditions': return <ExpeditionsTab expeditions={safeGameData.expeditions} locations={safeGameData.locations} enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
+      case 'enemies': return <EnemiesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
+      case 'bosses': return <BossesTab enemies={safeGameData.enemies} itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
+      case 'items': return <ItemsTab itemTemplates={safeGameData.itemTemplates} onGameDataUpdate={onGameDataUpdate} />;
+      case 'itemSets': return <ItemSetsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />; // NEW
+      case 'affixes': return <AffixesTab affixes={safeGameData.affixes} onGameDataUpdate={onGameDataUpdate} />;
+      case 'quests': return <QuestsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
+      case 'university': return <UniversityTab skills={safeGameData.skills} onGameDataUpdate={onGameDataUpdate} />;
+      case 'rituals': return <RitualsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
+      case 'towers': return <TowersTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       case 'guilds': return <GuildsTab />;
       case 'hunting': return <HuntingTab settings={settings} onSettingsUpdate={handleSettingsUpdate} />;
       case 'pvp': return <PvpTab settings={settings} onSettingsUpdate={handleSettingsUpdate} onResetAllPvpCooldowns={api.resetAllPvpCooldowns} />;
       case 'itemCreator': return <ItemCreatorTab itemTemplates={safeGameData.itemTemplates} affixes={safeGameData.affixes} />;
-      case 'crafting': return <CraftingSettingsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />; // NEW
-
-      // Zakładki Narzędziowe / Audyty
+      case 'crafting': return <CraftingSettingsTab gameData={safeGameData} onGameDataUpdate={onGameDataUpdate} />;
       case 'itemInspector': return <ItemInspectorTab gameData={safeGameData} />;
       case 'dataIntegrity': return <DataIntegrityTab />;
       case 'duplicationAudit': return <DuplicationAuditTab />;
       case 'orphanAudit': return <OrphanAuditTab />;
       case 'databaseEditor': return <DatabaseEditorTab />;
-      
       default: return <div className="text-gray-500 p-4">Wybierz zakładkę</div>;
     }
   };
@@ -109,11 +91,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
     { id: 'enemies', label: 'Wrogowie' },
     { id: 'bosses', label: 'Bossowie' },
     { id: 'items', label: 'Przedmioty' },
+    { id: 'itemSets', label: 'Zestawy' }, // NEW
     { id: 'affixes', label: 'Afiksy' },
     { id: 'quests', label: 'Zadania' },
     { id: 'university', label: 'Umiejętności' },
     { id: 'rituals', label: 'Rytuały' },
-    { id: 'crafting', label: 'Rzemiosło (Ekonomia)' }, // NEW
+    { id: 'crafting', label: 'Rzemiosło' },
     { id: 'guilds', label: 'Gildie' },
     { id: 'hunting', label: 'Polowania' },
     { id: 'trivia', label: 'Info' },
@@ -126,25 +109,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ gameData, onGameDataUpda
 
   return (
     <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-700 h-[85vh] flex flex-col overflow-hidden">
-        <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-2 flex-shrink-0">
-            {t('admin.title')}
-        </h2>
-        
+        <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-2 flex-shrink-0">{t('admin.title')}</h2>
         <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-4 flex-shrink-0 max-h-32 overflow-y-auto">
             {ADMIN_TABS.map(tab => (
-                <button
-                    key={tab.id}
-                    onClick={() => setAdminTab(tab.id)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${adminTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'}`}
-                >
-                    {tab.label}
-                </button>
+                <button key={tab.id} onClick={() => setAdminTab(tab.id)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${adminTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'}`}>{tab.label}</button>
             ))}
         </div>
-
-        <div className="flex-grow overflow-y-auto pr-2">
-            {renderActiveTab()}
-        </div>
+        <div className="flex-grow overflow-y-auto pr-2">{renderActiveTab()}</div>
     </div>
   );
 };

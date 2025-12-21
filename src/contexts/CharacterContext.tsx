@@ -33,7 +33,6 @@ export const CharacterProvider: React.FC<{ children: ReactNode }> = ({ children 
             }
 
             try {
-                // Synchronizacja czasu i pobranie danych równolegle
                 const [char, data] = await Promise.all([
                     api.getCharacter(),
                     api.getGameData(),
@@ -67,7 +66,8 @@ export const CharacterProvider: React.FC<{ children: ReactNode }> = ({ children 
             baseCharacter.guildBarracksLevel || 0,
             baseCharacter.guildShrineLevel || 0,
             gameData.skills || [],
-            baseCharacter.activeGuildBuffs || []
+            baseCharacter.activeGuildBuffs || [],
+            gameData.itemSets || [] // Przekazanie zestawów
         );
     }, [baseCharacter, gameData]);
     

@@ -3,17 +3,16 @@ import { EssenceType, Language, Race, CharacterClass } from './common.js';
 import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items.js';
 import { GuildBuff } from './guild.js';
 import { PlayerQuestProgress } from './world.js';
-import { ActiveTowerRun } from './world.js'; // Circular but needed
+import { ActiveTowerRun } from './world.js'; 
 import { CombatLogEntry } from './combat.js';
 import { TraderData } from './social.js';
 
 export interface EquipmentLoadout {
     id: number;
     name: string;
-    equipment: Record<EquipmentSlot, string | null>; // Przechowuje uniqueId przedmiotów
+    equipment: Record<EquipmentSlot, string | null>; 
 }
 
-// Fix: Define CharacterResources
 export interface CharacterResources {
     gold: number;
     commonEssence: number;
@@ -45,7 +44,6 @@ export interface CharacterStats {
     magicDamageMin: number;
     magicDamageMax: number;
 
-    // Statystyki dla drugiej ręki (Dual Wield)
     offHandMinDamage?: number;
     offHandMaxDamage?: number;
     offHandMagicDamageMin?: number;
@@ -64,6 +62,12 @@ export interface CharacterStats {
     lifeStealFlat: number;
     manaStealPercent: number;
     manaStealFlat: number;
+
+    // Statystyki Specjalne (Zestawy, Buffy)
+    expBonusPercent: number;
+    goldBonusPercent: number;
+    damageBonusPercent: number;
+    damageReductionPercent: number;
 }
 
 export interface PlayerCharacter {
@@ -130,50 +134,10 @@ export interface PlayerCharacter {
     windowBackgroundUrl?: string;
     
     activeTowerRun?: ActiveTowerRun;
-    resetsUsed?: number; // Licznik resetów statystyk
+    resetsUsed?: number; 
 }
-
-export interface PublicCharacterProfile {
-    name: string;
-    level: number;
-    race: Race;
-    characterClass?: CharacterClass;
-    experience: number;
-    pvpWins: number;
-    pvpLosses: number;
-    guildName?: string;
-    guildTag?: string;
-    avatarUrl?: string;
-    description?: string;
-    isOnline: boolean;
-}
-
-export interface AdminCharacterInfo {
-    user_id: number;
-    username: string;
-    name: string;
-    level: number;
-    gold: number;
-    race: Race;
-    characterClass?: CharacterClass;
-}
-
-export interface RankingPlayer {
-    id: number;
-    name: string;
-    race: Race;
-    characterClass?: CharacterClass;
-    level: number;
-    experience: number;
-    pvpWins: number;
-    pvpLosses: number;
-    pvpProtectionUntil: number;
-    guildTag?: string;
-    isOnline: boolean;
-}
-
-export interface PlayerRank {
-    id: string;
-    name: string;
-    bonus: RolledAffixStats;
-}
+// Pozostałe interfejsy bez zmian...
+export interface PublicCharacterProfile { name: string; level: number; race: Race; characterClass?: CharacterClass; experience: number; pvpWins: number; pvpLosses: number; guildName?: string; guildTag?: string; avatarUrl?: string; description?: string; isOnline: boolean; }
+export interface AdminCharacterInfo { user_id: number; username: string; name: string; level: number; gold: number; race: Race; characterClass?: CharacterClass; }
+export interface RankingPlayer { id: number; name: string; race: Race; characterClass?: CharacterClass; level: number; experience: number; pvpWins: number; pvpLosses: number; pvpProtectionUntil: number; guildTag?: string; isOnline: boolean; }
+export interface PlayerRank { id: string; name: string; bonus: RolledAffixStats; }
