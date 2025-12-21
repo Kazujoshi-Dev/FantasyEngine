@@ -34,7 +34,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
     }
 
-    // Oblicz statystyki przed walką, aby uwzględnić zestawy przedmiotów
     const characterWithStats = calculateDerivedStatsOnServer(
         character, 
         gameData.itemTemplates || [], 
@@ -42,7 +41,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         guildBarracksLevel, 
         shrineLevel, 
         gameData.skills || [],
-        character.activeGuildBuffs || [] 
+        character.activeGuildBuffs || [],
+        gameData.itemSets || []
     );
     
     const combatReadyCharacter = {
@@ -151,20 +151,11 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             totalExperience += rb.experience;
         });
         
-        // Aplikacja bonusów (Rasa/Klasa/Gildia)
-        if(character.race === Race.Human) totalExperience = Math.floor(totalExperience * 1.10);
-        if(character.race === Race.Gnome) totalGold = Math.floor(totalGold * 1.20);
+        // Aplikacja bonusów klasowych (które nie są w statystykach)
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
         
-        const expBuffs = character.activeGuildBuffs?.filter(b => (b.stats as any).expBonus);
-        if (expBuffs && expBuffs.length > 0) {
-            expBuffs.forEach(b => {
-                 const bonus = (b.stats as any).expBonus || 0;
-                 totalExperience += Math.floor(totalExperience * (bonus / 100));
-            });
-        }
-
-        // APLIKACJA BONUSÓW Z ZESTAWÓW (Nowość)
+        // APLIKACJA WSZYSTKICH BONUSÓW PROCENTOWYCH ZE STATYSTYK (Zestawy, Buffy, Rasa)
+        // stats.expBonusPercent i goldBonusPercent zawierają już wszystko co wyliczył calculateDerivedStats
         if (characterWithStats.stats.goldBonusPercent > 0) {
             totalGold += Math.floor(totalGold * (characterWithStats.stats.goldBonusPercent / 100));
         }

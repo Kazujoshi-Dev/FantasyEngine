@@ -66,6 +66,10 @@ export const calculateDerivedStats = (
         damageReductionPercent: 0
     };
     
+    // Bonusy Rasowe (Centralizacja)
+    if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
+    if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
+
     if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
 
     if (activeGuildBuffs && activeGuildBuffs.length > 0) {
@@ -77,6 +81,8 @@ export const calculateDerivedStats = (
                     if (totalPrimaryStats[statKey] !== undefined) {
                         (totalPrimaryStats as any)[statKey] += (Number(buff.stats[statKey]) || 0);
                     }
+                    // Obsługa pola expBonus w buffach gildyjnych (jeśli nie jest kluczem CharacterStats)
+                    if (key === 'expBonus') totalPrimaryStats.expBonusPercent += (Number(buff.stats[key]) || 0);
                 }
             }
         });
@@ -141,7 +147,6 @@ export const calculateDerivedStats = (
         bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
     };
 
-    // Liczenie aktywnych afiksów dla zestawów
     const equippedAffixCounts: Record<string, number> = {};
 
     for (const slot in safeEquipment) {
@@ -150,7 +155,6 @@ export const calculateDerivedStats = (
         const template = safeItemTemplates.find(t => t.id === item.templateId);
         if (!template) continue;
 
-        // Zliczanie afiksów
         if (item.prefixId) equippedAffixCounts[item.prefixId] = (equippedAffixCounts[item.prefixId] || 0) + 1;
         if (item.suffixId) equippedAffixCounts[item.suffixId] = (equippedAffixCounts[item.suffixId] || 0) + 1;
 
@@ -183,26 +187,25 @@ export const calculateDerivedStats = (
         if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOH);
     }
 
-    // Aplikacja bonusów zestawów
+    // Aplikacja bonusów zestawów - POPRAWKA (Naprawienie podwójnego naliczania i logiki progów)
     if (Array.isArray(itemSets)) {
         itemSets.forEach(set => {
             const count = equippedAffixCounts[set.affixId] || 0;
             if (count > 0) {
-                set.tiers.forEach(tier => {
-                    if (count >= tier.requiredPieces) {
-                        // Dodaj statystyki podstawowe
-                        for (const key in tier.bonuses) {
-                            if (totalPrimaryStats[key as keyof CharacterStats] !== undefined) {
-                                (totalPrimaryStats as any)[key] += (Number((tier.bonuses as any)[key]) || 0);
-                            }
+                // Szukamy najwyższego progu, który został osiągnięty (logika ekskluzywna, nie kumulatywna)
+                const reachedTiers = set.tiers
+                    .filter(t => count >= t.requiredPieces)
+                    .sort((a, b) => b.requiredPieces - a.requiredPieces);
+                
+                if (reachedTiers.length > 0) {
+                    const bestTier = reachedTiers[0];
+                    for (const key in bestTier.bonuses) {
+                        const val = Number((bestTier.bonuses as any)[key]) || 0;
+                        if (totalPrimaryStats[key as keyof CharacterStats] !== undefined) {
+                            (totalPrimaryStats as any)[key] += val;
                         }
-                        // Statystyki procentowe (specjalne)
-                        if (tier.bonuses.expBonusPercent) totalPrimaryStats.expBonusPercent += tier.bonuses.expBonusPercent;
-                        if (tier.bonuses.goldBonusPercent) totalPrimaryStats.goldBonusPercent += tier.bonuses.goldBonusPercent;
-                        if (tier.bonuses.damageBonusPercent) totalPrimaryStats.damageBonusPercent += tier.bonuses.damageBonusPercent;
-                        if (tier.bonuses.damageReductionPercent) totalPrimaryStats.damageReductionPercent += tier.bonuses.damageReductionPercent;
                     }
-                });
+                }
             }
         });
     }
@@ -265,7 +268,6 @@ export const calculateDerivedStats = (
         ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
     }
 
-    // Aplikacja globalnego bonusu obrażeń z zestawów
     if (totalPrimaryStats.damageBonusPercent > 0) {
         const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
         mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
@@ -302,7 +304,7 @@ export const calculateDerivedStats = (
         }
     };
 };
-// Pozostałe funkcje pomocnicze...
+
 export const getCampUpgradeCost = (level: number) => { const gold = Math.floor(150 * Math.pow(level, 1.5)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 5 && level <= 7) essences.push({ type: EssenceType.Common, amount: (level - 4) * 2 }); if (level >= 8) essences.push({ type: EssenceType.Common, amount: 6 }, { type: EssenceType.Uncommon, amount: level - 7 }); return { gold, essences }; };
 export const getTreasuryUpgradeCost = (level: number) => { const gold = Math.floor(200 * Math.pow(level, 1.6)); const essences: { type: EssenceType, amount: number }[] = []; if (level >= 4 && level <= 6) essences.push({ type: EssenceType.Common, amount: level * 2 }); if (level >= 7) essences.push({ type: EssenceType.Uncommon, amount: Math.floor(level / 2) }); return { gold, essences }; };
 export const getChestUpgradeCost = getTreasuryUpgradeCost;
