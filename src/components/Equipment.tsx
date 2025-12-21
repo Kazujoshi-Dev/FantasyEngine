@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+
+import React, { useState, useMemo, useCallback } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { PlayerCharacter, EquipmentSlot, ItemInstance, ItemTemplate, GameData, CharacterStats, ItemRarity, Affix } from '../types';
@@ -41,15 +42,11 @@ const StatRow: React.FC<{ label: string; value: React.ReactNode; color?: string;
 export const Equipment: React.FC = () => {
     const { character, baseCharacter, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
-    const [inspectedItem, setInspectedItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
+    const [stickyItem, setStickyItem] = useState<{ item: ItemInstance; template: ItemTemplate } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot } | null>(null);
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
-    
-    // Fix: replaced NodeJS.Timeout with ReturnType<typeof setTimeout> to resolve type error in browser environment
-    // Timer do debouncowania zamykania tooltipa
-    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (!character || !gameData) return null;
 
@@ -83,7 +80,8 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.equipItem(item.uniqueId);
             updateCharacter(updatedChar);
-            setInspectedItem(null);
+            setHoveredItem(null);
+            setStickyItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
@@ -91,31 +89,13 @@ export const Equipment: React.FC = () => {
         try {
             const updatedChar = await api.unequipItem(slot);
             updateCharacter(updatedChar);
-            setInspectedItem(null);
+            setHoveredItem(null);
+            setStickyItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
-    const handleMouseEnter = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
-        if (closeTimerRef.current) {
-            clearTimeout(closeTimerRef.current);
-            closeTimerRef.current = null;
-        }
-        setMousePos({ x: e.clientX, y: e.clientY });
-        setInspectedItem({ item, template });
-    };
-
-    const handleMouseLeave = () => {
-        // Opóźniamy zamknięcie, aby dać czas na przejście do tooltipa
-        closeTimerRef.current = setTimeout(() => {
-            setInspectedItem(null);
-        }, 150);
-    };
-
-    const handleTooltipEnter = () => {
-        if (closeTimerRef.current) {
-            clearTimeout(closeTimerRef.current);
-            closeTimerRef.current = null;
-        }
+    const handleItemClick = (item: ItemInstance, template: ItemTemplate) => {
+        setStickyItem({ item, template });
     };
 
     const handleRightClick = (e: React.MouseEvent, item: ItemInstance, source: 'equipment' | 'inventory', fromSlot?: EquipmentSlot) => {
@@ -139,7 +119,7 @@ export const Equipment: React.FC = () => {
 
     return (
         <ContentPanel title={t('equipment.title')}>
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[80vh]">
+            <div className="grid grid-cols-1 grid-rows-1 xl:grid-cols-12 gap-6 h-[80vh]">
                 
                 {/* Paper Doll */}
                 <div className="xl:col-span-3 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
@@ -152,7 +132,7 @@ export const Equipment: React.FC = () => {
                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) return null;
                             return item && template ? (
                                 <div key={slot} onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleUnequip(slot)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => handleItemClick(item, template)} onMouseEnter={() => setHoveredItem({ item, template })} onMouseLeave={() => setHoveredItem(null)} onDoubleClick={() => handleUnequip(slot)} />
                                 </div>
                             ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
@@ -235,10 +215,10 @@ export const Equipment: React.FC = () => {
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-2 content-start">
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                            if (!template) return null;
+                            if (!template) return false;
                             return (
                                 <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleEquip(item)} />
+                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => handleItemClick(item, template)} onMouseEnter={() => setHoveredItem({ item, template })} onMouseLeave={() => setHoveredItem(null)} onDoubleClick={() => handleEquip(item)} />
                                 </div>
                             );
                         })}
@@ -246,18 +226,22 @@ export const Equipment: React.FC = () => {
                 </div>
             </div>
 
-            {inspectedItem && (
+            {/* Hover Tooltip (Podgląd) */}
+            {!stickyItem && hoveredItem && (
+                <ItemTooltip instance={hoveredItem.item} template={hoveredItem.template} affixes={gameData.affixes} character={character} compareWith={getCompareItem(hoveredItem.template)} itemTemplates={gameData.itemTemplates} isCentered={false} />
+            )}
+
+            {/* Sticky Tooltip (Inspekcja) */}
+            {stickyItem && (
                 <ItemTooltip 
-                    instance={inspectedItem.item} 
-                    template={inspectedItem.template} 
+                    instance={stickyItem.item} 
+                    template={stickyItem.template} 
                     affixes={gameData.affixes} 
                     character={character} 
-                    compareWith={getCompareItem(inspectedItem.template)} 
+                    compareWith={getCompareItem(stickyItem.template)} 
                     itemTemplates={gameData.itemTemplates} 
-                    x={mousePos.x}
-                    y={mousePos.y}
-                    onMouseEnter={handleTooltipEnter}
-                    onMouseLeave={handleMouseLeave}
+                    isSticky={true} 
+                    onClose={() => setStickyItem(null)} 
                 />
             )}
 
