@@ -66,7 +66,6 @@ export const calculateDerivedStats = (
         damageReductionPercent: 0
     };
     
-    // Bonusy Rasowe (Centralizacja)
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
     if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
 
@@ -81,7 +80,6 @@ export const calculateDerivedStats = (
                     if (totalPrimaryStats[statKey] !== undefined) {
                         (totalPrimaryStats as any)[statKey] += (Number(buff.stats[statKey]) || 0);
                     }
-                    // Obsługa pola expBonus w buffach gildyjnych (jeśli nie jest kluczem CharacterStats)
                     if (key === 'expBonus') totalPrimaryStats.expBonusPercent += (Number(buff.stats[key]) || 0);
                 }
             }
@@ -187,12 +185,10 @@ export const calculateDerivedStats = (
         if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOH);
     }
 
-    // Aplikacja bonusów zestawów - POPRAWKA (Naprawienie podwójnego naliczania i logiki progów)
     if (Array.isArray(itemSets)) {
         itemSets.forEach(set => {
             const count = equippedAffixCounts[set.affixId] || 0;
             if (count > 0) {
-                // Szukamy najwyższego progu, który został osiągnięty (logika ekskluzywna, nie kumulatywna)
                 const reachedTiers = set.tiers
                     .filter(t => count >= t.requiredPieces)
                     .sort((a, b) => b.requiredPieces - a.requiredPieces);
@@ -260,20 +256,22 @@ export const calculateDerivedStats = (
         ohMagMax = Math.floor(ohMagMax * 0.75);
     }
 
+    // Aplikacja bonusów z Barracks (Używamy Math.round zamiast Math.floor dla lepszego czucia bonusów)
     if (guildBarracksLevel > 0) {
         const mult = 1 + (guildBarracksLevel * 0.05);
-        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
-        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
-        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
-        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
+        mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
+        ohMin = Math.round(ohMin * mult); ohMax = Math.round(ohMax * mult);
+        mhMagMin = Math.round(mhMagMin * mult); mhMagMax = Math.round(mhMagMax * mult);
+        ohMagMin = Math.round(ohMagMin * mult); ohMagMax = Math.round(ohMagMax * mult);
     }
 
+    // Aplikacja procentowego bonusu obrażeń (z zestawów/buffów)
     if (totalPrimaryStats.damageBonusPercent > 0) {
         const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
-        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
-        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
-        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
-        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
+        mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
+        ohMin = Math.round(ohMin * mult); ohMax = Math.round(ohMax * mult);
+        mhMagMin = Math.round(mhMagMin * mult); mhMagMax = Math.round(mhMagMax * mult);
+        ohMagMin = Math.round(ohMagMin * mult); ohMagMax = Math.round(ohMagMax * mult);
     }
 
     return {

@@ -94,7 +94,6 @@ export const AttributePanel: React.FC<{
 
     const primaryStatKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
 
-    // Obliczanie aktualnego kosztu resetu dla UI
     const currentResetInfo = useMemo(() => {
         let distributedPoints = 0;
         primaryStatKeys.forEach(k => {
@@ -126,12 +125,17 @@ export const AttributePanel: React.FC<{
         }
     };
 
+    // Podgląd statystyk pochodnych - poprawione przekazywanie parametrów
     const previewCharacter = useMemo(() => calculateDerivedStats(
         { ...baseCharacter, stats: pendingStats },
-        gameData.itemTemplates, gameData.affixes,
-        character.guildBarracksLevel, character.guildShrineLevel,
-        gameData.skills, character.activeGuildBuffs
-    ), [baseCharacter, pendingStats, gameData, character]);
+        gameData.itemTemplates, 
+        gameData.affixes,
+        baseCharacter.guildBarracksLevel || 0, 
+        baseCharacter.guildShrineLevel || 0,
+        gameData.skills, 
+        baseCharacter.activeGuildBuffs || [],
+        gameData.itemSets || []
+    ), [baseCharacter, pendingStats, gameData]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
@@ -147,7 +151,7 @@ export const AttributePanel: React.FC<{
                     {primaryStatKeys.map(key => {
                         const baseValue = Number(baseCharacter.stats[key]) || 0;
                         const pendingValue = Number(pendingStats[key]) || 0;
-                        const itemBonus = (Number(character.stats[key]) || 0) - baseValue;
+                        const itemBonus = (Number(character.stats[key]) || 0) - (Number(baseCharacter.stats[key]) || 0);
                         const totalValue = pendingValue + itemBonus;
 
                         return (
