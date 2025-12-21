@@ -51,8 +51,18 @@ export enum QuestType {
     PayGold = 'PayGold'
 }
 
+export enum QuestCategory {
+    Normal = 'Normal',
+    Daily = 'Daily'
+}
+
 export interface ItemReward {
     templateId: string;
+    quantity: number;
+}
+
+export interface RandomItemReward {
+    rarity: ItemRarity;
     quantity: number;
 }
 
@@ -65,6 +75,7 @@ export interface Quest {
     id: string;
     name: string;
     description: string;
+    category: QuestCategory;
     locationIds: string[];
     objective: {
         type: QuestType;
@@ -75,6 +86,7 @@ export interface Quest {
         gold: number;
         experience: number;
         itemRewards: ItemReward[];
+        randomItemRewards?: RandomItemReward[];
         resourceRewards: ResourceReward[];
         lootTable?: LootDrop[];
     };
@@ -85,6 +97,7 @@ export interface PlayerQuestProgress {
     questId: string;
     progress: number;
     completions: number;
+    lastCompletedAt?: number;
 }
 
 // --- Skills & Rituals ---

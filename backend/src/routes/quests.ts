@@ -2,7 +2,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, Quest, QuestType, EssenceType, ItemInstance, ItemTemplate, Race, CharacterClass } from '../types.js';
+import { PlayerCharacter, Quest, QuestType, QuestCategory, EssenceType, ItemInstance, ItemTemplate, Race, CharacterClass, ItemRarity } from '../types.js';
 import { createItemInstance } from '../logic/items.js';
 import { getBackpackCapacity } from '../logic/helpers.js';
 
@@ -40,6 +40,19 @@ router.post('/accept', authenticateToken, async (req: any, res: any) => {
         if (character.acceptedQuests.includes(questId)) {
              await client.query('ROLLBACK');
              return res.status(400).json({ message: 'Quest already accepted' });
+        }
+        
+        // Sprawdzenie limitu dziennego przy akceptacji (na wypadek manipulacji frontem)
+        if (quest.category === QuestCategory.Daily) {
+            const progress = character.questProgress.find(p => p.questId === questId);
+            if (progress && progress.lastCompletedAt) {
+                const lastReset = new Date();
+                lastReset.setUTCHours(0, 0, 0, 0);
+                if (progress.lastCompletedAt >= lastReset.getTime()) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ message: 'Daily quest already completed today.' });
+                }
+            }
         }
         
         character.acceptedQuests.push(questId);
@@ -127,7 +140,6 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
              let goldReward = (quest.rewards.gold || 0);
              let expReward = (quest.rewards.experience || 0);
 
-             // Aplikacja bonusów RPG
              if (character.race === Race.Human) expReward = Math.floor(expReward * 1.10);
              if (character.race === Race.Gnome) goldReward = Math.floor(goldReward * 1.20);
              if (character.characterClass === CharacterClass.Thief) goldReward = Math.floor(goldReward * 1.25);
@@ -150,30 +162,53 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
                  });
              }
 
-             if (quest.rewards.itemRewards || quest.rewards.lootTable) {
-                 const backpackCap = getBackpackCapacity(character);
-                 const itemsToAdd: ItemInstance[] = [];
-                 if (quest.rewards.itemRewards) {
-                     for(const reward of quest.rewards.itemRewards) {
-                         for(let i=0; i<reward.quantity; i++) itemsToAdd.push(createItemInstance(reward.templateId, itemTemplates, affixes, character));
-                     }
+             const backpackCap = getBackpackCapacity(character);
+             const itemsToAdd: ItemInstance[] = [];
+
+             // Konkretne przedmioty
+             if (quest.rewards.itemRewards) {
+                 for(const reward of quest.rewards.itemRewards) {
+                     for(let i=0; i<reward.quantity; i++) itemsToAdd.push(createItemInstance(reward.templateId, itemTemplates, affixes, character));
                  }
-                 if (quest.rewards.lootTable) {
-                     for(const loot of quest.rewards.lootTable) if(Math.random() * 100 < loot.weight) itemsToAdd.push(createItemInstance(loot.templateId, itemTemplates, affixes, character));
-                 }
-                 for(const item of itemsToAdd) if (character.inventory.length < backpackCap) character.inventory.push(item);
+             }
+
+             // Losowe przedmioty danej rzadkości
+             if (quest.rewards.randomItemRewards) {
+                for (const randomReward of quest.rewards.randomItemRewards) {
+                    const eligibleTemplates = itemTemplates.filter(t => t.rarity === randomReward.rarity && t.slot !== 'consumable');
+                    if (eligibleTemplates.length > 0) {
+                        for (let i = 0; i < randomReward.quantity; i++) {
+                            const randomTemplate = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
+                            itemsToAdd.push(createItemInstance(randomTemplate.id, itemTemplates, affixes, character));
+                        }
+                    }
+                }
+             }
+
+             if (quest.rewards.lootTable) {
+                 for(const loot of quest.rewards.lootTable) if(Math.random() * 100 < loot.weight) itemsToAdd.push(createItemInstance(loot.templateId, itemTemplates, affixes, character));
+             }
+
+             for(const item of itemsToAdd) {
+                if (character.inventory.length < backpackCap) {
+                    character.inventory.push(item);
+                } else {
+                    // W przyszłości: wysyłanie na pocztę jeśli plecak pełny
+                }
              }
         }
 
         character.acceptedQuests = character.acceptedQuests.filter(id => id !== questId);
         progressEntry.progress = 0; 
         progressEntry.completions += 1;
+        progressEntry.lastCompletedAt = Date.now();
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), userId]);
         await client.query('COMMIT');
         res.json(character);
     } catch (err: any) {
         await client.query('ROLLBACK');
+        console.error("Quest completion error:", err);
         res.status(500).json({ message: 'Failed to complete quest' });
     } finally {
         client.release();
