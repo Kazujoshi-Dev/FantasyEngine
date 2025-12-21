@@ -7,6 +7,7 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { QuestIcon } from './icons/QuestIcon';
 import { ClockIcon } from './icons/ClockIcon';
+import { CheckIcon } from './icons/CheckIcon'; // Zakładam istnienie lub dodanie prostej ikony check
 import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
@@ -39,7 +40,8 @@ const getObjectiveText = (quest: Quest, progress: number, enemies: Enemy[], item
 const QuestCard: React.FC<{
     quest: Quest;
     isAccepted: boolean;
-}> = ({ quest, isAccepted }) => {
+    isCompletedArchive?: boolean;
+}> = ({ quest, isAccepted, isCompletedArchive }) => {
     const { character, gameData, updateCharacter } = useCharacter();
     const { t } = useTranslation();
 
@@ -85,14 +87,25 @@ const QuestCard: React.FC<{
 
     const isObjectiveMet = currentProgress >= objective.amount;
     const progressPercentage = objective.amount > 0 ? (currentProgress / objective.amount) * 100 : 0;
-    
-    const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
-        [EssenceType.Common]: ItemRarity.Common,
-        [EssenceType.Uncommon]: ItemRarity.Uncommon,
-        [EssenceType.Rare]: ItemRarity.Rare,
-        [EssenceType.Epic]: ItemRarity.Epic,
-        [EssenceType.Legendary]: ItemRarity.Legendary,
-    };
+
+    if (isCompletedArchive) {
+        return (
+            <div className="bg-slate-900/20 p-4 rounded-lg border border-slate-800/50 flex justify-between items-center opacity-60 hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-4">
+                    <div className="p-2 bg-green-900/20 rounded-full border border-green-500/20">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-slate-300">{quest.name}</h4>
+                        <p className="text-[10px] text-slate-500 italic line-clamp-1">{quest.description}</p>
+                    </div>
+                </div>
+                <div className="text-[10px] font-mono text-slate-600 uppercase font-bold">
+                    {t('quests.completions', { count: progressData.completions, total: quest.repeatable === 0 ? '∞' : quest.repeatable })}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div key={quest.id} className={`bg-slate-900/40 rounded-xl border transition-all duration-300 overflow-hidden ${isAccepted ? 'border-indigo-500/50 ring-1 ring-indigo-500/10' : 'border-slate-700/50'} ${completedToday ? 'opacity-50 grayscale' : ''}`}>
@@ -233,6 +246,15 @@ export const Quests: React.FC = () => {
         return true;
     });
 
+    const completedInLocation = quests.filter(q => {
+        const progress = character.questProgress?.find(p => p.questId === q.id);
+        if (!progress || progress.completions === 0) return false;
+        
+        // Filtrujemy tylko ukończone w tej lokacji (lub globalne)
+        const isInLocation = q.locationIds?.includes(character.currentLocationId) || !q.locationIds || q.locationIds.length === 0;
+        return isInLocation;
+    });
+
     return (
         <ContentPanel title={t('quests.title')}>
             <div className="space-y-12 pb-12 pr-2">
@@ -261,6 +283,20 @@ export const Quests: React.FC = () => {
                         ))}
                     </div>
                 </section>
+
+                {completedInLocation.length > 0 && (
+                    <section>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 px-2 border-b border-white/5 pb-3 flex justify-between items-center">
+                            <span>Ukończone w tej lokacji</span>
+                            <span className="text-[10px] font-mono font-bold text-gray-600 bg-slate-800/50 px-3 py-1 rounded-full border border-white/5">{completedInLocation.length}</span>
+                        </h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {completedInLocation.map(quest => (
+                                <QuestCard key={quest.id} quest={quest} isAccepted={false} isCompletedArchive={true} />
+                            ))}
+                        </div>
+                    </section>
+                )}
             </div>
         </ContentPanel>
     );
