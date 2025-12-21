@@ -146,7 +146,7 @@ export const ItemDetailsPanel: React.FC<{
             });
         }
         if (reqs.length === 0) return null;
-        return <div className={`bg-red-950/20 p-3 rounded-lg mt-4 border border-red-900/20 ${isSmall ? 'text-xs' : 'text-sm'}`}><h5 className="font-black uppercase text-[9px] tracking-widest text-red-400/60 border-b border-red-900/20 mb-2 pb-1">Wymagania</h5><div className="space-y-0.5">{reqs}</div></div>;
+        return <div className={`bg-red-950/20 p-3 rounded-lg mt-3 border border-red-900/20 ${isSmall ? 'text-xs' : 'text-sm'}`}><h5 className="font-black uppercase text-[9px] tracking-widest text-red-400/60 border-b border-red-900/20 mb-2 pb-1">Wymagania</h5><div className="space-y-0.5">{reqs}</div></div>;
     };
 
     const StatSection: React.FC<{title?: string, source: any, metadata: any, isAffix: boolean}> = ({title, source, metadata, isAffix}) => {
@@ -216,21 +216,20 @@ export const ItemDetailsPanel: React.FC<{
         if (s.manaStealPercent !== undefined && s.manaStealPercent > 0) entries.push(renderStat(t('item.manaStealPercent'), s.manaStealPercent, 'manaStealPercent', true));
         
         if (entries.length === 0) return null;
-        return <div className={`bg-slate-900/60 p-3 rounded-lg mt-2 border border-white/5 ${isSmall ? 'text-xs' : 'text-sm'}`}>{title && <h5 className="font-black uppercase text-[9px] tracking-widest text-indigo-400 border-b border-white/5 mb-2 pb-1">{title}</h5>}<div className="space-y-0.5">{entries}</div></div>;
+        return <div className={`bg-slate-900/60 p-2.5 rounded-lg mt-2 border border-white/5 ${isSmall ? 'text-xs' : 'text-sm'}`}>{title && <h5 className="font-black uppercase text-[9px] tracking-widest text-indigo-400 border-b border-white/5 mb-2 pb-1">{title}</h5>}<div className="space-y-0.5">{entries}</div></div>;
     };
 
     return (
-        <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
-            <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-1' : 'pr-2'}`}>
-                {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-2">{title}</h5>}
-                <h4 className={`font-bold text-center ${rarityStyles[template.rarity].text} ${isSmall ? 'text-lg mb-1' : 'text-xl mb-2'}`}>
+        <div className={`flex flex-col w-full ${compact ? '' : 'h-full'}`}>
+            <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-0.5' : 'pr-1'}`}>
+                {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">{title}</h5>}
+                <h4 className={`font-bold text-center leading-tight ${rarityStyles[template.rarity].text} ${isSmall ? 'text-base mb-1' : 'text-lg mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
                 {showIcon && template.icon && (
-                    <div className="relative group mb-4">
-                        {/* Zwiększono obrazek z w-32 na w-64 dla lepszej ekspozycji przedmiotu */}
-                        <img src={template.icon} alt={template.name} className="w-64 h-64 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
-                        {item.crafterName && (<div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
+                    <div className="relative group mb-3">
+                        <img src={template.icon} alt={template.name} className="w-60 h-60 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
+                        {item.crafterName && (<div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
                     </div>
                 )}
                 
@@ -241,18 +240,18 @@ export const ItemDetailsPanel: React.FC<{
                 {activeSets.map(set => {
                     const currentCount = getSetCount(set.affixId);
                     return (
-                        <div key={set.id} className="mt-4 bg-emerald-950/20 border border-emerald-500/30 rounded-lg p-3">
+                        <div key={set.id} className="mt-3 bg-emerald-950/20 border border-emerald-500/30 rounded-lg p-2.5">
                             <div className="flex justify-between items-center border-b border-emerald-500/20 pb-1 mb-2">
-                                <h5 className="text-xs font-black text-emerald-400 uppercase tracking-widest">ZESTAW: {set.name.toUpperCase()}</h5>
-                                <span className="text-[10px] font-mono text-emerald-500 font-bold">({currentCount} / {Math.max(...set.tiers.map(t => t.requiredPieces))})</span>
+                                <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">ZESTAW: {set.name.toUpperCase()}</h5>
+                                <span className="text-[9px] font-mono text-emerald-500 font-bold">({currentCount} / {Math.max(...set.tiers.map(t => t.requiredPieces))})</span>
                             </div>
                             <div className="space-y-2">
                                 {set.tiers.map((tier, tidx) => {
                                     const isActive = currentCount >= tier.requiredPieces;
                                     return (
-                                        <div key={tidx} className={`text-[11px] ${isActive ? 'text-emerald-300' : 'text-gray-600 grayscale'}`}>
+                                        <div key={tidx} className={`text-[10px] ${isActive ? 'text-emerald-300' : 'text-gray-600 grayscale'}`}>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-gray-700'}`}></div>
+                                                <div className={`w-1 h-1 rounded-full ${isActive ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-gray-700'}`}></div>
                                                 <span className="font-bold">({tier.requiredPieces}) Części:</span>
                                             </div>
                                             <div className="pl-3 space-y-0.5">
@@ -337,12 +336,12 @@ export const ItemTooltip: React.FC<{
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' }); 
     
     const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
-    // ARCHITEKTURA: Jeśli najeżdżamy na przedmiot już założony, nie renderujemy sekcji porównania
     const actualCompareWith = isSameItem ? null : compareWith; 
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
     useEffect(() => { 
-        const tooltipWidth = actualCompareWith ? 640 : 320;
+        // Zmniejszono szerokość kontenera dla widoku pojedynczego z 320 do 300px
+        const tooltipWidth = actualCompareWith ? 600 : 300;
 
         if (isCentered || onClose) { 
             setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
@@ -352,22 +351,20 @@ export const ItemTooltip: React.FC<{
         setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
     }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
 
-    
-    // Jeśli isCentered (Modal) to renderujemy z tłem blokującym
     if (isCentered || onClose) { 
         return ( 
             <div className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} onClick={onClose} > 
-                <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] relative z-[200] pointer-events-auto" style={{ width: style.width, maxWidth: '95vw' }} onClick={e => e.stopPropagation()} > 
-                    {onClose && ( <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
+                <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-[200] pointer-events-auto overflow-hidden" style={{ width: style.width, maxWidth: '95vw' }} onClick={e => e.stopPropagation()} > 
+                    {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
                     {actualCompareWith && compareTemplate && ( 
-                        <div className="w-[300px] border-r border-white/5 pr-4 hidden md:flex flex-col max-h-full"> 
-                            <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
+                        <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
+                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
                                 <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                             </div> 
                         </div> 
                     )} 
-                    <div className={`${actualCompareWith ? 'w-[300px]' : 'w-full'} flex flex-col max-h-full`}> 
-                        <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
+                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col max-h-full`}> 
+                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
                             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
                         </div> 
                     </div> 
@@ -376,25 +373,24 @@ export const ItemTooltip: React.FC<{
         ); 
     } 
 
-    // Standardowy tooltip (Hover) - Wyśrodkowany, ale bez tła blokującego, z Interactive Bridge
     return ( 
         <div className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center">
             <div 
                 onMouseEnter={onMouseEnter} 
                 onMouseLeave={onMouseLeave} 
-                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-4 relative z-10`} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden`} 
                 style={{ width: style.width }} 
             > 
-                <div className="relative p-2 flex gap-4 max-h-[85vh] overflow-hidden"> 
+                <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
                     {actualCompareWith && compareTemplate && ( 
-                        <div className="w-[300px] border-r border-white/5 pr-2 flex flex-col"> 
-                            <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
+                        <div className="w-1/2 border-r border-white/5 pr-3 flex flex-col"> 
+                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
                                 <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                             </div> 
                         </div> 
                     )} 
-                    <div className={`${actualCompareWith ? 'w-[300px]' : 'w-full'} flex flex-col`}> 
-                        <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
+                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col`}> 
+                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
                             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
                         </div> 
                     </div> 
