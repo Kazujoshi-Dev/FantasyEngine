@@ -75,6 +75,7 @@ export interface Quest {
     id: string;
     name: string;
     description: string;
+    image?: string;
     category: QuestCategory;
     locationIds: string[];
     objective: {

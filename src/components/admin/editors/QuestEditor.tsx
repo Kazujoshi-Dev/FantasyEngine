@@ -16,6 +16,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
     const [formData, setFormData] = useState<Partial<Quest>>({
         name: '',
         description: '',
+        image: '',
         category: QuestCategory.Normal,
         locationIds: [],
         repeatable: 1,
@@ -151,8 +152,28 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <div className="md:col-span-2"><label className="text-sm font-bold text-gray-400">Nazwa:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                  <div><label className="text-sm font-bold text-gray-400">Kategoria:<select name="category" value={formData.category} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(QuestCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></label></div>
+                 
+                 <div className="md:col-span-2">
+                    <label className="text-sm font-bold text-gray-400">URL Grafiki:
+                        <input name="image" value={formData.image || ''} onChange={handleChange} placeholder="https://..." className="w-full bg-slate-700 p-2 rounded-md mt-1" />
+                    </label>
+                 </div>
+                 <div>
+                    <label className="text-sm font-bold text-gray-400">Limit Powtórzeń (0=∞):
+                        <input name="repeatable" type="number" value={formData.repeatable ?? 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
+                    </label>
+                 </div>
+
+                 {formData.image && (
+                    <div className="md:col-span-3">
+                        <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">Podgląd Grafiki:</p>
+                        <div className="w-full h-32 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
+                            <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                    </div>
+                 )}
+
                  <div className="md:col-span-3"><label className="text-sm font-bold text-gray-400">Opis:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" rows={2}/></label></div>
-                 <div><label className="text-sm font-bold text-gray-400">Limit Powtórzeń (0=∞):<input name="repeatable" type="number" value={formData.repeatable ?? 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </div>
 
             <fieldset className="border p-4 rounded-md border-slate-700">

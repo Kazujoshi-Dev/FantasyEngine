@@ -95,97 +95,107 @@ const QuestCard: React.FC<{
     };
 
     return (
-        <div key={quest.id} className={`bg-slate-900/40 p-6 rounded-xl border transition-all duration-300 ${isAccepted ? 'border-indigo-500/50 ring-1 ring-indigo-500/10' : 'border-slate-700/50'} ${completedToday ? 'opacity-50 grayscale' : ''}`}>
-            <div className="flex justify-between items-start mb-2">
-                <h3 className="text-2xl font-bold text-indigo-400 flex items-center">
-                    <QuestIcon className="h-5 w-5 mr-3"/>
-                    {quest.name}
-                </h3>
-                {quest.category === QuestCategory.Daily && (
-                    <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-900/30 border border-amber-600/30 rounded-full text-[10px] font-black uppercase tracking-widest text-amber-400">
-                        <ClockIcon className="h-3 w-3" /> Zadanie Dniowe
-                    </span>
-                )}
-            </div>
-            <p className="text-gray-400 mb-4 text-sm italic leading-relaxed">{quest.description}</p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 border-b border-slate-700 pb-1">{t('quests.objective')}</h4>
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <p className="text-white text-sm">{getObjectiveText(quest, progressData.progress, enemies, itemTemplates, t)}</p>
-                        {isAccepted && canStillComplete && (
-                             <div className="mt-3">
-                                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                                    <div className="bg-gradient-to-r from-amber-600 to-amber-400 h-full transition-all duration-500" style={{width: `${Math.min(100, progressPercentage)}%`}}></div>
-                                </div>
-                                <p className="text-right text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-tighter font-bold">
-                                    Postęp: {Math.min(currentProgress, objective.amount)} / {objective.amount}
-                                </p>
-                            </div>
-                        )}
-                        {completedToday && (
-                            <p className="text-xs text-amber-500 mt-2 font-bold uppercase tracking-tight text-center italic">Zadanie ukończone. Wróć jutro!</p>
-                        )}
-                    </div>
+        <div key={quest.id} className={`bg-slate-900/40 rounded-xl border transition-all duration-300 overflow-hidden ${isAccepted ? 'border-indigo-500/50 ring-1 ring-indigo-500/10' : 'border-slate-700/50'} ${completedToday ? 'opacity-50 grayscale' : ''}`}>
+            {/* Quest Image Header */}
+            {quest.image && (
+                <div className="relative w-full h-32 md:h-40 overflow-hidden border-b border-slate-700/50">
+                    <img src={quest.image} alt={quest.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent"></div>
                 </div>
-                <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 border-b border-slate-700 pb-1">{t('quests.rewards')}</h4>
-                    <div className="bg-slate-800/50 p-4 rounded-lg flex flex-wrap gap-3">
-                        {(quest.rewards?.gold || 0) > 0 && (
-                            <div className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-amber-900/20">
-                                <CoinsIcon className="h-4 w-4 text-amber-400"/>
-                                <span className="text-amber-400 font-mono font-bold text-xs">{quest.rewards.gold.toLocaleString()}</span>
-                            </div>
-                        )}
-                        {(quest.rewards?.experience || 0) > 0 && (
-                            <div className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-sky-900/20">
-                                <StarIcon className="h-4 w-4 text-sky-400"/>
-                                <span className="text-sky-400 font-mono font-bold text-xs">{quest.rewards.experience.toLocaleString()} XP</span>
-                            </div>
-                        )}
-                        {(quest.rewards?.itemRewards || []).map((reward, index) => {
-                            const template = itemTemplates.find(t => t.id === reward.templateId);
-                            if (!template) return null;
-                            const dummyInstance: ItemInstance = { uniqueId: `quest-reward-${index}-${template.id}`, templateId: template.id };
-                            return (
-                                <div key={`item-${index}`} className="relative group flex items-center bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-                                    <p className={`font-bold text-[10px] uppercase cursor-help ${rarityStyles[template.rarity].text}`}>
-                                        {(reward.quantity || 1)}x {template.name}
-                                    </p>
-                                    <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} itemTemplates={itemTemplates} />
-                                </div>
-                            );
-                        })}
-                        {(quest.rewards?.randomItemRewards || []).map((reward, index) => (
-                             <div key={`rand-${index}`} className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-                                <span className={`font-bold text-[10px] uppercase ${rarityStyles[reward.rarity].text}`}>
-                                    {reward.quantity}x Losowy {t(`rarity.${reward.rarity}`)}
-                                </span>
-                             </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            )}
             
-            <div className="mt-6 flex justify-end">
-                {isAccepted ? (
-                    <button
-                        onClick={() => onCompleteQuest(quest.id)}
-                        disabled={!isObjectiveMet || !canStillComplete}
-                        className="px-8 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:bg-slate-700 disabled:text-gray-500"
-                    >
-                        {canStillComplete ? t('quests.complete') : (completedToday ? 'Ukończono dziś' : t('quests.completed'))}
-                    </button>
-                ) : (
-                     <button
-                        onClick={() => onAcceptQuest(quest.id)}
-                        disabled={!canStillComplete}
-                        className="px-8 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:bg-slate-700 disabled:text-gray-500"
-                    >
-                        {canStillComplete ? t('quests.accept') : t('quests.completed')}
-                    </button>
-                )}
+            <div className="p-6">
+                <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-2xl font-bold text-indigo-400 flex items-center">
+                        <QuestIcon className="h-5 w-5 mr-3"/>
+                        {quest.name}
+                    </h3>
+                    {quest.category === QuestCategory.Daily && (
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-900/30 border border-amber-600/30 rounded-full text-[10px] font-black uppercase tracking-widest text-amber-400">
+                            <ClockIcon className="h-3 w-3" /> Zadanie Dniowe
+                        </span>
+                    )}
+                </div>
+                <p className="text-gray-400 mb-4 text-sm italic leading-relaxed">{quest.description}</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 border-b border-slate-700 pb-1">{t('quests.objective')}</h4>
+                        <div className="bg-slate-800/50 p-4 rounded-lg">
+                            <p className="text-white text-sm">{getObjectiveText(quest, progressData.progress, enemies, itemTemplates, t)}</p>
+                            {isAccepted && canStillComplete && (
+                                <div className="mt-3">
+                                    <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-gradient-to-r from-amber-600 to-amber-400 h-full transition-all duration-500" style={{width: `${Math.min(100, progressPercentage)}%`}}></div>
+                                    </div>
+                                    <p className="text-right text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-tighter font-bold">
+                                        Postęp: {Math.min(currentProgress, objective.amount)} / {objective.amount}
+                                    </p>
+                                </div>
+                            )}
+                            {completedToday && (
+                                <p className="text-xs text-amber-500 mt-2 font-bold uppercase tracking-tight text-center italic">Zadanie ukończone. Wróć jutro!</p>
+                            )}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 border-b border-slate-700 pb-1">{t('quests.rewards')}</h4>
+                        <div className="bg-slate-800/50 p-4 rounded-lg flex flex-wrap gap-3">
+                            {(quest.rewards?.gold || 0) > 0 && (
+                                <div className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-amber-900/20">
+                                    <CoinsIcon className="h-4 w-4 text-amber-400"/>
+                                    <span className="text-amber-400 font-mono font-bold text-xs">{quest.rewards.gold.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {(quest.rewards?.experience || 0) > 0 && (
+                                <div className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-sky-900/20">
+                                    <StarIcon className="h-4 w-4 text-sky-400"/>
+                                    <span className="text-sky-400 font-mono font-bold text-xs">{quest.rewards.experience.toLocaleString()} XP</span>
+                                </div>
+                            )}
+                            {(quest.rewards?.itemRewards || []).map((reward, index) => {
+                                const template = itemTemplates.find(t => t.id === reward.templateId);
+                                if (!template) return null;
+                                const dummyInstance: ItemInstance = { uniqueId: `quest-reward-${index}-${template.id}`, templateId: template.id };
+                                return (
+                                    <div key={`item-${index}`} className="relative group flex items-center bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
+                                        <p className={`font-bold text-[10px] uppercase cursor-help ${rarityStyles[template.rarity].text}`}>
+                                            {(reward.quantity || 1)}x {template.name}
+                                        </p>
+                                        <ItemTooltip instance={dummyInstance} template={template} affixes={affixes} itemTemplates={itemTemplates} />
+                                    </div>
+                                );
+                            })}
+                            {(quest.rewards?.randomItemRewards || []).map((reward, index) => (
+                                <div key={`rand-${index}`} className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
+                                    <span className={`font-bold text-[10px] uppercase ${rarityStyles[reward.rarity].text}`}>
+                                        {reward.quantity}x Losowy {t(`rarity.${reward.rarity}`)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                    {isAccepted ? (
+                        <button
+                            onClick={() => onCompleteQuest(quest.id)}
+                            disabled={!isObjectiveMet || !canStillComplete}
+                            className="px-8 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:bg-slate-700 disabled:text-gray-500"
+                        >
+                            {canStillComplete ? t('quests.complete') : (completedToday ? 'Ukończono dziś' : t('quests.completed'))}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => onAcceptQuest(quest.id)}
+                            disabled={!canStillComplete}
+                            className="px-8 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:bg-slate-700 disabled:text-gray-500"
+                        >
+                            {canStillComplete ? t('quests.accept') : t('quests.completed')}
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
