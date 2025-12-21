@@ -133,7 +133,8 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
     }, [affixes, getAffixDisplayName]);
 
     const attributeKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
-    const combatKeys: (keyof CharacterStats)[] = ['armor', 'critChance', 'critDamageModifier', 'dodgeChance', 'manaRegen', 'attacksPerRound'];
+    const vitalKeys: (keyof CharacterStats)[] = ['maxHealth', 'maxMana', 'manaRegen']; // NOWE
+    const combatKeys: (keyof CharacterStats)[] = ['armor', 'critChance', 'critDamageModifier', 'dodgeChance', 'attacksPerRound'];
     const weaponKeys: (keyof CharacterStats)[] = ['minDamage', 'maxDamage', 'magicDamageMin', 'magicDamageMax'];
     const specialtyKeys: (keyof CharacterStats)[] = ['armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat'];
     
@@ -144,17 +145,11 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
         { key: 'damageReductionPercent', label: 'Redukcja Obrażeń (%)' }
     ];
 
-    // Funkcja pomocnicza do pobierania etykiety z kaskadowym wyszukiwaniem
     const getLabel = (k: string) => {
-        // 1. Sprawdź w statystykach postaci
         const statsLabel = t(`statistics.${k}` as any);
         if (!statsLabel.includes('statistics.')) return statsLabel;
-        
-        // 2. Sprawdź w atrybutach przedmiotów
         const itemLabel = t(`item.${k}` as any);
         if (!itemLabel.includes('item.')) return itemLabel;
-        
-        // 3. Fallback do samego klucza
         return k;
     };
 
@@ -206,6 +201,9 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             <div className="col-span-full text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-slate-700/50 mb-1">Atrybuty</div>
                             {attributeKeys.map(k => renderInput(idx, k))}
+
+                            <div className="col-span-full text-[10px] font-black text-green-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Statystyki Witalne</div>
+                            {vitalKeys.map(k => renderInput(idx, k))}
 
                             <div className="col-span-full text-[10px] font-black text-sky-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Statystyki Bojowe</div>
                             {combatKeys.map(k => renderInput(idx, k))}

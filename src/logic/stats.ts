@@ -51,7 +51,7 @@ export const calculateDerivedStats = (
         armor: 0,
         critChance: 0,
         critDamageModifier: 200,
-        attacksPerRound: 0, // Zmienione na 0, bo dodajemy bazę później
+        attacksPerRound: 0,
         dodgeChance: 0,
         manaRegen: 0,
         armorPenetrationPercent: 0,
@@ -212,10 +212,11 @@ export const calculateDerivedStats = (
     const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
     
     const baseAPR = Number(mhTemplate?.attacksPerRound) || 1;
-    // APR uwzględnia bazę broni, bonusy z przedmiotów ORAZ bonusy z zestawów/gildii
     const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound + totalPrimaryStats.attacksPerRound).toFixed(2));
 
+    // maxHealth uwzględnia stamina, bonusy z EQ ORAZ bonusy z totalPrimaryStats (Zestawy/Buffy)
     let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth + totalPrimaryStats.maxHealth;
+    // maxMana uwzględnia inteligencję ORAZ bonusy z totalPrimaryStats (Zestawy/Buffy)
     let maxMana = 20 + totalPrimaryStats.intelligence * 10 + totalPrimaryStats.maxMana;
     if (character.activeSkills) {
         character.activeSkills.forEach(sId => {
@@ -227,7 +228,6 @@ export const calculateDerivedStats = (
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
-    // Wyliczenie obrażeń fizycznych uwzględnia teraz totalPrimaryStats.minDamage (z zestawów)
     mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin + totalPrimaryStats.minDamage;
     mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax + totalPrimaryStats.maxDamage;
 
@@ -246,7 +246,6 @@ export const calculateDerivedStats = (
     }
 
     const intBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
-    // Obrażenia magiczne również uwzględniają bonusy zestawowe
     let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
     let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus + totalPrimaryStats.magicDamageMax : 0;
     let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
@@ -289,7 +288,6 @@ export const calculateDerivedStats = (
             currentMana: Math.min(Number(character.stats.currentMana) || maxMana, maxMana),
             currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
-            // Armor, Crit, Dodge, Regen – wszystkie teraz sumują bonusy z totalPrimaryStats (zestawy/buffy)
             armor: bonusArmor + totalPrimaryStats.armor + (character.race === Race.Dwarf ? 5 : 0),
             critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance + totalPrimaryStats.critChance,
             critDamageModifier: 200 + bonusCritDamageModifier + totalPrimaryStats.critDamageModifier,

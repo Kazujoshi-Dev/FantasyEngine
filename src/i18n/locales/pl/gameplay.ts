@@ -139,7 +139,7 @@ export default {
     },
     specialAttacks: {
         Stun: 'Ogłuszający Cios',
-        StunDesc: 'Przeciwnik uderza z ogromną siłą, ogłuszając cel na 1 turę.',
+        StunDesc: 'Przeciwnik uderza z ogromną siłą, ogłuszając cel na 1 turnę.',
         ArmorPierce: 'Rozdarcie Pancerza',
         ArmorPierceDesc: 'Potężny cios, który niszczy pancerz celu, czyniąc go podatnym na kolejne ataki.',
         DeathTouch: 'Dotyk Śmierci',
