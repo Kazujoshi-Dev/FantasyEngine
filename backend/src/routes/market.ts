@@ -20,11 +20,11 @@ router.get('/listings', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// GET /my-listings
+// GET /my-listings - Hide CLAIMED listings so they "disappear" from the user view
 router.get('/my-listings', authenticateToken, async (req: any, res: any) => {
     try {
         const result = await pool.query(
-            "SELECT m.*, c.data->>'name' as seller_name FROM market_listings m JOIN characters c ON m.seller_id = c.user_id WHERE seller_id = $1 ORDER BY created_at DESC",
+            "SELECT m.*, c.data->>'name' as seller_name FROM market_listings m JOIN characters c ON m.seller_id = c.user_id WHERE seller_id = $1 AND status != 'CLAIMED' ORDER BY created_at DESC",
             [req.user.id]
         );
         res.json(result.rows);

@@ -150,7 +150,7 @@ export const api = {
     buyMarketListing: (listingId: number) => fetchApi('/market/buy', { method: 'POST', body: JSON.stringify({ listingId }) }),
     bidOnMarketListing: (listingId: number, amount: number) => fetchApi('/market/bid', { method: 'POST', body: JSON.stringify({ listingId, amount }) }),
     cancelMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/cancel`, { method: 'POST' }),
-    claimMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/claim Brennan`, { method: 'POST' }),
+    claimMarketListing: (listingId: number) => fetchApi(`/market/listings/${listingId}/claim`, { method: 'POST' }),
     claimMarketReturn: (messageId: number) => fetchApi(`/messages/claim-return/${messageId}`, { method: 'POST' }),
 
     // Quests
