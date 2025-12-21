@@ -101,6 +101,38 @@ export const getBuildingCost = (type: string, level: number): { gold: number, co
         }
         return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
     }
+
+    if (type === 'stables') {
+        if (level === 0) {
+            return {
+                gold: 50000,
+                costs: [
+                    { type: EssenceType.Common, amount: 100 },
+                    { type: EssenceType.Uncommon, amount: 50 },
+                    { type: EssenceType.Rare, amount: 25 }
+                ]
+            };
+        } else if (level === 1) {
+            return {
+                gold: 75000,
+                costs: [
+                    { type: EssenceType.Common, amount: 75 },
+                    { type: EssenceType.Uncommon, amount: 75 },
+                    { type: EssenceType.Rare, amount: 30 }
+                ]
+            };
+        } else if (level === 2) {
+            return {
+                gold: 100000,
+                costs: [
+                    { type: EssenceType.Common, amount: 50 },
+                    { type: EssenceType.Uncommon, amount: 75 },
+                    { type: EssenceType.Rare, amount: 40 }
+                ]
+            };
+        }
+        return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
+    }
     
     // Default fallback
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };

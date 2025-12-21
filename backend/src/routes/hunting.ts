@@ -14,10 +14,8 @@ const getGameData = async (): Promise<GameData> => {
 };
 
 // GET /api/hunting/parties - List open PUBLIC parties (FORMING)
-// Guild parties are handled by a separate logic or filter
 router.get('/parties', authenticateToken, async (req: any, res: any) => {
     try {
-        // Show public parties only (guild_id IS NULL)
         const result = await pool.query(`
             SELECT hp.id, hp.leader_id, hp.boss_id, hp.max_members, hp.status, hp.members, hp.auto_join, c.data->>'name' as leader_name
             FROM hunting_parties hp
@@ -101,8 +99,20 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         if (party.status === PartyStatus.Preparing && party.startTime) {
             const gameData = await getGameData();
             const boss = gameData.enemies.find(e => e.id === party.bossId);
+            
+            // --- STABLES REDUCTION ---
+            let reductionFactor = 1;
+            if (party.guildId) {
+                const guildRes = await client.query('SELECT buildings FROM guilds WHERE id = $1', [party.guildId]);
+                if (guildRes.rows.length > 0) {
+                    const stablesLevel = guildRes.rows[0].buildings?.stables || 0;
+                    reductionFactor = 1 - (stablesLevel * 0.1);
+                }
+            }
+            
             const preparationTimeSeconds = boss?.preparationTimeSeconds ?? 30;
-            const fightStartTime = new Date(party.startTime).getTime() + preparationTimeSeconds * 1000;
+            const finalPrepTime = Math.max(5, Math.floor(preparationTimeSeconds * reductionFactor));
+            const fightStartTime = new Date(party.startTime).getTime() + finalPrepTime * 1000;
 
             if (Date.now() >= fightStartTime) {
                 await client.query('SAVEPOINT before_combat');
@@ -129,7 +139,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                     );
                 }
 
-                // After processing (success or failure), re-fetch to get the final state.
                 const finalPartyRes = await client.query('SELECT * FROM hunting_parties WHERE id = $1', [party.id]);
                 if (finalPartyRes.rows.length > 0) {
                     party = camelizeParty(finalPartyRes.rows[0]);
@@ -138,7 +147,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
         }
         
         if (party.status === PartyStatus.Finished) {
-             // 1. Rewards logic
              if (!party.myRewards) {
                  const rewardsRaw = (await client.query('SELECT rewards FROM hunting_parties WHERE id = $1', [party.id])).rows[0]?.rewards;
                  if (rewardsRaw) {
@@ -150,7 +158,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
                  }
              }
 
-             // 2. Find the message ID associated with this report for the "Copy Link" button
              const msgRes = await client.query(
                 `SELECT id FROM messages 
                  WHERE recipient_id = $1 
@@ -177,7 +184,6 @@ router.get('/my-party', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-
 // POST /api/hunting/create - Create a new party
 router.post('/create', authenticateToken, async (req: any, res: any) => {
     const { bossId, maxMembers, isGuildParty, autoJoin } = req.body;
@@ -202,7 +208,6 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
                 return res.status(400).json({ message: 'Polowania gildyjne wymagają minimum 2 osób.' });
             }
             
-            // Verify Boss is Guild Boss
             const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'enemies'");
             const enemies = gameDataRes.rows[0].data;
             const boss = enemies.find((e: any) => e.id === bossId);
@@ -211,12 +216,10 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
             }
 
         } else {
-            // Regular party logic
              if (maxMembers === 1 && !hasLoneWolf) {
                 return res.status(400).json({ message: 'Aby wyruszyć samotnie, musisz posiadać zdolność "Samotny Wilk".' });
             }
             
-            // Verify Boss is NOT a Guild Boss
             const gameDataRes = await pool.query("SELECT data FROM game_data WHERE key = 'enemies'");
             const enemies = gameDataRes.rows[0].data;
             const boss = enemies.find((e: any) => e.id === bossId);
@@ -257,7 +260,7 @@ router.post('/create', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/hunting/join/:partyId
+// Reszta endpointów bez zmian...
 router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
     const partyId = req.params.partyId;
     try {
@@ -278,7 +281,6 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
         const members = party.members;
         if (members.length >= party.max_members) return res.status(400).json({ message: 'Grupa jest pełna.' });
         
-        // Guild Party Check
         if (party.guild_id) {
             const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
             if (memberRes.rows.length === 0 || memberRes.rows[0].guild_id !== party.guild_id) {
@@ -293,7 +295,6 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'Nie możesz dołączyć do grupy, gdy masz 0 punktów życia. Ulecz swoją postać.' });
         }
 
-        // Auto Join Logic
         const memberStatus = party.auto_join ? PartyMemberStatus.Member : PartyMemberStatus.Pending;
 
         members.push({
@@ -308,7 +309,6 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
         let newStatus = party.status;
         let startTime = party.start_time;
 
-        // If AutoJoin is on, check if party is now FULL to auto-start timer
         if (party.auto_join) {
              const acceptedCount = members.filter((m: any) => m.status !== PartyMemberStatus.Pending).length;
              if (acceptedCount >= party.max_members) {
@@ -324,11 +324,9 @@ router.post('/join/:partyId', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/hunting/respond - Leader accepts/rejects
 router.post('/respond', authenticateToken, async (req: any, res: any) => {
-    const { userId, action } = req.body; // action: 'accept' | 'reject' | 'kick'
+    const { userId, action } = req.body; 
     try {
-        // Fix: Filter out FINISHED parties to prevent leader ID conflict if they left a previous finished party without disbanding
         const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
         if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
         
@@ -344,18 +342,14 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
             }
         }
 
-        // Check if full to start timer
         const acceptedCount = members.filter(m => m.status !== PartyMemberStatus.Pending).length;
         let newStatus = party.status;
         let startTime = party.start_time;
 
-        // Auto-start if full
         if (acceptedCount >= party.max_members && party.status === 'FORMING') {
             newStatus = 'PREPARING';
             startTime = new Date().toISOString();
         } else if (acceptedCount < party.max_members && party.status === 'PREPARING') {
-            // Revert to FORMING if someone left/kicked during PREPARING and not full anymore
-            // (Assuming we enforce full party for auto-start, manual start requires >= 2)
             newStatus = 'FORMING';
             startTime = null;
         }
@@ -369,10 +363,8 @@ router.post('/respond', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/hunting/start - Leader manually starts if full (e.g. for solo)
 router.post('/start', authenticateToken, async (req: any, res: any) => {
     try {
-        // Fix: Filter out FINISHED parties
         const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
         if (partyRes.rows.length === 0) return res.status(404).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
         
@@ -383,11 +375,7 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         const members = party.members as any[];
         const acceptedCount = members.filter(m => m.status !== PartyMemberStatus.Pending).length;
         
-        // Changed Requirement: Minimum 2 players to start manually (unless Solo specific perks exist handled elsewhere, or 1 player allowed if specifically logic allows)
-        // Original logic was max_members. Now 2.
         const minToStart = 2;
-
-        // Exception for explicit 1-player party created with Lone Wolf (max_members would be 1)
         const effectiveMin = party.max_members === 1 ? 1 : minToStart;
 
         if (acceptedCount < effectiveMin) {
@@ -407,10 +395,8 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/hunting/cancel - Leader cancels a preparing hunt
 router.post('/cancel', authenticateToken, async (req: any, res: any) => {
     try {
-        // Fix: Filter out FINISHED parties
         const partyRes = await pool.query("SELECT * FROM hunting_parties WHERE leader_id = $1 AND status != 'FINISHED' FOR UPDATE", [req.user.id]);
         if (partyRes.rows.length === 0) {
             return res.status(403).json({ message: 'Nie jesteś liderem żadnej aktywnej grupy.' });
@@ -434,7 +420,6 @@ router.post('/cancel', authenticateToken, async (req: any, res: any) => {
     }
 });
 
-// POST /api/hunting/leave
 router.post('/leave', authenticateToken, async (req: any, res: any) => {
     try {
         const partyRes = await pool.query(`
@@ -460,13 +445,6 @@ router.post('/leave', authenticateToken, async (req: any, res: any) => {
                 let newStatus = party.status;
                 let startTime = party.start_time;
                 
-                // If leaving during PREPARING, check if we dropped below full.
-                // If we drop below full, stop timer? Or keep it running if >= 2?
-                // Usually PREPARING implies "Ready to go", if someone leaves, we should probably pause to fill spot 
-                // OR let it continue if it was manual start.
-                // The current logic was "If not max members, go back to forming".
-                // Let's adapt: If manually started (>=2) it's fine, but if it was auto-started due to full, and now not full...
-                // Simplification: Any leave during PREPARING stops the timer to allow leader to decide.
                 if (party.status === 'PREPARING') {
                      newStatus = 'FORMING';
                      startTime = null;

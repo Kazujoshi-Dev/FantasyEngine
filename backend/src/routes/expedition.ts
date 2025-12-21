@@ -15,13 +15,21 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
-        // 1. Fetch Character
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        // 1. Fetch Character and Guild Building Info
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings 
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [req.user.id]);
+
         if (charRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Character not found' });
         }
         const character: PlayerCharacter = charRes.rows[0].data;
+        const guildBuildings = charRes.rows[0].buildings || {};
 
         // 2. Validate State
         if (character.activeExpedition) {
@@ -37,7 +45,6 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'You must stop resting first.' });
         }
 
-        // New: Check for active tower run
         const towerRes = await client.query("SELECT 1 FROM tower_runs WHERE user_id = $1 AND status = 'IN_PROGRESS'", [req.user.id]);
         if (towerRes.rows.length > 0) {
             await client.query('ROLLBACK');
@@ -72,11 +79,16 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         character.resources.gold -= expedition.goldCost;
         character.stats.currentEnergy -= expedition.energyCost;
         
-        const finishTime = Date.now() + (expedition.duration * 1000);
+        // --- STABLES REDUCTION ---
+        const stablesLevel = guildBuildings.stables || 0;
+        const reductionFactor = 1 - (stablesLevel * 0.1);
+        const finalDuration = Math.max(5, Math.floor(expedition.duration * reductionFactor));
+        
+        const finishTime = Date.now() + (finalDuration * 1000);
         character.activeExpedition = {
             expeditionId: expedition.id,
             finishTime: finishTime,
-            enemies: [], // Specific enemies are determined at completion to prevent peeking/exploiting
+            enemies: [], 
             combatLog: [],
             rewards: { gold: 0, experience: 0 }
         };
@@ -101,8 +113,6 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         
-        // 1. Fetch Character & Guild Info
-        // We join guild tables to get building levels for bonuses
         const charRes = await client.query(`
             SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
@@ -120,7 +130,6 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const guildBuffs = charRes.rows[0].active_buffs || [];
         
-        // Inject buffs into character object so calculation logic can see them
         character.activeGuildBuffs = guildBuffs;
 
         if (!character.activeExpedition) {
@@ -133,23 +142,19 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'Expedition not finished yet.' });
         }
 
-        // 2. Fetch Game Data
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('expeditions', 'enemies', 'itemTemplates', 'affixes', 'quests', 'skills')");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {} as GameData);
 
-        // 3. Process Expedition Logic
         const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(
             character, 
             gameData, 
-            guildBuildings.barracks || 0, // Barracks Level
-            guildBuildings.scoutHouse || 0, // Scout House Level
-            guildBuildings.shrine || 0 // Shrine Level
+            guildBuildings.barracks || 0,
+            guildBuildings.scoutHouse || 0,
+            guildBuildings.shrine || 0
         );
 
-        // 4. Save Character
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(updatedCharacter), req.user.id]);
 
-        // 5. Send Report Message
         await enforceInboxLimit(client, req.user.id);
         const subject = `Raport z Wyprawy: ${expeditionName}`;
         const messageRes = await client.query(
@@ -193,22 +198,18 @@ router.post('/cancel', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'No active expedition to cancel.' });
         }
 
-        // Fetch Expedition to know cost to refund
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'expeditions'");
         const expeditions: Expedition[] = gameDataRes.rows[0]?.data || [];
         const expedition = expeditions.find(e => e.id === character.activeExpedition!.expeditionId);
 
         if (expedition) {
-            // Refund resources
             character.resources.gold += expedition.goldCost;
             character.stats.currentEnergy += expedition.energyCost;
-            // Cap energy just in case
             if (character.stats.currentEnergy > character.stats.maxEnergy) {
                 character.stats.currentEnergy = character.stats.maxEnergy;
             }
         }
 
-        // Clear expedition state
         character.activeExpedition = null;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);

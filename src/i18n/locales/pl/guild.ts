@@ -1,3 +1,4 @@
+
 export default {
     guild: {
         title: 'Gildia',
@@ -30,6 +31,7 @@ export default {
             upgrade: 'Ulepsz Budynek',
             maxMembers: 'Limit członków: {count}',
             spyHideoutEffect: 'Liczba szpiegów: {count}',
+            stablesEffect: 'Skrócenie czasu: {count}%',
             headquarters: 'Siedziba',
             headquartersDesc: 'Główny budynek gildii. Zwiększa limit członków.',
             armory: 'Zbrojownia',
@@ -44,6 +46,8 @@ export default {
             altarDesc: 'Zakazane rytuały zapewniające potężne bonusy całej gildii.',
             spyHideout: 'Kryjówka Szpiegów',
             spyHideoutDesc: 'Centrum wywiadu. Pozwala wysyłać szpiegów do innych gildii.',
+            stables: 'Stajnia',
+            stablesDesc: 'Hodowla szybkich wierzchowców. Skraca czas wypraw i polowań.',
         },
         permissions: {
             title: 'Uprawnienia Ról',

@@ -98,6 +98,16 @@ const getBuildingCost = (type: string, level: number): { gold: number, costs: { 
         return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
     }
 
+    if (type === 'stables') {
+        if (level === 0) {
+            return { gold: 50000, costs: [{ type: EssenceType.Common, amount: 100 }, { type: EssenceType.Uncommon, amount: 50 }, { type: EssenceType.Rare, amount: 25 }] };
+        } else if (level === 1) {
+            return { gold: 75000, costs: [{ type: EssenceType.Common, amount: 75 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 30 }] };
+        } else if (level === 2) {
+            return { gold: 100000, costs: [{ type: EssenceType.Common, amount: 50 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 40 }] };
+        }
+    }
+
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
 }
 
@@ -110,6 +120,7 @@ const BUILDING_DEFINITIONS = [
     { id: 'shrine', icon: SparklesIcon, color: 'text-purple-400', maxLevel: 5 },
     { id: 'altar', icon: StarIcon, color: 'text-fuchsia-500', maxLevel: 5 },
     { id: 'spyHideout', icon: EyeIcon, color: 'text-emerald-400', maxLevel: 3 },
+    { id: 'stables', icon: MapIcon, color: 'text-amber-600', maxLevel: 3 },
 ];
 
 export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
@@ -152,6 +163,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
                 else if (def.id === 'altar') effect = level > 0 ? `Odblokowuje Wtajemniczenie poziomu ${level}` : 'Brak efektu';
                 else if (def.id === 'spyHideout') effect = t('guild.buildings.spyHideoutEffect', { count: level });
+                else if (def.id === 'stables') effect = t('guild.buildings.stablesEffect', { count: level * 10 });
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
