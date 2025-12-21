@@ -13,21 +13,6 @@ import { SparklesIcon } from './icons/SparklesIcon';
 import { StarIcon } from './icons/StarIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
 
-const slotOrder: EquipmentSlot[] = [
-    EquipmentSlot.Head,
-    EquipmentSlot.Neck,
-    EquipmentSlot.Chest,
-    EquipmentSlot.MainHand,
-    EquipmentSlot.OffHand,
-    EquipmentSlot.Hands,
-    EquipmentSlot.Waist,
-    EquipmentSlot.Legs,
-    EquipmentSlot.Feet,
-    EquipmentSlot.Ring1,
-    EquipmentSlot.Ring2,
-    EquipmentSlot.TwoHand,
-];
-
 const StatRow: React.FC<{ label: string; value: React.ReactNode; color?: string; icon?: React.ReactNode }> = ({ label, value, color = 'text-gray-300', icon }) => (
     <div className="flex justify-between items-center py-1.5 px-3 rounded bg-slate-800/30 border border-white/5">
         <div className="flex items-center gap-2">
@@ -47,8 +32,8 @@ export const Equipment: React.FC = () => {
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     
-    // Fix: replaced NodeJS.Timeout with ReturnType<typeof setTimeout> to resolve type error in browser environment
     // Timer do debouncowania zamykania tooltipa
+    /* Fixed NodeJS.Timeout type error by using ReturnType<typeof setTimeout> */
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (!character || !gameData) return null;
@@ -235,7 +220,7 @@ export const Equipment: React.FC = () => {
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-2 content-start">
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
-                            if (!template) return null;
+                            if (!template) return false;
                             return (
                                 <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
                                     <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleEquip(item)} />
