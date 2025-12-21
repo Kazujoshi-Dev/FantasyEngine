@@ -407,7 +407,7 @@ export default {
             successChance: 'Szansa Powodzenia',
             cost: 'Koszt',
             youHave: 'Masz',
-            riskWarning: 'Uwaga: Nieudane ulepszenie może zniszczyć przedmiot lub obniżyć jego poziom!',
+            riskWarning: 'Uwaga: Nieudane ulepszenie TRWALE niszczy przedmiot!',
             maxLevel: 'Przedmiot osiągnął maksymalny poziom ulepszenia.',
             selectItemToUpgrade: 'Wybierz przedmiot z listy po lewej, aby go ulepszyć.',
             howItWorks: {
@@ -418,7 +418,7 @@ export default {
                 chance: 'Szansa powodzenia spada o 10% z każdym poziomem.',
                 failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótce).'
             },
-            upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie może zniszczyć przedmiot. Czy na pewno chcesz spróbować?',
+            upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie TRWALE zniszczy przedmiot. Czy na pewno chcesz spróbować?',
             upgradeSuccess: 'Ulepszono przedmiot do poziomu +{level}!',
             upgradeFailure: 'Ulepszenie nie powiodło się!',
             upgrade: 'Ulepsz',
