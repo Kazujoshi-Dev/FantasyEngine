@@ -51,7 +51,7 @@ export const calculateDerivedStats = (
         armor: 0,
         critChance: 0,
         critDamageModifier: 200,
-        attacksPerRound: 1,
+        attacksPerRound: 0, // Zmienione na 0, bo dodajemy bazę później
         dodgeChance: 0,
         manaRegen: 0,
         armorPenetrationPercent: 0,
@@ -212,10 +212,11 @@ export const calculateDerivedStats = (
     const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
     
     const baseAPR = Number(mhTemplate?.attacksPerRound) || 1;
-    const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound).toFixed(2));
+    // APR uwzględnia bazę broni, bonusy z przedmiotów ORAZ bonusy z zestawów/gildii
+    const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound + totalPrimaryStats.attacksPerRound).toFixed(2));
 
-    let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
-    let maxMana = 20 + totalPrimaryStats.intelligence * 10;
+    let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth + totalPrimaryStats.maxHealth;
+    let maxMana = 20 + totalPrimaryStats.intelligence * 10 + totalPrimaryStats.maxMana;
     if (character.activeSkills) {
         character.activeSkills.forEach(sId => {
             const s = safeSkills.find(sk => sk.id === sId);
@@ -226,14 +227,15 @@ export const calculateDerivedStats = (
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
-    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin;
-    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
+    // Wyliczenie obrażeń fizycznych uwzględnia teraz totalPrimaryStats.minDamage (z zestawów)
+    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin + totalPrimaryStats.minDamage;
+    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax + totalPrimaryStats.maxDamage;
 
     let ohMin = 0, ohMax = 0;
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
-        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
-        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
+        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin + totalPrimaryStats.minDamage;
+        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax + totalPrimaryStats.maxDamage;
     }
 
     if (isDualWieldActive && ohItem) {
@@ -244,10 +246,11 @@ export const calculateDerivedStats = (
     }
 
     const intBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
-    let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
-    let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
-    let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
-    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus : 0;
+    // Obrażenia magiczne również uwzględniają bonusy zestawowe
+    let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
+    let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus + totalPrimaryStats.magicDamageMax : 0;
+    let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus + totalPrimaryStats.magicDamageMax : 0;
 
     if (isDualWieldActive && ohItem) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
@@ -256,7 +259,6 @@ export const calculateDerivedStats = (
         ohMagMax = Math.floor(ohMagMax * 0.75);
     }
 
-    // Aplikacja bonusów z Barracks (Używamy Math.round zamiast Math.floor dla lepszego czucia bonusów)
     if (guildBarracksLevel > 0) {
         const mult = 1 + (guildBarracksLevel * 0.05);
         mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
@@ -265,7 +267,6 @@ export const calculateDerivedStats = (
         ohMagMin = Math.round(ohMagMin * mult); ohMagMax = Math.round(ohMagMax * mult);
     }
 
-    // Aplikacja procentowego bonusu obrażeń (z zestawów/buffów)
     if (totalPrimaryStats.damageBonusPercent > 0) {
         const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
         mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
@@ -288,17 +289,18 @@ export const calculateDerivedStats = (
             currentMana: Math.min(Number(character.stats.currentMana) || maxMana, maxMana),
             currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
-            armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
-            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
-            critDamageModifier: 200 + bonusCritDamageModifier,
-            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0),
-            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
-            armorPenetrationPercent: bonusArmorPenetrationPercent,
-            armorPenetrationFlat: bonusArmorPenetrationFlat,
-            lifeStealPercent: bonusLifeStealPercent,
-            lifeStealFlat: bonusLifeStealFlat,
-            manaStealPercent: bonusManaStealPercent,
-            manaStealFlat: bonusManaStealFlat,
+            // Armor, Crit, Dodge, Regen – wszystkie teraz sumują bonusy z totalPrimaryStats (zestawy/buffy)
+            armor: bonusArmor + totalPrimaryStats.armor + (character.race === Race.Dwarf ? 5 : 0),
+            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance + totalPrimaryStats.critChance,
+            critDamageModifier: 200 + bonusCritDamageModifier + totalPrimaryStats.critDamageModifier,
+            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + totalPrimaryStats.dodgeChance + (character.race === Race.Gnome ? 10 : 0),
+            manaRegen: totalPrimaryStats.intelligence * 2 + totalPrimaryStats.manaRegen + (character.race === Race.Elf ? 10 : 0),
+            armorPenetrationPercent: bonusArmorPenetrationPercent + totalPrimaryStats.armorPenetrationPercent,
+            armorPenetrationFlat: bonusArmorPenetrationFlat + totalPrimaryStats.armorPenetrationFlat,
+            lifeStealPercent: bonusLifeStealPercent + totalPrimaryStats.lifeStealPercent,
+            lifeStealFlat: bonusLifeStealFlat + totalPrimaryStats.lifeStealFlat,
+            manaStealPercent: bonusManaStealPercent + totalPrimaryStats.manaStealPercent,
+            manaStealFlat: bonusManaStealFlat + totalPrimaryStats.manaStealFlat,
         }
     };
 };

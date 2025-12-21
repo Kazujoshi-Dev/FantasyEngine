@@ -16,7 +16,6 @@ export const ItemSetsTab: React.FC<ItemSetsTabProps> = ({ gameData, onGameDataUp
     const sets = gameData.itemSets || [];
     const affixes = gameData.affixes || [];
 
-    // Pomocnicza funkcja do bezpiecznego pobierania nazwy afiksu
     const getAffixDisplayName = (affix: Affix | undefined): string => {
         if (!affix || !affix.name) return 'Nieznany afiks';
         if (typeof affix.name === 'string') return affix.name;
@@ -127,31 +126,41 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
         });
     };
 
-    // Bezpieczne sortowanie przy użyciu helpera
     const sortedAffixes = useMemo(() => {
         return [...affixes].sort((a, b) => 
             getAffixDisplayName(a).localeCompare(getAffixDisplayName(b))
         );
     }, [affixes, getAffixDisplayName]);
 
-    const statKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck', 'armor', 'critChance', 'dodgeChance', 'manaRegen'];
-    const specialKeys = [
+    const attributeKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+    const combatKeys: (keyof CharacterStats)[] = ['armor', 'critChance', 'critDamageModifier', 'dodgeChance', 'manaRegen', 'attacksPerRound'];
+    const weaponKeys: (keyof CharacterStats)[] = ['minDamage', 'maxDamage', 'magicDamageMin', 'magicDamageMax'];
+    const specialtyKeys: (keyof CharacterStats)[] = ['armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat'];
+    
+    const setPercentKeys = [
         { key: 'expBonusPercent', label: 'Bonus EXP (%)' },
         { key: 'goldBonusPercent', label: 'Bonus Złota (%)' },
         { key: 'damageBonusPercent', label: 'Bonus Obrażeń (%)' },
         { key: 'damageReductionPercent', label: 'Redukcja Obrażeń (%)' }
     ];
 
+    const renderInput = (idx: number, k: string) => (
+        <div key={k}>
+            <label className="block text-[10px] text-gray-500 truncate">{t(`statistics.${k}` as any) || k}</label>
+            <input type="number" step="0.1" className="w-full bg-slate-900 p-1 rounded text-xs text-indigo-300" value={(formData.tiers[idx].bonuses as any)[k] || ''} onChange={e => handleBonusChange(idx, k, e.target.value)} />
+        </div>
+    );
+
     return (
         <div className="bg-slate-900/60 p-6 rounded-xl border border-slate-700 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm text-gray-400 mb-1">Nazwa Zestawu</label>
-                    <input className="w-full bg-slate-800 p-2 rounded border border-slate-600" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <input className="w-full bg-slate-800 p-2 rounded border border-slate-600 text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div>
                     <label className="block text-sm text-gray-400 mb-1">Afiks Kotwiczący (Zestawowy)</label>
-                    <select className="w-full bg-slate-800 p-2 rounded border border-slate-600" value={formData.affixId} onChange={e => setFormData({...formData, affixId: e.target.value})}>
+                    <select className="w-full bg-slate-800 p-2 rounded border border-slate-600 text-white" value={formData.affixId} onChange={e => setFormData({...formData, affixId: e.target.value})}>
                         <option value="">Wybierz afiks...</option>
                         {sortedAffixes.map(a => (
                             <option key={a.id} value={a.id}>
@@ -165,7 +174,7 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
             <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                     <h4 className="font-bold text-gray-300">Progi i Bonusy</h4>
-                    <button onClick={addTier} className="text-xs bg-indigo-600 px-2 py-1 rounded hover:bg-indigo-500">+ Dodaj Próg</button>
+                    <button onClick={addTier} className="text-xs bg-indigo-600 px-2 py-1 rounded hover:bg-indigo-500 font-bold text-white">+ Dodaj Próg</button>
                 </div>
 
                 {formData.tiers.map((tier, idx) => (
@@ -177,21 +186,26 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
 
                         <div className="flex items-center gap-4 mb-4">
                             <label className="text-sm font-bold text-emerald-400">Wymagane części:</label>
-                            <input type="number" min="2" max="12" className="w-16 bg-slate-900 p-1 rounded" value={tier.requiredPieces} onChange={e => updateTier(idx, {requiredPieces: parseInt(e.target.value)})} />
+                            <input type="number" min="2" max="12" className="w-16 bg-slate-900 p-1 rounded text-white text-center font-bold" value={tier.requiredPieces} onChange={e => updateTier(idx, {requiredPieces: parseInt(e.target.value)})} />
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="col-span-full text-xs font-black text-indigo-400 uppercase tracking-widest border-b border-slate-700 mb-1">Statystyki Bojowe</div>
-                            {statKeys.map(k => (
-                                <div key={k}>
-                                    <label className="block text-[10px] text-gray-500">{t(`statistics.${k}` as any)}</label>
-                                    <input type="number" step="0.1" className="w-full bg-slate-900 p-1 rounded text-xs" value={(tier.bonuses as any)[k] || ''} onChange={e => handleBonusChange(idx, k, e.target.value)} />
-                                </div>
-                            ))}
-                            <div className="col-span-full text-xs font-black text-amber-400 uppercase tracking-widest border-b border-slate-700 mt-2 mb-1">Bonusy Specjalne</div>
-                            {specialKeys.map(s => (
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                            <div className="col-span-full text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-slate-700/50 mb-1">Atrybuty</div>
+                            {attributeKeys.map(k => renderInput(idx, k))}
+
+                            <div className="col-span-full text-[10px] font-black text-sky-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Statystyki Bojowe</div>
+                            {combatKeys.map(k => renderInput(idx, k))}
+
+                            <div className="col-span-full text-[10px] font-black text-red-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Parametry Broni</div>
+                            {weaponKeys.map(k => renderInput(idx, k))}
+
+                            <div className="col-span-full text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Efekty Specjalne</div>
+                            {specialtyKeys.map(k => renderInput(idx, k))}
+
+                            <div className="col-span-full text-[10px] font-black text-amber-400 uppercase tracking-widest border-b border-slate-700/50 mt-2 mb-1">Bonusy Zestawowe (%)</div>
+                            {setPercentKeys.map(s => (
                                 <div key={s.key}>
-                                    <label className="block text-[10px] text-gray-500">{s.label}</label>
+                                    <label className="block text-[10px] text-gray-500 truncate">{s.label}</label>
                                     <input type="number" step="1" className="w-full bg-slate-900 p-1 rounded text-xs text-amber-300 font-bold" value={(tier.bonuses as any)[s.key] || ''} onChange={e => handleBonusChange(idx, s.key, e.target.value)} />
                                 </div>
                             ))}
