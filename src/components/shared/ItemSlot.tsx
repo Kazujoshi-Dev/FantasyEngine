@@ -228,7 +228,8 @@ export const ItemDetailsPanel: React.FC<{
                 </h4>
                 {showIcon && template.icon && (
                     <div className="relative group mb-4">
-                        <img src={template.icon} alt={template.name} className="w-32 h-32 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
+                        {/* Zwiększono obrazek z w-32 na w-64 dla lepszej ekspozycji przedmiotu */}
+                        <img src={template.icon} alt={template.name} className="w-64 h-64 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
                         {item.crafterName && (<div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
                     </div>
                 )}
@@ -334,21 +335,23 @@ export const ItemTooltip: React.FC<{
     onMouseLeave?: () => void; 
 }> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose, onMouseEnter, onMouseLeave }) => { 
     const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' }); 
+    
+    const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
+    // ARCHITEKTURA: Jeśli najeżdżamy na przedmiot już założony, nie renderujemy sekcji porównania
+    const actualCompareWith = isSameItem ? null : compareWith; 
+    const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
+
     useEffect(() => { 
+        const tooltipWidth = actualCompareWith ? 640 : 320;
+
         if (isCentered || onClose) { 
-            const tooltipWidth = compareWith ? 620 : 300; 
             setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
             return; 
         } 
         
-        // Zawsze centrowanie tooltipów zgodnie z prośbą
-        const tooltipWidth = compareWith ? 620 : 300; 
         setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
-    }, [x, y, compareWith, instance.uniqueId, isCentered, onClose]); 
+    }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
 
-    const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
-    const actualCompareWith = isSameItem ? null : compareWith; 
-    const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null; 
     
     // Jeśli isCentered (Modal) to renderujemy z tłem blokującym
     if (isCentered || onClose) { 
@@ -357,13 +360,13 @@ export const ItemTooltip: React.FC<{
                 <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-4 flex gap-4 max-h-[90vh] relative z-[200] pointer-events-auto" style={{ width: style.width, maxWidth: '95vw' }} onClick={e => e.stopPropagation()} > 
                     {onClose && ( <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
                     {actualCompareWith && compareTemplate && ( 
-                        <div className="w-[280px] border-r border-white/5 pr-4 hidden md:flex flex-col max-h-full"> 
+                        <div className="w-[300px] border-r border-white/5 pr-4 hidden md:flex flex-col max-h-full"> 
                             <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
                                 <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                             </div> 
                         </div> 
                     )} 
-                    <div className={`${actualCompareWith ? 'w-[280px]' : 'w-full'} flex flex-col max-h-full`}> 
+                    <div className={`${actualCompareWith ? 'w-[300px]' : 'w-full'} flex flex-col max-h-full`}> 
                         <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
                             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
                         </div> 
@@ -384,13 +387,13 @@ export const ItemTooltip: React.FC<{
             > 
                 <div className="relative p-2 flex gap-4 max-h-[85vh] overflow-hidden"> 
                     {actualCompareWith && compareTemplate && ( 
-                        <div className="w-[280px] border-r border-white/5 pr-2 flex flex-col"> 
+                        <div className="w-[300px] border-r border-white/5 pr-2 flex flex-col"> 
                             <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
                                 <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                             </div> 
                         </div> 
                     )} 
-                    <div className={`${actualCompareWith ? 'w-[280px]' : 'w-full'} flex flex-col`}> 
+                    <div className={`${actualCompareWith ? 'w-[300px]' : 'w-full'} flex flex-col`}> 
                         <div className="flex-grow overflow-y-auto custom-scrollbar pr-1"> 
                             <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
                         </div> 
