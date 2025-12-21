@@ -16,6 +16,13 @@ export const ItemSetsTab: React.FC<ItemSetsTabProps> = ({ gameData, onGameDataUp
     const sets = gameData.itemSets || [];
     const affixes = gameData.affixes || [];
 
+    // Pomocnicza funkcja do bezpiecznego pobierania nazwy afiksu
+    const getAffixDisplayName = (affix: Affix | undefined): string => {
+        if (!affix || !affix.name) return 'Nieznany afiks';
+        if (typeof affix.name === 'string') return affix.name;
+        return affix.name.masculine || 'Brak nazwy';
+    };
+
     const handleSave = (set: ItemSet) => {
         let updated = [...sets];
         const index = updated.findIndex(s => s.id === set.id);
@@ -48,6 +55,7 @@ export const ItemSetsTab: React.FC<ItemSetsTabProps> = ({ gameData, onGameDataUp
                     affixes={affixes} 
                     onSave={handleSave} 
                     onCancel={() => setEditingSet(null)} 
+                    getAffixDisplayName={getAffixDisplayName}
                 />
             ) : (
                 <div className="space-y-4">
@@ -56,7 +64,9 @@ export const ItemSetsTab: React.FC<ItemSetsTabProps> = ({ gameData, onGameDataUp
                             <div>
                                 <h4 className="text-lg font-bold text-white">{set.name}</h4>
                                 <p className="text-sm text-gray-400">
-                                    Kotwica: <span className="text-sky-400">{affixes.find(a => a.id === set.affixId)?.name as string || 'Nieznany afiks'}</span>
+                                    Kotwica: <span className="text-sky-400">
+                                        {getAffixDisplayName(affixes.find(a => a.id === set.affixId))}
+                                    </span>
                                 </p>
                                 <p className="text-xs text-gray-500">{set.tiers.length} Progi bonusowe</p>
                             </div>
@@ -73,7 +83,15 @@ export const ItemSetsTab: React.FC<ItemSetsTabProps> = ({ gameData, onGameDataUp
     );
 };
 
-const ItemSetEditor: React.FC<{ set: Partial<ItemSet>, affixes: Affix[], onSave: (s: ItemSet) => void, onCancel: () => void }> = ({ set, affixes, onSave, onCancel }) => {
+interface ItemSetEditorProps {
+    set: Partial<ItemSet>;
+    affixes: Affix[];
+    onSave: (s: ItemSet) => void;
+    onCancel: () => void;
+    getAffixDisplayName: (a: Affix | undefined) => string;
+}
+
+const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onCancel, getAffixDisplayName }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState<ItemSet>({
         id: set.id || crypto.randomUUID(),
@@ -109,7 +127,12 @@ const ItemSetEditor: React.FC<{ set: Partial<ItemSet>, affixes: Affix[], onSave:
         });
     };
 
-    const sortedAffixes = useMemo(() => [...affixes].sort((a,b) => (a.name as string).localeCompare(b.name as string)), [affixes]);
+    // Bezpieczne sortowanie przy użyciu helpera
+    const sortedAffixes = useMemo(() => {
+        return [...affixes].sort((a, b) => 
+            getAffixDisplayName(a).localeCompare(getAffixDisplayName(b))
+        );
+    }, [affixes, getAffixDisplayName]);
 
     const statKeys: (keyof CharacterStats)[] = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck', 'armor', 'critChance', 'dodgeChance', 'manaRegen'];
     const specialKeys = [
@@ -130,7 +153,11 @@ const ItemSetEditor: React.FC<{ set: Partial<ItemSet>, affixes: Affix[], onSave:
                     <label className="block text-sm text-gray-400 mb-1">Afiks Kotwiczący (Zestawowy)</label>
                     <select className="w-full bg-slate-800 p-2 rounded border border-slate-600" value={formData.affixId} onChange={e => setFormData({...formData, affixId: e.target.value})}>
                         <option value="">Wybierz afiks...</option>
-                        {sortedAffixes.map(a => <option key={a.id} value={a.id}>{a.name as string}</option>)}
+                        {sortedAffixes.map(a => (
+                            <option key={a.id} value={a.id}>
+                                {getAffixDisplayName(a)}
+                            </option>
+                        ))}
                     </select>
                 </div>
             </div>
@@ -157,7 +184,7 @@ const ItemSetEditor: React.FC<{ set: Partial<ItemSet>, affixes: Affix[], onSave:
                             <div className="col-span-full text-xs font-black text-indigo-400 uppercase tracking-widest border-b border-slate-700 mb-1">Statystyki Bojowe</div>
                             {statKeys.map(k => (
                                 <div key={k}>
-                                    <label className="block text-[10px] text-gray-500">{t(`statistics.${k}`)}</label>
+                                    <label className="block text-[10px] text-gray-500">{t(`statistics.${k}` as any)}</label>
                                     <input type="number" step="0.1" className="w-full bg-slate-900 p-1 rounded text-xs" value={(tier.bonuses as any)[k] || ''} onChange={e => handleBonusChange(idx, k, e.target.value)} />
                                 </div>
                             ))}
