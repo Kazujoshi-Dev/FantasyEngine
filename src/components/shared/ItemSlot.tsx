@@ -340,7 +340,8 @@ export const ItemTooltip: React.FC<{
             setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
             return; 
         } 
-        // WYMUSZENIE ŚRODKA EKRANU DLA WSZYSTKICH TOOLTIPÓW
+        
+        // Zawsze centrowanie tooltipów zgodnie z prośbą
         const tooltipWidth = compareWith ? 620 : 300; 
         setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
     }, [x, y, compareWith, instance.uniqueId, isCentered, onClose]); 
@@ -349,6 +350,7 @@ export const ItemTooltip: React.FC<{
     const actualCompareWith = isSameItem ? null : compareWith; 
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null; 
     
+    // Jeśli isCentered (Modal) to renderujemy z tłem blokującym
     if (isCentered || onClose) { 
         return ( 
             <div className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} onClick={onClose} > 
@@ -371,12 +373,15 @@ export const ItemTooltip: React.FC<{
         ); 
     } 
 
+    // Standardowy tooltip (Hover) - Wyśrodkowany, ale bez tła blokującego, z Interactive Bridge
     return ( 
-        <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center">
-            {/* Hitbox Expansion: To jest "most", który pozwala kursorowi dotrzeć do środka ekranu bez znikania tooltipa */}
-            <div className="absolute inset-0 pointer-events-auto bg-transparent" style={{ cursor: 'default' }} />
-            
-            <div className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-4 relative z-10`} style={{ width: style.width }} > 
+        <div className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center">
+            <div 
+                onMouseEnter={onMouseEnter} 
+                onMouseLeave={onMouseLeave} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-4 relative z-10`} 
+                style={{ width: style.width }} 
+            > 
                 <div className="relative p-2 flex gap-4 max-h-[85vh] overflow-hidden"> 
                     {actualCompareWith && compareTemplate && ( 
                         <div className="w-[280px] border-r border-white/5 pr-2 flex flex-col"> 
