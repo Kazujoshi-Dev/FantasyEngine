@@ -51,12 +51,26 @@ export const Equipment: React.FC = () => {
 
     const backpackCapacity = 40 + ((character.backpack?.level || 1) - 1) * 10;
 
+    const slotOptions = useMemo(() => {
+        const slots = Object.values(EquipmentSlot) as string[];
+        const uniqueSlots = Array.from(new Set(slots.map(s => s.startsWith('ring') ? 'ring' : s)));
+        return uniqueSlots.map(s => ({
+            id: s,
+            label: s === 'ring' ? t('item.slot.ring') : t(`equipment.slot.${s}`)
+        })).sort((a, b) => a.label.localeCompare(b.label));
+    }, [t]);
+
     const filteredInventory = useMemo(() => {
         return (character.inventory || []).filter(item => {
             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
             if (!template) return false;
+            
             const rarityMatch = rarityFilter === 'all' || template.rarity === rarityFilter;
-            const slotMatch = filterSlot === 'all' || template.slot === filterSlot;
+            
+            // Grupowanie pierścieni w logice filtra
+            const itemSlotNormalized = template.slot.startsWith('ring') ? 'ring' : template.slot;
+            const slotMatch = filterSlot === 'all' || itemSlotNormalized === filterSlot;
+
             return rarityMatch && slotMatch;
         });
     }, [character.inventory, filterSlot, rarityFilter, gameData.itemTemplates]);
@@ -155,7 +169,6 @@ export const Equipment: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* NOWA SEKCJA: BONUSY ZESTAWÓW */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2"><SparklesIcon className="h-3 w-3" /> Bonusy Zestawów</h4>
                                 <div className="grid grid-cols-1 gap-1">
@@ -177,9 +190,15 @@ export const Equipment: React.FC = () => {
                         <span className="font-mono text-xs font-bold text-gray-500 bg-slate-950 px-3 py-1 rounded-full border border-white/5">{character.inventory.length} / {backpackCapacity}</span>
                     </div>
                     <div className="flex gap-2 mb-4">
-                        <select value={filterSlot} onChange={(e) => setFilterSlot(e.target.value)} className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none">
-                            <option value="all">Wszystkie typy</option>
-                            {Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{s}</option>)}
+                        <select 
+                            value={filterSlot} 
+                            onChange={(e) => setFilterSlot(e.target.value)} 
+                            className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none"
+                        >
+                            <option value="all">{t('market.browse.filters.all')}</option>
+                            {slotOptions.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                            ))}
                         </select>
                         <select value={rarityFilter} onChange={(e) => setRarityFilter(e.target.value as ItemRarity | 'all')} className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-gray-300 outline-none">
                             <option value="all">Wszystkie jakości</option>
