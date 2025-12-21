@@ -1,5 +1,4 @@
 
-
 export default {
     item: {
         name: 'Nazwa',
@@ -11,7 +10,7 @@ export default {
         damageMin: 'Min. Obrażenia',
         damageMax: 'Maks. Obrażenia',
         armorBonus: 'Pancerz',
-        critChanceBonus: 'Szansa na Kryt.',
+        critChanceBonus: 'Szansa na Krytyk',
         maxHealthBonus: 'Zdrowie',
         critDamageModifierBonus: 'Modyfikator Kryt.',
         attacksPerRound: 'Ataki na rundę',
@@ -20,9 +19,9 @@ export default {
         armorPenetrationPercent: 'Penetracja Pancerza (%)',
         armorPenetrationFlat: 'Penetracja Pancerza',
         lifeStealPercent: 'Kradzież Życia (%)',
-        lifeStealFlat: 'Kradzież Życia',
+        lifeStealFlat: 'Kradzież Życia (pkt)',
         manaStealPercent: 'Kradzież Many (%)',
-        manaStealFlat: 'Kradzież Many',
+        manaStealFlat: 'Kradzież Many (pkt)',
         magicDamageMin: 'Min. Obr. Magiczne',
         magicDamageMax: 'Maks. Obr. Magiczne',
         manaCost: 'Koszt Many',

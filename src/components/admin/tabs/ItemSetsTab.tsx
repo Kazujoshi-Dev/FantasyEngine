@@ -144,9 +144,23 @@ const ItemSetEditor: React.FC<ItemSetEditorProps> = ({ set, affixes, onSave, onC
         { key: 'damageReductionPercent', label: 'Redukcja Obrażeń (%)' }
     ];
 
+    // Funkcja pomocnicza do pobierania etykiety z kaskadowym wyszukiwaniem
+    const getLabel = (k: string) => {
+        // 1. Sprawdź w statystykach postaci
+        const statsLabel = t(`statistics.${k}` as any);
+        if (!statsLabel.includes('statistics.')) return statsLabel;
+        
+        // 2. Sprawdź w atrybutach przedmiotów
+        const itemLabel = t(`item.${k}` as any);
+        if (!itemLabel.includes('item.')) return itemLabel;
+        
+        // 3. Fallback do samego klucza
+        return k;
+    };
+
     const renderInput = (idx: number, k: string) => (
         <div key={k}>
-            <label className="block text-[10px] text-gray-500 truncate">{t(`statistics.${k}` as any) || k}</label>
+            <label className="block text-[10px] text-gray-500 truncate" title={getLabel(k)}>{getLabel(k)}</label>
             <input type="number" step="0.1" className="w-full bg-slate-900 p-1 rounded text-xs text-indigo-300" value={(formData.tiers[idx].bonuses as any)[k] || ''} onChange={e => handleBonusChange(idx, k, e.target.value)} />
         </div>
     );
