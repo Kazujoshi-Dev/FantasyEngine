@@ -133,8 +133,8 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col justify-center">
-                             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Opis miejsca</h4>
-                             <p className="text-gray-300 italic text-sm leading-relaxed">"{currentLocation?.description}"</p>
+                             <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3">Cel i przebieg misji</h4>
+                             <p className="text-gray-300 italic text-sm leading-relaxed">"{expedition?.description}"</p>
                         </div>
                         <div className="flex flex-col gap-3 justify-center">
                             <button 
@@ -208,14 +208,14 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
                             <div className="absolute bottom-5 left-8">
                                 <h3 className="text-4xl font-black text-white tracking-tighter drop-shadow-2xl">{selectedExpedition.name}</h3>
-                                <p className="text-indigo-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">Cel Ekspedycji</p>
+                                <p className="text-indigo-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">{currentLocation?.name}</p>
                             </div>
                         </div>
 
-                        {/* NOWA SEKCJA: OPIS LOKACJI */}
+                        {/* OPIS WYPRAWY */}
                         <div className="bg-slate-900/60 p-5 rounded-2xl border border-indigo-500/20 max-w-4xl mx-auto w-full">
-                            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Eksplorowana Kraina: {currentLocation?.name}</h4>
-                            <p className="text-gray-400 text-sm italic leading-relaxed">"{currentLocation?.description}"</p>
+                            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Zadanie i cel podróży</h4>
+                            <p className="text-gray-300 text-sm italic leading-relaxed">"{selectedExpedition.description}"</p>
                         </div>
 
                         {/* 2. SEKCJA DOLNA: INFORMACJE */}
