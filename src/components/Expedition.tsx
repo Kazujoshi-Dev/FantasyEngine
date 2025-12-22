@@ -38,7 +38,12 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
 
     if (!character || !gameData) return null;
 
-    const { expeditions, enemies } = gameData;
+    const { expeditions, enemies, locations } = gameData;
+
+    const currentLocation = useMemo(() => 
+        locations.find(l => l.id === character.currentLocationId),
+        [locations, character.currentLocationId]
+    );
 
     const onStartExpedition = async (expeditionId: string) => {
         try {
@@ -102,7 +107,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
         return (
             <ContentPanel title="Wyprawa w toku">
                 <div className="flex flex-col gap-6 h-full animate-fade-in max-w-5xl mx-auto">
-                    {/* Panoramiczny podgląd - zmniejszony proporcjonalnie (21:7) */}
+                    {/* Panoramiczny podgląd */}
                     <div className="relative aspect-[21/7] rounded-3xl overflow-hidden border-2 border-indigo-500/30 shadow-2xl">
                          {expedition?.image ? (
                             <img src={expedition.image} alt={expedition.name} className="w-full h-full object-cover" />
@@ -115,7 +120,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                         <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end">
                             <div>
                                 <h3 className="text-3xl font-black text-white mb-1 tracking-tight">{expedition?.name}</h3>
-                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">Status: Przemierzanie krain</p>
+                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">{currentLocation?.name}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-gray-400 text-[10px] font-black uppercase mb-1">Czas do powrotu</p>
@@ -128,8 +133,8 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col justify-center">
-                             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Cel i opis</h4>
-                             <p className="text-gray-300 italic text-sm leading-relaxed">"{expedition?.description}"</p>
+                             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Opis miejsca</h4>
+                             <p className="text-gray-300 italic text-sm leading-relaxed">"{currentLocation?.description}"</p>
                         </div>
                         <div className="flex flex-col gap-3 justify-center">
                             <button 
@@ -191,7 +196,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                 {selectedExpedition ? (
                     <div className="flex-1 flex flex-col gap-4 animate-fade-in">
                         
-                        {/* 1. SEKCJA GÓRNA: GRAFIKA - Zmniejszona (21:7) i ograniczona szerokość */}
+                        {/* 1. SEKCJA GÓRNA: GRAFIKA */}
                         <div className="relative aspect-[21/7] w-full max-w-4xl mx-auto rounded-3xl overflow-hidden border-2 border-slate-700 shadow-2xl group">
                             {selectedExpedition.image ? (
                                 <img src={selectedExpedition.image} alt={selectedExpedition.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
@@ -205,6 +210,12 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                                 <h3 className="text-4xl font-black text-white tracking-tighter drop-shadow-2xl">{selectedExpedition.name}</h3>
                                 <p className="text-indigo-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">Cel Ekspedycji</p>
                             </div>
+                        </div>
+
+                        {/* NOWA SEKCJA: OPIS LOKACJI */}
+                        <div className="bg-slate-900/60 p-5 rounded-2xl border border-indigo-500/20 max-w-4xl mx-auto w-full">
+                            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Eksplorowana Kraina: {currentLocation?.name}</h4>
+                            <p className="text-gray-400 text-sm italic leading-relaxed">"{currentLocation?.description}"</p>
                         </div>
 
                         {/* 2. SEKCJA DOLNA: INFORMACJE */}
@@ -273,7 +284,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
 
                         </div>
 
-                        {/* PRZYCISK AKCJI - Bardziej zwarty */}
+                        {/* PRZYCISK AKCJI */}
                         <button 
                             onClick={() => handleEmbark(selectedExpedition.id)} 
                             disabled={character.resources.gold < selectedExpedition.goldCost || character.stats.currentEnergy < selectedExpedition.energyCost}
