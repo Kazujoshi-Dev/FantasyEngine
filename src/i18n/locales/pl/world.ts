@@ -28,9 +28,10 @@ export default {
     university: {
         title: 'Uniwersytet',
         universal: 'Uniwersalne',
+        class: 'Klasowe',
+        race: 'Rasowe',
         passive: 'Pasywne',
         active: 'Aktywne',
-        racial: 'Rasowe',
         races: 'Rasy',
         classes: 'Klasy',
         underConstruction: 'Ta sekcja jest w budowie.',
