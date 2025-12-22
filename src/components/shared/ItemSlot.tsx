@@ -146,7 +146,6 @@ export const ItemDetailsPanel: React.FC<{
 
     const activeSets = useMemo(() => {
         if (!gameData?.itemSets) return [];
-        // Fix: Changed affix?.suffixId to item.suffixId to resolve undefined variable error
         return gameData.itemSets.filter(set => set.affixId === item.prefixId || set.affixId === item.suffixId);
     }, [gameData?.itemSets, item.prefixId, item.suffixId]);
 
@@ -259,7 +258,6 @@ export const ItemDetailsPanel: React.FC<{
                 </h4>
                 {showIcon && template.icon && (
                     <div className="relative group mb-5 mt-2">
-                        {/* Dynamic Glowing Border Container */}
                         <div className={`
                             w-60 h-60 mx-auto rounded-xl p-0.5 transition-all duration-700
                             ${style.bg} ${style.border} ${style.glow}
@@ -272,6 +270,25 @@ export const ItemDetailsPanel: React.FC<{
                 )}
                 
                 <StatSection title="STATYSTYKI BAZOWE" source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
+                
+                {/* Nowa sekcja Ataku Magicznego */}
+                {template.isMagical && template.magicAttackType && (
+                    <div className={`bg-purple-950/20 p-3 rounded-lg mt-2 border border-purple-900/30 ${isSmall ? 'text-xs' : 'text-sm'}`}>
+                        <h5 className="font-black uppercase text-[9px] tracking-widest text-purple-400 border-b border-purple-900/30 mb-2 pb-1">
+                            Atak Magiczny: {t(`item.magic.${template.magicAttackType}`)}
+                        </h5>
+                        <p className="text-gray-300 italic mb-2 leading-relaxed text-[11px]">
+                            {t(`item.magicDescriptions.${template.magicAttackType}`)}
+                        </p>
+                        {template.manaCost && (
+                            <div className="flex justify-between items-center text-[10px] font-bold text-purple-300 uppercase tracking-tighter pt-1 border-t border-purple-900/20">
+                                <span>Koszt Many:</span>
+                                <span className="font-mono">{template.manaCost.min} - {template.manaCost.max}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {!hideAffixes && item.rolledPrefix && prefix && <StatSection title={`PREFIKS: ${getGrammaticallyCorrectAffixName(prefix, template).toUpperCase()}`} source={item.rolledPrefix} metadata={prefix} isAffix={true} />}
                 {!hideAffixes && item.rolledSuffix && suffix && <StatSection title={`SUFIKS: ${getGrammaticallyCorrectAffixName(suffix, template).toUpperCase()}`} source={item.rolledSuffix} metadata={suffix} isAffix={true} />}
                 
