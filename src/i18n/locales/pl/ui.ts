@@ -2,6 +2,14 @@
 export default {
     sidebar: {
         title: 'Kroniki Mroku',
+        sections: {
+            hero: 'Bohater',
+            actions: 'Działania',
+            world: 'Świat',
+            economy: 'Gospodarka',
+            social: 'Społeczność',
+            system: 'System'
+        },
         statistics: 'Statystyki',
         equipment: 'Ekwipunek',
         expedition: 'Wyprawa',
@@ -228,7 +236,7 @@ export default {
         sellAllRarity: 'Sprzedaj wszystkie: {rarity}',
         noItemsToSellOfRarity: 'Brak przedmiotów tej rzadkości do sprzedania.',
         bulkSellConfirm: 'Czy na pewno chcesz sprzedać {count} przedmiotów ({types}) za łączną kwotę {value} złota?',
-        totalValue: 'Łączna Wartość',
+        totalValue: 'Łączna Vartość',
         sellSelected: 'Sprzedaj Zaznaczone ({count})',
         buyPrice: 'Cena Kupna',
         sellPrice: 'Cena Sprzedaży',

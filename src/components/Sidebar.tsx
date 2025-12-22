@@ -38,6 +38,21 @@ interface SidebarProps {
     settings?: GameSettings;
 }
 
+// Added MenuItem interface to resolve TypeScript errors with optional properties
+interface MenuItem {
+    tab: Tab;
+    icon: React.FC<React.SVGProps<SVGSVGElement>>;
+    label: string;
+    notification?: boolean;
+    adminOnly?: boolean;
+}
+
+interface MenuSection {
+    id: string;
+    label: string;
+    items: MenuItem[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
     activeTab,
     setActiveTab,
@@ -54,37 +69,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const isLocked = !!playerCharacter.activeTowerRun;
 
-    const menuItems = useMemo(() => [
-        { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
-        { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
-        { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
-        { tab: Tab.Tower, icon: IconMap, label: 'Wieża Mroku' },
-        { tab: Tab.Hunting, icon: IconShield, label: t('sidebar.hunting') }, 
-        { tab: Tab.Quests, icon: QuestIcon, label: t('sidebar.quests') },
-        { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
-        { tab: Tab.Location, icon: GlobeIcon, label: t('sidebar.location') },
-        { tab: Tab.Guild, icon: IconUsers, label: t('sidebar.guild') },
-        { tab: Tab.University, icon: IconBook, label: t('university.title') },
-        { tab: Tab.Resources, icon: IconSparkles, label: t('sidebar.resources') },
-        { tab: Tab.Ranking, icon: IconTrophy, label: t('sidebar.ranking') },
-        { tab: Tab.Messages, icon: IconMail, label: t('sidebar.messages'), notification: hasUnreadMessages },
-        { tab: Tab.Tavern, icon: IconMessage, label: t('sidebar.tavern'), notification: hasNewTavernMessages },
-        { tab: Tab.Market, icon: IconScale, label: t('sidebar.market') },
-        { tab: Tab.Trader, icon: IconHandshake, label: t('sidebar.trader') },
-        { tab: Tab.Blacksmith, icon: IconAnvil, label: t('sidebar.blacksmith') },
-        { tab: Tab.Options, icon: IconSettings, label: t('sidebar.options') },
-        { tab: Tab.Admin, icon: IconSettings, label: t('sidebar.admin') },
+    // Fixed: Explicitly typed menuSections to handle optional properties like adminOnly
+    const menuSections: MenuSection[] = useMemo(() => [
+        {
+            id: 'hero',
+            label: t('sidebar.sections.hero'),
+            items: [
+                { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
+                { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
+                { tab: Tab.University, icon: IconBook, label: t('university.title') },
+                { tab: Tab.Resources, icon: IconSparkles, label: t('sidebar.resources') },
+            ]
+        },
+        {
+            id: 'actions',
+            label: t('sidebar.sections.actions'),
+            items: [
+                { tab: Tab.Expedition, icon: IconMap, label: t('sidebar.expedition') },
+                { tab: Tab.Tower, icon: IconMap, label: 'Wieża Mroku' },
+                { tab: Tab.Hunting, icon: IconShield, label: t('sidebar.hunting') }, 
+                { tab: Tab.Quests, icon: QuestIcon, label: t('sidebar.quests') },
+            ]
+        },
+        {
+            id: 'world',
+            label: t('sidebar.sections.world'),
+            items: [
+                { tab: Tab.Location, icon: GlobeIcon, label: t('sidebar.location') },
+                { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
+            ]
+        },
+        {
+            id: 'economy',
+            label: t('sidebar.sections.economy'),
+            items: [
+                { tab: Tab.Market, icon: IconScale, label: t('sidebar.market') },
+                { tab: Tab.Trader, icon: IconHandshake, label: t('sidebar.trader') },
+                { tab: Tab.Blacksmith, icon: IconAnvil, label: t('sidebar.blacksmith') },
+            ]
+        },
+        {
+            id: 'social',
+            label: t('sidebar.sections.social'),
+            items: [
+                { tab: Tab.Guild, icon: IconUsers, label: t('sidebar.guild') },
+                { tab: Tab.Ranking, icon: IconTrophy, label: t('sidebar.ranking') },
+                { tab: Tab.Messages, icon: IconMail, label: t('sidebar.messages'), notification: hasUnreadMessages },
+                { tab: Tab.Tavern, icon: IconMessage, label: t('sidebar.tavern'), notification: hasNewTavernMessages },
+            ]
+        },
+        {
+            id: 'system',
+            label: t('sidebar.sections.system'),
+            items: [
+                { tab: Tab.Options, icon: IconSettings, label: t('sidebar.options') },
+                { tab: Tab.Admin, icon: IconSettings, label: t('sidebar.admin'), adminOnly: true },
+            ]
+        }
     ], [t, hasUnreadMessages, hasNewTavernMessages]);
 
-    const visibleMenuItems = useMemo(() => {
-        const isAdmin = playerCharacter.name === 'Kazujoshi';
-        return menuItems.filter(item => {
-            if (item.tab === Tab.Admin && !isAdmin) {
-                return false;
-            }
-            return true;
-        });
-    }, [menuItems, playerCharacter.name]);
+    const isAdmin = playerCharacter.name === 'Kazujoshi';
 
     const healthPercent = Math.max(0, Math.min(100, (playerCharacter.stats.currentHealth / playerCharacter.stats.maxHealth) * 100));
     const expPercent = Math.max(0, Math.min(100, (playerCharacter.experience / playerCharacter.experienceToNextLevel) * 100));
@@ -175,44 +219,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     </div>
 
-                    {/* Navigation Scrollable */}
-                    <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-3 custom-scrollbar">
-                        {visibleMenuItems.map((item) => {
-                            const Icon = item.icon;
-                            const isActive = activeTab === item.tab;
-                            const isDisabled = isLocked && item.tab !== Tab.Tower && item.tab !== Tab.Options;
-                            const isNotified = item.notification && !isDisabled;
+                    {/* Navigation Scrollable with Sections */}
+                    <nav className="flex-1 overflow-y-auto py-4 space-y-6 px-3 custom-scrollbar">
+                        {menuSections.map((section) => {
+                            // Fixed: Type-safe access to adminOnly
+                            const filteredItems = section.items.filter(item => !item.adminOnly || isAdmin);
+                            if (filteredItems.length === 0) return null;
 
                             return (
-                                <button
-                                    key={item.tab}
-                                    disabled={isDisabled}
-                                    onClick={() => { setActiveTab(item.tab); setIsMobileMenuOpen(false); }}
-                                    className={`
-                                        group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 border
-                                        ${isActive 
-                                            ? 'bg-indigo-600/20 text-white border-fantasy-gold/20 shadow-[0_0_15px_rgba(212,175,55,0.05)]' 
-                                            : isNotified
-                                                ? 'bg-fantasy-gold/10 text-fantasy-amber border-fantasy-gold/30 shadow-[0_0_12px_rgba(212,175,55,0.15)] animate-pulse'
-                                                : isDisabled 
-                                                    ? 'text-gray-700 cursor-not-allowed grayscale opacity-50 border-transparent'
-                                                    : 'text-gray-400 hover:bg-white/5 hover:text-white border-transparent'
-                                        }
-                                    `}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-1.5 rounded-md transition-colors ${
-                                            isActive 
-                                                ? 'bg-indigo-600 text-white' 
-                                                : isNotified
-                                                    ? 'bg-fantasy-gold/20 text-fantasy-amber'
-                                                    : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'
-                                        }`}>
-                                            <Icon className="h-4 w-4" />
-                                        </div>
-                                        <span className="font-medieval">{item.label}</span>
-                                    </div>
-                                </button>
+                                <div key={section.id} className="space-y-1">
+                                    <h3 className="px-3 text-[10px] font-black uppercase tracking-[0.2em] text-gray-600 mb-2">
+                                        {section.label}
+                                    </h3>
+                                    {filteredItems.map((item) => {
+                                        const Icon = item.icon;
+                                        const isActive = activeTab === item.tab;
+                                        const isDisabled = isLocked && item.tab !== Tab.Tower && item.tab !== Tab.Options;
+                                        const isNotified = 'notification' in item && item.notification && !isDisabled;
+
+                                        return (
+                                            <button
+                                                key={item.tab}
+                                                disabled={isDisabled}
+                                                onClick={() => { setActiveTab(item.tab); setIsMobileMenuOpen(false); }}
+                                                className={`
+                                                    group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border
+                                                    ${isActive 
+                                                        ? 'bg-indigo-600/20 text-white border-fantasy-gold/20 shadow-[0_0_15px_rgba(212,175,55,0.05)]' 
+                                                        : isNotified
+                                                            ? 'bg-fantasy-gold/10 text-fantasy-amber border-fantasy-gold/30 shadow-[0_0_12px_rgba(212,175,55,0.15)] animate-pulse'
+                                                            : isDisabled 
+                                                                ? 'text-gray-700 cursor-not-allowed grayscale opacity-50 border-transparent'
+                                                                : 'text-gray-400 hover:bg-white/5 hover:text-white border-transparent'
+                                                    }
+                                                `}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-1.5 rounded-md transition-colors ${
+                                                        isActive 
+                                                            ? 'bg-indigo-600 text-white' 
+                                                            : isNotified
+                                                                ? 'bg-fantasy-gold/20 text-fantasy-amber'
+                                                                : 'bg-slate-800/50 text-gray-500 group-hover:text-gray-300'
+                                                    }`}>
+                                                        <Icon className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-medieval">{item.label}</span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             );
                         })}
                     </nav>
