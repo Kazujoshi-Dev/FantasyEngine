@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -10,11 +9,41 @@ import { HandshakeIcon } from '../icons/HandshakeIcon';
 import { useCharacter } from '../../contexts/CharacterContext';
 
 export const rarityStyles = {
-    [ItemRarity.Common]: { border: 'border-slate-700', bg: 'bg-slate-800', shadow: 'shadow-none', text: 'text-gray-300' },
-    [ItemRarity.Uncommon]: { border: 'border-green-700', bg: 'bg-green-950', shadow: 'shadow-md shadow-green-500/10', text: 'text-green-400' },
-    [ItemRarity.Rare]: { border: 'border-sky-700', bg: 'bg-sky-950', shadow: 'shadow-md shadow-sky-500/10', text: 'text-sky-400' },
-    [ItemRarity.Epic]: { border: 'border-purple-700', bg: 'bg-purple-950', shadow: 'shadow-md shadow-purple-500/10', text: 'text-purple-400' },
-    [ItemRarity.Legendary]: { border: 'border-amber-600', bg: 'bg-amber-950', shadow: 'shadow-md shadow-amber-500/10', text: 'text-amber-400' },
+    [ItemRarity.Common]: { 
+        border: 'border-slate-700', 
+        bg: 'bg-slate-800', 
+        shadow: 'shadow-none', 
+        text: 'text-gray-300',
+        glow: 'shadow-[0_0_15px_rgba(51,65,85,0.3)]'
+    },
+    [ItemRarity.Uncommon]: { 
+        border: 'border-green-700', 
+        bg: 'bg-green-950', 
+        shadow: 'shadow-md shadow-green-500/10', 
+        text: 'text-green-400',
+        glow: 'shadow-[0_0_20px_rgba(21,128,61,0.3)]'
+    },
+    [ItemRarity.Rare]: { 
+        border: 'border-sky-700', 
+        bg: 'bg-sky-950', 
+        shadow: 'shadow-md shadow-sky-500/10', 
+        text: 'text-sky-400',
+        glow: 'shadow-[0_0_25px_rgba(3,105,161,0.4)]'
+    },
+    [ItemRarity.Epic]: { 
+        border: 'border-purple-700', 
+        bg: 'bg-purple-950', 
+        shadow: 'shadow-md shadow-purple-500/10', 
+        text: 'text-purple-400',
+        glow: 'shadow-[0_0_30px_rgba(126,34,206,0.4)]'
+    },
+    [ItemRarity.Legendary]: { 
+        border: 'border-amber-600', 
+        bg: 'bg-amber-950', 
+        shadow: 'shadow-md shadow-amber-500/10', 
+        text: 'text-amber-400',
+        glow: 'shadow-[0_0_40px_rgba(217,119,6,0.5)]'
+    },
 };
 
 const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
@@ -110,12 +139,14 @@ export const ItemDetailsPanel: React.FC<{
 
     if (!item || !template) return null;
 
+    const style = rarityStyles[template.rarity];
     const upgradeLevel = item.upgradeLevel || 0;
     const prefix = safeAffixes.find(a => a.id === item?.prefixId);
     const suffix = safeAffixes.find(a => a.id === item?.suffixId);
 
     const activeSets = useMemo(() => {
         if (!gameData?.itemSets) return [];
+        // Fix: Changed affix?.suffixId to item.suffixId to resolve undefined variable error
         return gameData.itemSets.filter(set => set.affixId === item.prefixId || set.affixId === item.suffixId);
     }, [gameData?.itemSets, item.prefixId, item.suffixId]);
 
@@ -223,13 +254,20 @@ export const ItemDetailsPanel: React.FC<{
         <div className={`flex flex-col w-full ${compact ? '' : 'h-full'}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-0.5' : 'pr-1'}`}>
                 {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">{title}</h5>}
-                <h4 className={`font-bold text-center leading-tight ${rarityStyles[template.rarity].text} ${isSmall ? 'text-base mb-1' : 'text-lg mb-2'}`}>
+                <h4 className={`font-bold text-center leading-tight ${style.text} ${isSmall ? 'text-base mb-1' : 'text-lg mb-2'}`}>
                     {getGrammaticallyCorrectFullName(item, template, safeAffixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
                 </h4>
                 {showIcon && template.icon && (
-                    <div className="relative group mb-3">
-                        <img src={template.icon} alt={template.name} className="w-60 h-60 object-contain mx-auto bg-slate-900 rounded-lg p-2 border border-white/5 shadow-inner" />
-                        {item.crafterName && (<div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
+                    <div className="relative group mb-5 mt-2">
+                        {/* Dynamic Glowing Border Container */}
+                        <div className={`
+                            w-60 h-60 mx-auto rounded-xl p-0.5 transition-all duration-700
+                            ${style.bg} ${style.border} ${style.glow}
+                            ${(template.rarity === ItemRarity.Rare || template.rarity === ItemRarity.Epic || template.rarity === ItemRarity.Legendary) ? 'animate-pulse' : ''}
+                        `}>
+                            <img src={template.icon} alt={template.name} className="w-full h-full object-contain bg-slate-950 rounded-lg p-2 shadow-inner" />
+                        </div>
+                        {item.crafterName && (<div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50 z-10">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
                     </div>
                 )}
                 
@@ -340,7 +378,6 @@ export const ItemTooltip: React.FC<{
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
     useEffect(() => { 
-        // Zmniejszono szerokość kontenera dla widoku pojedynczego z 320 do 300px
         const tooltipWidth = actualCompareWith ? 600 : 300;
 
         if (isCentered || onClose) { 
