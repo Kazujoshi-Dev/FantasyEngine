@@ -102,24 +102,24 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
         return (
             <ContentPanel title="Wyprawa w toku">
                 <div className="flex flex-col gap-6 h-full animate-fade-in max-w-5xl mx-auto">
-                    {/* Panoramiczny podgląd trwającej misji */}
-                    <div className="relative aspect-video rounded-3xl overflow-hidden border-2 border-indigo-500/30 shadow-2xl">
+                    {/* Panoramiczny podgląd - zmniejszony proporcjonalnie (21:7) */}
+                    <div className="relative aspect-[21/7] rounded-3xl overflow-hidden border-2 border-indigo-500/30 shadow-2xl">
                          {expedition?.image ? (
                             <img src={expedition.image} alt={expedition.name} className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-                                <MapIcon className="w-20 h-20 text-slate-800" />
+                                <MapIcon className="w-16 h-16 text-slate-800" />
                             </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-                        <div className="absolute bottom-0 left-0 right-0 p-8 flex justify-between items-end">
+                        <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end">
                             <div>
-                                <h3 className="text-4xl font-black text-white mb-2 tracking-tight">{expedition?.name}</h3>
-                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-sm">Status: Przemierzanie nieznanego</p>
+                                <h3 className="text-3xl font-black text-white mb-1 tracking-tight">{expedition?.name}</h3>
+                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">Eksploracja: {character.currentLocationId}</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-gray-400 text-xs font-black uppercase mb-1">Pozostały czas</p>
-                                <p className="text-5xl font-mono font-bold text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]">
+                                <p className="text-gray-400 text-[10px] font-black uppercase mb-1">Czas do powrotu</p>
+                                <p className="text-4xl font-mono font-bold text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.4)]">
                                     {formatTimeLeft(timeLeft)}
                                 </p>
                             </div>
@@ -127,20 +127,20 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
-                             <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Cel i opis</h4>
-                             <p className="text-gray-300 italic leading-relaxed">"{expedition?.description}"</p>
+                        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col justify-center">
+                             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Cel i opis</h4>
+                             <p className="text-gray-300 italic text-sm leading-relaxed">"{expedition?.description}"</p>
                         </div>
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3 justify-center">
                             <button 
                                 onClick={onCompletion} 
                                 disabled={timeLeft > 0} 
-                                className="w-full py-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-2xl transition-all disabled:grayscale disabled:opacity-30 shadow-xl shadow-indigo-900/20 active:scale-95"
+                                className="w-full py-5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl transition-all disabled:grayscale disabled:opacity-30 shadow-xl shadow-indigo-900/20 active:scale-95"
                             >
                                 {timeLeft > 0 ? "Wyprawa trwa..." : "Zakończ i odbierz łupy"}
                             </button>
-                            <button onClick={onCancelExpedition} className="py-3 text-red-400 hover:text-red-300 font-bold uppercase tracking-tighter transition-colors">
-                                Przerwij ekspedycję i wróć
+                            <button onClick={onCancelExpedition} className="py-2 text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-tighter transition-colors opacity-60 hover:opacity-100">
+                                Przerwij ekspedycję i wróć do obozu
                             </button>
                         </div>
                     </div>
@@ -174,79 +174,79 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                     )}
                 </div>
 
-                {/* SZCZEGÓŁY (Prawy Panel - Układ Pionowy: Image Top, Info Bottom) */}
+                {/* SZCZEGÓŁY (Prawy Panel) */}
                 {selectedExpedition ? (
-                    <div className="flex-1 flex flex-col gap-6 animate-fade-in">
+                    <div className="flex-1 flex flex-col gap-4 animate-fade-in">
                         
-                        {/* 1. SEKCJA GÓRNA: GRAFIKA */}
-                        <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-2 border-slate-700 shadow-2xl group">
+                        {/* 1. SEKCJA GÓRNA: GRAFIKA - Zmniejszona (21:7) i ograniczona szerokość */}
+                        <div className="relative aspect-[21/7] w-full max-w-4xl mx-auto rounded-3xl overflow-hidden border-2 border-slate-700 shadow-2xl group">
                             {selectedExpedition.image ? (
                                 <img src={selectedExpedition.image} alt={selectedExpedition.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
                             ) : (
                                 <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-                                    <MapIcon className="w-32 h-32 text-slate-800 opacity-20" />
+                                    <MapIcon className="w-24 h-24 text-slate-800 opacity-20" />
                                 </div>
                             )}
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
-                            <div className="absolute bottom-6 left-8">
-                                <h3 className="text-5xl font-black text-white tracking-tighter drop-shadow-2xl">{selectedExpedition.name}</h3>
-                                <p className="text-indigo-400 font-bold uppercase tracking-[0.2em] text-xs mt-2">Miejsce przeznaczenia</p>
+                            <div className="absolute bottom-5 left-8">
+                                <h3 className="text-4xl font-black text-white tracking-tighter drop-shadow-2xl">{selectedExpedition.name}</h3>
+                                <p className="text-indigo-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">Cel Ekspedycji</p>
                             </div>
                         </div>
 
                         {/* 2. SEKCJA DOLNA: INFORMACJE */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             
                             {/* Koszty i Czas */}
-                            <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 flex flex-col gap-4">
-                                <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                    <ClockIcon className="h-4 w-4" /> Wymagania i Czas
+                            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800 flex flex-col gap-3">
+                                <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                    <ClockIcon className="h-3 w-3" /> Wymagania i Czas
                                 </h4>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center p-3 bg-slate-950/50 rounded-xl">
-                                        <span className="text-gray-400 text-sm font-medium">Czas trwania</span>
-                                        <span className="text-white font-bold">{formatDuration(selectedExpedition.duration)}</span>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center p-2.5 bg-slate-950/50 rounded-xl border border-white/5">
+                                        <span className="text-gray-400 text-xs">Czas trwania</span>
+                                        <span className="text-white font-bold text-sm">{formatDuration(selectedExpedition.duration)}</span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-slate-950/50 rounded-xl">
-                                        <span className="text-gray-400 text-sm font-medium">Złoto (Koszt)</span>
-                                        <span className={`font-bold ${character.resources.gold >= selectedExpedition.goldCost ? 'text-white' : 'text-red-500'}`}>{selectedExpedition.goldCost}</span>
+                                    <div className="flex justify-between items-center p-2.5 bg-slate-950/50 rounded-xl border border-white/5">
+                                        <span className="text-gray-400 text-xs">Złoto (Koszt)</span>
+                                        <span className={`font-bold text-sm ${character.resources.gold >= selectedExpedition.goldCost ? 'text-white' : 'text-red-500'}`}>{selectedExpedition.goldCost}</span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-slate-950/50 rounded-xl">
-                                        <span className="text-gray-400 text-sm font-medium">Energia (Koszt)</span>
-                                        <span className={`font-bold ${character.stats.currentEnergy >= selectedExpedition.energyCost ? 'text-white' : 'text-red-500'}`}>{selectedExpedition.energyCost}</span>
+                                    <div className="flex justify-between items-center p-2.5 bg-slate-950/50 rounded-xl border border-white/5">
+                                        <span className="text-gray-400 text-xs">Energia (Koszt)</span>
+                                        <span className={`font-bold text-sm ${character.stats.currentEnergy >= selectedExpedition.energyCost ? 'text-white' : 'text-red-500'}`}>{selectedExpedition.energyCost}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Potencjalne Nagrody */}
-                            <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 flex flex-col gap-4">
-                                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                    <StarIcon className="h-4 w-4" /> Możliwe Łupy
+                            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800 flex flex-col gap-3">
+                                <h4 className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
+                                    <StarIcon className="h-3 w-3" /> Możliwe Łupy
                                 </h4>
                                 <div className="space-y-3">
-                                    <div className="p-4 bg-amber-900/10 border border-amber-600/20 rounded-xl flex flex-col gap-1">
-                                        <span className="text-amber-500/80 text-[10px] font-black uppercase">Złoto</span>
-                                        <span className="text-2xl font-mono font-bold text-white">{selectedExpedition.minBaseGoldReward} - {selectedExpedition.maxBaseGoldReward}</span>
+                                    <div className="p-3 bg-amber-900/10 border border-amber-600/20 rounded-xl flex flex-col gap-0.5">
+                                        <span className="text-amber-500/80 text-[8px] font-black uppercase">Złoto (Min-Max)</span>
+                                        <span className="text-xl font-mono font-bold text-white">{selectedExpedition.minBaseGoldReward} - {selectedExpedition.maxBaseGoldReward}</span>
                                     </div>
-                                    <div className="p-4 bg-sky-900/10 border border-sky-600/20 rounded-xl flex flex-col gap-1">
-                                        <span className="text-sky-400/80 text-[10px] font-black uppercase">Doświadczenie</span>
-                                        <span className="text-2xl font-mono font-bold text-white">{selectedExpedition.minBaseExperienceReward} - {selectedExpedition.maxBaseExperienceReward}</span>
+                                    <div className="p-3 bg-sky-900/10 border border-sky-600/20 rounded-xl flex flex-col gap-0.5">
+                                        <span className="text-sky-400/80 text-[8px] font-black uppercase">Doświadczenie</span>
+                                        <span className="text-xl font-mono font-bold text-white">{selectedExpedition.minBaseExperienceReward} - {selectedExpedition.maxBaseExperienceReward}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Analiza Zagrożeń */}
-                            <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 flex flex-col gap-4">
-                                <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
-                                    <ShieldIcon className="h-4 w-4" /> Wywiad (Wrogowie)
+                            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800 flex flex-col gap-3">
+                                <h4 className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+                                    <ShieldIcon className="h-3 w-3" /> Wywiad (Wrogowie)
                                 </h4>
-                                <div className="flex-grow overflow-y-auto max-h-[160px] pr-2 space-y-2 custom-scrollbar">
+                                <div className="flex-grow overflow-y-auto max-h-[140px] pr-1 space-y-1.5 custom-scrollbar">
                                     {selectedExpedition.enemies.map(e => {
                                         const enemy = enemies.find(en => en.id === e.enemyId);
                                         return (
                                             <div key={e.enemyId} className="flex justify-between items-center p-2 bg-slate-950/30 rounded-lg border border-white/5">
-                                                <span className="text-gray-300 text-sm font-bold truncate pr-2">{enemy?.name}</span>
-                                                <span className="text-red-500/70 font-mono text-[10px] whitespace-nowrap">{e.spawnChance}% szans</span>
+                                                <span className="text-gray-300 text-xs font-bold truncate pr-2">{enemy?.name}</span>
+                                                <span className="text-red-500/70 font-mono text-[9px] whitespace-nowrap">{e.spawnChance}%</span>
                                             </div>
                                         );
                                     })}
@@ -255,14 +255,14 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
 
                         </div>
 
-                        {/* PRZYCISK AKCJI */}
+                        {/* PRZYCISK AKCJI - Bardziej zwarty */}
                         <button 
                             onClick={() => handleEmbark(selectedExpedition.id)} 
                             disabled={character.resources.gold < selectedExpedition.goldCost || character.stats.currentEnergy < selectedExpedition.energyCost}
-                            className="w-full py-8 rounded-3xl bg-green-600 hover:bg-green-500 text-white font-black text-3xl uppercase tracking-widest transition-all duration-300 shadow-2xl shadow-green-950/40 active:scale-[0.98] disabled:grayscale disabled:opacity-20 disabled:cursor-not-allowed group"
+                            className="w-full py-6 mt-2 rounded-3xl bg-green-600 hover:bg-green-500 text-white font-black text-2xl uppercase tracking-widest transition-all duration-300 shadow-2xl shadow-green-950/40 active:scale-[0.98] disabled:grayscale disabled:opacity-20 disabled:cursor-not-allowed group border-t border-white/10"
                         >
                             <span className="flex items-center justify-center gap-4">
-                                <SwordsIcon className="h-8 w-8 transition-transform group-hover:rotate-12" />
+                                <SwordsIcon className="h-7 w-7 transition-transform group-hover:rotate-12" />
                                 Wyrusz na wyprawę
                             </span>
                         </button>
@@ -270,8 +270,8 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center opacity-20 grayscale">
-                        <MapIcon className="w-48 h-48 mb-6" />
-                        <p className="text-3xl font-black uppercase tracking-[0.3em]">Wybierz cel podróży</p>
+                        <MapIcon className="w-40 h-40 mb-4" />
+                        <p className="text-2xl font-black uppercase tracking-[0.3em]">Wybierz cel podróży</p>
                     </div>
                 )}
             </div>
