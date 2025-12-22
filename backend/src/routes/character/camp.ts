@@ -68,7 +68,7 @@ router.post('/upgrade', async (req: any, res: any) => {
         const char = charRes.rows[0].data;
         const cost = getCampUpgradeCost(char.camp.level);
         if (char.resources.gold < cost.gold) throw new Error("Za mało złota.");
-        for (const e of cost.essences) if (char.resources[e.type] < e.amount) throw new Error(`Brak esencji: ${e.type}`);
+        for (const e of cost.essences) if ((char.resources[e.type] || 0) < e.amount) throw new Error(`Brak esencji: ${e.type}`);
         char.resources.gold -= cost.gold;
         for (const e of cost.essences) char.resources[e.type] -= e.amount;
         char.camp.level += 1;
@@ -85,19 +85,36 @@ router.post('/backpack-upgrade', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
-        const char = charRes.rows[0].data;
-        const cost = getBackpackUpgradeCost(char.backpack?.level || 1);
-        if (char.resources.gold < cost.gold) throw new Error("Za mało złota.");
-        for (const e of cost.essences) if (char.resources[e.type] < e.amount) throw new Error(`Brak esencji: ${e.type}`);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
+        const char = charRes.rows[0].data as PlayerCharacter;
+        const currentBackpackLevel = char.backpack?.level || 1;
+        const cost = getBackpackUpgradeCost(currentBackpackLevel);
+        
+        if ((char.resources.gold || 0) < cost.gold) throw new Error("Za mało złota.");
+        
+        for (const e of cost.essences) {
+            const owned = char.resources[e.type] || 0;
+            if (owned < e.amount) throw new Error(`Brak esencji: ${e.type}`);
+        }
+        
         char.resources.gold -= cost.gold;
-        for (const e of cost.essences) char.resources[e.type] -= e.amount;
-        if(!char.backpack) char.backpack = { level: 1 };
-        char.backpack.level += 1;
+        for (const e of cost.essences) {
+            char.resources[e.type] -= e.amount;
+        }
+        
+        if (!char.backpack) char.backpack = { level: 1 };
+        char.backpack.level = currentBackpackLevel + 1;
+        
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
         await client.query('COMMIT');
         res.json(char);
-    } catch (err: any) { await client.query('ROLLBACK'); res.status(400).json({ message: err.message }); }
-    finally { client.release(); }
+    } catch (err: any) { 
+        await client.query('ROLLBACK'); 
+        res.status(400).json({ message: err.message }); 
+    } finally { 
+        client.release(); 
+    }
 });
 
 export default router;
