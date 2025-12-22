@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -233,7 +232,7 @@ export const Equipment: React.FC = () => {
                             {Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}
                         </select>
                     </div>
-                    <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-2 content-start">
+                    <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-2">
                         {filteredInventory.map(item => {
                             const template = gameData.itemTemplates.find(t => t.id === item.templateId);
                             if (!template) return false;
