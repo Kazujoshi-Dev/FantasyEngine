@@ -115,7 +115,7 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                         <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end">
                             <div>
                                 <h3 className="text-3xl font-black text-white mb-1 tracking-tight">{expedition?.name}</h3>
-                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">Eksploracja: {character.currentLocationId}</p>
+                                <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">Status: Przemierzanie krain</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-gray-400 text-[10px] font-black uppercase mb-1">Czas do powrotu</p>
@@ -149,6 +149,12 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
         );
     }
 
+    // Obliczanie czasu rzeczywistego (z bonusami)
+    const getRealDuration = (baseDuration: number) => {
+        const reduction = (character.guildStablesLevel || 0) * 0.1;
+        return Math.max(5, Math.floor(baseDuration * (1 - reduction)));
+    };
+
     return (
         <ContentPanel title="Dostępne Wyprawy">
             <div className="flex flex-col lg:flex-row gap-8 h-full">
@@ -157,20 +163,27 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                     {availableExpeditions.length === 0 ? (
                         <p className="text-gray-500 italic text-center py-10">Brak dostępnych wypraw w tej lokacji.</p>
                     ) : (
-                        availableExpeditions.map(exp => (
-                            <button 
-                                key={exp.id}
-                                onClick={() => setSelectedExpedition(exp)}
-                                className={`group flex flex-col p-4 rounded-xl border-2 transition-all text-left ${selectedExpedition?.id === exp.id ? 'bg-indigo-600/10 border-indigo-500 shadow-lg' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`}
-                            >
-                                <p className={`font-bold text-sm ${selectedExpedition?.id === exp.id ? 'text-white' : 'text-gray-400'}`}>{exp.name}</p>
-                                <div className="flex items-center gap-3 mt-2 text-[10px] font-bold opacity-60">
-                                     <span className="flex items-center text-amber-500"><CoinsIcon className="h-3 w-3 mr-1"/> {exp.goldCost}</span>
-                                     <span className="flex items-center text-sky-400"><BoltIcon className="h-3 w-3 mr-1"/> {exp.energyCost}</span>
-                                     <span className="flex items-center text-gray-300"><ClockIcon className="h-3 w-3 mr-1"/> {formatDuration(exp.duration)}</span>
-                                </div>
-                            </button>
-                        ))
+                        availableExpeditions.map(exp => {
+                            const realDur = getRealDuration(exp.duration);
+                            return (
+                                <button 
+                                    key={exp.id}
+                                    onClick={() => setSelectedExpedition(exp)}
+                                    className={`group flex flex-col p-4 rounded-xl border-2 transition-all text-left ${selectedExpedition?.id === exp.id ? 'bg-indigo-600/10 border-indigo-500 shadow-lg' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`}
+                                >
+                                    <p className={`font-bold text-sm ${selectedExpedition?.id === exp.id ? 'text-white' : 'text-gray-400'}`}>{exp.name}</p>
+                                    <div className="flex items-center gap-3 mt-2 text-[10px] font-bold opacity-60">
+                                         <span className="flex items-center text-amber-500"><CoinsIcon className="h-3 w-3 mr-1"/> {exp.goldCost}</span>
+                                         <span className="flex items-center text-sky-400"><BoltIcon className="h-3 w-3 mr-1"/> {exp.energyCost}</span>
+                                         <span className="flex items-center text-gray-300">
+                                             <ClockIcon className="h-3 w-3 mr-1"/> 
+                                             {formatDuration(exp.duration)}
+                                             {realDur !== exp.duration && <span className="text-green-400 ml-1">({formatDuration(realDur)})</span>}
+                                         </span>
+                                    </div>
+                                </button>
+                            );
+                        })
                     )}
                 </div>
 
@@ -205,7 +218,12 @@ export const ExpeditionComponent: React.FC<ExpeditionProps> = ({ onCompletion })
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center p-2.5 bg-slate-950/50 rounded-xl border border-white/5">
                                         <span className="text-gray-400 text-xs">Czas trwania</span>
-                                        <span className="text-white font-bold text-sm">{formatDuration(selectedExpedition.duration)}</span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-white font-bold text-sm">{formatDuration(selectedExpedition.duration)}</span>
+                                            {getRealDuration(selectedExpedition.duration) !== selectedExpedition.duration && (
+                                                <span className="text-[10px] text-green-400 font-black">({formatDuration(getRealDuration(selectedExpedition.duration))})</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex justify-between items-center p-2.5 bg-slate-950/50 rounded-xl border border-white/5">
                                         <span className="text-gray-400 text-xs">Złoto (Koszt)</span>

@@ -125,6 +125,7 @@ export interface PlayerCharacter {
     guildId?: number;
     guildBarracksLevel?: number;
     guildShrineLevel?: number;
+    guildStablesLevel?: number;
     activeGuildBuffs?: GuildBuff[];
     
     settings?: { language: Language };
@@ -136,7 +137,7 @@ export interface PlayerCharacter {
     activeTowerRun?: ActiveTowerRun;
     resetsUsed?: number; 
 }
-// Pozostałe interfejsy bez zmian...
+
 export interface PublicCharacterProfile { name: string; level: number; race: Race; characterClass?: CharacterClass; experience: number; pvpWins: number; pvpLosses: number; guildName?: string; guildTag?: string; avatarUrl?: string; description?: string; isOnline: boolean; }
 export interface AdminCharacterInfo { user_id: number; username: string; name: string; level: number; gold: number; race: Race; characterClass?: CharacterClass; }
 export interface RankingPlayer { id: number; name: string; race: Race; characterClass?: CharacterClass; level: number; experience: number; pvpWins: number; pvpLosses: number; pvpProtectionUntil: number; guildTag?: string; isOnline: boolean; }

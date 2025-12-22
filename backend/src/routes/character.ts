@@ -50,6 +50,7 @@ router.get('/', async (req: any, res: any) => {
             charData.guildId = row.guild_id;
             charData.guildBarracksLevel = row.buildings?.barracks || 0;
             charData.guildShrineLevel = row.buildings?.shrine || 0;
+            charData.guildStablesLevel = row.buildings?.stables || 0;
             const { pruned, wasModified } = pruneExpiredBuffs(row.active_buffs || []);
             if (wasModified) {
                 await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(pruned), row.guild_id]);
