@@ -11,6 +11,13 @@ import { CoinsIcon } from '@/components/icons/CoinsIcon';
 import { StarIcon } from '@/components/icons/StarIcon';
 import { useCharacter } from '@/contexts/CharacterContext';
 
+// Local Trash Icon for quick deletion
+const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6" />
+    </svg>
+);
+
 interface ComposeMessageModalProps {
     allCharacterNames: string[];
     onClose: () => void;
@@ -577,13 +584,22 @@ export const Messages: React.FC<MessagesProps> = ({ initialRecipient, onClearIni
                                 </p>
                                 <div className="flex justify-between items-center mt-1">
                                     <p className="text-xs text-gray-500">{new Date(msg.created_at).toLocaleDateString()}</p>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleToggleSave(msg.id); }}
-                                        className={`p-1 rounded hover:bg-slate-600 transition-colors ${msg.is_saved ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-200'}`}
-                                        title={msg.is_saved ? t('messages.unsave') : t('messages.save')}
-                                    >
-                                        <StarIcon className="h-4 w-4 fill-current" />
-                                    </button>
+                                    <div className="flex flex-col gap-1 items-center">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
+                                            className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-slate-600 transition-colors"
+                                            title={t('messages.delete')}
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSave(msg.id); }}
+                                            className={`p-1 rounded hover:bg-slate-600 transition-colors ${msg.is_saved ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-200'}`}
+                                            title={msg.is_saved ? t('messages.unsave') : t('messages.save')}
+                                        >
+                                            <StarIcon className="h-4 w-4 fill-current" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
