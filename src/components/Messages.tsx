@@ -473,6 +473,7 @@ export const Messages: React.FC<MessagesProps> = ({ initialRecipient, onClearIni
     const bossNameForModal = selectedBoss?.name || initialEnemyForModal?.name;
     
     const savedCount = messages.filter(m => m.is_saved).length;
+    const inboxCount = messages.filter(m => !m.is_saved).length;
 
     return (
         <ContentPanel title={t('messages.title')}>
@@ -539,7 +540,7 @@ export const Messages: React.FC<MessagesProps> = ({ initialRecipient, onClearIni
                             onClick={() => { setActiveFolder('inbox'); setCurrentPage(1); }}
                             className={`flex-1 py-2 text-sm font-medium transition-colors ${activeFolder === 'inbox' ? 'text-white border-b-2 border-indigo-500' : 'text-gray-400 hover:text-white'}`}
                         >
-                            {t('messages.inbox')}
+                            {t('messages.inbox')} ({inboxCount}/50)
                         </button>
                         <button 
                             onClick={() => { setActiveFolder('saved'); setCurrentPage(1); }}
