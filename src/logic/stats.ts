@@ -51,7 +51,7 @@ export const calculateDerivedStats = (
         armor: 0,
         critChance: 0,
         critDamageModifier: 200,
-        attacksPerRound: 0,
+        attacksPerRound: 1,
         dodgeChance: 0,
         manaRegen: 0,
         armorPenetrationPercent: 0,
@@ -212,12 +212,10 @@ export const calculateDerivedStats = (
     const ohTemplate = ohItem ? safeItemTemplates.find(t => t.id === ohItem.templateId) : null;
     
     const baseAPR = Number(mhTemplate?.attacksPerRound) || 1;
-    const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound + totalPrimaryStats.attacksPerRound).toFixed(2));
+    const attacksPerRound = parseFloat((baseAPR + bonusAttacksPerRound).toFixed(2));
 
-    // maxHealth uwzględnia stamina, bonusy z EQ ORAZ bonusy z totalPrimaryStats (Zestawy/Buffy)
-    let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth + totalPrimaryStats.maxHealth;
-    // maxMana uwzględnia inteligencję ORAZ bonusy z totalPrimaryStats (Zestawy/Buffy)
-    let maxMana = 20 + totalPrimaryStats.intelligence * 10 + totalPrimaryStats.maxMana;
+    let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
+    let maxMana = 20 + totalPrimaryStats.intelligence * 10;
     if (character.activeSkills) {
         character.activeSkills.forEach(sId => {
             const s = safeSkills.find(sk => sk.id === sId);
@@ -228,14 +226,14 @@ export const calculateDerivedStats = (
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
-    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin + totalPrimaryStats.minDamage;
-    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax + totalPrimaryStats.maxDamage;
+    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin;
+    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
     let ohMin = 0, ohMax = 0;
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
-        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin + totalPrimaryStats.minDamage;
-        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax + totalPrimaryStats.maxDamage;
+        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
+        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
     }
 
     if (isDualWieldActive && ohItem) {
@@ -246,10 +244,10 @@ export const calculateDerivedStats = (
     }
 
     const intBonus = Math.floor(totalPrimaryStats.intelligence * 1.5);
-    let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
-    let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus + totalPrimaryStats.magicDamageMax : 0;
-    let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus + totalPrimaryStats.magicDamageMin : 0;
-    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus + totalPrimaryStats.magicDamageMax : 0;
+    let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
+    let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
+    let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus : 0;
 
     if (isDualWieldActive && ohItem) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
@@ -260,18 +258,18 @@ export const calculateDerivedStats = (
 
     if (guildBarracksLevel > 0) {
         const mult = 1 + (guildBarracksLevel * 0.05);
-        mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
-        ohMin = Math.round(ohMin * mult); ohMax = Math.round(ohMax * mult);
-        mhMagMin = Math.round(mhMagMin * mult); mhMagMax = Math.round(mhMagMax * mult);
-        ohMagMin = Math.round(ohMagMin * mult); ohMagMax = Math.round(ohMagMax * mult);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
     }
 
     if (totalPrimaryStats.damageBonusPercent > 0) {
         const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
-        mhMin = Math.round(mhMin * mult); mhMax = Math.round(mhMax * mult);
-        ohMin = Math.round(ohMin * mult); ohMax = Math.round(ohMax * mult);
-        mhMagMin = Math.round(mhMagMin * mult); mhMagMax = Math.round(mhMagMax * mult);
-        ohMagMin = Math.round(ohMagMin * mult); ohMagMax = Math.round(ohMagMax * mult);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
     }
 
     return {
@@ -288,17 +286,17 @@ export const calculateDerivedStats = (
             currentMana: Math.min(Number(character.stats.currentMana) || maxMana, maxMana),
             currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
-            armor: bonusArmor + totalPrimaryStats.armor + (character.race === Race.Dwarf ? 5 : 0),
-            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance + totalPrimaryStats.critChance,
-            critDamageModifier: 200 + bonusCritDamageModifier + totalPrimaryStats.critDamageModifier,
-            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + totalPrimaryStats.dodgeChance + (character.race === Race.Gnome ? 10 : 0),
-            manaRegen: totalPrimaryStats.intelligence * 2 + totalPrimaryStats.manaRegen + (character.race === Race.Elf ? 10 : 0),
-            armorPenetrationPercent: bonusArmorPenetrationPercent + totalPrimaryStats.armorPenetrationPercent,
-            armorPenetrationFlat: bonusArmorPenetrationFlat + totalPrimaryStats.armorPenetrationFlat,
-            lifeStealPercent: bonusLifeStealPercent + totalPrimaryStats.lifeStealPercent,
-            lifeStealFlat: bonusLifeStealFlat + totalPrimaryStats.lifeStealFlat,
-            manaStealPercent: bonusManaStealPercent + totalPrimaryStats.manaStealPercent,
-            manaStealFlat: bonusManaStealFlat + totalPrimaryStats.manaStealFlat,
+            armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
+            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
+            critDamageModifier: bonusCritDamageModifier + totalPrimaryStats.critDamageModifier,
+            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0),
+            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
+            armorPenetrationPercent: bonusArmorPenetrationPercent,
+            armorPenetrationFlat: bonusArmorPenetrationFlat,
+            lifeStealPercent: bonusLifeStealPercent,
+            lifeStealFlat: bonusLifeStealFlat,
+            manaStealPercent: bonusManaStealPercent,
+            manaStealFlat: bonusManaStealFlat,
         }
     };
 };
