@@ -48,16 +48,22 @@ router.post('/accept', authenticateToken, async (req: any, res: any) => {
             return res.status(400).json({ message: 'Musisz być w odpowiedniej lokacji, aby przyjąć to zadanie.' });
         }
 
-        // Sprawdzenie limitu dziennego przy akceptacji (na wypadek manipulacji frontem)
-        if (quest.category === QuestCategory.Daily) {
-            const progress = character.questProgress.find(p => p.questId === questId);
-            if (progress && progress.lastCompletedAt) {
-                const lastReset = new Date();
-                lastReset.setUTCHours(0, 0, 0, 0);
-                if (progress.lastCompletedAt >= lastReset.getTime()) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({ message: 'Daily quest already completed today.' });
-                }
+        // --- DAILY RESET LOGIC ---
+        const progress = character.questProgress.find(p => p.questId === questId);
+        if (quest.category === QuestCategory.Daily && progress && progress.lastCompletedAt) {
+            const lastReset = new Date();
+            lastReset.setUTCHours(0, 0, 0, 0); // Północ UTC
+            
+            if (progress.lastCompletedAt >= lastReset.getTime()) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: 'To zadanie dzienne zostało już dzisiaj wykonane.' });
+            }
+        } else if (quest.category === QuestCategory.Normal && progress) {
+            // Dla zwykłych zadań sprawdzamy limit powtórzeń
+            const limit = quest.repeatable === 0 ? Infinity : (quest.repeatable || 1);
+            if (progress.completions >= limit) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ message: 'Osiągnięto limit ukończeń tego zadania.' });
             }
         }
         

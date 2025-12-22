@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
 import { Quest, QuestType, QuestCategory, Enemy, ItemTemplate, EssenceType, ItemRarity, ItemInstance, Affix } from '../types';
@@ -7,7 +7,7 @@ import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { QuestIcon } from './icons/QuestIcon';
 import { ClockIcon } from './icons/ClockIcon';
-import { CheckIcon } from './icons/CheckIcon'; // Zakładam istnienie lub dodanie prostej ikony check
+import { CheckIcon } from './icons/CheckIcon';
 import { rarityStyles, ItemTooltip } from './shared/ItemSlot';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
@@ -64,12 +64,13 @@ const QuestCard: React.FC<{
 
     const progressData = character.questProgress?.find(p => p.questId === quest.id) || { progress: 0, completions: 0 };
     
-    // Sprawdzanie dostępności dla zadań dziennych
+    // Sprawdzanie czy ukończono DZISIAJ (Reset 00:00 UTC)
     const lastReset = new Date();
     lastReset.setUTCHours(0, 0, 0, 0);
     const completedToday = quest.category === QuestCategory.Daily && progressData.lastCompletedAt && progressData.lastCompletedAt >= lastReset.getTime();
     
-    const canStillComplete = !completedToday && (quest.repeatable === 0 || progressData.completions < quest.repeatable);
+    // Zadanie dzienne można robić raz dziennie, zwykłe wg limitu repeatable
+    const canStillComplete = !completedToday && (quest.category === QuestCategory.Daily || quest.repeatable === 0 || progressData.completions < quest.repeatable);
     
     if (!quest.objective) return null;
     const { objective } = quest;
@@ -109,7 +110,6 @@ const QuestCard: React.FC<{
 
     return (
         <div key={quest.id} className={`bg-slate-900/40 rounded-xl border transition-all duration-300 overflow-hidden ${isAccepted ? 'border-indigo-500/50 ring-1 ring-indigo-500/10' : 'border-slate-700/50'} ${completedToday ? 'opacity-50 grayscale' : ''}`}>
-            {/* Quest Image Header */}
             {quest.image && (
                 <div className="relative w-full h-32 md:h-40 overflow-hidden border-b border-slate-700/50">
                     <img src={quest.image} alt={quest.name} className="w-full h-full object-cover" />
@@ -217,6 +217,27 @@ const QuestCard: React.FC<{
 export const Quests: React.FC = () => {
     const { character, gameData } = useCharacter();
     const { t } = useTranslation();
+    const [timeToReset, setTimeToReset] = useState('');
+
+    // Licznik do północy UTC
+    useEffect(() => {
+        const updateTimer = () => {
+            const now = new Date();
+            const nextReset = new Date();
+            nextReset.setUTCHours(24, 0, 0, 0);
+            const diff = nextReset.getTime() - now.getTime();
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff / (1000 * 60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+            
+            setTimeToReset(`${hours}h ${minutes}m ${seconds}s`);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     if (!character || !gameData) return null;
 
@@ -231,14 +252,15 @@ export const Quests: React.FC = () => {
         
         const progress = character.questProgress?.find(p => p.questId === q.id);
         if (progress) {
-            // Logika dla zadań dziennych
+            const lastReset = new Date();
+            lastReset.setUTCHours(0, 0, 0, 0);
+            const completedToday = progress.lastCompletedAt && progress.lastCompletedAt >= lastReset.getTime();
+
             if (q.category === QuestCategory.Daily) {
-                const lastReset = new Date();
-                lastReset.setUTCHours(0, 0, 0, 0);
-                if (progress.lastCompletedAt && progress.lastCompletedAt >= lastReset.getTime()) {
-                    return false;
-                }
+                // Zadania dzienne: dostępne jeśli nie ukończone DZISIAJ
+                if (completedToday) return false;
             } else {
+                // Zadania normalne: dostępne jeśli nie przekroczono limitu powtórzeń
                 const limit = q.repeatable === 0 ? Infinity : (q.repeatable || 1);
                 if (progress.completions >= limit) return false;
             }
@@ -250,7 +272,6 @@ export const Quests: React.FC = () => {
         const progress = character.questProgress?.find(p => p.questId === q.id);
         if (!progress || progress.completions === 0) return false;
         
-        // Filtrujemy tylko ukończone w tej lokacji (lub globalne)
         const isInLocation = q.locationIds?.includes(character.currentLocationId) || !q.locationIds || q.locationIds.length === 0;
         return isInLocation;
     });
@@ -258,6 +279,20 @@ export const Quests: React.FC = () => {
     return (
         <ContentPanel title={t('quests.title')}>
             <div className="space-y-12 pb-12 pr-2">
+                <div className="flex justify-between items-center bg-slate-900/60 p-4 rounded-xl border border-amber-600/20">
+                    <div className="flex items-center gap-3">
+                        <ClockIcon className="h-5 w-5 text-amber-400" />
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Nowe zadania dzienne za:</p>
+                            <p className="font-mono text-xl font-bold text-amber-400">{timeToReset}</p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Aktualny czas serwera:</p>
+                         <p className="text-sm font-mono text-gray-300">{new Date().toUTCString().split(' ')[4]} UTC</p>
+                    </div>
+                </div>
+
                 <section>
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-amber-400 mb-6 px-2 border-b border-white/5 pb-3 flex justify-between items-center">
                         <span>{t('quests.acceptedQuests')}</span>
