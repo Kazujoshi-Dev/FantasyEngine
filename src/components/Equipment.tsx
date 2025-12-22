@@ -181,9 +181,13 @@ export const Equipment: React.FC = () => {
                                 <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><SwordsIcon className="h-3 w-3" /> Ofensywa</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Obrażenia Fizyczne" value={`${character.stats.minDamage} - ${character.stats.maxDamage}`} color="text-white" />
-                                    {character.stats.magicDamageMax > 0 && <StatRow label="Obrażenia Magiczne" value={`${character.stats.magicDamageMin} - ${character.stats.magicDamageMax}`} color="text-purple-400" />}
+                                    <StatRow label="Obrażenia Magiczne" value={`${character.stats.magicDamageMin} - ${character.stats.magicDamageMax}`} color="text-purple-400" />
+                                    <StatRow label="Modyfikator Krytyka" value={`${character.stats.critDamageModifier}%`} color="text-red-400" />
                                     <StatRow label="Szansa na Krytyk" value={`${character.stats.critChance.toFixed(1)}%`} color="text-red-400" />
                                     <StatRow label="Ataki na Rundę" value={character.stats.attacksPerRound} />
+                                    <StatRow label="Penetracja Pancerza" value={`${character.stats.armorPenetrationPercent}% / ${character.stats.armorPenetrationFlat}`} color="text-gray-400" />
+                                    <StatRow label="Kradzież Życia" value={`${character.stats.lifeStealPercent}% / ${character.stats.lifeStealFlat}`} color="text-green-500" />
+                                    <StatRow label="Kradzież Many" value={`${character.stats.manaStealPercent}% / ${character.stats.manaStealFlat}`} color="text-blue-500" />
                                 </div>
                             </div>
 
