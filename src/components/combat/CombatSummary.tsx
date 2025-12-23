@@ -212,7 +212,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                         <div className="space-y-1">
                             {logsWithRoundHeaders.map((entry, idx) => (
                                 'isHeader' in entry ? 
-                                <div key={idx} className="text-center text-slate-500 text-[10px] my-4 uppercase font-bold border-b border-slate-800 pb-1">Runda {entry.round === 0 ? '0 (Przygotowanie)' : entry.round}</div> :
+                                <div key={idx} className="text-center text-slate-500 text-[10px] my-4 uppercase font-bold border-b border-slate-800 pb-1">Runda {entry.round === 0 ? '0 (Atak z dystansu)' : entry.round}</div> :
                                 <CombatLogRow key={idx} log={entry} characterName={characterName} isHunting={isHunting} huntingMembers={huntingMembers} />
                             ))}
                             <div ref={logEndRef} className="h-4" />
