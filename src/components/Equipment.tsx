@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -12,6 +13,7 @@ import { SwordsIcon } from './icons/SwordsIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { StarIcon } from './icons/StarIcon';
 import { CoinsIcon } from './icons/CoinsIcon';
+import { LoadoutManager } from './equipment/LoadoutManager';
 
 const slotOrder: EquipmentSlot[] = [
     EquipmentSlot.Head,
@@ -180,6 +182,8 @@ export const Equipment: React.FC = () => {
 
     return (
         <ContentPanel title={t('equipment.title')}>
+            <LoadoutManager />
+            
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[80vh]">
                 
                 {/* Paper Doll */}
