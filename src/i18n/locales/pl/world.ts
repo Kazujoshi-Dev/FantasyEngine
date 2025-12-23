@@ -13,6 +13,7 @@ export default {
         travelingTitle: 'Podróżowanie...',
         arrivesIn: 'Dotrzesz za:',
         availableFacilities: 'Dostępne Udogodnienia',
+        unavailableFacilities: 'Niedostępne w tej okolicy',
     },
     resources: {
         title: 'Zasoby',

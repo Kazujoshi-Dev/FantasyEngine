@@ -147,6 +147,50 @@ export const Location: React.FC = () => {
           <p className="text-4xl font-extrabold text-white">{currentLocation.name}</p>
           {currentLocation.image && <img src={currentLocation.image} alt={currentLocation.name} className="w-full h-48 object-cover rounded-lg my-4 border border-slate-700/50" />}
           <p className="text-gray-400 mt-4 italic">{currentLocation.description}</p>
+          
+          <div className="mt-8 pt-6 border-t border-slate-700/50">
+             <div className="grid grid-cols-1 gap-6">
+                {/* Dostępne udogodnienia */}
+                <div>
+                   <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400 mb-4">{t('location.availableFacilities')}</h4>
+                   <div className="flex flex-wrap gap-3">
+                      {Object.keys(tabInfoMap).map(tabKey => {
+                        const tabId = tabKey as Tab;
+                        const isAvailable = currentLocation.availableTabs?.includes(tabId);
+                        if (!isAvailable) return null;
+                        const info = tabInfoMap[tabId]!;
+                        return (
+                          <div key={tabId} className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 px-3 py-2 rounded-lg text-indigo-200">
+                             {/* Fix: cast to element with className prop to resolve type error on line 164 */}
+                             {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
+                             <span className="text-sm font-bold">{info.label}</span>
+                          </div>
+                        );
+                      })}
+                   </div>
+                </div>
+
+                {/* Niedostępne udogodnienia */}
+                <div>
+                   <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">{t('location.unavailableFacilities')}</h4>
+                   <div className="flex flex-wrap gap-3">
+                      {Object.keys(tabInfoMap).map(tabKey => {
+                        const tabId = tabKey as Tab;
+                        const isAvailable = currentLocation.availableTabs?.includes(tabId);
+                        if (isAvailable) return null;
+                        const info = tabInfoMap[tabId]!;
+                        return (
+                          <div key={tabId} className="flex items-center gap-2 bg-slate-800/20 border border-slate-700/50 px-3 py-2 rounded-lg text-slate-500 opacity-60 grayscale">
+                             {/* Fix: cast to element with className prop to resolve type error on line 183 */}
+                             {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
+                             <span className="text-sm font-medium">{info.label}</span>
+                          </div>
+                        );
+                      })}
+                   </div>
+                </div>
+             </div>
+          </div>
         </div>
 
         <div className="bg-slate-900/40 p-6 rounded-xl">
