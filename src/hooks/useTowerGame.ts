@@ -82,12 +82,9 @@ export const useTowerGame = () => {
         try {
             const res = await api.fightTower();
             
-            // ARCHITEKTURA NAPRAWY: Pobieramy przeciwników aktualnego piętra dla EnemyListPanel
-            const currentFloorNum = state.activeRun.currentFloor;
-            const floorConfig = state.activeTower.floors.find(f => f.floorNumber === currentFloorNum);
-            const encounteredEnemies: Enemy[] = floorConfig 
-                ? floorConfig.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter((e): e is Enemy => !!e)
-                : [];
+            // ARCHITEKTURA NAPRAWY: Używamy listy przeciwników przesłanej prosto z backendu.
+            // Posiada ona unikalne ID (UUID) identyczne z tymi w combatLog.
+            const encounteredEnemies: Enemy[] = res.enemies || [];
 
             if (res.victory) {
                 const newFloor = res.currentFloor || state.activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);

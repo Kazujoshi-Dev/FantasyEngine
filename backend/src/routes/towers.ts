@@ -395,7 +395,8 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     itemsFound: rewards.items,
                     essencesFound: rewards.essences,
                     combatLog: combatLog,
-                    rewardBreakdown: [{ source: `Ukończono Wieżę: ${tower.name}`, gold: rewards.gold, experience: rewards.experience }]
+                    rewardBreakdown: [{ source: `Ukończono Wieżę: ${tower.name}`, gold: rewards.gold, experience: rewards.experience }],
+                    encounteredEnemies: enemiesToFight
                 };
                 await client.query(`INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) VALUES ($1, 'System', 'expedition_report', $2, $3)`, [userId, `Wieża Ukończona: ${tower.name}`, JSON.stringify(summary)]);
             } else {
@@ -403,14 +404,14 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             }
 
             await client.query('COMMIT');
-            res.json({ victory: true, combatLog, rewards, isTowerComplete, currentFloor: activeRun.current_floor });
+            res.json({ victory: true, combatLog, rewards, isTowerComplete, currentFloor: activeRun.current_floor, enemies: enemiesToFight });
         } else {
             await client.query("UPDATE tower_runs SET status = 'FAILED', current_health = 0 WHERE id = $1", [activeRun.id]);
             const dbChar: PlayerCharacter = charRes.rows[0].data;
             dbChar.stats.currentHealth = 0;
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(dbChar), userId]);
             await client.query('COMMIT');
-            res.json({ victory: false, combatLog });
+            res.json({ victory: false, combatLog, enemies: enemiesToFight });
         }
     } catch (err: any) {
         await client.query('ROLLBACK');
