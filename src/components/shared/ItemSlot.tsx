@@ -335,16 +335,36 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate; affixes: Affix[]; isSelected: boolean; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void; showPrimaryStat?: boolean; isEquipped?: boolean; meetsRequirements?: boolean; onMouseEnter?: (e: React.MouseEvent) => void; onMouseLeave?: (e: React.MouseEvent) => void; className?: string; price?: number; }> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price }) => { 
+export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate; affixes: Affix[]; isSelected: boolean; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void; showPrimaryStat?: boolean; isEquipped?: boolean; meetsRequirements?: boolean; onMouseEnter?: (e: React.MouseEvent) => void; onMouseLeave?: (e: React.MouseEvent) => void; className?: string; price?: number; source?: 'inventory' | 'equipment'; fromSlot?: EquipmentSlot; }> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price, source, fromSlot }) => { 
     const style = rarityStyles[template.rarity]; 
     const upgradeLevel = item.upgradeLevel || 0; 
+    
+    const handleDragStart = (e: React.DragEvent) => {
+        e.dataTransfer.setData('application/json', JSON.stringify({ 
+            uniqueId: item.uniqueId, 
+            source,
+            fromSlot 
+        }));
+        // Wizualny efekt przeciągania
+        const target = e.target as HTMLElement;
+        target.style.opacity = '0.5';
+    };
+
+    const handleDragEnd = (e: React.DragEvent) => {
+        const target = e.target as HTMLElement;
+        target.style.opacity = '1';
+    };
+
     return ( 
         <div 
+            draggable={!!source}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
             onClick={onClick} 
             onDoubleClick={onDoubleClick} 
             onMouseEnter={onMouseEnter} 
             onMouseLeave={onMouseLeave} 
-            className={`flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-200 ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
+            className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
         > 
             <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative shadow-inner`}> 
                 {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-600" />} 

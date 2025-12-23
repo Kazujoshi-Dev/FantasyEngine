@@ -47,6 +47,10 @@ export const Equipment: React.FC = () => {
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     
+    // Stany dla wizualnego feedbacku Drag and Drop
+    const [isDragOverPaperDoll, setIsDragOverPaperDoll] = useState(false);
+    const [isDragOverBackpack, setIsDragOverBackpack] = useState(false);
+
     // Timer do debouncowania zamykania tooltipa
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -94,6 +98,45 @@ export const Equipment: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
 
+    // --- Obsługa Drag and Drop ---
+
+    const handleDragOver = (e: React.DragEvent, zone: 'paperdoll' | 'backpack') => {
+        e.preventDefault();
+        if (zone === 'paperdoll') setIsDragOverPaperDoll(true);
+        else setIsDragOverBackpack(true);
+    };
+
+    const handleDragLeave = (zone: 'paperdoll' | 'backpack') => {
+        if (zone === 'paperdoll') setIsDragOverPaperDoll(false);
+        else setIsDragOverBackpack(false);
+    };
+
+    const handleDrop = async (e: React.DragEvent, targetZone: 'paperdoll' | 'backpack') => {
+        e.preventDefault();
+        setIsDragOverPaperDoll(false);
+        setIsDragOverBackpack(false);
+
+        try {
+            const dataStr = e.dataTransfer.getData('application/json');
+            if (!dataStr) return;
+            
+            const data = JSON.parse(dataStr);
+            const { uniqueId, source, fromSlot } = data;
+
+            // Logika: upuszczenie na Equipment
+            if (targetZone === 'paperdoll' && source === 'inventory') {
+                const item = character.inventory.find(i => i.uniqueId === uniqueId);
+                if (item) await handleEquip(item);
+            }
+            // Logika: upuszczenie na Backpack
+            else if (targetZone === 'backpack' && source === 'equipment' && fromSlot) {
+                await handleUnequip(fromSlot);
+            }
+        } catch (err) {
+            console.error("DND Drop Error:", err);
+        }
+    };
+
     const handleMouseEnter = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
         if (closeTimerRef.current) {
             clearTimeout(closeTimerRef.current);
@@ -104,7 +147,6 @@ export const Equipment: React.FC = () => {
     };
 
     const handleMouseLeave = () => {
-        // Zwiększony czas (300ms) pozwala spokojnie przejechać myszką do środka ekranu
         closeTimerRef.current = setTimeout(() => {
             setInspectedItem(null);
         }, 300);
@@ -141,8 +183,16 @@ export const Equipment: React.FC = () => {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[80vh]">
                 
                 {/* Paper Doll */}
-                <div className="xl:col-span-3 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
-                    <h3 className="text-sm fantasy-header font-black text-indigo-400 mb-4 px-2 uppercase tracking-widest border-b border-indigo-500/20 pb-2">Wyposażenie</h3>
+                <div 
+                    onDragOver={(e) => handleDragOver(e, 'paperdoll')}
+                    onDragLeave={() => handleDragLeave('paperdoll')}
+                    onDrop={(e) => handleDrop(e, 'paperdoll')}
+                    className={`xl:col-span-3 p-4 rounded-2xl border transition-all duration-300 flex flex-col min-h-0 ${isDragOverPaperDoll ? 'bg-indigo-900/20 border-indigo-500 shadow-2xl scale-[1.02]' : 'bg-slate-900/40 border-white/5'}`}
+                >
+                    <h3 className="text-sm fantasy-header font-black text-indigo-400 mb-4 px-2 uppercase tracking-widest border-b border-indigo-500/20 pb-2 flex justify-between">
+                        <span>Wyposażenie</span>
+                        {isDragOverPaperDoll && <span className="text-[9px] animate-pulse">Upuść, by założyć</span>}
+                    </h3>
                     <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-2">
                         {slotOrder.map(slot => {
                             const item = character.equipment[slot];
@@ -151,7 +201,18 @@ export const Equipment: React.FC = () => {
                             if ((slot === EquipmentSlot.MainHand || slot === EquipmentSlot.OffHand) && character.equipment.twoHand) return null;
                             return item && template ? (
                                 <div key={slot} onContextMenu={(e) => handleRightClick(e, item, 'equipment', slot)}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleUnequip(slot)} />
+                                    <ItemListItem 
+                                        item={item} 
+                                        template={template} 
+                                        affixes={gameData.affixes} 
+                                        isSelected={false} 
+                                        onClick={() => {}} 
+                                        onMouseEnter={(e) => handleMouseEnter(item, template, e)} 
+                                        onMouseLeave={handleMouseLeave} 
+                                        onDoubleClick={() => handleUnequip(slot)}
+                                        source="equipment"
+                                        fromSlot={slot}
+                                    />
                                 </div>
                             ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
@@ -215,9 +276,17 @@ export const Equipment: React.FC = () => {
                 </div>
 
                 {/* Plecak */}
-                <div className="xl:col-span-5 bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex flex-col min-h-0">
+                <div 
+                    onDragOver={(e) => handleDragOver(e, 'backpack')}
+                    onDragLeave={() => handleDragLeave('backpack')}
+                    onDrop={(e) => handleDrop(e, 'backpack')}
+                    className={`xl:col-span-5 p-4 rounded-2xl border transition-all duration-300 flex flex-col min-h-0 ${isDragOverBackpack ? 'bg-indigo-900/20 border-indigo-500 shadow-2xl scale-[1.02]' : 'bg-slate-900/40 border-white/5'}`}
+                >
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-sm fantasy-header font-black text-sky-400 uppercase tracking-widest">Plecak</h3>
+                        <h3 className="text-sm fantasy-header font-black text-sky-400 uppercase tracking-widest">
+                            Plecak
+                            {isDragOverBackpack && <span className="ml-2 text-[9px] animate-pulse">Upuść, by zdjąć</span>}
+                        </h3>
                         <span className="font-mono text-xs font-bold text-gray-500 bg-slate-950 px-3 py-1 rounded-full border border-white/5">{character.inventory.length} / {backpackCapacity}</span>
                     </div>
                     <div className="flex gap-2 mb-4">
@@ -242,7 +311,17 @@ export const Equipment: React.FC = () => {
                             if (!template) return false;
                             return (
                                 <div key={item.uniqueId} onContextMenu={(e) => handleRightClick(e, item, 'inventory')}>
-                                    <ItemListItem item={item} template={template} affixes={gameData.affixes} isSelected={false} onClick={() => {}} onMouseEnter={(e) => handleMouseEnter(item, template, e)} onMouseLeave={handleMouseLeave} onDoubleClick={() => handleEquip(item)} />
+                                    <ItemListItem 
+                                        item={item} 
+                                        template={template} 
+                                        affixes={gameData.affixes} 
+                                        isSelected={false} 
+                                        onClick={() => {}} 
+                                        onMouseEnter={(e) => handleMouseEnter(item, template, e)} 
+                                        onMouseLeave={handleMouseLeave} 
+                                        onDoubleClick={() => handleEquip(item)}
+                                        source="inventory"
+                                    />
                                 </div>
                             );
                         })}
