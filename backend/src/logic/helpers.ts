@@ -1,7 +1,8 @@
 
 import { randomBytes, pbkdf2Sync, timingSafeEqual } from 'crypto';
 import { Buffer } from 'buffer';
-import { PlayerCharacter, GuildBuff } from '../types.js';
+import { PlayerCharacter } from '../types.js';
+// Import pruneExpiredBuffs to handle character synchronization
 import { pruneExpiredBuffs } from './guilds.js';
 
 export const hashPassword = (password: string) => {
@@ -33,6 +34,9 @@ export const verifyPassword = (password: string, salt: string, storedHash: strin
 
 export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 
+// Enforces a limit of unsaved messages in the inbox (FIFO).
+// Keeps the 'limit' newest unsaved messages, deletes the rest.
+// Use limit = 49 before inserting 1 new message to maintain a cap of 50.
 export const enforceInboxLimit = async (client: any, userId: number, limit: number = 49) => {
     await client.query(`
         DELETE FROM messages
@@ -46,8 +50,8 @@ export const enforceInboxLimit = async (client: any, userId: number, limit: numb
 };
 
 /**
- * Pobiera kompletny obiekt postaci wraz z danymi relacyjnymi (Gildia, Buff-y, Wieża).
- * Zapobiega znikaniu gildii po aktualizacji surowych danych w JSONB.
+ * central logic for fetching full character data, used by multiple routes to ensure consistency.
+ * It fetches the base JSONB data and joins with user and guild tables for derived stats context.
  */
 export const fetchFullCharacter = async (client: any, userId: number): Promise<PlayerCharacter | null> => {
     const result = await client.query(`
@@ -61,23 +65,27 @@ export const fetchFullCharacter = async (client: any, userId: number): Promise<P
         WHERE c.user_id = $1
     `, [userId]);
 
-    if (result.rows.length === 0) return null;
+    if (result.rows.length === 0) {
+        return null;
+    }
 
     const row = result.rows[0];
     const charData: PlayerCharacter = row.data;
 
-    // Sychronizacja pól dynamicznych
+    // Apply defensive defaults for data consistency
     if (!charData.loadouts) charData.loadouts = [];
     if (!charData.resources) charData.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
     if (row.email) charData.email = row.email;
     if (charData.honor === undefined) charData.honor = 0;
 
+    // Synchronize guild-related context
     if (row.guild_id) {
         charData.guildId = row.guild_id;
         charData.guildBarracksLevel = row.buildings?.barracks || 0;
         charData.guildShrineLevel = row.buildings?.shrine || 0;
         charData.guildStablesLevel = row.buildings?.stables || 0;
         
+        // Prune expired buffs and sync if needed
         const { pruned, wasModified } = pruneExpiredBuffs(row.active_buffs || []);
         if (wasModified) {
             await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(pruned), row.guild_id]);
@@ -87,6 +95,7 @@ export const fetchFullCharacter = async (client: any, userId: number): Promise<P
         }
     }
 
+    // Map active tower run if present
     if (row.active_tower_run) {
         charData.activeTowerRun = {
             id: row.active_tower_run.id,

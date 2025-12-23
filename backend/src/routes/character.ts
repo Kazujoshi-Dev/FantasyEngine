@@ -3,6 +3,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, Race } from '../types.js';
+// centralize fetching logic
 import { fetchFullCharacter } from '../logic/helpers.js';
 
 // Import sub-routers
@@ -23,17 +24,20 @@ router.get('/', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const character = await fetchFullCharacter(client, req.user.id);
         
-        if (!character) {
+        // Use central helper to fetch character with guild context and pruned buffs
+        const charData = await fetchFullCharacter(client, req.user.id);
+
+        if (!charData) {
             await client.query('ROLLBACK');
             return res.json(null);
         }
 
         await client.query('COMMIT');
-        res.json(character);
+        res.json(charData);
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("Error fetching character data:", err);
         res.status(500).json({ message: 'Błąd pobierania postaci' });
     } finally {
         if (client) client.release();
@@ -56,15 +60,16 @@ router.post('/update-profile', async (req: any, res: any) => {
         if (avatarUrl !== undefined) character.avatarUrl = avatarUrl;
         if (settings !== undefined) character.settings = { ...character.settings, ...settings };
         
+        // Aktualizacja danych w tabeli characters
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         
+        // Opcjonalna aktualizacja emaila w tabeli users
         if (email) {
             await client.query('UPDATE users SET email = $1 WHERE id = $2', [email, req.user.id]);
         }
 
-        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(fullChar);
+        res.json(character);
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: err.message });
@@ -82,16 +87,18 @@ router.post('/', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
 
+        // Sprawdź czy użytkownik ma już postać
         const existingCheck = await client.query('SELECT id FROM characters WHERE user_id = $1', [req.user.id]);
         if (existingCheck.rows.length > 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Użytkownik posiada już postać.' });
         }
 
+        // Sprawdź czy imię jest zajęte
         const nameCheck = await client.query("SELECT id FROM characters WHERE data->>'name' = $1", [name]);
         if (nameCheck.rows.length > 0) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'To imię jest już zajęty.' });
+            return res.status(400).json({ message: 'To imię jest już zajęte.' });
         }
 
         const initialCharacter: Partial<PlayerCharacter> = {
@@ -143,14 +150,13 @@ router.post('/', async (req: any, res: any) => {
             resetsUsed: 0
         };
 
-        await client.query(
-            'INSERT INTO characters (user_id, data) VALUES ($1, $2)',
+        const insertResult = await client.query(
+            'INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data',
             [req.user.id, JSON.stringify(initialCharacter)]
         );
 
-        const character = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.status(201).json(character);
+        res.status(201).json(insertResult.rows[0].data);
     } catch (err: any) {
         await client.query('ROLLBACK');
         console.error("CREATE CHARACTER ERROR:", err);

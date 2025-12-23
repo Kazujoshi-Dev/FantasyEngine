@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { pool } from '../db.js';
 import { calculateTotalExperience } from '../logic/stats.js';
@@ -6,7 +7,7 @@ import { PublicCharacterProfile } from '../types.js';
 const router = express.Router();
 
 /**
- * Public routes for viewing shared combat reports and guild profiles.
+ * Public routes for viewing shared combat reports and character profiles.
  */
 
 router.get('/report/:id', async (req, res) => {
@@ -15,7 +16,7 @@ router.get('/report/:id', async (req, res) => {
         if (result.rowCount === 0) return res.status(404).json({ message: 'Report not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ message: 'Error' });
+        res.status(500).json({ message: 'Błąd pobierania raportu' });
     }
 });
 
@@ -39,7 +40,7 @@ router.get('/raid/:id', async (req, res) => {
             sender_name: 'Gildia'
         });
     } catch (err) {
-        res.status(500).json({ message: 'Error' });
+        res.status(500).json({ message: 'Błąd pobierania rajdu' });
     }
 });
 
@@ -64,7 +65,7 @@ router.get('/profile/:name', async (req, res) => {
                 EXISTS (
                     SELECT 1 
                     FROM sessions s 
-                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '2 minutes'
+                    WHERE s.user_id = c.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes'
                 ) as "isOnline"
             FROM characters c
             LEFT JOIN guild_members gm ON c.user_id = gm.user_id
@@ -84,7 +85,7 @@ router.get('/profile/:name', async (req, res) => {
             level: row.level,
             race: row.race,
             characterClass: row.characterClass,
-            experience: totalXp, // Returning total summed experience
+            experience: totalXp,
             pvpWins: row.pvpWins || 0,
             pvpLosses: row.pvpLosses || 0,
             honor: row.honor || 0,

@@ -3,15 +3,16 @@ import express from 'express';
 import { pool } from '../../db.js';
 import { calculateDerivedStatsOnServer, getCampUpgradeCost, getBackpackUpgradeCost } from '../../logic/stats.js';
 import { PlayerCharacter } from '../../types.js';
-import { fetchFullCharacter } from '../../logic/helpers.js';
 
 const router = express.Router();
 
+// POST /api/character/camp/heal - Leczenie w obozie
 router.post('/heal', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
+        // Pobierz postać i dane gildii dla prawidłowego wyliczenia statystyk
         const result = await client.query(`
             SELECT 
                 c.data, g.buildings, g.active_buffs
@@ -21,7 +22,9 @@ router.post('/heal', async (req: any, res: any) => {
             WHERE c.user_id = $1 FOR UPDATE OF c
         `, [req.user.id]);
 
-        if (result.rows.length === 0) throw new Error("Postać nie znaleziona.");
+        if (result.rows.length === 0) {
+            throw new Error("Postać nie znaleziona.");
+        }
 
         const char = result.rows[0].data as PlayerCharacter;
         const buildings = result.rows[0].buildings || {};
@@ -30,6 +33,7 @@ router.post('/heal', async (req: any, res: any) => {
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes', 'skills')");
         const gameData = gameDataRes.rows.reduce((acc: any, r: any) => ({ ...acc, [r.key]: r.data }), {});
         
+        // Oblicz pełne statystyki (z uwzględnieniem EQ i gildii), aby poznać aktualne Max HP
         const derived = calculateDerivedStatsOnServer(
             char, 
             gameData.itemTemplates || [], 
@@ -45,16 +49,17 @@ router.post('/heal', async (req: any, res: any) => {
         char.isResting = false;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
-        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(fullChar);
+        res.json(char);
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
+        console.error("HEAL ERROR:", err);
         res.status(500).json({ message: err.message || 'Błąd leczenia' }); 
     }
     finally { client.release(); }
 });
 
+// POST /api/character/camp/upgrade - Ulepszenie obozu
 router.post('/upgrade', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
@@ -68,13 +73,13 @@ router.post('/upgrade', async (req: any, res: any) => {
         for (const e of cost.essences) char.resources[e.type] -= e.amount;
         char.camp.level += 1;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
-        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(fullChar);
+        res.json(char);
     } catch (err: any) { await client.query('ROLLBACK'); res.status(400).json({ message: err.message }); }
     finally { client.release(); }
 });
 
+// POST /api/character/camp/backpack-upgrade
 router.post('/backpack-upgrade', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
@@ -94,15 +99,16 @@ router.post('/backpack-upgrade', async (req: any, res: any) => {
         }
         
         char.resources.gold -= cost.gold;
-        for (const e of cost.essences) char.resources[e.type] -= e.amount;
+        for (const e of cost.essences) {
+            char.resources[e.type] -= e.amount;
+        }
         
         if (!char.backpack) char.backpack = { level: 1 };
         char.backpack.level = currentBackpackLevel + 1;
         
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
-        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(fullChar);
+        res.json(char);
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
         res.status(400).json({ message: err.message }); 
