@@ -6,6 +6,8 @@ import { StarIcon } from '../icons/StarIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { HandshakeIcon } from '../icons/HandshakeIcon';
+import { PlusIcon } from '../icons/PlusIcon';
+import { MinusIcon } from '../icons/MinusIcon';
 import { useCharacter } from '../../contexts/CharacterContext';
 
 export const rarityStyles = {
@@ -335,7 +337,25 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate; affixes: Affix[]; isSelected: boolean; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void; showPrimaryStat?: boolean; isEquipped?: boolean; meetsRequirements?: boolean; onMouseEnter?: (e: React.MouseEvent) => void; onMouseLeave?: (e: React.MouseEvent) => void; className?: string; price?: number; source?: 'inventory' | 'equipment'; fromSlot?: EquipmentSlot; }> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price, source, fromSlot }) => { 
+export const ItemListItem: React.FC<{ 
+    item: ItemInstance; 
+    template: ItemTemplate; 
+    affixes: Affix[]; 
+    isSelected: boolean; 
+    onClick: (e: React.MouseEvent) => void; 
+    onDoubleClick?: () => void; 
+    showPrimaryStat?: boolean; 
+    isEquipped?: boolean; 
+    meetsRequirements?: boolean; 
+    onMouseEnter?: (e: React.MouseEvent) => void; 
+    onMouseLeave?: (e: React.MouseEvent) => void; 
+    className?: string; 
+    price?: number; 
+    source?: 'inventory' | 'equipment'; 
+    fromSlot?: EquipmentSlot;
+    onAction?: (e: React.MouseEvent) => void;
+    actionType?: 'equip' | 'unequip';
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price, source, fromSlot, onAction, actionType }) => { 
     const style = rarityStyles[template.rarity]; 
     const upgradeLevel = item.upgradeLevel || 0; 
     
@@ -355,6 +375,11 @@ export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate
         target.style.opacity = '1';
     };
 
+    const handleActionClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onAction) onAction(e);
+    };
+
     return ( 
         <div 
             draggable={!!source}
@@ -364,7 +389,7 @@ export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate
             onDoubleClick={onDoubleClick} 
             onMouseEnter={onMouseEnter} 
             onMouseLeave={onMouseLeave} 
-            className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
+            className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 group ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
         > 
             <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative shadow-inner`}> 
                 {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-600" />} 
@@ -380,7 +405,21 @@ export const ItemListItem: React.FC<{ item: ItemInstance; template: ItemTemplate
                         </div> 
                     )} 
                 </div> 
-            </div> 
+            </div>
+
+            {onAction && (
+                <button
+                    onClick={handleActionClick}
+                    className={`ml-2 p-1.5 rounded-md transition-all duration-300 opacity-0 group-hover:opacity-100 flex items-center justify-center border ${
+                        actionType === 'equip' 
+                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 hover:bg-emerald-600 hover:text-white' 
+                        : 'bg-rose-600/20 border-rose-500 text-rose-400 hover:bg-rose-600 hover:text-white'
+                    }`}
+                    title={actionType === 'equip' ? 'Załóż' : 'Zdejmij'}
+                >
+                    {actionType === 'equip' ? <PlusIcon className="h-3 w-3" /> : <MinusIcon className="h-3 w-3" />}
+                </button>
+            )}
         </div> 
     ); 
 };

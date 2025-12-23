@@ -212,6 +212,8 @@ export const Equipment: React.FC = () => {
                                         onDoubleClick={() => handleUnequip(slot)}
                                         source="equipment"
                                         fromSlot={slot}
+                                        onAction={() => handleUnequip(slot)}
+                                        actionType="unequip"
                                     />
                                 </div>
                             ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
@@ -321,6 +323,8 @@ export const Equipment: React.FC = () => {
                                         onMouseLeave={handleMouseLeave} 
                                         onDoubleClick={() => handleEquip(item)}
                                         source="inventory"
+                                        onAction={() => handleEquip(item)}
+                                        actionType="equip"
                                     />
                                 </div>
                             );
