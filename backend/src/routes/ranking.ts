@@ -1,4 +1,3 @@
-
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -18,6 +17,7 @@ router.get('/', async (req: any, res: any) => {
                 COALESCE((c.data->>'experience')::bigint, 0) as experience,
                 COALESCE((c.data->>'pvpWins')::int, 0) as "pvpWins",
                 COALESCE((c.data->>'pvpLosses')::int, 0) as "pvpLosses",
+                COALESCE((c.data->>'honor')::int, 0) as honor,
                 COALESCE((c.data->>'pvpProtectionUntil')::bigint, 0) as "pvpProtectionUntil",
                 g.tag as "guildTag",
                 EXISTS (

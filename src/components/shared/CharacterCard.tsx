@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
 import { PublicCharacterProfile } from '../../types';
@@ -104,21 +102,30 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
                 )}
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
+                <div className="grid grid-cols-3 gap-2 mb-6 relative z-10">
                     <div className="bg-slate-700/30 p-3 rounded-lg flex flex-col items-center">
                         <div className="flex items-center text-sky-400 mb-1">
                             <StarIcon className="h-4 w-4 mr-1" />
-                            <span className="text-xs font-bold uppercase">{t('ranking.experience')}</span>
+                            <span className="text-[10px] font-bold uppercase">PD</span>
                         </div>
-                        <span className="text-xl font-mono font-bold text-white" title="Całkowite PD">{profile.experience.toLocaleString()}</span>
+                        <span className="text-sm font-mono font-bold text-white" title="Całkowite PD">{profile.experience.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-slate-700/30 p-3 rounded-lg flex flex-col items-center">
+                        <div className="flex items-center text-indigo-400 mb-1">
+                            <StarIcon className="h-4 w-4 mr-1" />
+                            <span className="text-[10px] font-bold uppercase">Honor</span>
+                        </div>
+                        <span className={`text-sm font-mono font-bold ${profile.honor > 0 ? 'text-indigo-400' : profile.honor < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {profile.honor > 0 ? `+${profile.honor}` : profile.honor}
+                        </span>
                     </div>
                     <div className="bg-slate-700/30 p-3 rounded-lg flex flex-col items-center">
                         <div className="flex items-center text-red-400 mb-1">
                             <TrophyIcon className="h-4 w-4 mr-1" />
-                            <span className="text-xs font-bold uppercase">PvP (W/L)</span>
+                            <span className="text-[10px] font-bold uppercase">PvP (W/L)</span>
                         </div>
-                        <span className="text-xl font-mono font-bold text-white">
-                            <span className="text-green-400">{profile.pvpWins}</span> / <span className="text-red-400">{profile.pvpLosses}</span>
+                        <span className="text-sm font-mono font-bold text-white">
+                            <span className="text-green-400">{profile.pvpWins}</span>/<span className="text-red-400">{profile.pvpLosses}</span>
                         </span>
                     </div>
                 </div>

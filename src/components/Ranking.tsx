@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult } from '../types';
@@ -9,12 +8,14 @@ import { BoltIcon } from './icons/BoltIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
-import { EyeIcon } from './icons/EyeIcon'; // New icon
+import { EyeIcon } from './icons/EyeIcon';
+import { StarIcon } from './icons/StarIcon';
 import { api } from '../api';
 import { CharacterCard } from './shared/CharacterCard';
 import { GuildCard } from './shared/GuildCard';
-import { SpyReportModal } from './SpyReportModal'; // New Modal
+import { SpyReportModal } from './SpyReportModal';
 import { useCharacter } from '@/contexts/CharacterContext';
+import { calculatePvPRange } from '@/logic/stats';
 
 interface RankingProps {
   ranking: RankingPlayer[];
@@ -59,7 +60,6 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
   
-  // State for Cards & Modals
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
   const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
   const [spyReport, setSpyReport] = useState<SpyReportResult | null>(null);
@@ -78,6 +78,8 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   }, [activeTab]);
   
   if (!currentPlayer) return null;
+
+  const currentPvPRange = calculatePvPRange(currentPlayer.level);
 
   const handleSpy = async (targetId: number, targetLevel: number) => {
       const cost = Math.max(100, targetLevel * 50);
@@ -110,7 +112,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
 
   const getAttackDisabledReason = (target: RankingPlayer): string | null => {
       if (target.id === currentPlayer.id) return t('pvp.cannotAttackSelf');
-      if (Math.abs(target.level - currentPlayer.level) > 3) return t('pvp.levelRangeError');
+      if (Math.abs(target.level - currentPlayer.level) > currentPvPRange) return `Różnica poziomów jest zbyt duża (Twój zakres to +/- ${currentPvPRange}).`;
       if (currentPlayer.stats.currentEnergy < 3) return t('pvp.notEnoughEnergy');
       const protectionEnds = new Date(target.pvpProtectionUntil).getTime();
       if (protectionEnds > Date.now()) {
@@ -173,8 +175,8 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
                     <th scope="col" className="p-4 bg-slate-900/90">{t('ranking.race')}</th>
                     <th scope="col" className="p-4 bg-slate-900/90">{t('ranking.class')}</th>
                     <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.level')}</th>
+                    <th scope="col" className="p-4 text-center bg-slate-900/90">Honor</th>
                     <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.wins')}</th>
-                    <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.losses')}</th>
                     <th scope="col" className="p-4 text-right bg-slate-900/90">{t('ranking.experience')}</th>
                     <th scope="col" className="p-4 text-center bg-slate-900/90">{t('ranking.action')}</th>
                 </tr>
@@ -242,11 +244,11 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
                         <td className="p-4 text-lg font-mono text-center text-gray-300">
                         {player.level}
                         </td>
+                        <td className={`p-4 text-lg font-mono text-center font-bold ${player.honor > 0 ? 'text-indigo-400' : player.honor < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                            {player.honor > 0 ? `+${player.honor}` : player.honor}
+                        </td>
                         <td className="p-4 text-lg font-mono text-center text-green-400">
                             {player.pvpWins || 0}
-                        </td>
-                        <td className="p-4 text-lg font-mono text-center text-red-400">
-                            {player.pvpLosses || 0}
                         </td>
                         <td className="p-4 text-lg font-mono text-right text-sky-400">
                         {player.experience.toLocaleString()}

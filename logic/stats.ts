@@ -10,6 +10,11 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
+// Oblicza dynamiczny zakres poziomów dla PvP (rośnie wraz z levelem)
+export const calculatePvPRange = (level: number): number => {
+    return 3 + Math.floor(level / 7);
+};
+
 export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
@@ -261,7 +266,7 @@ export const calculateDerivedStats = (
         mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
         ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
         mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
-        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
     }
 
     if (totalPrimaryStats.damageBonusPercent > 0) {
@@ -269,7 +274,7 @@ export const calculateDerivedStats = (
         mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
         ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
         mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
-        ohMagMin = Math.floor(ohMagMin * mult); ohMagMax = Math.floor(ohMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
     }
 
     return {

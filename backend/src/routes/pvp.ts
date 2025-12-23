@@ -2,7 +2,7 @@ import express, { Request as ExpressRequest, Response as ExpressResponse } from 
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, PvpRewardSummary, Enemy, Race, CharacterClass, GuildBuff, CombatType } from '../types.js';
-import { calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { calculateDerivedStatsOnServer, calculatePvPRange } from '../logic/stats.js';
 import { simulate1v1Combat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
 
@@ -23,7 +23,6 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         const gameDataRes = await client.query("SELECT key, data FROM game_data");
         const gameData: GameData = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
 
-        // Modified queries to fetch guild building info for barracks bonus
         const attackerRes = await client.query(`
             SELECT c.data, g.buildings, g.active_buffs
             FROM characters c
@@ -54,14 +53,17 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         const defenderShrine = defenderRes.rows[0].buildings?.shrine || 0;
         const defenderBuffs: GuildBuff[] = defenderRes.rows[0].active_buffs || [];
 
-        // Validation
-        if (Math.abs(attacker.level - defender.level) > 3) return res.status(400).json({ message: 'Level difference is too high.' });
+        // Dynamiczna walidacja zakresu poziomów
+        const pvpRange = calculatePvPRange(attacker.level);
+        if (Math.abs(attacker.level - defender.level) > pvpRange) {
+            return res.status(400).json({ message: `Różnica poziomów jest zbyt duża (Maksymalny zakres dla Ciebie to +/- ${pvpRange}).` });
+        }
+
         if (attacker.stats.currentEnergy < 3) return res.status(400).json({ message: 'Not enough energy.' });
         if (defender.pvpProtectionUntil > Date.now()) return res.status(400).json({ message: 'Target is protected.' });
 
         attacker.stats.currentEnergy -= 3;
 
-        // Apply guild bonuses to stats
         const attackerWithStats = calculateDerivedStatsOnServer(attacker, gameData.itemTemplates!, gameData.affixes!, attackerBarracks, attackerShrine, gameData.skills || [], attackerBuffs);
         const defenderWithStats = calculateDerivedStatsOnServer(defender, gameData.itemTemplates!, gameData.affixes!, defenderBarracks, defenderShrine, gameData.skills || [], defenderBuffs);
 
@@ -83,14 +85,13 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
                 magicDamageMin: defenderWithStats.stats.magicDamageMin,
                 magicDamageMax: defenderWithStats.stats.magicDamageMax,
                 attacksPerTurn: defenderWithStats.stats.attacksPerRound,
-                // Default values for EnemyStats required properties
                 magicAttackChance: 0,
                 magicAttackManaCost: 0,
             },
             rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 },
             lootTable: [],
             resourceLootTable: [],
-            isBoss: false // Mandatory now
+            isBoss: false
         };
 
         const combatLog = simulate1v1Combat(attackerWithStats, defenderAsEnemy, gameData);
@@ -99,16 +100,25 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
 
         let goldStolen = 0;
         let expGained = 0;
+        let honorGain = 0;
 
         if (isVictory) {
             goldStolen = Math.min(defender.resources.gold, Math.floor(defender.resources.gold * 0.1));
             expGained = Math.floor(defender.experienceToNextLevel * 0.1);
 
-            // Rogue Class Bonus (+100% XP)
+            // Obliczanie Honoru
+            const levelDiff = defender.level - attacker.level;
+            if (levelDiff >= 0) {
+                // Atak na równego lub silniejszego
+                honorGain = Math.min(5, levelDiff + 1);
+            } else {
+                // Atak na słabszego
+                honorGain = Math.max(-5, levelDiff);
+            }
+
             if (attacker.characterClass === CharacterClass.Rogue) {
                 expGained *= 2;
             }
-            // Human Race Bonus (+10% XP)
             if (attacker.race === Race.Human) {
                 expGained = Math.floor(expGained * 1.10);
             }
@@ -116,8 +126,8 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             attacker.resources.gold = (Number(attacker.resources.gold) || 0) + goldStolen;
             attacker.experience = (Number(attacker.experience) || 0) + expGained;
             attacker.pvpWins = (attacker.pvpWins || 0) + 1;
+            attacker.honor = (Number(attacker.honor) || 0) + honorGain;
 
-            // Druid Bonus: Heal 50% max HP on win
             if (attacker.characterClass === CharacterClass.Druid) {
                 const maxHealth = attackerWithStats.stats.maxHealth;
                 attacker.stats.currentHealth = Math.min(maxHealth, attacker.stats.currentHealth + maxHealth * 0.5);
@@ -128,6 +138,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         } else {
             attacker.pvpLosses = (attacker.pvpLosses || 0) + 1;
             defender.pvpWins = (defender.pvpWins || 0) + 1;
+            // Porażka nie odbiera ani nie daje honoru w tym modelu
         }
 
         const pvpProtectionMinutes = gameData.settings?.pvpProtectionMinutes || 60;
@@ -136,7 +147,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         while (attacker.experience >= attacker.experienceToNextLevel) {
             attacker.experience -= attacker.experienceToNextLevel;
             attacker.level += 1;
-            attacker.stats.statPoints += 2; // Updated to 2
+            attacker.stats.statPoints += 2;
             attacker.experienceToNextLevel = Math.floor(100 * Math.pow(attacker.level, 1.3));
         }
 
@@ -153,7 +164,6 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
             combatType: CombatType.PVP
         };
 
-        // Create messages for both players with limit enforcement
         await enforceInboxLimit(client, attackerId);
         await client.query(
             `INSERT INTO messages (recipient_id, sender_name, subject, body, message_type) VALUES ($1, $2, $3, $4, 'pvp_report')`,

@@ -2,6 +2,7 @@
 // Profesjonalny Re-export Scentralizowanej Logiki
 import { 
     calculateDerivedStats, 
+    calculatePvPRange,
     getBackpackCapacity, 
     getWarehouseCapacity, 
     getTreasuryCapacity,
@@ -17,6 +18,7 @@ import {
 export const calculateDerivedStatsOnServer = calculateDerivedStats;
 
 export {
+    calculatePvPRange,
     getBackpackCapacity,
     getWarehouseCapacity,
     getTreasuryCapacity,

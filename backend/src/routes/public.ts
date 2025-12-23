@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { pool } from '../db.js';
 import { calculateTotalExperience } from '../logic/stats.js';
@@ -57,6 +56,7 @@ router.get('/profile/:name', async (req, res) => {
                 (c.data->>'experience')::bigint as experience,
                 (c.data->>'pvpWins')::int as "pvpWins",
                 (c.data->>'pvpLosses')::int as "pvpLosses",
+                COALESCE((c.data->>'honor')::int, 0) as honor,
                 c.data->>'description' as description,
                 c.data->>'avatarUrl' as "avatarUrl",
                 g.name as "guildName",
@@ -87,6 +87,7 @@ router.get('/profile/:name', async (req, res) => {
             experience: totalXp, // Returning total summed experience
             pvpWins: row.pvpWins || 0,
             pvpLosses: row.pvpLosses || 0,
+            honor: row.honor || 0,
             guildName: row.guildName,
             guildTag: row.guildTag,
             avatarUrl: row.avatarUrl,

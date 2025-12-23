@@ -10,6 +10,11 @@ export const calculateTotalExperience = (level: number, currentExperience: numbe
     return totalXp;
 };
 
+// Oblicza dynamiczny zakres poziomów dla PvP (rośnie wraz z levelem)
+export const calculatePvPRange = (level: number): number => {
+    return 3 + Math.floor(level / 7);
+};
+
 export const getBackpackCapacity = (character: PlayerCharacter): number => 40 + ((character.backpack?.level || 1) - 1) * 10;
 export const getTreasuryCapacity = (level: number) => Math.floor(500 * Math.pow(level, 1.8));
 
@@ -287,8 +292,8 @@ export const calculateDerivedStats = (
             currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
             armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
-            critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
-            critDamageModifier: bonusCritDamageModifier + totalPrimaryStats.critDamageModifier,
+            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
+            critDamageModifier: 200 + bonusCritDamageModifier,
             dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0),
             manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
             armorPenetrationPercent: bonusArmorPenetrationPercent,

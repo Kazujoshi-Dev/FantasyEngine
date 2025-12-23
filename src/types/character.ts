@@ -1,4 +1,3 @@
-
 import { EssenceType, Language, Race, CharacterClass } from './common.js';
 import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items.js';
 import { GuildBuff } from './guild.js';
@@ -117,6 +116,7 @@ export interface PlayerCharacter {
     pvpWins: number;
     pvpLosses: number;
     pvpProtectionUntil: number;
+    honor: number;
 
     activeRankId?: string;
     
@@ -138,7 +138,7 @@ export interface PlayerCharacter {
     resetsUsed?: number; 
 }
 
-export interface PublicCharacterProfile { name: string; level: number; race: Race; characterClass?: CharacterClass; experience: number; pvpWins: number; pvpLosses: number; guildName?: string; guildTag?: string; avatarUrl?: string; description?: string; isOnline: boolean; }
+export interface PublicCharacterProfile { name: string; level: number; race: Race; characterClass?: CharacterClass; experience: number; pvpWins: number; pvpLosses: number; honor: number; guildName?: string; guildTag?: string; avatarUrl?: string; description?: string; isOnline: boolean; }
 export interface AdminCharacterInfo { user_id: number; username: string; name: string; level: number; gold: number; race: Race; characterClass?: CharacterClass; }
-export interface RankingPlayer { id: number; name: string; race: Race; characterClass?: CharacterClass; level: number; experience: number; pvpWins: number; pvpLosses: number; pvpProtectionUntil: number; guildTag?: string; isOnline: boolean; }
+export interface RankingPlayer { id: number; name: string; race: Race; characterClass?: CharacterClass; level: number; experience: number; pvpWins: number; pvpLosses: number; pvpProtectionUntil: number; honor: number; guildTag?: string; isOnline: boolean; }
 export interface PlayerRank { id: string; name: string; bonus: RolledAffixStats; }

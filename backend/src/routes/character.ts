@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -45,6 +44,7 @@ router.get('/', async (req: any, res: any) => {
         if (!charData.loadouts) charData.loadouts = [];
         if (!charData.resources) charData.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
         if (row.email) charData.email = row.email;
+        if (charData.honor === undefined) charData.honor = 0;
 
         if (row.guild_id) {
             charData.guildId = row.guild_id;
@@ -140,7 +140,6 @@ router.post('/', async (req: any, res: any) => {
             return res.status(400).json({ message: 'To imię jest już zajęte.' });
         }
 
-        // Fix: Add missing CharacterStats fields to resolve type errors
         const initialCharacter: Partial<PlayerCharacter> = {
             name: name,
             race: race as Race,
@@ -186,6 +185,7 @@ router.post('/', async (req: any, res: any) => {
             pvpWins: 0,
             pvpLosses: 0,
             pvpProtectionUntil: 0,
+            honor: 0,
             resetsUsed: 0
         };
 
