@@ -203,7 +203,7 @@ export const Location: React.FC = () => {
                      {loc.image && <img src={loc.image} alt={loc.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />}
                      <div className="flex-grow min-w-0">
                         <div className="flex justify-between items-start">
-                            <p className="text-lg font-semibold text-white truncate">{loc.name}</p>
+                            <p className="text-lg font-semibold text-white">{loc.name}</p>
                             <button
                                 onClick={() => handleStartTravel(loc.id)}
                                 disabled={playerCharacter.resources.gold < loc.travelCost || playerCharacter.stats.currentEnergy < loc.travelEnergyCost}
@@ -212,7 +212,7 @@ export const Location: React.FC = () => {
                                 {t('location.travel')}
                             </button>
                         </div>
-                        <p className="text-xs italic text-gray-400 mt-1 line-clamp-1">{loc.description}</p>
+                        <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
                         <div className="flex items-center text-xs mt-2 space-x-3">
                           <div className="flex items-center text-amber-400 font-mono">
                             <CoinsIcon className="h-3 w-3 mr-1" />
