@@ -22,6 +22,13 @@ const formatTimeLeft = (seconds: number): string => {
     return `${h}:${m}:${s}`;
 };
 
+const formatDuration = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (m === 0) return `${s}s`;
+    return `${m}m ${s}s`;
+};
+
 const TravelInProgressPanel: React.FC<{ playerCharacter: PlayerCharacter, locations: LocationType[] }> = ({ playerCharacter, locations }) => {
     const { t } = useTranslation();
     const { activeTravel } = playerCharacter;
@@ -166,7 +173,7 @@ export const Location: React.FC = () => {
                           </div>
                           <div className="flex items-center text-gray-400">
                             <ClockIcon className="h-4 w-4 mr-1" />
-                            <span>{loc.travelTime}s</span>
+                            <span>{formatDuration(loc.travelTime)}</span>
                           </div>
                         </div>
                         {loc.availableTabs && loc.availableTabs.length > 0 && (
