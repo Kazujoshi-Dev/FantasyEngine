@@ -135,7 +135,7 @@ export default {
         manaSteal: 'Kradzież Many',
         manaStealDesc: 'Odnawia manę o procent zadanych obrażeń.',
         dodgeChance: 'Szansa na Unik',
-        dodgeChanceDesc: 'Szansa na uniknięcie ataku fizycznego.'
+        dodgeChanceDesc: 'Szansa na uniknięcie ataku fizycznego. Maksymalnie 30%.'
     },
     specialAttacks: {
         Stun: 'Ogłuszający Cios',

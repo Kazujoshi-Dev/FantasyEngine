@@ -91,7 +91,12 @@ export const performAttack = <
     let manaSpent = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
-    if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) tempDodgeChance = 0;
+    if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
+        tempDodgeChance = 0;
+    } else {
+        // Hard Cap at 30% for balance
+        tempDodgeChance = Math.min(30, tempDodgeChance);
+    }
 
     if (Math.random() * 100 < tempDodgeChance) {
         return {

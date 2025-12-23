@@ -294,7 +294,7 @@ export const calculateDerivedStats = (
             armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
             critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
-            dodgeChance: totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0),
+            dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0)),
             manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
             armorPenetrationPercent: bonusArmorPenetrationPercent,
             armorPenetrationFlat: bonusArmorPenetrationFlat,
