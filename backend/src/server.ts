@@ -39,6 +39,7 @@ import questRoutes from './routes/quests.js';
 import expeditionRoutes from './routes/expedition.js';
 import towerRoutes from './routes/towers.js';
 import espionageRoutes from './routes/espionage.js';
+import travelRoutes from './routes/character/travel.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -84,6 +85,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/game-data', gameDataRoutes);
 app.use('/api/character', characterRoutes);
+app.use('/api/character/travel', travelRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/trader', traderRoutes);
 app.use('/api/blacksmith', blacksmithRoutes);

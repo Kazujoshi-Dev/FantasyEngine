@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { Tab, PlayerCharacter, Location, GameSettings } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useCharacter } from '../contexts/CharacterContext';
 
 // Icons
 import { CoinsIcon as IconCoins } from './icons/CoinsIcon';
@@ -22,7 +23,6 @@ import { SparklesIcon as IconSparkles } from './icons/SparklesIcon';
 import { QuestIcon } from './icons/QuestIcon';
 import { UsersIcon as IconUsers } from './icons/UsersIcon';
 import { BookOpenIcon as IconBook } from './icons/BookOpenIcon';
-import { CrossIcon } from './icons/CrossIcon';
 import { GlobeIcon } from './icons/GlobeIcon';
 import { CoffeeIcon } from './icons/CoffeeIcon';
 
@@ -38,7 +38,6 @@ interface SidebarProps {
     settings?: GameSettings;
 }
 
-// Added MenuItem interface to resolve TypeScript errors with optional properties
 interface MenuItem {
     tab: Tab;
     icon: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -65,11 +64,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     settings
 }) => {
     const { t } = useTranslation();
+    const { gameData } = useCharacter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
     const isLocked = !!playerCharacter.activeTowerRun;
+    
+    // Zakładki zawsze widoczne niezależnie od lokacji
+    const GLOBAL_TABS = [Tab.Statistics, Tab.Options, Tab.Admin, Tab.Location, Tab.Messages, Tab.Resources];
 
-    // Fixed: Explicitly typed menuSections to handle optional properties like adminOnly
+    const currentLoc = gameData?.locations.find(l => l.id === playerCharacter.currentLocationId);
+
     const menuSections: MenuSection[] = useMemo(() => [
         {
             id: 'hero',
@@ -150,7 +154,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 `}
             >
                 <div className="flex flex-col h-full overflow-hidden">
-                    {/* Character Hub Header */}
                     <div className="p-6 border-b border-white/5 bg-[#0e121d]">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="relative">
@@ -175,9 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         </div>
 
-                        {/* Status Bars (HP & EXP) */}
                         <div className="space-y-4 mb-4">
-                            {/* Health Bar */}
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter text-gray-400">
                                     <span className="text-red-400/80">Punkty Życia</span>
@@ -191,7 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                             </div>
 
-                            {/* Experience Bar */}
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter text-gray-400">
                                     <span className="text-sky-400/80">Doświadczenie</span>
@@ -206,7 +206,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         </div>
 
-                        {/* Currency Chips */}
                         <div className="flex gap-2">
                             <div className="flex-1 bg-slate-950/50 rounded-lg p-2 border border-white/5 flex items-center justify-center gap-2">
                                 <IconCoins className="h-3 w-3 text-fantasy-gold" />
@@ -219,11 +218,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     </div>
 
-                    {/* Navigation Scrollable with Sections */}
                     <nav className="flex-1 overflow-y-auto py-4 space-y-6 px-3 custom-scrollbar">
                         {menuSections.map((section) => {
-                            // Fixed: Type-safe access to adminOnly
-                            const filteredItems = section.items.filter(item => !item.adminOnly || isAdmin);
+                            const filteredItems = section.items.filter(item => {
+                                if (item.adminOnly && !isAdmin) return false;
+                                
+                                // Filtrowanie po lokacji
+                                const isAlwaysVisible = GLOBAL_TABS.includes(item.tab);
+                                const isAvailableInLocation = currentLoc?.availableTabs?.includes(item.tab);
+                                
+                                // Jeśli jesteśmy w podróży, ograniczamy do GLOBAL_TABS
+                                if (playerCharacter.activeTravel && !isAlwaysVisible) return false;
+
+                                return isAlwaysVisible || isAvailableInLocation;
+                            });
+                            
                             if (filteredItems.length === 0) return null;
 
                             return (
@@ -274,7 +283,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         })}
                     </nav>
 
-                    {/* Footer Actions */}
                     <div className="p-4 border-t border-white/5 bg-[#0e121d] flex flex-col gap-2">
                         <button
                             onClick={onOpenNews}
@@ -308,21 +316,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
 };
 
-export const NewsModal: React.FC<{ isOpen: boolean; onClose: () => void; content: string }> = ({ isOpen, onClose, content }) => {
-    const { t } = useTranslation();
+// FIX: Added missing exported NewsModal component
+export const NewsModal: React.FC<{ isOpen: boolean, onClose: () => void, content: string }> = ({ isOpen, onClose, content }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <h2 className="text-2xl font-bold text-indigo-400">{t('news.title')}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-slate-800 border-2 border-indigo-500/30 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                <h2 className="text-3xl font-bold text-indigo-400 mb-6 border-b border-indigo-500/20 pb-2 flex justify-between items-center">
+                    <span>Nowości i Ogłoszenia</span>
+                    <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
+                </h2>
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar text-gray-200 max-w-none">
+                    <p className="whitespace-pre-wrap leading-relaxed">{content || 'Brak nowych ogłoszeń.'}</p>
                 </div>
-                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar text-gray-300 whitespace-pre-wrap">
-                    {content || 'Brak nowych ogłoszeń.'}
-                </div>
-                <div className="mt-6 text-right">
-                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold transition-all">{t('news.close')}</button>
+                <div className="mt-8 flex justify-end">
+                    <button onClick={onClose} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95">
+                        Zamknij
+                    </button>
                 </div>
             </div>
         </div>

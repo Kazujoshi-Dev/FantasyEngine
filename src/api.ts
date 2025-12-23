@@ -1,3 +1,4 @@
+
 import { CharacterStats, Race, CharacterClass, EssenceType, EquipmentSlot, ItemRarity, RaidType } from './types';
 
 const API_URL = '/api';
@@ -100,7 +101,8 @@ export const api = {
     selectClass: (characterClass: CharacterClass) => fetchApi('/character/class', { method: 'POST', body: JSON.stringify({ characterClass }) }),
     convertEssence: (fromType: EssenceType) => fetchApi('/character/skills/convert-essence', { method: 'POST', body: JSON.stringify({ fromType }) }),
 
-    startTravel: (destinationLocationId: string) => fetchApi('/character/travel', { method: 'POST', body: JSON.stringify({ destinationLocationId }) }),
+    startTravel: (destinationLocationId: string) => fetchApi('/character/travel/start', { method: 'POST', body: JSON.stringify({ destinationLocationId }) }),
+    completeTravel: () => fetchApi('/character/travel/complete', { method: 'POST' }),
     getCharacterNames: () => fetchApi('/character/names'),
 
     // Expedition

@@ -29,7 +29,7 @@ const formatDuration = (seconds: number): string => {
     return `${m}m ${s}s`;
 };
 
-const TravelInProgressPanel: React.FC<{ playerCharacter: PlayerCharacter, locations: LocationType[] }> = ({ playerCharacter, locations }) => {
+const TravelInProgressPanel: React.FC<{ playerCharacter: PlayerCharacter, locations: LocationType[], onArrived: () => void }> = ({ playerCharacter, locations, onArrived }) => {
     const { t } = useTranslation();
     const { activeTravel } = playerCharacter;
     const [timeLeft, setTimeLeft] = useState(0);
@@ -41,13 +41,16 @@ const TravelInProgressPanel: React.FC<{ playerCharacter: PlayerCharacter, locati
             const updateTimer = () => {
                 const remaining = Math.max(0, Math.floor((activeTravel.finishTime - api.getServerTime()) / 1000));
                 setTimeLeft(remaining);
+                if (remaining <= 0) {
+                    onArrived();
+                }
             };
 
             updateTimer();
             const intervalId = setInterval(updateTimer, 1000);
             return () => clearInterval(intervalId);
         }
-    }, [activeTravel]);
+    }, [activeTravel, onArrived]);
 
     if (!activeTravel || !destination) return null;
 
@@ -64,7 +67,7 @@ const TravelInProgressPanel: React.FC<{ playerCharacter: PlayerCharacter, locati
 
 
 export const Location: React.FC = () => {
-  const { character: playerCharacter, baseCharacter, gameData, updateCharacter } = useCharacter();
+  const { character: playerCharacter, baseCharacter, gameData, updateCharacter, setCharacter } = useCharacter();
   const { t } = useTranslation();
 
   if (!playerCharacter || !baseCharacter || !gameData) {
@@ -91,22 +94,10 @@ export const Location: React.FC = () => {
     const hasEnoughEnergy = playerCharacter.stats.currentEnergy >= destination.travelEnergyCost;
 
     if (hasEnoughGold && hasEnoughEnergy) {
-        const optimisticChar = JSON.parse(JSON.stringify(baseCharacter));
-        optimisticChar.resources.gold -= destination.travelCost;
-        optimisticChar.stats.currentEnergy -= destination.travelEnergyCost;
-        optimisticChar.activeTravel = {
-            destinationLocationId: destination.id,
-            finishTime: api.getServerTime() + destination.travelTime * 1000,
-        };
-        updateCharacter(optimisticChar);
-
-        api.updateCharacter({
-            resources: optimisticChar.resources,
-            stats: optimisticChar.stats,
-            activeTravel: optimisticChar.activeTravel
+        api.startTravel(destination.id).then(updated => {
+            setCharacter(updated);
         }).catch(err => {
             alert(err.message);
-            updateCharacter(baseCharacter); // Revert on error
         });
     } else {
       let message = `${t('location.cannotTravel')}. `;
@@ -114,6 +105,15 @@ export const Location: React.FC = () => {
       if (!hasEnoughEnergy) message += `${t('location.lackEnergy')}.`;
       alert(message.trim());
     }
+  };
+
+  const handleArrived = async () => {
+      try {
+          const updated = await api.completeTravel();
+          setCharacter(updated);
+      } catch (err) {
+          console.error("Błąd podczas kończenia podróży:", err);
+      }
   };
 
   if (!currentLocation) {
@@ -127,7 +127,7 @@ export const Location: React.FC = () => {
   if (playerCharacter.activeTravel) {
       return (
           <ContentPanel title={t('location.title')}>
-              <TravelInProgressPanel playerCharacter={playerCharacter} locations={locations} />
+              <TravelInProgressPanel playerCharacter={playerCharacter} locations={locations} onArrived={handleArrived} />
           </ContentPanel>
       );
   }
