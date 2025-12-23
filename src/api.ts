@@ -1,4 +1,3 @@
-
 import { CharacterStats, Race, CharacterClass, EssenceType, EquipmentSlot, ItemRarity, RaidType } from './types';
 
 const API_URL = '/api';
@@ -99,7 +98,7 @@ export const api = {
     learnSkill: (skillId: string) => fetchApi('/character/skills/learn', { method: 'POST', body: JSON.stringify({ skillId }) }),
     toggleSkill: (skillId: string, isActive: boolean) => fetchApi('/character/skills/toggle', { method: 'POST', body: JSON.stringify({ skillId, isActive }) }),
     selectClass: (characterClass: CharacterClass) => fetchApi('/character/class', { method: 'POST', body: JSON.stringify({ characterClass }) }),
-    convertEssence: (fromType: EssenceType) => fetchApi('/character/convert-essence', { method: 'POST', body: JSON.stringify({ fromType }) }),
+    convertEssence: (fromType: EssenceType) => fetchApi('/character/skills/convert-essence', { method: 'POST', body: JSON.stringify({ fromType }) }),
 
     startTravel: (destinationLocationId: string) => fetchApi('/character/travel', { method: 'POST', body: JSON.stringify({ destinationLocationId }) }),
     getCharacterNames: () => fetchApi('/character/names'),
@@ -220,10 +219,7 @@ export const api = {
     inspectCharacter: (id: number) => fetchApi(`/admin/characters/${id}/inspect`),
     deleteCharacterItem: (userId: number, uniqueId: string) => fetchApi(`/admin/characters/${userId}/items/${uniqueId}`, { method: 'DELETE' }),
     updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/character/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
-    adminGiveItem: (userId: number, itemData: any) => fetchApi('/admin/give-item', { method: 'POST', body: JSON.stringify({ userId, ...itemData }) }),
-    
     findItemById: (id: string) => fetchApi(`/admin/items/find/${id}`),
-    // Added runAttributesAudit to fix type error in DataIntegrityTab
     runAttributesAudit: () => fetchApi('/admin/audit/fix-attributes', { method: 'POST' }),
     runCharacterDataAudit: () => fetchApi('/admin/audit/fix-characters', { method: 'POST' }),
     runGoldAudit: () => fetchApi('/admin/audit/fix-gold', { method: 'POST' }),
@@ -242,4 +238,5 @@ export const api = {
     deleteDbRow: (table: string, id: any) => fetchApi(`/admin/db/table/${table}/${id}`, { method: 'DELETE' }),
     
     softResetCharacter: (id: number) => fetchApi(`/admin/characters/${id}/soft-reset`, { method: 'POST' }),
+    adminGiveItem: (userId: number, itemData: any) => fetchApi('/admin/give-item', { method: 'POST', body: JSON.stringify({ userId, ...itemData }) }),
 };
