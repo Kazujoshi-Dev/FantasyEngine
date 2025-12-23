@@ -161,7 +161,6 @@ export const Location: React.FC = () => {
                         const info = tabInfoMap[tabId]!;
                         return (
                           <div key={tabId} className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 px-3 py-2 rounded-lg text-indigo-200">
-                             {/* Fix: cast to element with className prop to resolve type error on line 164 */}
                              {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
                              <span className="text-sm font-bold">{info.label}</span>
                           </div>
@@ -181,7 +180,6 @@ export const Location: React.FC = () => {
                         const info = tabInfoMap[tabId]!;
                         return (
                           <div key={tabId} className="flex items-center gap-2 bg-slate-800/20 border border-slate-700/50 px-3 py-2 rounded-lg text-slate-500 opacity-60 grayscale">
-                             {/* Fix: cast to element with className prop to resolve type error on line 183 */}
                              {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
                              <span className="text-sm font-medium">{info.label}</span>
                           </div>
@@ -200,54 +198,71 @@ export const Location: React.FC = () => {
           {otherLocations.length > 0 ? (
             <ul className="space-y-4">
               {otherLocations.map(loc => (
-                <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-center">
+                <li key={loc.id} className="bg-slate-800/50 p-4 rounded-lg flex justify-between items-start">
                   <div className="flex items-start gap-4 flex-grow">
                      {loc.image && <img src={loc.image} alt={loc.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />}
-                     <div className="flex-grow">
-                        <p className="text-lg font-semibold text-white">{loc.name}</p>
-                        <p className="text-sm italic text-gray-400 mt-1">{loc.description}</p>
-                        <div className="flex items-center text-sm mt-2 space-x-4">
-                          <div className="flex items-center text-amber-400">
-                            <CoinsIcon className="h-4 w-4 mr-1" />
+                     <div className="flex-grow min-w-0">
+                        <div className="flex justify-between items-start">
+                            <p className="text-lg font-semibold text-white truncate">{loc.name}</p>
+                            <button
+                                onClick={() => handleStartTravel(loc.id)}
+                                disabled={playerCharacter.resources.gold < loc.travelCost || playerCharacter.stats.currentEnergy < loc.travelEnergyCost}
+                                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all disabled:bg-slate-600 disabled:cursor-not-allowed ml-4"
+                            >
+                                {t('location.travel')}
+                            </button>
+                        </div>
+                        <p className="text-xs italic text-gray-400 mt-1 line-clamp-1">{loc.description}</p>
+                        <div className="flex items-center text-xs mt-2 space-x-3">
+                          <div className="flex items-center text-amber-400 font-mono">
+                            <CoinsIcon className="h-3 w-3 mr-1" />
                             <span>{loc.travelCost}</span>
                           </div>
-                           <div className="flex items-center text-sky-400">
-                            <BoltIcon className="h-4 w-4 mr-1" />
+                           <div className="flex items-center text-sky-400 font-mono">
+                            <BoltIcon className="h-3 w-3 mr-1" />
                             <span>{loc.travelEnergyCost}</span>
                           </div>
-                          <div className="flex items-center text-gray-400">
-                            <ClockIcon className="h-4 w-4 mr-1" />
+                          <div className="flex items-center text-gray-400 font-mono">
+                            <ClockIcon className="h-3 w-3 mr-1" />
                             <span>{formatDuration(loc.travelTime)}</span>
                           </div>
                         </div>
-                        {loc.availableTabs && loc.availableTabs.length > 0 && (
-                            <div className="mt-3 border-t border-slate-700/50 pt-3">
-                                <h4 className="text-xs font-semibold text-gray-500 mb-2">{t('location.availableFacilities')}</h4>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                    {loc.availableTabs
-                                        .filter(tabId => tabInfoMap[tabId])
-                                        .map(tabId => {
-                                            const tabInfo = tabInfoMap[tabId]!;
-                                            return (
-                                                <div key={tabId} title={tabInfo.label} className="flex items-center gap-1.5 text-slate-400">
-                                                    {React.cloneElement(tabInfo.icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
-                                                    <span className="text-xs">{tabInfo.label}</span>
-                                                </div>
-                                            );
-                                        })
-                                    }
+
+                        {/* Podsumowanie udogodnień w lokacji docelowej */}
+                        <div className="mt-4 pt-3 border-t border-slate-700/50">
+                            <div className="space-y-3">
+                                {/* Dostępne (Małe ikony) */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {Object.keys(tabInfoMap).map(tabKey => {
+                                        const tabId = tabKey as Tab;
+                                        if (!loc.availableTabs?.includes(tabId)) return null;
+                                        const info = tabInfoMap[tabId]!;
+                                        return (
+                                            <div key={tabId} title={info.label} className="flex items-center gap-1 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 text-indigo-300">
+                                                {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-3 w-3' })}
+                                                <span className="text-[9px] font-black uppercase tracking-tighter">{info.label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {/* Niedostępne (Bardzo małe ikony, przyciemnione) */}
+                                <div className="flex flex-wrap items-center gap-2 opacity-40">
+                                    {Object.keys(tabInfoMap).map(tabKey => {
+                                        const tabId = tabKey as Tab;
+                                        if (loc.availableTabs?.includes(tabId)) return null;
+                                        const info = tabInfoMap[tabId]!;
+                                        return (
+                                            <div key={tabId} title={`Brak: ${info.label}`} className="flex items-center gap-1 grayscale text-slate-500">
+                                                {React.cloneElement(info.icon as React.ReactElement<{ className?: string }>, { className: 'h-2.5 w-2.5' })}
+                                                <span className="text-[8px] font-bold uppercase tracking-tighter">{info.label}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        )}
+                        </div>
                       </div>
                   </div>
-                  <button
-                    onClick={() => handleStartTravel(loc.id)}
-                    disabled={playerCharacter.resources.gold < loc.travelCost || playerCharacter.stats.currentEnergy < loc.travelEnergyCost}
-                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed flex-shrink-0 ml-4"
-                  >
-                    {t('location.travel')}
-                  </button>
                 </li>
               ))}
             </ul>
