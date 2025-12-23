@@ -292,7 +292,7 @@ export const calculateDerivedStats = (
             currentEnergy: Math.min(Number(character.stats.currentEnergy) || 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
             armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
-            critChance: totalPrimaryStats.accuracy * 0.5 + bonusCritChance,
+            critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
             dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0)),
             manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
