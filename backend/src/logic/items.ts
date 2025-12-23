@@ -1,4 +1,3 @@
-
 import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, ItemRarity, ItemCategory, EquipmentSlot, PlayerCharacter } from '../types.js';
 import { randomUUID } from 'crypto';
 
@@ -116,11 +115,20 @@ export const generateTraderInventory = (itemTemplates: ItemTemplate[], affixes: 
     const regularItems: ItemInstance[] = [];
     const specialOfferItems: ItemInstance[] = [];
     const eligible = itemTemplates.filter(t => t.rarity === ItemRarity.Common || t.rarity === ItemRarity.Uncommon || t.rarity === ItemRarity.Rare);
+    
+    // Generowanie zwykłych towarów (bez szansy na afiksy)
     for (let i = 0; i < 12; i++) {
         const t = eligible[Math.floor(Math.random() * eligible.length)];
         if (t) regularItems.push(createItemInstance(t.id, itemTemplates, affixes, undefined, false));
     }
-    const s1 = eligible[Math.floor(Math.random() * eligible.length)];
-    if (s1) specialOfferItems.push(createItemInstance(s1.id, itemTemplates, affixes, undefined, true));
+
+    // Generowanie dwóch towarów specjalnych (z szansą na afiksy)
+    for (let i = 0; i < 2; i++) {
+        const s = eligible[Math.floor(Math.random() * eligible.length)];
+        if (s) {
+            specialOfferItems.push(createItemInstance(s.id, itemTemplates, affixes, undefined, true));
+        }
+    }
+
     return { regularItems, specialOfferItems };
 };
