@@ -1,7 +1,9 @@
+
 import express from 'express';
 import { pool } from '../../db.js';
 import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData } from '../../types.js';
 import { calculateDerivedStatsOnServer, getBackpackCapacity } from '../../logic/stats.js';
+import { fetchFullCharacter } from '../../logic/helpers.js';
 
 const router = express.Router();
 
@@ -66,26 +68,21 @@ router.post('/equip', async (req: any, res: any) => {
         if (!validation.success) throw new Error(validation.message);
 
         let targetSlot: EquipmentSlot;
-        
-        // --- Dual Wield Logic ---
         const isDualWieldEnabled = character.activeSkills?.includes('dual-wield-mastery');
         
         if (template.slot === 'ring') {
             targetSlot = !character.equipment.ring1 ? EquipmentSlot.Ring1 : EquipmentSlot.Ring2;
         } else if (template.slot === EquipmentSlot.MainHand && isDualWieldEnabled && !template.isMagical) {
-            // If the item is a 1H physical weapon and dual wielding is active, decide slot
             if (!character.equipment.mainHand) {
                 targetSlot = EquipmentSlot.MainHand;
             } else if (!character.equipment.offHand) {
                 targetSlot = EquipmentSlot.OffHand;
             } else {
-                // If both slots full, swap mainHand
                 targetSlot = EquipmentSlot.MainHand;
             }
         } else {
             targetSlot = template.slot as EquipmentSlot;
         }
-        // -----------------------
 
         const itemsToUnequip: EquipmentSlot[] = [];
 
@@ -118,8 +115,9 @@ router.post('/equip', async (req: any, res: any) => {
         character.equipment[targetSlot] = item;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(character);
+        res.json(fullChar);
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: err.message });
@@ -148,8 +146,9 @@ router.post('/unequip', async (req: any, res: any) => {
         character.equipment[slot as EquipmentSlot] = null;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(character);
+        res.json(fullChar);
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: err.message });

@@ -3,6 +3,7 @@ import express from 'express';
 import { pool } from '../../db.js';
 import { PlayerCharacter, EquipmentLoadout, ItemInstance } from '../../types.js';
 import { getBackpackCapacity, getWarehouseCapacity } from '../../logic/stats.js';
+import { fetchFullCharacter } from '../../logic/helpers.js';
 
 const router = express.Router();
 
@@ -34,8 +35,9 @@ router.post('/save', async (req: any, res: any) => {
         else char.loadouts.push(newLoadout);
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(char);
+        res.json(fullChar);
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
         res.status(400).json({ message: err.message }); 
@@ -56,7 +58,6 @@ router.post('/load', async (req: any, res: any) => {
         const loadout = char.loadouts?.find(l => l.id === loadoutId);
         if (!loadout) throw new Error("Zestaw nie istnieje.");
 
-        // 1. Zbierz absolutnie wszystkie przedmioty będące w posiadaniu (EQ + Plecak)
         const allItems = [
             ...char.inventory, 
             ...Object.values(char.equipment).filter((i): i is ItemInstance => i !== null)
@@ -69,7 +70,6 @@ router.post('/load', async (req: any, res: any) => {
         };
         const usedUniqueIds = new Set<string>();
 
-        // 2. Spróbuj ubrać przedmioty z zestawu
         for (const [slot, targetUniqueId] of Object.entries(loadout.equipment)) {
             if (!targetUniqueId) continue;
             const item = allItems.find(i => i.uniqueId === targetUniqueId);
@@ -79,7 +79,6 @@ router.post('/load', async (req: any, res: any) => {
             }
         }
 
-        // 3. Reszta przedmiotów ląduje w "poczekalni" do plecaka
         let leftoverItems = allItems.filter(i => !usedUniqueIds.has(i.uniqueId));
         const backpackCap = getBackpackCapacity(char);
         const warehouseCap = getWarehouseCapacity(char.warehouse?.level || 1);
@@ -90,27 +89,24 @@ router.post('/load', async (req: any, res: any) => {
         let finalInventory: ItemInstance[] = [];
         let itemsToWarehouse: ItemInstance[] = [];
 
-        // 4. Rozdzielenie: co do plecaka, co do magazynu
         for (const item of leftoverItems) {
             if (finalInventory.length < backpackCap) {
                 finalInventory.push(item);
             } else if (!item.isBorrowed && char.warehouse.items.length + itemsToWarehouse.length < warehouseCap) {
-                // Jeśli plecak pełny, a przedmiot nie jest pożyczony - spróbuj do magazynu
                 itemsToWarehouse.push(item);
             } else {
-                // Jeśli nie ma miejsca nigdzie (lub przedmiot jest pożyczony i plecak jest pełny)
                 throw new Error("Brak miejsca w plecaku i magazynie na pozostałe przedmioty.");
             }
         }
 
-        // 5. Zastosuj zmiany
         char.equipment = newEquipment;
         char.inventory = finalInventory;
         char.warehouse.items.push(...itemsToWarehouse);
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(char);
+        res.json(fullChar);
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
         res.status(400).json({ message: err.message }); 
@@ -132,8 +128,9 @@ router.put('/rename', async (req: any, res: any) => {
         if (loadout) loadout.name = name;
 
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), req.user.id]);
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(char);
+        res.json(fullChar);
     } catch (err: any) { 
         await client.query('ROLLBACK'); 
         res.status(400).json({ message: err.message }); 

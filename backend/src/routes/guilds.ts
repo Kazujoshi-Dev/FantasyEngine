@@ -5,13 +5,12 @@ import { pool } from '../db.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 import { getBuildingCost, canManage, pruneExpiredBuffs } from '../logic/guilds.js';
 import { GuildRole, EssenceType, ItemInstance, ItemTemplate, Affix } from '../types.js';
-import { getBackpackCapacity, enforceInboxLimit } from '../logic/helpers.js';
+import { getBackpackCapacity, enforceInboxLimit, fetchFullCharacter } from '../logic/helpers.js';
 
 const router = express.Router();
 
 // ... (pozostałe endpointy bez zmian)
 
-// POST /api/guilds/armory/borrow
 router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
     const { armoryId } = req.body;
     const client = await pool.connect();
@@ -34,7 +33,6 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         const ownerRes = await client.query("SELECT data->>'name' as name FROM characters WHERE user_id = $1", [armoryEntry.owner_id]);
         const ownerName = ownerRes.rows[0]?.name || 'Unknown';
 
-        // Calculate actual item value on server for tax accuracy
         const gameDataRes = await client.query("SELECT key, data FROM game_data WHERE key IN ('itemTemplates', 'affixes')");
         const templates: ItemTemplate[] = gameDataRes.rows.find(r => r.key === 'itemTemplates')?.data || [];
         const affixes: Affix[] = gameDataRes.rows.find(r => r.key === 'affixes')?.data || [];
@@ -57,12 +55,10 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
 
         if (char.resources.gold < tax) throw new Error(`Not enough gold for rental tax (Required: ${tax})`);
 
-        // Process Transaction
         char.resources.gold -= tax;
         if (!guild.resources) guild.resources = { gold: 0 };
         guild.resources.gold = (Number(guild.resources.gold) || 0) + tax;
         
-        // Add Borrow Flags
         item.isBorrowed = true;
         item.borrowedFromGuildId = guildId;
         item.originalOwnerId = armoryEntry.owner_id;
@@ -77,11 +73,11 @@ router.post('/armory/borrow', authenticateToken, async (req: any, res: any) => {
         
         await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, 'RENTAL', 'gold', $3)`, [guildId, req.user.id, tax]);
 
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(char);
+        res.json(fullChar);
     } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error("BORROW ERROR:", err.message);
         res.status(400).json({ message: err.message });
     } finally {
         client.release();

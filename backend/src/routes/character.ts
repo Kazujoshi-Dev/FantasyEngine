@@ -1,8 +1,9 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, Race } from '../types.js';
-import { pruneExpiredBuffs } from '../logic/guilds.js';
+import { fetchFullCharacter } from '../logic/helpers.js';
 
 // Import sub-routers
 import statsRoutes from './character/stats.js';
@@ -22,59 +23,15 @@ router.get('/', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const result = await client.query(`
-            SELECT 
-                c.data, u.email, g.buildings, g.active_buffs, g.id as guild_id,
-                (SELECT row_to_json(tr) FROM tower_runs tr WHERE tr.user_id = c.user_id AND tr.status = 'IN_PROGRESS' LIMIT 1) as active_tower_run
-            FROM characters c 
-            JOIN users u ON c.user_id = u.id
-            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
-            LEFT JOIN guilds g ON gm.guild_id = g.id
-            WHERE c.user_id = $1 FOR UPDATE OF c
-        `, [req.user.id]);
-
-        if (result.rows.length === 0) {
+        const character = await fetchFullCharacter(client, req.user.id);
+        
+        if (!character) {
             await client.query('ROLLBACK');
             return res.json(null);
         }
 
-        const row = result.rows[0];
-        const charData: PlayerCharacter = row.data;
-
-        if (!charData.loadouts) charData.loadouts = [];
-        if (!charData.resources) charData.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 };
-        if (row.email) charData.email = row.email;
-        if (charData.honor === undefined) charData.honor = 0;
-
-        if (row.guild_id) {
-            charData.guildId = row.guild_id;
-            charData.guildBarracksLevel = row.buildings?.barracks || 0;
-            charData.guildShrineLevel = row.buildings?.shrine || 0;
-            charData.guildStablesLevel = row.buildings?.stables || 0;
-            const { pruned, wasModified } = pruneExpiredBuffs(row.active_buffs || []);
-            if (wasModified) {
-                await client.query('UPDATE guilds SET active_buffs = $1 WHERE id = $2', [JSON.stringify(pruned), row.guild_id]);
-                charData.activeGuildBuffs = pruned;
-            } else {
-                charData.activeGuildBuffs = row.active_buffs || [];
-            }
-        }
-
-        if (row.active_tower_run) {
-            charData.activeTowerRun = {
-                id: row.active_tower_run.id,
-                userId: row.active_tower_run.user_id,
-                towerId: row.active_tower_run.tower_id,
-                currentFloor: row.active_tower_run.current_floor,
-                currentHealth: row.active_tower_run.current_health,
-                currentMana: row.active_tower_run.current_mana,
-                accumulatedRewards: row.active_tower_run.accumulated_rewards,
-                status: row.active_tower_run.status
-            };
-        }
-
         await client.query('COMMIT');
-        res.json(charData);
+        res.json(character);
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: 'Błąd pobierania postaci' });
@@ -99,16 +56,15 @@ router.post('/update-profile', async (req: any, res: any) => {
         if (avatarUrl !== undefined) character.avatarUrl = avatarUrl;
         if (settings !== undefined) character.settings = { ...character.settings, ...settings };
         
-        // Aktualizacja danych w tabeli characters
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         
-        // Opcjonalna aktualizacja emaila w tabeli users
         if (email) {
             await client.query('UPDATE users SET email = $1 WHERE id = $2', [email, req.user.id]);
         }
 
+        const fullChar = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.json(character);
+        res.json(fullChar);
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: err.message });
@@ -126,18 +82,16 @@ router.post('/', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
 
-        // Sprawdź czy użytkownik ma już postać
         const existingCheck = await client.query('SELECT id FROM characters WHERE user_id = $1', [req.user.id]);
         if (existingCheck.rows.length > 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Użytkownik posiada już postać.' });
         }
 
-        // Sprawdź czy imię jest zajęte
         const nameCheck = await client.query("SELECT id FROM characters WHERE data->>'name' = $1", [name]);
         if (nameCheck.rows.length > 0) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ message: 'To imię jest już zajęte.' });
+            return res.status(400).json({ message: 'To imię jest już zajęty.' });
         }
 
         const initialCharacter: Partial<PlayerCharacter> = {
@@ -189,13 +143,14 @@ router.post('/', async (req: any, res: any) => {
             resetsUsed: 0
         };
 
-        const insertResult = await client.query(
-            'INSERT INTO characters (user_id, data) VALUES ($1, $2) RETURNING data',
+        await client.query(
+            'INSERT INTO characters (user_id, data) VALUES ($1, $2)',
             [req.user.id, JSON.stringify(initialCharacter)]
         );
 
+        const character = await fetchFullCharacter(client, req.user.id);
         await client.query('COMMIT');
-        res.status(201).json(insertResult.rows[0].data);
+        res.status(201).json(character);
     } catch (err: any) {
         await client.query('ROLLBACK');
         console.error("CREATE CHARACTER ERROR:", err);
