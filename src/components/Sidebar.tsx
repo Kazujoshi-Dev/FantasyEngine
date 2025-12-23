@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id: 'world',
             label: t('sidebar.sections.world'),
             items: [
-                { tab: Tab.Location, icon: GlobeIcon, label: t('sidebar.location') },
+                { tab: Tab.Location, icon: IconMap, label: t('sidebar.location') },
                 { tab: Tab.Camp, icon: IconHome, label: t('sidebar.camp') },
             ]
         },
@@ -213,7 +213,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                             <div className="flex-1 bg-slate-950/50 rounded-lg p-2 border border-white/5 flex items-center justify-center gap-2">
                                 <IconBolt className="h-3 w-3 text-sky-400" />
-                                <span className="font-mono text-xs font-bold text-sky-400">{playerCharacter.stats.currentEnergy}</span>
+                                <span className="font-mono text-xs font-bold text-sky-400">
+                                    {playerCharacter.stats.currentEnergy} / {playerCharacter.stats.maxEnergy}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -330,7 +332,7 @@ export const NewsModal: React.FC<{ isOpen: boolean, onClose: () => void, content
                     <p className="whitespace-pre-wrap leading-relaxed">{content || 'Brak nowych ogłoszeń.'}</p>
                 </div>
                 <div className="mt-8 flex justify-end">
-                    <button onClick={onClose} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95">
+                    <button onClick={onClose} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95">
                         Zamknij
                     </button>
                 </div>
