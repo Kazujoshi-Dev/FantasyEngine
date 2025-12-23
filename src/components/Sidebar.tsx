@@ -79,7 +79,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id: 'hero',
             label: t('sidebar.sections.hero'),
             items: [
-                { tab: Tab.Statistics, icon: IconShield, label: t('sidebar.statistics') },
+                { 
+                    tab: Tab.Statistics, 
+                    icon: IconShield, 
+                    label: t('sidebar.statistics'),
+                    notification: playerCharacter.stats.statPoints > 0 
+                },
                 { tab: Tab.Equipment, icon: IconSwords, label: t('sidebar.equipment') },
                 { tab: Tab.University, icon: IconBook, label: t('university.title') },
                 { tab: Tab.Resources, icon: IconSparkles, label: t('sidebar.resources') },
@@ -130,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { tab: Tab.Admin, icon: IconSettings, label: t('sidebar.admin'), adminOnly: true },
             ]
         }
-    ], [t, hasUnreadMessages, hasNewTavernMessages]);
+    ], [t, hasUnreadMessages, hasNewTavernMessages, playerCharacter.stats.statPoints]);
 
     const isAdmin = playerCharacter.name === 'Kazujoshi';
 
