@@ -49,6 +49,27 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
 
     const log = reward.combatLog || [];
 
+    // Helper to identify the opponent in PvP
+    const pvpOpponentAsEnemy = useMemo(() => {
+        if (!isPvp || !pvpData) return null;
+        const opp = isDefenderView ? pvpData.attacker : pvpData.defender;
+        return {
+            id: String(opp.id),
+            name: opp.name,
+            stats: opp.stats as any,
+            description: `Poziom ${opp.level} ${t(`race.${opp.race}`)}`,
+            isBoss: false,
+            lootTable: [],
+            resourceLootTable: [],
+            rewards: { minGold: 0, maxGold: 0, minExperience: 0, maxExperience: 0 }
+        } as Enemy;
+    }, [isPvp, pvpData, isDefenderView, t]);
+
+    const enemiesList = useMemo(() => {
+        if (isPvp && pvpOpponentAsEnemy) return [pvpOpponentAsEnemy];
+        return reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : []);
+    }, [isPvp, pvpOpponentAsEnemy, reward.encounteredEnemies, initialEnemy]);
+
     useEffect(() => {
         if (isAutoPlaying && currentTurn < log.length) {
             const timer = setTimeout(() => {
@@ -195,7 +216,7 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                         ) : (
                             <>
                                 <PartyMemberList members={isHunting ? (huntingMembers || []) : [{ userId: 0, characterName, level: 1, race: Race.Human, status: PartyMemberStatus.Member, stats: log[0]?.playerStats }]} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
-                                <EnemyListPanel enemies={reward.encounteredEnemies || (initialEnemy ? [initialEnemy] : [])} finalEnemiesHealth={lastLog?.allEnemiesHealth} globalEnemyHealth={lastLog?.enemyHealth} onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })} />
+                                <EnemyListPanel enemies={enemiesList} finalEnemiesHealth={lastLog?.allEnemiesHealth} globalEnemyHealth={lastLog?.enemyHealth} onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })} />
                             </>
                         )}
                     </div>
