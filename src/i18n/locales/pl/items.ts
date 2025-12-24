@@ -52,9 +52,9 @@ export default {
              ring: 'Pierścień',
              ring1: 'Pierścień 1',
              ring2: 'Pierścień 2',
-             mainHand: 'Główna ręka',
-             offHand: 'Druga ręka / Tarcza',
-             twoHand: 'Dwuręczna',
+             mainHand: 'Broń',
+             offHand: 'Off-Hand',
+             twoHand: 'Broń 2H',
              consumable: 'Użytkowy'
         },
         magic: {
@@ -114,9 +114,9 @@ export default {
             ring: 'Pierścień',
             ring1: 'Pierścień 1',
             ring2: 'Pierścień 2',
-            mainHand: 'Główna ręka',
-            offHand: 'Druga ręka / Tarcza',
-            twoHand: 'Dwuręczna',
+            mainHand: 'Broń',
+            offHand: 'Off-Hand',
+            twoHand: 'Broń 2H',
             consumable: 'Użytkowy'
         }
     },

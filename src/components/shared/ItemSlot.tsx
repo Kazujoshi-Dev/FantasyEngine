@@ -135,18 +135,13 @@ export const ItemDetailsPanel: React.FC<{
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
     
-    const currentTotalStats = useMemo(() => {
-        if (!item || !template) return null;
-        return getItemTotalStats(item, template);
-    }, [item, template]);
-
     const compareTotalStats = useMemo(() => {
         if (!compareWith || !itemTemplates || itemTemplates.length === 0 || !item || compareWith.uniqueId === item.uniqueId) return null;
         const compTemplate = itemTemplates.find(t => t.id === compareWith.templateId);
         return compTemplate ? getItemTotalStats(compareWith, compTemplate) : null;
     }, [compareWith, itemTemplates, item]);
 
-    if (!item || !template || !currentTotalStats) return null;
+    if (!item || !template) return null;
 
     const style = rarityStyles[template.rarity];
     const upgradeLevel = item.upgradeLevel || 0;
@@ -204,17 +199,14 @@ export const ItemDetailsPanel: React.FC<{
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
             const currentFactor = noScale ? 0 : upgradeFactor;
-            
             const formatValue = (v: number) => {
                 const scaled = v * (1 + currentFactor);
                 if (noScale || isPercent) return parseFloat(scaled.toFixed(2));
                 return Math.round(scaled);
             };
-
             const finalVal1 = formatValue(val1);
             const finalVal2 = isRange ? formatValue(val2) : 0;
             const isPerfect = isRange ? (checkPerfect((compareKey as [string, string])[0], val1) && checkPerfect((compareKey as [string, string])[1], val2)) : checkPerfect(compareKey as string, val1, isAttribute);
-            
             let delta = 0;
             if (compareTotalStats) {
                 if (isRange) {
@@ -246,21 +238,15 @@ export const ItemDetailsPanel: React.FC<{
         if (s.statsBonus) { Object.entries(s.statsBonus).forEach(([k, v]) => { if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true)); }); }
         if (s.damageMin !== undefined && s.damageMax !== undefined && !metadata.isShield) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
-        
         if (!isAffix && (metadata as ItemTemplate).attacksPerRound && !metadata.isShield) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
         if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0 && !metadata.isShield) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
-        
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
         
-        // Szansa na blok
-        if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) {
-            entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
-        }
-        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) {
-            entries.push(renderStat(t('statistics.blockChanceBonus'), s.blockChanceBonus, 'blockChanceBonus', true));
-        }
-
+        // Szansa na blok w tooltipie
+        if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
+        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) entries.push(renderStat(t('statistics.blockChanceBonus'), s.blockChanceBonus, 'blockChanceBonus', true));
+        
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
         if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
