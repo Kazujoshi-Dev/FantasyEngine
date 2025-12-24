@@ -67,7 +67,7 @@ export const simulateTeamVsBossCombat = (
         playerMana: 0,
         enemyHealth: bossState.currentHealth,
         enemyMana: bossState.currentMana,
-        allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth })),
+        allPlayersHealth: playersState.map(p => ({ name: p.data.name, currentHealth: p.currentHealth, maxHealth: p.data.stats.maxHealth, currentMana: p.currentMana, maxMana: p.data.stats.maxMana })),
         allEnemiesHealth: [{ uniqueId: 'boss', name: bossState.name, currentHealth: bossState.currentHealth, maxHealth: bossState.stats.maxHealth }]
     });
 
@@ -83,7 +83,6 @@ export const simulateTeamVsBossCombat = (
         partyMemberStats: partyStats
     });
     
-    // --- Turn 0: Ranged ---
     for (const player of playersState) {
         const weapon = player.data.equipment?.mainHand || player.data.equipment?.twoHand;
         const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
@@ -107,15 +106,31 @@ export const simulateTeamVsBossCombat = (
     while (playersState.some(p => !p.isDead) && bossState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        // Regen / Status Tick
         const allCombatants: any[] = [...playersState.filter(p => !p.isDead), bossState];
         for (const combatant of allCombatants) {
             const stats = combatant.stats || combatant.data?.stats;
             if (stats?.manaRegen) combatant.currentMana = Math.min(stats.maxMana || 0, combatant.currentMana + stats.manaRegen);
+            
+            // POPRAWKA: Stackowanie efektów dla całej drużyny i bossa
+            const burnEffects = combatant.statusEffects.filter((e: StatusEffect) => e.type === 'burning');
+            if (burnEffects.length > 0) {
+                const stacks = burnEffects.length;
+                const totalBurnDamage = burnEffects.reduce((sum, _) => sum + Math.floor(stats.maxHealth * 0.05), 0);
+                combatant.currentHealth = Math.max(0, combatant.currentHealth - totalBurnDamage);
+                log.push({ 
+                    turn, 
+                    attacker: 'Podpalenie', 
+                    defender: combatant.name || combatant.data?.name, 
+                    action: 'effectApplied', 
+                    effectApplied: 'burningTarget', 
+                    damage: totalBurnDamage, 
+                    ...getHealthStateForLog() 
+                });
+            }
+
             combatant.statusEffects = combatant.statusEffects.map((e: StatusEffect) => ({...e, duration: e.duration - 1})).filter((e: StatusEffect) => e.duration > 0);
         }
 
-        // Kolejka Akcji
         interface ActionEntity { type: 'player' | 'boss'; index: number; name: string; agility: number; }
         const queue: ActionEntity[] = [];
         playersState.forEach((p, index) => { if (!p.isDead) queue.push({ type: 'player', index, name: p.data.name, agility: p.data.stats.agility }); });
@@ -130,9 +145,12 @@ export const simulateTeamVsBossCombat = (
                 if (player.isDead || player.statusEffects.some(e => e.type === 'stunned')) continue;
 
                 const attacks = player.data.stats.attacksPerRound;
+                const reducedAttacksCount = player.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
+
                 const isDual = player.data.activeSkills?.includes('dual-wield-mastery') && player.data.equipment?.offHand;
 
-                for (let i = 0; i < attacks; i++) {
+                for (let i = 0; i < finalAttacks; i++) {
                     const hands: ('main' | 'off')[] = isDual ? ['main', 'off'] : ['main'];
                     for (const hand of hands) {
                         if (bossState.currentHealth <= 0) break;
@@ -154,7 +172,10 @@ export const simulateTeamVsBossCombat = (
                 }
             } else {
                 const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
-                for (let i = 0; i < bossAttacks; i++) {
+                const reducedAttacksCount = bossState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const finalBossAttacks = Math.max(1, Math.floor(bossAttacks - reducedAttacksCount));
+
+                for (let i = 0; i < finalBossAttacks; i++) {
                     const living = playersState.filter(p => !p.isDead);
                     if (living.length === 0) break;
                     const target = living[Math.floor(Math.random() * living.length)];
@@ -171,7 +192,6 @@ export const simulateTeamVsBossCombat = (
                 }
             }
         }
-
         if (bossState.currentHealth <= 0) break;
     }
 

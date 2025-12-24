@@ -62,12 +62,11 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
         playerStats: playerState.stats as CharacterStats, enemyStats: enemyState.stats as EnemyStats, enemyDescription: enemyState.description
     });
     
-    // --- Turn 0: Ranged Weapons Logic ---
     const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
     const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
 
     if (template?.isRanged && enemyState.currentHealth > 0) {
-        const attackOptions: { ignoreDodge?: boolean, critChanceOverride?: number } = {};
+        const attackOptions: { ignoreArmor?: boolean, ignoreDodge?: boolean, critChanceOverride?: number } = {};
         if (playerData.characterClass === CharacterClass.Warrior) {
             attackOptions.critChanceOverride = 100;
             attackOptions.ignoreDodge = true;
@@ -99,7 +98,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        // --- Efekty początku tury ---
         const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
         for(const combatant of turnParticipants) {
             const manaRegen = combatant.stats.manaRegen || 0;
@@ -111,25 +109,38 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                     log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...getHealthState(playerState, enemyState) });
                 }
             }
-            const burningEffect = combatant.statusEffects.find(e => e.type === 'burning');
-            if (burningEffect) {
-                const burnDamage = Math.floor(combatant.stats.maxHealth * 0.05);
-                combatant.currentHealth = Math.max(0, combatant.currentHealth - burnDamage);
-                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: burnDamage, ...getHealthState(playerState, enemyState) });
+
+            // POPRAWKA: Stackowanie podpaleń
+            const burningEffects = combatant.statusEffects.filter(e => e.type === 'burning');
+            if (burningEffects.length > 0) {
+                const stacks = burningEffects.length;
+                const totalBurnDamage = burningEffects.reduce((sum, _) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
+                combatant.currentHealth = Math.max(0, combatant.currentHealth - totalBurnDamage);
+                log.push({ 
+                    turn, 
+                    attacker: 'Podpalenie', 
+                    defender: combatant.name, 
+                    action: 'effectApplied', 
+                    effectApplied: 'burningTarget', 
+                    damage: totalBurnDamage, 
+                    ...getHealthState(playerState, enemyState) 
+                });
             }
+
             combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
         }
 
         const attacker = playerAttacksFirst ? playerState : enemyState;
         const defender = playerAttacksFirst ? enemyState : playerState;
 
-        // --- Ruch Atakującego ---
         if (attacker.currentHealth > 0) {
             const isPlayer = 'data' in attacker;
             const stats = attacker.stats;
             const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
-            const reducedAttacks = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').length;
-            const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
+            
+            // POPRAWKA: Stackowanie debuffów do liczby ataków
+            const reducedAttacksCount = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+            const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
             
             if (attacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
                 log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
@@ -137,19 +148,15 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 const pData = isPlayer ? (attacker as any).data as PlayerCharacter : null;
                 const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
                 
-                // Pętla ataku
                 for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
                     const hands: ('main' | 'off')[] = isDualWielding ? ['main', 'off'] : ['main'];
-                    
                     for (const hand of hands) {
                         if (defender.currentHealth <= 0) break;
-                        const isWarrior = pData?.characterClass === CharacterClass.Warrior;
                         const attackOptions: any = { hand };
-                        if (isWarrior && i === 0 && hand === 'main') {
+                        if (pData?.characterClass === CharacterClass.Warrior && i === 0 && hand === 'main') {
                             attackOptions.ignoreDodge = true;
                             attackOptions.critChanceOverride = 100;
                         }
-
                         const { logs: attackLogs, attackerState, defenderState } = performAttack(attacker, defender, turn, gameData, [], false, attackOptions);
                         log.push(...attackLogs);
                         Object.assign(attacker, attackerState);
@@ -159,13 +166,13 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             }
         }
         
-        // --- Ruch Obrońcy ---
         if (defender.currentHealth > 0) {
             const isPlayer = 'data' in defender;
             const stats = defender.stats;
             const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
-            const reducedAttacks = defender.statusEffects.filter(e => e.type === 'reduced_attacks').length;
-            const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacks));
+            
+            const reducedAttacksCount = defender.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+            const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
 
              if (defender.statusEffects.some(e => e.type === 'frozen_no_attack')) {
                 log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
@@ -175,16 +182,13 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
 
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
                     const hands: ('main' | 'off')[] = isDualWielding ? ['main', 'off'] : ['main'];
-
                     for (const hand of hands) {
                         if (attacker.currentHealth <= 0) break;
-                        const isWarrior = pData?.characterClass === CharacterClass.Warrior;
                         const attackOptions: any = { hand };
-                        if (isWarrior && i === 0 && hand === 'main') {
+                        if (pData?.characterClass === CharacterClass.Warrior && i === 0 && hand === 'main') {
                             attackOptions.ignoreDodge = true;
                             attackOptions.critChanceOverride = 100;
                         }
-
                         const { logs: attackLogs, attackerState, defenderState } = performAttack(defender, attacker, turn, gameData, [], false, attackOptions);
                         log.push(...attackLogs);
                         Object.assign(defender, attackerState);
@@ -193,11 +197,9 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 }
             }
         }
-
         playerAttacksFirst = playerState.stats.agility >= enemyState.stats.agility;
     }
 
-    // Dodanie logu o śmierci po zakończeniu pętli
     if (enemyState.currentHealth <= 0) {
         log.push({ turn, attacker: playerState.name, defender: enemyState.name, action: 'enemy_death', ...getHealthState(playerState, enemyState) });
     } else if (playerState.currentHealth <= 0) {

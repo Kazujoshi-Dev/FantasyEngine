@@ -89,7 +89,6 @@ export const simulate1vManyCombat = (
         enemyStats: enemiesState[0].stats as EnemyStats
     });
 
-    // --- Turn 0: Ranged ---
     const weapon = playerData.equipment?.mainHand || playerData.equipment?.twoHand;
     const template = weapon ? (gameData.itemTemplates || []).find(t => t.id === weapon.templateId) : null;
 
@@ -120,11 +119,13 @@ export const simulate1vManyCombat = (
         for(const combatant of allCombatants) {
             const manaRegen = combatant.stats.manaRegen || 0;
             if (manaRegen > 0) combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
-            const burn = combatant.statusEffects.find(e => e.type === 'burning');
-            if (burn) {
-                const dmg = Math.floor(combatant.stats.maxHealth * 0.05);
-                combatant.currentHealth = Math.max(0, combatant.currentHealth - dmg);
-                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: dmg, ...getHealthState() });
+            
+            // POPRAWKA: Stackowanie podpaleń
+            const burnEffects = combatant.statusEffects.filter(e => e.type === 'burning');
+            if (burnEffects.length > 0) {
+                const totalDmg = burnEffects.reduce((sum, _) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
+                combatant.currentHealth = Math.max(0, combatant.currentHealth - totalDmg);
+                log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: totalDmg, ...getHealthState() });
                 
                 if (combatant.currentHealth <= 0) {
                     const isPlayer = combatant.name === playerState.name;
@@ -136,14 +137,13 @@ export const simulate1vManyCombat = (
         
         if (playerState.currentHealth <= 0) break;
 
-        // --- Gracz ---
         if (playerState.currentHealth > 0) {
             if (playerState.statusEffects.some(e => e.type === 'frozen_no_attack')) {
                  log.push({ turn, attacker: playerState.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
             } else {
                 const attacks = (playerState.stats as CharacterStats).attacksPerRound || 1;
-                const reduced = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').length;
-                const finalAttacks = Math.max(1, Math.floor(attacks - reduced));
+                const reducedAttacksCount = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
                 const isDual = playerState.data.activeSkills?.includes('dual-wield-mastery') && playerState.data.equipment?.offHand;
 
                 for(let i = 0; i < finalAttacks; i++) {
@@ -172,7 +172,6 @@ export const simulate1vManyCombat = (
             }
         }
 
-        // --- Wrogowie ---
         const livingEnemies = enemiesState.filter(e => e.currentHealth > 0);
         for (const enemy of livingEnemies) {
             if (playerState.currentHealth <= 0) break;
