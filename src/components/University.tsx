@@ -150,21 +150,45 @@ export const University: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     };
 
+    // Obraz uniwersytetu pobierany z ustawień gry
+    const universityImageUrl = gameData.settings?.universityImage;
+
     return (
         <ContentPanel title={t('university.title')}>
-            {/* Przeniesiony Opis Uniwersytetu na Górę */}
-            <div className="bg-slate-900/60 p-6 rounded-2xl border border-indigo-500/20 mb-8 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <BookOpenIcon className="h-24 w-24 text-indigo-400" />
+            {/* Opis Uniwersytetu - Układ dwukolumnowy */}
+            <div className="bg-slate-900/60 p-6 rounded-2xl border border-indigo-500/20 mb-8 relative overflow-hidden group shadow-2xl">
+                {/* Znak wodny w tle */}
+                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                    <BookOpenIcon className="h-64 w-64 text-indigo-400" />
                 </div>
-                <div className="relative z-10">
-                    <h4 className="text-indigo-400 font-black uppercase tracking-widest text-[11px] mb-3 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                        Kronika Uniwersytetu
-                    </h4>
-                    <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap max-w-4xl">
-                        {t('university.description')}
-                    </p>
+                
+                <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center lg:items-start">
+                    {/* LEWA KOLUMNA: Opis */}
+                    <div className="flex-1">
+                        <h4 className="text-indigo-400 font-black uppercase tracking-widest text-[11px] mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                            Kronika Uniwersytetu
+                        </h4>
+                        <div className="max-h-[250px] overflow-y-auto pr-4 custom-scrollbar">
+                            <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap">
+                                {t('university.description')}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* PRAWA KOLUMNA: Grafika (jeśli ustawiona) */}
+                    {universityImageUrl && (
+                        <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
+                            <div className="relative aspect-[4/5] md:aspect-square lg:aspect-[3/4] rounded-xl overflow-hidden border-2 border-indigo-500/30 shadow-[0_0_25px_rgba(79,70,229,0.15)] group-hover:shadow-[0_0_35px_rgba(79,70,229,0.25)] transition-all duration-500">
+                                <img 
+                                    src={universityImageUrl} 
+                                    alt="Uniwersytet Mrocznych Rzemiosł" 
+                                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
