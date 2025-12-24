@@ -107,13 +107,105 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         res.json(character);
 
     } catch (err: any) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error("Start Expedition Error:", err);
         res.status(500).json({ message: err.message });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 
-// Reszta pliku bez zmian...
+// POST /api/expedition/complete
+router.post('/complete', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Fetch Character and Guild context
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings, g.id as guild_id
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [req.user.id]);
+
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+
+        const character: PlayerCharacter = charRes.rows[0].data;
+        if (!character.activeExpedition) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'No active expedition found.' });
+        }
+
+        if (Date.now() < character.activeExpedition.finishTime) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Expedition is still in progress.' });
+        }
+
+        // 2. Fetch full GameData for processing
+        const gameDataRes = await client.query("SELECT key, data FROM game_data");
+        const gameData: any = gameDataRes.rows.reduce((acc, row) => ({ ...acc, [row.key]: row.data }), {});
+
+        // 3. Process combat and rewards
+        const guildBuildings = charRes.rows[0].buildings || {};
+        const { updatedCharacter, summary, expeditionName } = processCompletedExpedition(
+            character, 
+            gameData, 
+            guildBuildings.barracks || 0,
+            guildBuildings.scoutHouse || 0,
+            guildBuildings.shrine || 0
+        );
+
+        // 4. Save updated character
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(updatedCharacter), req.user.id]);
+
+        // 5. Send Expedition Report via Messaging System
+        await enforceInboxLimit(client, req.user.id);
+        const reportRes = await client.query(
+            `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
+             VALUES ($1, 'System', 'expedition_report', $2, $3) RETURNING id`,
+            [req.user.id, `Raport z wyprawy: ${expeditionName}`, JSON.stringify(summary)]
+        );
+
+        await client.query('COMMIT');
+        res.json({ updatedCharacter, summary, messageId: reportRes.rows[0].id });
+
+    } catch (err: any) {
+        if (client) await client.query('ROLLBACK');
+        console.error("Complete Expedition Error:", err);
+        res.status(500).json({ message: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// POST /api/expedition/cancel
+router.post('/cancel', authenticateToken, async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Character not found' });
+        }
+
+        const character: PlayerCharacter = charRes.rows[0].data;
+        character.activeExpedition = null;
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) {
+        if (client) await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 export default router;
