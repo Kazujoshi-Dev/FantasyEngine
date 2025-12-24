@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Skill, SkillType, SkillCategory, SkillCost, SkillRequirements, EssenceType, CharacterResources, CharacterStats } from '../../../types';
+import { Skill, SkillType, SkillCategory, SkillCost, SkillRequirements, EssenceType } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 
 interface SkillEditorProps {
@@ -15,12 +16,13 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
         requirements: {},
         cost: {},
         manaMaintenanceCost: 0,
+        learningTimeMinutes: 0,
         ...skill
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        const isNumeric = name === 'manaMaintenanceCost';
+        const isNumeric = ['manaMaintenanceCost', 'learningTimeMinutes'].includes(name);
         setFormData(prev => ({ ...prev, [name]: isNumeric ? parseInt(value, 10) || 0 : value }));
     };
 
@@ -58,6 +60,8 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
                 <div><label>Nazwa:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>Typ:<select name="type" value={formData.type || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillType).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
                 <div><label>Kategoria:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillCategory).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
+                
+                <div><label>Czas Nauki (Minuty):<input name="learningTimeMinutes" type="number" value={formData.learningTimeMinutes || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 
                 {formData.category === 'Active' && (
                     <div><label>Koszt utrzymania (Max Mana):<input name="manaMaintenanceCost" type="number" value={formData.manaMaintenanceCost || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>

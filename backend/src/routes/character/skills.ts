@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { pool } from '../../db.js';
 import { PlayerCharacter, Skill, CharacterClass, EssenceType, ItemTemplate } from '../../types.js';
@@ -14,6 +15,8 @@ router.post('/learn', async (req: any, res: any) => {
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         if (charRes.rows.length === 0) throw new Error("Character not found");
         const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (character.activeLearning) throw new Error("Już uczysz się innej umiejętności.");
 
         const gameDataRes = await client.query("SELECT data FROM game_data WHERE key = 'skills'");
         const skills: Skill[] = gameDataRes.rows[0]?.data || [];
@@ -53,13 +56,48 @@ router.post('/learn', async (req: any, res: any) => {
             if ((character.resources as any)[resType] < (amount as number)) throw new Error(`Brak esencji: ${resType}`);
         }
 
+        // Deduct resources
         if (skill.cost.gold) character.resources.gold -= skill.cost.gold;
         for (const [resType, amount] of Object.entries(skill.cost)) {
             if (resType === 'gold') continue;
             (character.resources as any)[resType] -= (amount as number);
         }
 
-        character.learnedSkills.push(skillId);
+        // Set active learning
+        const learningDurationMs = (skill.learningTimeMinutes || 0) * 60 * 1000;
+        character.activeLearning = {
+            skillId: skillId,
+            finishTime: Date.now() + learningDurationMs
+        };
+
+        await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
+        await client.query('COMMIT');
+        res.json(character);
+    } catch (err: any) { 
+        await client.query('ROLLBACK'); 
+        res.status(400).json({ message: err.message }); 
+    }
+    finally { client.release(); }
+});
+
+router.post('/complete-learning', async (req: any, res: any) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        const character: PlayerCharacter = charRes.rows[0].data;
+
+        if (!character.activeLearning) throw new Error("Nie uczysz się żadnej umiejętności.");
+        
+        if (Date.now() < character.activeLearning.finishTime) {
+            throw new Error("Nauka jeszcze trwa.");
+        }
+
+        if (!character.learnedSkills) character.learnedSkills = [];
+        character.learnedSkills.push(character.activeLearning.skillId);
+        character.activeLearning = null;
+
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
         await client.query('COMMIT');
         res.json(character);

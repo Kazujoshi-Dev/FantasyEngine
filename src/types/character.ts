@@ -1,3 +1,4 @@
+
 import { EssenceType, Language, Race, CharacterClass } from './common.js';
 import { EquipmentSlot, ItemInstance, RolledAffixStats } from './items.js';
 import { GuildBuff } from './guild.js';
@@ -112,6 +113,11 @@ export interface PlayerCharacter {
     
     learnedSkills: string[];
     activeSkills: string[];
+
+    activeLearning?: {
+        skillId: string;
+        finishTime: number;
+    } | null;
     
     pvpWins: number;
     pvpLosses: number;

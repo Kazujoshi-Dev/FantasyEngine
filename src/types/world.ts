@@ -145,6 +145,7 @@ export interface Skill {
     requirements: SkillRequirements;
     cost: SkillCost;
     manaMaintenanceCost?: number;
+    learningTimeMinutes?: number;
 }
 
 export interface Ritual {

@@ -101,6 +101,7 @@ export const api = {
     resetAttributes: () => fetchApi('/character/reset-stats', { method: 'POST' }),
     
     learnSkill: (skillId: string) => fetchApi('/character/skills/learn', { method: 'POST', body: JSON.stringify({ skillId }) }),
+    completeLearningSkill: () => fetchApi('/character/skills/complete-learning', { method: 'POST' }),
     toggleSkill: (skillId: string, isActive: boolean) => fetchApi('/character/skills/toggle', { method: 'POST', body: JSON.stringify({ skillId, isActive }) }),
     selectClass: (characterClass: CharacterClass) => fetchApi('/character/class', { method: 'POST', body: JSON.stringify({ characterClass }) }),
     convertEssence: (fromType: EssenceType) => fetchApi('/character/skills/convert-essence', { method: 'POST', body: JSON.stringify({ fromType }) }),
