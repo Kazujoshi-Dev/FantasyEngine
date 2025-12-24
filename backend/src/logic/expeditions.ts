@@ -102,12 +102,18 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     if (isVictory) {
         const backpackCapacity = getBackpackCapacity(finalCharacter);
         
-        // --- Energy Syphon (Orkowie - Skóra Behemota) ---
+        // --- Energy Recovery (Orkowie: Behemoth's Hide & Gnomowie: Over-Engineering) ---
         if (finalCharacter.race === Race.Orc && finalCharacter.learnedSkills?.includes('behemoths-hide')) {
             if (finalCharacter.stats.currentHealth < characterWithStats.stats.maxHealth * 0.5) {
                 if (Math.random() < 0.10) {
                     finalCharacter.stats.currentEnergy = Math.min(characterWithStats.stats.maxEnergy, finalCharacter.stats.currentEnergy + 1);
                 }
+            }
+        }
+        
+        if (finalCharacter.race === Race.Gnome && finalCharacter.learnedSkills?.includes('gnomish-overengineering')) {
+            if (Math.random() < 0.15) {
+                finalCharacter.stats.currentEnergy = Math.min(characterWithStats.stats.maxEnergy, finalCharacter.stats.currentEnergy + 1);
             }
         }
 
@@ -199,7 +205,17 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
         
         const resourceRolls = 1 + (scoutHouseLevel > 0 ? 1 : 0);
-        for (let i = 0; i < resourceRolls; i++) {
+        
+        // --- GNOMISH OVER-ENGINEERING (LUCK BASED EXTRA RESOURCE ROLL) ---
+        let extraResourceRolls = 0;
+        if (finalCharacter.race === Race.Gnome && finalCharacter.learnedSkills?.includes('gnomish-overengineering')) {
+            const extraChance = (characterWithStats.stats.luck || 0) * 0.2; // 0.2% na każdy pkt Luck
+            if (Math.random() * 100 < extraChance) {
+                extraResourceRolls += 1;
+            }
+        }
+
+        for (let i = 0; i < (resourceRolls + extraResourceRolls); i++) {
             if (expedition.resourceLootTable && expedition.resourceLootTable.length > 0) {
                 const drop = pickWeighted(expedition.resourceLootTable) as ResourceDrop | null;
                 if (drop) {

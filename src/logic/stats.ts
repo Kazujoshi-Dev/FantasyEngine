@@ -268,7 +268,7 @@ export const calculateDerivedStats = (
     let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
     let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
     let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
-    let ohMagMax = ohMagicDmgMax > 0 ? ohMagicDmgMax + intBonus : 0;
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0; // Fix magic max calc
 
     if (isDualWieldActive && ohItem) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
@@ -301,6 +301,14 @@ export const calculateDerivedStats = (
         finalArmor += strengthArmorBonus;
     }
 
+    // --- Ethereal Weave (Elfy) ---
+    let elfManaRegenBonus = 0;
+    let elfDodgeBonus = 0;
+    if (character.race === Race.Elf && character.learnedSkills?.includes('ethereal-weave')) {
+        elfManaRegenBonus = Math.floor(totalPrimaryStats.intelligence * 0.05);
+        elfDodgeBonus = Math.floor(maxMana / 100);
+    }
+
     return {
         ...character,
         stats: {
@@ -318,8 +326,8 @@ export const calculateDerivedStats = (
             armor: finalArmor,
             critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
-            dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0)),
-            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
+            dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0) + elfDodgeBonus),
+            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0) + elfManaRegenBonus,
             armorPenetrationPercent: bonusArmorPenetrationPercent,
             armorPenetrationFlat: bonusArmorPenetrationFlat,
             lifeStealPercent: bonusLifeStealPercent,

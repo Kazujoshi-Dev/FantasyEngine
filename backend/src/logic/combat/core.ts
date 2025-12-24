@@ -21,6 +21,7 @@ export interface AttackerState {
     isEmpowered?: boolean;
     manaSurgeUsed?: boolean;
     shadowBoltStacks?: number;
+    dodgeCritStacks?: number; // NOWE: Stosy dla Gnomiej Nadzaradności
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
 }
@@ -31,6 +32,7 @@ export interface DefenderState {
     currentMana: number;
     name: string;
     hardSkinTriggered?: boolean;
+    dodgeCritStacks?: number; // NOWE: Przechowywanie stosów obrońcy
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
     uniqueId?: string;
@@ -98,11 +100,22 @@ export const performAttack = <
     }
 
     if (Math.random() * 100 < tempDodgeChance) {
+        // --- GNOMISH OVER-ENGINEERING (DODGE STACK) ---
+        if (defenderIsPlayer && defender.data?.race === Race.Gnome && defender.data?.learnedSkills?.includes('gnomish-overengineering')) {
+            defender.dodgeCritStacks = Math.min(3, (defender.dodgeCritStacks || 0) + 1);
+        }
+
         return {
             logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true, ...getHealthState(attacker, defender) }],
             attackerState: attacker,
             defenderState: defender,
         };
+    }
+
+    // Obliczanie szansy na krytyk z uwzględnieniem stosów Gnoma
+    let finalCritChance = attacker.stats.critChance;
+    if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome && attacker.dodgeCritStacks) {
+        finalCritChance += (attacker.dodgeCritStacks * 10);
     }
 
     if (attackerIsPlayer) {
@@ -158,9 +171,14 @@ export const performAttack = <
 
         const attackerClass = (attacker as any).data?.characterClass;
         if ((attackerIsPlayer && (attackerClass === CharacterClass.Mage || attackerClass === CharacterClass.Wizard)) || !attackerIsPlayer) {
-            if (Math.random() * 100 < attacker.stats.critChance) {
+            if (Math.random() * 100 < finalCritChance) {
                 isCrit = true;
-                const critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;
+                let critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;
+                
+                if (turn === 1 && (attacker as any).data?.learnedSkills?.includes('ethereal-weave')) {
+                    critMod += 30;
+                }
+                
                 damage = Math.floor(damage * (critMod / 100));
             }
         }
@@ -168,10 +186,16 @@ export const performAttack = <
         const min = hand === 'off' ? (attacker.stats as CharacterStats).offHandMinDamage || 0 : attacker.stats.minDamage;
         const max = hand === 'off' ? (attacker.stats as CharacterStats).offHandMaxDamage || 0 : attacker.stats.maxDamage;
         damage = Math.floor(Math.random() * (max - min + 1)) + min;
-        const critChance = options.critChanceOverride ?? (attacker.stats.critChance + (attacker.isEmpowered ? 15 : 0));
-        if (Math.random() * 100 < critChance) {
+        
+        const critRollChance = options.critChanceOverride ?? (finalCritChance + (attacker.isEmpowered ? 15 : 0));
+        if (Math.random() * 100 < critRollChance) {
             isCrit = true;
-            const critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;
+            let critMod = 'critDamageModifier' in attacker.stats ? (attacker.stats as any).critDamageModifier : 150;
+            
+            if (turn === 1 && (attacker as any).data?.learnedSkills?.includes('ethereal-weave')) {
+                critMod += 30;
+            }
+
             damage = Math.floor(damage * (critMod / 100));
         }
 
@@ -182,6 +206,11 @@ export const performAttack = <
         const armorReduction = Math.min(damage, Math.floor(effectiveArmor));
         damage -= armorReduction;
         damageReduced += armorReduction;
+    }
+
+    // Po ataku (niezależnie czy hit czy miss magiczny) czyścimy stosy Gnoma
+    if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome) {
+        attacker.dodgeCritStacks = 0;
     }
 
     const reductionPercent = (defender.stats as CharacterStats).damageReductionPercent || 0;

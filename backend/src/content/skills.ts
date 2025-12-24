@@ -25,6 +25,43 @@ export const GAME_SKILLS: Skill[] = [
         }
     },
     {
+        id: 'ethereal-weave',
+        name: 'Splot Eteryczny',
+        description: 'Mistrzowska kontrola nad przepływem many pozwala Elfom manipulować rzeczywistością. Zapewnia +1% Szansy na Unik za każde 100 pkt Maksymalnej Many. Dodatkowo, w pierwszej rundzie walki Modyfikator Obrażeń Krytycznych rośnie o 30%, a bazowa regeneracja many jest zwiększona o 5% Inteligencji.',
+        type: SkillType.Race,
+        category: SkillCategory.Passive,
+        requirements: {
+            race: Race.Elf,
+            level: 15,
+            intelligence: 40,
+            agility: 30
+        },
+        cost: {
+            gold: 15000,
+            rareEssence: 20,
+            epicEssence: 5
+        }
+    },
+    {
+        id: 'gnomish-overengineering',
+        name: 'Gnomia Nadzaradność',
+        description: 'Gnomowie wyciskają z mechanizmów maksimum możliwości. Każdy punkt Szczęścia zwiększa szansę na dodatkowe esencje o 0.2%. Dodatkowo, każdy wykonany Unik zwiększa szansę na krytyk następnego ataku o 10% (max 3 stosy), a wygrana walka na ekspedycji daje 15% szansy na odzyskanie 1 pkt Energii.',
+        type: SkillType.Race,
+        category: SkillCategory.Passive,
+        requirements: {
+            race: Race.Gnome,
+            level: 18,
+            intelligence: 30,
+            luck: 45
+        },
+        cost: {
+            gold: 20000,
+            uncommonEssence: 40,
+            rareEssence: 15,
+            epicEssence: 2
+        }
+    },
+    {
         id: 'pioneers-instinct',
         name: 'Instynkt Pioniera',
         description: 'Unikalna zdolność Ludzi. Zmniejsza koszt energii wypraw i wieży o 1 (min. 1), zwiększa najwyższy atrybut o 5% oraz daje +5% szansy na łup.',
