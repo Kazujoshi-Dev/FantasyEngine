@@ -80,6 +80,7 @@ export default {
         racialBonusTitle: 'Bonus Rasowy'
     },
     university: {
+        title: 'Uniwersytet',
         learningDuration: 'Czas trwania nauki',
         passive: 'Pasywna',
         active: 'Aktywna',
