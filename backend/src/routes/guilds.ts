@@ -4,7 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 import { getBuildingCost, canManage, pruneExpiredBuffs } from '../logic/guilds.js';
-import { GuildRole, EssenceType, ItemInstance, ItemTemplate, Affix, RaidType } from '../types';
+import { GuildRole, EssenceType, ItemInstance, ItemTemplate, RaidType } from '../types.js';
 // Fix: Import getBackpackCapacity from stats.js, keep enforceInboxLimit and fetchFullCharacter from helpers.js
 import { getBackpackCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { enforceInboxLimit, fetchFullCharacter } from '../logic/helpers.js';
@@ -51,7 +51,7 @@ router.get('/my-guild', async (req: any, res: any) => {
         const membersRes = await pool.query(`
             SELECT gm.user_id as "userId", gm.role, gm.joined_at as "joinedAt", 
                    c.data->>'name' as name, (c.data->>'level')::int as level, c.data->>'race' as race,
-                   EXISTS(SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes') as "isOnline"
+                   EXISTS(SELECT 1 FROM sessions s WHERE s.user_id = gm.user_id AND s.last_active_at > NOW() - INTERVAL '5 minutes' ) as "isOnline"
             FROM guild_members gm
             JOIN characters c ON gm.user_id = c.user_id
             WHERE gm.guild_id = $1
