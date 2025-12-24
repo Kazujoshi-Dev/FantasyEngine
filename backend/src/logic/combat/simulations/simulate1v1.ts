@@ -110,11 +110,9 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 }
             }
 
-            // POPRAWKA: Stackowanie podpaleń
             const burningEffects = combatant.statusEffects.filter(e => e.type === 'burning');
             if (burningEffects.length > 0) {
-                const stacks = burningEffects.length;
-                const totalBurnDamage = burningEffects.reduce((sum, _) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
+                const totalBurnDamage = burningEffects.reduce((sum: number, _: StatusEffect) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - totalBurnDamage);
                 log.push({ 
                     turn, 
@@ -138,8 +136,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             const stats = attacker.stats;
             const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
             
-            // POPRAWKA: Stackowanie debuffów do liczby ataków
-            const reducedAttacksCount = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+            const reducedAttacksCount = attacker.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
             const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
             
             if (attacker.statusEffects.some(e => e.type === 'frozen_no_attack')) {
@@ -171,7 +168,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             const stats = defender.stats;
             const attacks = isPlayer ? (stats as CharacterStats).attacksPerRound : (stats as EnemyStats).attacksPerTurn || 1;
             
-            const reducedAttacksCount = defender.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+            const reducedAttacksCount = defender.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
             const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
 
              if (defender.statusEffects.some(e => e.type === 'frozen_no_attack')) {

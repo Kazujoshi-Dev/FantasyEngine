@@ -72,7 +72,7 @@ export const simulate1vManyCombat = (
     const getHealthState = () => ({
         playerHealth: playerState.currentHealth,
         playerMana: playerState.currentMana,
-        enemyHealth: enemiesState.reduce((sum, e) => sum + Math.max(0, e.currentHealth), 0),
+        enemyHealth: enemiesState.reduce((sum: number, e: AttackerState) => sum + Math.max(0, e.currentHealth), 0),
         enemyMana: 0,
         allEnemiesHealth: enemiesState.map(e => ({ 
             uniqueId: e.uniqueId, 
@@ -120,10 +120,9 @@ export const simulate1vManyCombat = (
             const manaRegen = combatant.stats.manaRegen || 0;
             if (manaRegen > 0) combatant.currentMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
             
-            // POPRAWKA: Stackowanie podpaleń
             const burnEffects = combatant.statusEffects.filter(e => e.type === 'burning');
             if (burnEffects.length > 0) {
-                const totalDmg = burnEffects.reduce((sum, _) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
+                const totalDmg = burnEffects.reduce((sum: number, _: StatusEffect) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - totalDmg);
                 log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: 'effectApplied', effectApplied: 'burningTarget', damage: totalDmg, ...getHealthState() });
                 
@@ -142,7 +141,7 @@ export const simulate1vManyCombat = (
                  log.push({ turn, attacker: playerState.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState() });
             } else {
                 const attacks = (playerState.stats as CharacterStats).attacksPerRound || 1;
-                const reducedAttacksCount = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const reducedAttacksCount = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
                 const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
                 const isDual = playerState.data.activeSkills?.includes('dual-wield-mastery') && playerState.data.equipment?.offHand;
 

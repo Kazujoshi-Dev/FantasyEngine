@@ -55,7 +55,7 @@ export const simulateTeamVsBossCombat = (
         currentMana: effectiveBossStats.maxMana || 0,
         name: bossData.name,
         statusEffects: [],
-        specialAttacksUsed: (bossData.specialAttacks || []).reduce((acc, sa) => ({ ...acc, [sa.type]: 0 }), {}),
+        specialAttacksUsed: (bossData.specialAttacks || []).reduce((acc: Record<string, number>, sa: any) => ({ ...acc, [sa.type]: 0 }), {}),
         isEmpowered: false,
     };
 
@@ -111,11 +111,9 @@ export const simulateTeamVsBossCombat = (
             const stats = combatant.stats || combatant.data?.stats;
             if (stats?.manaRegen) combatant.currentMana = Math.min(stats.maxMana || 0, combatant.currentMana + stats.manaRegen);
             
-            // POPRAWKA: Stackowanie efektów dla całej drużyny i bossa
             const burnEffects = combatant.statusEffects.filter((e: StatusEffect) => e.type === 'burning');
             if (burnEffects.length > 0) {
-                const stacks = burnEffects.length;
-                const totalBurnDamage = burnEffects.reduce((sum, _) => sum + Math.floor(stats.maxHealth * 0.05), 0);
+                const totalBurnDamage = burnEffects.reduce((sum: number, _: StatusEffect) => sum + Math.floor(stats.maxHealth * 0.05), 0);
                 combatant.currentHealth = Math.max(0, combatant.currentHealth - totalBurnDamage);
                 log.push({ 
                     turn, 
@@ -145,7 +143,7 @@ export const simulateTeamVsBossCombat = (
                 if (player.isDead || player.statusEffects.some(e => e.type === 'stunned')) continue;
 
                 const attacks = player.data.stats.attacksPerRound;
-                const reducedAttacksCount = player.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const reducedAttacksCount = player.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
                 const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
 
                 const isDual = player.data.activeSkills?.includes('dual-wield-mastery') && player.data.equipment?.offHand;
@@ -156,8 +154,8 @@ export const simulateTeamVsBossCombat = (
                         if (bossState.currentHealth <= 0) break;
                         const attackOptions: any = { hand };
                         if (player.data.characterClass === CharacterClass.Warrior && i === 0 && hand === 'main') {
-                            attackOptions.critChanceOverride = 100;
                             attackOptions.ignoreDodge = true;
+                            attackOptions.critChanceOverride = 100;
                         }
                         const { logs, attackerState, defenderState } = performAttack({ ...player, stats: player.data.stats, name: player.data.name }, { ...bossState, stats: bossState.stats, name: bossState.name }, turn, gameData, [], false, attackOptions);
                         Object.assign(player, attackerState);
@@ -172,7 +170,7 @@ export const simulateTeamVsBossCombat = (
                 }
             } else {
                 const bossAttacks = (bossState.stats as EnemyStats).attacksPerTurn || 1;
-                const reducedAttacksCount = bossState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum, e) => sum + (e.amount || 1), 0);
+                const reducedAttacksCount = bossState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
                 const finalBossAttacks = Math.max(1, Math.floor(bossAttacks - reducedAttacksCount));
 
                 for (let i = 0; i < finalBossAttacks; i++) {
