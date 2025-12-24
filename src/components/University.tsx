@@ -90,14 +90,14 @@ const SkillCard: React.FC<{
                 ) : null}
             </div>
 
-            <p className="text-sm text-gray-400 italic mb-6 leading-relaxed min-h-[3rem]">
+            <p className="text-sm text-gray-400 italic mb-6 leading-relaxed line-clamp-3 hover:line-clamp-none cursor-default transition-all duration-300">
                 {skill.description}
             </p>
 
             <div className="space-y-4 mb-6 flex-grow">
                 <div>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Wymagania</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                    <div className="grid grid-cols-2 gap-y-1">
                         {skill.requirements.race && (
                              <p className={`text-xs ${raceMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Rasa: {t(`race.${skill.requirements.race}`)}</p>
                         )}
@@ -125,7 +125,7 @@ const SkillCard: React.FC<{
                     <div className="grid grid-cols-1 gap-4">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Koszt całkowity</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 {(Object.entries(skill.cost) as [keyof SkillCost, number][]).map(([res, val]) => {
                                     if (!val) return null;
                                     const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= (val as number);
@@ -223,7 +223,7 @@ export const University: React.FC = () => {
 
     return (
         <ContentPanel title={t('university.title')}>
-            {/* Opis Uniwersytetu */}
+            {/* Nowy Lore-Header Card */}
             <div className="bg-slate-900/60 p-6 rounded-2xl border border-indigo-500/20 mb-8 relative overflow-hidden group shadow-2xl">
                 <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
                     <BookOpenIcon className="h-64 w-64 text-indigo-400" />
@@ -235,7 +235,7 @@ export const University: React.FC = () => {
                             <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
                             Kronika Uniwersytetu
                         </h4>
-                        <div className="max-h-[250px] overflow-y-auto pr-4 custom-scrollbar">
+                        <div className="max-h-[120px] lg:max-h-[180px] overflow-y-auto pr-4 custom-scrollbar">
                             <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap">
                                 {t('university.description')}
                             </p>
@@ -244,7 +244,7 @@ export const University: React.FC = () => {
 
                     {universityImageUrl && (
                         <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
-                            <div className="relative aspect-[4/5] md:aspect-square lg:aspect-[3/4] rounded-xl overflow-hidden border-2 border-indigo-500/30 shadow-[0_0_25px_rgba(79,70,229,0.15)] group-hover:shadow-[0_0_35px_rgba(79,70,229,0.25)] transition-all duration-500">
+                            <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-indigo-500/30 shadow-[0_0_25px_rgba(79,70,229,0.15)] group-hover:shadow-[0_0_35px_rgba(79,70,229,0.25)] transition-all duration-500">
                                 <img 
                                     src={universityImageUrl} 
                                     alt="Uniwersytet Mrocznych Rzemiosł" 
@@ -257,7 +257,7 @@ export const University: React.FC = () => {
                 </div>
             </div>
 
-            {/* Nawigacja */}
+            {/* Nowa Nawigacja Typów Umiejętności */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
                     {(Object.values(SkillType) as SkillType[]).map(type => (
@@ -278,6 +278,7 @@ export const University: React.FC = () => {
                 </div>
             </div>
 
+            {/* Siatka Umiejętności */}
             <div className="h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {filteredSkills.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-30">
@@ -285,7 +286,7 @@ export const University: React.FC = () => {
                         <p className="text-xl font-bold uppercase tracking-widest">Brak dostępnych nauk</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in pb-8 items-stretch">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in pb-8">
                         {filteredSkills.map(skill => (
                             <SkillCard 
                                 key={skill.id} 

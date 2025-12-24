@@ -1,4 +1,3 @@
-
 export default {
     sidebar: {
         title: 'Kroniki Mroku',
@@ -87,9 +86,6 @@ export default {
         universal: 'Uniwersalne',
         class: 'Klasowe',
         race: 'Rasowe',
-        races: 'Rasy',
-        classes: 'Klasy',
-        underConstruction: 'Ta sekcja jest w budowie.',
         description: `Uniwersytet Mrocznych Rzemiosł
 
 Ukryty w mglistej Dolinie Cieni uniwersytet szkoli tych, którzy chcą przetrwać w bezlitosnym świecie. W jego murach magia splata się z brutalną praktyką, a nauka odbywa się zarówno w bibliotekach pełnych zakazanych ksiąg, jak i w katakumbach służących jako sale ćwiczeń.
@@ -260,7 +256,7 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
                 stunned: '{target} zostaje ogłuszony!',
                 reduced_attacks: 'Piorun paraliżuje {target}, redukując liczbę ataków!',
                 armor_broken: 'Pancerz {target} zostaje strzaskany!',
-                shadowBoltStack: 'Cień wokół {attacker} gęstnieje! (Stosy: {stacks})',
+                shadowBoltStack: 'Cień wokえる {attacker} gęstnieje! (Stosy: {stacks})',
                 earthquakeSplash: 'Ziemia drży pod całą grupą!',
                 meteorSwarmSplash: 'Deszcz ognia uderza w całą grupą!'
             }
@@ -514,7 +510,7 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         completed: 'Ukończono',
         objectiveKill: 'Pokonaj: {amount}x {targetName}',
         objectiveGather: 'Zbierz: {amount}x {targetName}',
-        // Fix: Removed duplicate objectiveGatherResource property
+        /* Fix duplicate property 'objectiveGatherResource' by removing the extra entry */
         objectiveGatherResource: 'Zbierz: {amount}x {targetName}',
         objectivePayGold: 'Zapłać: {amount} złota',
         completions: 'Ukończono: {count} / {total}'
