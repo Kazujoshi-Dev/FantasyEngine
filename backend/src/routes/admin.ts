@@ -5,10 +5,10 @@ import { authenticateToken } from '../middleware/auth.js';
 import statsRoutes from './admin/stats.js';
 import characterRoutes from './admin/characters.js';
 import auditRoutes from './admin/audit.js';
+import guildAdminRoutes from './admin/guilds.js'; // Import nowego routera
 import { PlayerCharacter, ItemTemplate, Affix } from '../types.js';
 import { rollTemplateStats, rollAffixStats } from '../logic/items.js';
 import { randomUUID } from 'crypto';
-// Fix: Import getBackpackCapacity from stats.js
 import { getBackpackCapacity } from '../logic/stats.js';
 
 const router = express.Router();
@@ -30,6 +30,7 @@ router.use(authenticateToken, checkAdmin);
 router.use('/stats', statsRoutes);
 router.use('/characters', characterRoutes);
 router.use('/audit', auditRoutes);
+router.use('/guilds', guildAdminRoutes); // Rejestracja ścieżki /guilds
 
 // Endpoint do dawania konkretnych przedmiotów (Kreator Admina)
 router.post('/give-item', async (req: any, res: any) => {
