@@ -100,6 +100,18 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
     const buildingsData = guild.buildings || {};
     const customImages = gameData?.settings?.guildBuildingImages || {};
 
+    const getEffectString = (id: string, level: number) => {
+        if (id === 'headquarters') return `Maksymalna liczba członków: ${10 + level}`;
+        if (id === 'armory') return `Pojemność zbrojowni: ${10 + level} przedmiotów`;
+        if (id === 'barracks') return `Bonus do obrażeń: +${level * 5}%`;
+        if (id === 'scoutHouse') return `Bonusowe przedmioty: +${level}`;
+        if (id === 'shrine') return `Bonus szczęścia: +${level * 5}`;
+        if (id === 'altar') return level > 0 ? `Odblokowany Krąg Wtajemniczenia: ${level}` : 'Brak odblokowanych rytuałów';
+        if (id === 'spyHideout') return `Dostępni szpiedzy: ${level}`;
+        if (id === 'stables') return `Skrócenie czasu wypraw: ${level * 10}%`;
+        return '';
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {BUILDING_DEFINITIONS.map((def) => {
@@ -119,16 +131,6 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 
                 const Icon = def.icon;
                 const customImage = customImages[def.id];
-                let effect = '';
-                
-                if (def.id === 'headquarters') effect = t('guild.buildings.maxMembers', { count: 10 + level });
-                else if (def.id === 'armory') effect = `Pojemność: ${10 + level}`;
-                else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
-                else if (def.id === 'scoutHouse') effect = `Bonusowe przedmioty: +${level}`;
-                else if (def.id === 'shrine') effect = `Bonus szczęścia: +${level * 5}`;
-                else if (def.id === 'altar') effect = level > 0 ? `Odblokowuje Wtajemniczenie poziomu ${level}` : 'Brak efektu';
-                else if (def.id === 'spyHideout') effect = t('guild.buildings.spyHideoutEffect', { count: level });
-                else if (def.id === 'stables') effect = t('guild.buildings.stablesEffect', { count: level * 10 });
 
                 return (
                     <div key={def.id} className="bg-slate-800/50 rounded-xl border border-slate-700 flex flex-col overflow-hidden shadow-lg group">
@@ -142,20 +144,29 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
                             <div className="absolute bottom-3 left-4 flex flex-col">
                                 <h4 className="text-xl font-black text-white uppercase tracking-tighter">{t(`guild.buildings.${def.id}` as any) || def.id}</h4>
-                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Level {level}</span>
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Poziom {level}</span>
                             </div>
                         </div>
 
                         <div className="p-5 flex-grow space-y-4">
-                            <p className="text-xs text-gray-400 h-8 line-clamp-2">{t(`guild.buildings.${def.id}Desc` as any)}</p>
+                            <p className="text-xs text-gray-400 italic">{t(`guild.buildings.${def.id}Desc` as any)}</p>
                             
-                            <div className="bg-slate-950/50 p-3 rounded-lg border border-white/5">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('guild.buildings.currentEffect')}</p>
-                                <p className="text-sm text-green-400 font-bold">{effect}</p>
+                            <div className="space-y-2">
+                                <div className="bg-slate-950/50 p-3 rounded-lg border border-white/5">
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('guild.buildings.currentEffect')}</p>
+                                    <p className="text-sm text-green-400 font-bold">{getEffectString(def.id, level)}</p>
+                                </div>
+                                
+                                {!isMaxLevel && (
+                                    <div className="bg-indigo-500/5 p-3 rounded-lg border border-indigo-500/10">
+                                        <p className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest mb-1">{t('guild.buildings.nextEffect')}</p>
+                                        <p className="text-sm text-indigo-300 font-bold">{getEffectString(def.id, level + 1)}</p>
+                                    </div>
+                                )}
                             </div>
                             
                             {!isMaxLevel ? (
-                                <div className="space-y-2">
+                                <div className="space-y-2 pt-2 border-t border-slate-700">
                                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('guild.buildings.upgradeCost')}</p>
                                     <div className="flex justify-between items-center text-xs">
                                         <span className="text-gray-400 flex items-center gap-1"><CoinsIcon className="h-3 w-3" /> Złoto</span>
@@ -169,7 +180,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-2">
+                                <div className="text-center py-4 bg-amber-400/5 rounded-lg border border-amber-400/10">
                                     <p className="text-amber-400 font-black uppercase text-xs tracking-tighter">Maksymalny Poziom Osiągnięty</p>
                                 </div>
                             )}
@@ -179,7 +190,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                             <button 
                                 onClick={handleUpgrade} 
                                 disabled={!canManage || !hasGold || !hasAllEssences}
-                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-none font-black text-white text-xs uppercase tracking-[0.2em] disabled:bg-slate-700 disabled:text-gray-500 transition-all"
+                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-none font-black text-white text-xs uppercase tracking-[0.2em] disabled:bg-slate-700 disabled:text-gray-500 transition-all shadow-inner"
                             >
                                 {t('guild.buildings.upgrade')}
                             </button>
