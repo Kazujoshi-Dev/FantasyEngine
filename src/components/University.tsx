@@ -8,6 +8,7 @@ import { api } from '../api';
 import { CoinsIcon } from './icons/CoinsIcon';
 import { StarIcon } from './icons/StarIcon';
 import { rarityStyles } from './shared/ItemSlot';
+import { BookOpenIcon } from './icons/BookOpenIcon';
 
 const SkillCard: React.FC<{
     skill: Skill;
@@ -118,7 +119,7 @@ const SkillCard: React.FC<{
                 <button 
                     onClick={() => onLearn(skill.id)}
                     disabled={!canBuy}
-                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-gray-500 rounded-lg text-white font-bold text-xs transition-all shadow-lg active:scale-95"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 disabled:text-gray-500 rounded-lg text-white font-bold text-xs transition-all shadow-lg active:scale-95"
                 >
                     NAUCZ SIĘ
                 </button>
@@ -151,21 +152,23 @@ export const University: React.FC = () => {
 
     return (
         <ContentPanel title={t('university.title')}>
-            {/* Header with resources */}
-            <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700 mb-6 flex flex-wrap justify-center gap-6">
-                <div className="flex items-center gap-2">
-                    <CoinsIcon className="h-5 w-5 text-amber-500" />
-                    <span className="font-mono font-bold text-amber-500">{character.resources.gold.toLocaleString()}</span>
+            {/* Przeniesiony Opis Uniwersytetu na Górę */}
+            <div className="bg-slate-900/60 p-6 rounded-2xl border border-indigo-500/20 mb-8 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <BookOpenIcon className="h-24 w-24 text-indigo-400" />
                 </div>
-                {Object.values(EssenceType).map(e => (
-                    <div key={e} className="flex items-center gap-2">
-                        <StarIcon className={`h-4 w-4 ${rarityStyles[e === EssenceType.Common ? 'Common' : e === EssenceType.Uncommon ? 'Uncommon' : e === EssenceType.Rare ? 'Rare' : e === EssenceType.Epic ? 'Epic' : 'Legendary'].text}`} />
-                        <span className="font-mono font-bold text-white text-sm">{(character.resources as any)[e] || 0}</span>
-                    </div>
-                ))}
+                <div className="relative z-10">
+                    <h4 className="text-indigo-400 font-black uppercase tracking-widest text-[11px] mb-3 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                        Kronika Uniwersytetu
+                    </h4>
+                    <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap max-w-4xl">
+                        {t('university.description')}
+                    </p>
+                </div>
             </div>
 
-            {/* Navigation */}
+            {/* Nawigacja Zakładkami */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
                     {Object.values(SkillType).map(type => (
@@ -201,14 +204,14 @@ export const University: React.FC = () => {
                 </div>
             </div>
 
-            <div className="h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {filteredSkills.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-30">
                         <StarIcon className="h-16 w-16 mb-4" />
                         <p className="text-xl font-bold uppercase tracking-widest">Brak dostępnych nauk</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in pb-8">
                         {filteredSkills.map(skill => (
                             <SkillCard 
                                 key={skill.id} 
@@ -220,13 +223,6 @@ export const University: React.FC = () => {
                         ))}
                     </div>
                 )}
-            </div>
-
-            <div className="mt-8 bg-slate-900/40 p-6 rounded-2xl border border-slate-800">
-                <h4 className="text-indigo-400 font-bold uppercase tracking-tighter mb-2">Kronika Uniwersytetu</h4>
-                <p className="text-sm text-gray-400 leading-relaxed italic">
-                    "{t('university.description')}"
-                </p>
             </div>
         </ContentPanel>
     );
