@@ -265,7 +265,7 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                             <td className="p-3 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-3 text-sky-400 font-bold">{entry.borrowedBy}</td>
                                             <td className="p-3 text-gray-400 text-xs">
-                                                {entry.depositedAt ? new Date(entry.depositedAt).toLocaleString() : '-'}
+                                                {entry.depositedAt ? new Date(Number(entry.depositedAt)).toLocaleString() : '-'}
                                             </td>
                                             <td className="p-3 text-right">
                                                 {canRecall && (

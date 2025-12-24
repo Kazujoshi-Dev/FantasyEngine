@@ -244,15 +244,16 @@ router.get('/armory', async (req: any, res: any) => {
             ORDER BY a.created_at DESC
         `, [guildId]);
 
+        // Fix: Correct usage of jsonb_array_elements. 'item' is already the value.
         const borrowedItems = await pool.query(`
             SELECT c.user_id as "userId", c.data->>'name' as "borrowedBy", 
-                   item.value as item, item.key as "itemKey",
-                   (item.value->>'originalOwnerId')::int as "ownerId",
-                   item.value->>'originalOwnerName' as "ownerName",
-                   (item.value->>'borrowedAt')::bigint as "depositedAt"
+                   item as item, (item->>'uniqueId') as "itemKey",
+                   (item->>'originalOwnerId')::int as "ownerId",
+                   item->>'originalOwnerName' as "ownerName",
+                   (item->>'borrowedAt')::bigint as "depositedAt"
             FROM characters c, jsonb_array_elements(c.data->'inventory') AS item
-            WHERE (item.value->>'isBorrowed')::boolean = TRUE 
-            AND (item.value->>'borrowedFromGuildId')::int = $1
+            WHERE (item->>'isBorrowed')::boolean = TRUE 
+            AND (item->>'borrowedFromGuildId')::int = $1
         `, [guildId]);
 
         res.json({
@@ -271,6 +272,7 @@ router.get('/armory', async (req: any, res: any) => {
             }))
         });
     } catch (err) {
+        console.error("Zbrojownia Error:", err);
         res.status(500).json({ message: 'Błąd zbrojowni' });
     }
 });
