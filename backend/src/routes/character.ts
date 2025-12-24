@@ -116,7 +116,10 @@ router.post('/', async (req: any, res: any) => {
                 minDamage: 1, maxDamage: 2,
                 magicDamageMin: 0, magicDamageMax: 0,
                 armor: 0, critChance: 0, critDamageModifier: 200,
-                attacksPerRound: 1, dodgeChance: 0, blockChance: 0, manaRegen: 2,
+                attacksPerRound: 1, dodgeChance: 0,
+                // Fix: Add missing blockChance property
+                blockChance: 0,
+                manaRegen: 2,
                 armorPenetrationPercent: 0, armorPenetrationFlat: 0,
                 lifeStealPercent: 0, lifeStealFlat: 0,
                 manaStealPercent: 0, manaStealFlat: 0,

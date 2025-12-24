@@ -66,8 +66,10 @@ export const calculateDerivedStats = (
         lifeStealFlat: 0,
         manaStealPercent: 0,
         manaStealFlat: 0,
-        expBonusPercent: 0, goldBonusPercent: 0,
-        damageBonusPercent: 0, damageReductionPercent: 0
+        expBonusPercent: 0,
+        goldBonusPercent: 0,
+        damageBonusPercent: 0,
+        damageReductionPercent: 0
     };
     
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
@@ -165,7 +167,6 @@ export const calculateDerivedStats = (
         bonusBlockChance += Number(source.blockChanceBonus) || 0;
     };
 
-    // Fix: Declare equippedAffixCounts before its usage in the loop
     const equippedAffixCounts: Record<string, number> = {};
 
     for (const slot in safeEquipment) {
@@ -177,12 +178,11 @@ export const calculateDerivedStats = (
         if (item.prefixId) equippedAffixCounts[item.prefixId] = (equippedAffixCounts[item.prefixId] || 0) + 1;
         if (item.suffixId) equippedAffixCounts[item.suffixId] = (equippedAffixCounts[item.suffixId] || 0) + 1;
 
-        const isShield = !!template.isShield;
         const isMH = slot === EquipmentSlot.MainHand || slot === EquipmentSlot.TwoHand;
         // Off-Hand item is only treated as a weapon for stats if it's NOT a shield
-        const isOHWeapon = slot === EquipmentSlot.OffHand && !isShield;
+        const isOHWeapon = slot === EquipmentSlot.OffHand && !template.isShield;
         
-        if (isShield && template.blockChance) {
+        if (template.isShield && template.blockChance) {
             totalPrimaryStats.blockChance += template.blockChance;
         }
 
@@ -214,11 +214,24 @@ export const calculateDerivedStats = (
         if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOHWeapon);
     }
 
-    // ... rest of set logic ...
-
     if (Array.isArray(itemSets)) {
         itemSets.forEach(set => {
-            // ... (zachowujemy istniejącą logikę zestawów)
+            const count = equippedAffixCounts[set.affixId] || 0;
+            if (count > 0) {
+                const reachedTiers = set.tiers
+                    .filter(t => count >= t.requiredPieces)
+                    .sort((a, b) => b.requiredPieces - a.requiredPieces);
+                
+                if (reachedTiers.length > 0) {
+                    const bestTier = reachedTiers[0];
+                    for (const key in bestTier.bonuses) {
+                        const val = Number((bestTier.bonuses as any)[key]) || 0;
+                        if (totalPrimaryStats[key as keyof CharacterStats] !== undefined) {
+                            (totalPrimaryStats as any)[key] += val;
+                        }
+                    }
+                }
+            }
         });
     }
     
@@ -232,7 +245,13 @@ export const calculateDerivedStats = (
 
     let maxHealth = 50 + (totalPrimaryStats.stamina * 10) + bonusMaxHealth;
     let maxMana = 20 + totalPrimaryStats.intelligence * 10;
-    // ... mana maintenance logic ...
+    if (character.activeSkills) {
+        character.activeSkills.forEach(sId => {
+            const s = safeSkills.find(sk => sk.id === sId);
+            if (s?.manaMaintenanceCost) maxMana -= s.manaMaintenanceCost;
+        });
+    }
+    maxMana = Math.max(0, maxMana);
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
@@ -267,10 +286,46 @@ export const calculateDerivedStats = (
         ohMagMax = Math.floor(ohMagMax * 0.75);
     }
 
-    // ... barracks and damage bonus logic ...
+    if (guildBarracksLevel > 0) {
+        const mult = 1 + (guildBarracksLevel * 0.05);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
+    }
+
+    if (totalPrimaryStats.damageBonusPercent > 0) {
+        const mult = 1 + (totalPrimaryStats.damageBonusPercent / 100);
+        mhMin = Math.floor(mhMin * mult); mhMax = Math.floor(mhMax * mult);
+        ohMin = Math.floor(ohMin * mult); ohMax = Math.floor(ohMax * mult);
+        mhMagMin = Math.floor(mhMagMin * mult); mhMagMax = Math.floor(mhMagMax * mult);
+        ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
+    }
 
     let finalArmor = bonusArmor + (character.race === Race.Dwarf ? 5 : 0);
-    // ... orc and dwarf hide logic ...
+    
+    if (character.learnedSkills?.includes('behemoths-hide')) {
+        const strengthArmorBonus = Math.floor(totalPrimaryStats.strength / 10);
+        finalArmor += strengthArmorBonus;
+    }
+
+    let bedrockArmorBonus = 0;
+    let bedrockDamageBonus = 0;
+    if (character.race === Race.Dwarf && character.learnedSkills?.includes('bedrock-foundation')) {
+        bedrockArmorBonus = Math.floor(totalPrimaryStats.stamina / 5);
+        finalArmor += bedrockArmorBonus;
+        
+        bedrockDamageBonus = Math.floor(finalArmor / 10);
+        mhMin += bedrockDamageBonus;
+        if (ohMin > 0) ohMin += bedrockDamageBonus;
+    }
+
+    let elfManaRegenBonus = 0;
+    let elfDodgeBonus = 0;
+    if (character.race === Race.Elf && character.learnedSkills?.includes('ethereal-weave')) {
+        elfManaRegenBonus = Math.floor(totalPrimaryStats.intelligence * 0.05);
+        elfDodgeBonus = Math.floor(maxMana / 100);
+    }
 
     return {
         ...character,
@@ -289,9 +344,9 @@ export const calculateDerivedStats = (
             armor: finalArmor,
             critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
-            dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0) + (maxMana / 100)), // simplified elf dodge
-            blockChance: Math.min(50, totalPrimaryStats.blockChance + bonusBlockChance),
-            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0),
+            dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0) + elfDodgeBonus),
+            blockChance: Math.min(50, totalPrimaryStats.blockChance + bonusBlockChance), // Clamped to 50% max
+            manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0) + elfManaRegenBonus,
             armorPenetrationPercent: bonusArmorPenetrationPercent,
             armorPenetrationFlat: bonusArmorPenetrationFlat,
             lifeStealPercent: bonusLifeStealPercent,

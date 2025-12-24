@@ -95,10 +95,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div><label>{t('item.value')}:<input name="value" type="number" value={formData.value || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.levelRequirement')}:<input name="requiredLevel" type="number" value={formData.requiredLevel || 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 
-                {/* Shield logic */}
-                <div className="flex items-center space-x-2 pt-4">
-                    <input name="isShield" type="checkbox" checked={formData.isShield || false} onChange={handleChange} className="h-4 w-4" />
-                    <label className="text-amber-400 font-bold">Tarcza</label>
+                {/* NOWE: Obsługa Tarczy */}
+                <div className="flex items-center space-x-2 pt-6">
+                    <input type="checkbox" name="isShield" checked={formData.isShield || false} onChange={handleChange} className="form-checkbox h-4 w-4 text-indigo-600 rounded bg-slate-700 border-slate-600"/>
+                    <label className="text-sm font-bold text-amber-400">Tarcza</label>
                 </div>
                 {formData.isShield && (
                     <div>

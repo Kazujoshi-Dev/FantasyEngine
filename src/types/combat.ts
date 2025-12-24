@@ -1,3 +1,4 @@
+
 import { EssenceType } from './common.js';
 import { MagicAttackType, ItemInstance, LootDrop, ResourceDrop } from './items.js';
 import { CharacterStats, PlayerCharacter } from './character.js';
@@ -28,6 +29,8 @@ export interface EnemyStats {
     critDamageModifier: number;
     agility: number;
     dodgeChance: number;
+    // Fix: Add optional blockChance for compatibility with CharacterStats in combat logic
+    blockChance?: number;
     maxMana: number;
     manaRegen: number;
     magicDamageMin: number;

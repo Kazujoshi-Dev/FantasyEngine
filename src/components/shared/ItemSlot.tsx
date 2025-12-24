@@ -129,7 +129,8 @@ export const ItemDetailsPanel: React.FC<{
     compact?: boolean;
     compareWith?: ItemInstance | null;
     itemTemplates?: ItemTemplate[];
-}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith, itemTemplates = [] }) => {
+    className?: string;
+}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith, itemTemplates = [], className = '' }) => {
     const { t } = useTranslation();
     const { gameData, derivedCharacter } = useCharacter();
     const isSmall = size === 'small';
@@ -236,14 +237,19 @@ export const ItemDetailsPanel: React.FC<{
 
         const entries = [];
         if (s.statsBonus) { Object.entries(s.statsBonus).forEach(([k, v]) => { if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true)); }); }
-        if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
+        
+        // Obrażenia - tylko jeśli to NIE jest tarcza
+        if (s.damageMin !== undefined && s.damageMax !== undefined && !metadata.isShield) {
+            entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
+        }
+        
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         if (!isAffix && (metadata as ItemTemplate).attacksPerRound) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
         if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
         
-        // Show Block Chance if it is a shield or has a block bonus
+        // Szansa na blok - Wyświetlamy tylko jeśli to tarcza lub ma bonus do bloku
         if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) {
             entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
         }
@@ -263,7 +269,7 @@ export const ItemDetailsPanel: React.FC<{
     };
 
     return (
-        <div className={`flex flex-col w-full ${compact ? '' : 'h-full'}`}>
+        <div className={`flex flex-col w-full ${compact ? '' : 'h-full'} ${className}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-0.5' : 'pr-1'}`}>
                 {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">{title}</h5>}
                 <h4 className={`font-bold text-center leading-tight ${style.text} ${isSmall ? 'text-base mb-1' : 'text-lg mb-2'}`}>
@@ -353,70 +359,58 @@ export const ItemListItem: React.FC<{
     template: ItemTemplate;
     affixes: Affix[];
     isSelected: boolean;
-    onClick: () => void;
+    onClick: (item: ItemInstance) => void;
     onMouseEnter?: (e: React.MouseEvent) => void;
     onMouseLeave?: () => void;
     onDoubleClick?: () => void;
     isEquipped?: boolean;
-    showPrimaryStat?: boolean;
     className?: string;
+    showPrimaryStat?: boolean;
     source?: 'equipment' | 'inventory';
     fromSlot?: EquipmentSlot;
     onAction?: () => void;
     actionType?: 'equip' | 'unequip';
-}> = ({ item, template, affixes, isSelected, onClick, onMouseEnter, onMouseLeave, onDoubleClick, isEquipped, showPrimaryStat = true, className = '', source, fromSlot, onAction, actionType }) => {
+}> = ({ item, template, affixes, isSelected, onClick, onMouseEnter, onMouseLeave, onDoubleClick, isEquipped, className, showPrimaryStat = true, source, fromSlot, onAction, actionType }) => {
+    const { t } = useTranslation();
     const style = rarityStyles[template.rarity];
     const upgradeLevel = item.upgradeLevel || 0;
     
     const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.setData('application/json', JSON.stringify({ uniqueId: item.uniqueId, source, fromSlot }));
+        const data = { uniqueId: item.uniqueId, source, fromSlot };
+        e.dataTransfer.setData('application/json', JSON.stringify(data));
     };
 
     return (
         <div 
-            onClick={onClick}
+            draggable 
+            onDragStart={handleDragStart}
+            onClick={() => onClick(item)}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onDoubleClick={onDoubleClick}
-            draggable
-            onDragStart={handleDragStart}
-            className={`
-                flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer relative group overflow-hidden
-                ${isSelected ? 'bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500 shadow-lg' : 'bg-slate-800/40 border-slate-700 hover:border-slate-500'}
-                ${isEquipped ? 'opacity-50 grayscale-[0.5]' : ''}
-                ${className}
-            `}
+            className={`flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer ${style.border} ${style.bg} ${isSelected ? 'ring-2 ring-indigo-500 scale-[1.02]' : 'hover:scale-[1.01] hover:brightness-110'} ${className}`}
         >
-            {/* Item Icon */}
-            <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex-shrink-0 flex items-center justify-center relative shadow-inner`}>
-                {template.icon ? (
-                    <img src={template.icon} alt={template.name} className="w-8 h-8 object-contain" />
-                ) : (
-                    <span className="text-xs font-bold text-white opacity-20">?</span>
-                )}
-                {upgradeLevel > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-amber-600 text-white text-[8px] font-black px-1 rounded shadow-md">+{upgradeLevel}</span>
-                )}
+            <div className={`w-10 h-10 rounded border ${style.border} flex-shrink-0 overflow-hidden bg-slate-950 flex items-center justify-center p-1`}>
+                {template.icon ? <img src={template.icon} alt={template.name} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-gray-500">?</span>}
             </div>
-
-            {/* Item Info */}
             <div className="flex-grow min-w-0">
-                <p className={`text-xs font-bold truncate ${style.text}`}>
-                    {getGrammaticallyCorrectFullName(item, template, affixes)}
-                </p>
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-500 uppercase font-black tracking-tighter">
-                        {template.slot === 'ring' ? 'Pierścień' : template.slot}
-                    </span>
-                    {isEquipped && <span className="text-[8px] bg-sky-900/50 text-sky-400 px-1 rounded border border-sky-500/30 uppercase font-black">Założony</span>}
+                <div className="flex justify-between items-start">
+                    <p className={`text-sm font-bold truncate ${style.text}`}>
+                        {getGrammaticallyCorrectFullName(item, template, affixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
+                    </p>
+                    {isEquipped && <span className="text-[9px] bg-sky-900 text-sky-200 px-1 rounded uppercase font-bold">E</span>}
                 </div>
+                {showPrimaryStat && (
+                    <p className="text-[10px] text-gray-500 uppercase font-black">
+                        {t(`equipment.slot.${template.slot}` as any)} {item.isBorrowed && <span className="text-amber-500/70 ml-1">(Pożyczony)</span>}
+                    </p>
+                )}
             </div>
-
-            {/* Quick Action Button for Mobile/Comfort */}
-            {onAction && (
+            {onAction && actionType && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onAction(); }}
-                    className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600 hover:bg-indigo-500 text-white p-1 rounded shadow-lg"
+                    className={`p-1 rounded bg-slate-700 hover:bg-slate-600 text-white transition-colors flex-shrink-0`}
+                    title={actionType === 'equip' ? 'Załóż' : 'Zdejmij'}
                 >
                     {actionType === 'equip' ? <PlusIcon className="h-4 w-4" /> : <MinusIcon className="h-4 w-4" />}
                 </button>
@@ -426,12 +420,12 @@ export const ItemListItem: React.FC<{
 };
 
 export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
-    <div className="flex items-center gap-3 p-2 rounded-lg border border-dashed border-slate-700 bg-slate-900/20 opacity-40">
-        <div className="w-10 h-10 rounded border border-slate-700 bg-slate-900/40 flex-shrink-0 flex items-center justify-center">
-            <span className="text-[10px] text-gray-700 font-bold uppercase tracking-widest text-center leading-none">{slotName.charAt(0)}</span>
+    <div className="flex items-center gap-3 p-2 rounded-lg border border-white/5 bg-slate-900/40 opacity-40 grayscale">
+        <div className="w-10 h-10 rounded border border-white/10 flex-shrink-0 bg-slate-950 flex items-center justify-center text-gray-600">
+            <PlusIcon className="h-5 w-5" />
         </div>
         <div className="flex-grow">
-            <p className="text-xs font-bold text-gray-600 uppercase tracking-widest">{slotName}</p>
+            <p className="text-xs font-black uppercase text-gray-500 tracking-widest">{slotName}</p>
         </div>
     </div>
 );
@@ -442,51 +436,69 @@ export const ItemTooltip: React.FC<{
     affixes: Affix[];
     character?: PlayerCharacter;
     compareWith?: ItemInstance | null;
-    itemTemplates: ItemTemplate[];
+    itemTemplates?: ItemTemplate[];
     x?: number;
     y?: number;
     isCentered?: boolean;
     onClose?: () => void;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-}> = ({ instance, template, affixes, character, compareWith, itemTemplates, x = 0, y = 0, isCentered, onClose, onMouseEnter, onMouseLeave }) => {
-    
-    // Positioning logic
-    const style: React.CSSProperties = isCentered ? {} : {
-        position: 'fixed',
-        left: Math.min(x + 20, window.innerWidth - 320),
-        top: Math.min(y + 10, window.innerHeight - 500),
-        zIndex: 9999
-    };
+}> = ({ instance, template, affixes, character, compareWith, itemTemplates, x, y, isCentered, onClose, onMouseEnter, onMouseLeave }) => {
+    const isFixed = x !== undefined && y !== undefined;
+    const [adjustedPos, setAdjustedPos] = useState({ top: y || 0, left: x || 0 });
 
-    return (
+    useEffect(() => {
+        if (isFixed) {
+            let left = x! + 20;
+            let top = y! + 20;
+            if (left + 320 > window.innerWidth) left = x! - 340;
+            if (top + 400 > window.innerHeight) top = window.innerHeight - 410;
+            setAdjustedPos({ left, top });
+        }
+    }, [x, y, isFixed]);
+
+    const containerClasses = isCentered 
+        ? "fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        : isFixed
+            ? "fixed z-[9999] pointer-events-auto"
+            : "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[100] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200";
+
+    const content = (
         <div 
-            style={style} 
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
-            className={`
-                w-72 bg-[#0a0f1a] border-2 border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in
-                ${isCentered ? 'relative max-w-sm' : ''}
-            `}
+            className="bg-slate-900 border-2 border-slate-700 rounded-xl p-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            style={!isCentered && !isFixed ? { width: '280px' } : {}}
+            onClick={e => e.stopPropagation()}
         >
-            <div className="p-4">
-                {onClose && (
-                    <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white z-20">✕</button>
-                )}
-                <ItemDetailsPanel 
-                    item={instance} 
-                    template={template} 
-                    affixes={affixes} 
-                    character={character}
-                    itemTemplates={itemTemplates}
-                    compareWith={compareWith}
-                />
-            </div>
-            {!isCentered && (
-                <div className="bg-indigo-600/10 px-4 py-1.5 border-t border-slate-700 text-[9px] text-center text-indigo-400 font-black uppercase tracking-widest">
-                    Kroniki Mroku
-                </div>
+            {isCentered && onClose && (
+                <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white z-10">✕</button>
             )}
+            
+            <ItemDetailsPanel 
+                item={instance} 
+                template={template} 
+                affixes={affixes} 
+                character={character} 
+                itemTemplates={itemTemplates}
+                compareWith={compareWith}
+                size="small"
+                compact={true}
+            />
+        </div>
+    );
+
+    if (isCentered) {
+        return (
+            <div className={containerClasses} onClick={onClose}>
+                {content}
+            </div>
+        );
+    }
+
+    return (
+        <div className={containerClasses} style={isFixed ? { top: adjustedPos.top, left: adjustedPos.left, maxWidth: '320px', width: '100vw' } : undefined}>
+            {content}
         </div>
     );
 };
@@ -497,31 +509,32 @@ export const ItemList: React.FC<{
     affixes: Affix[];
     selectedItem: ItemInstance | null;
     onSelectItem: (item: ItemInstance) => void;
-    priceSelector?: (item: ItemInstance) => number;
     selectedIds?: Set<string>;
-    isEquipped?: (id: string) => boolean;
-}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, priceSelector, selectedIds, isEquipped }) => {
+    priceSelector?: (item: ItemInstance) => number;
+}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, priceSelector }) => {
     return (
         <div className="grid grid-cols-1 gap-2">
             {items.map(item => {
                 const template = itemTemplates.find(t => t.id === item.templateId);
                 if (!template) return null;
                 const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds && selectedIds.has(item.uniqueId));
-                
+                const price = priceSelector ? priceSelector(item) : null;
+
                 return (
                     <div key={item.uniqueId} className="relative">
                         <ItemListItem 
-                            item={item}
-                            template={template}
-                            affixes={affixes}
-                            isSelected={!!isSelected}
-                            onClick={() => onSelectItem(item)}
-                            isEquipped={isEquipped?.(item.uniqueId)}
+                            item={item} 
+                            template={template} 
+                            affixes={affixes} 
+                            isSelected={!!isSelected} 
+                            onClick={onSelectItem} 
+                            showPrimaryStat={true}
                         />
-                        {priceSelector && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-slate-900/40 px-1.5 py-0.5 rounded border border-white/5 pointer-events-none">
-                                <span className="font-mono text-[10px] font-bold text-amber-400">{priceSelector(item)}</span>
-                                <CoinsIcon className="h-2.5 w-2.5 text-amber-400" />
+                        {price !== null && (
+                            <div className="absolute right-12 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <span className="font-mono text-amber-400 font-bold text-xs bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700">
+                                    {price}
+                                </span>
                             </div>
                         )}
                     </div>

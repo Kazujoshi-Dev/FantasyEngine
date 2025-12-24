@@ -98,7 +98,40 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
     while (playerState.currentHealth > 0 && enemyState.currentHealth > 0 && turn < 100) {
         turn++;
         
-        // ... (regen and burn logic)
+        const turnParticipants = playerAttacksFirst ? [playerState, enemyState] : [enemyState, playerState];
+        for(const combatant of turnParticipants) {
+            const manaRegen = combatant.stats.manaRegen || 0;
+            if (manaRegen > 0) {
+                const newMana = Math.min(combatant.stats.maxMana || 0, combatant.currentMana + manaRegen);
+                const manaGained = newMana - combatant.currentMana;
+                if(manaGained > 0) {
+                    combatant.currentMana = newMana;
+                    log.push({ turn, attacker: combatant.name, defender: '', action: 'manaRegen', manaGained, ...getHealthState(playerState, enemyState) });
+                }
+            }
+
+            const burningEffects = combatant.statusEffects.filter(e => e.type === 'burning');
+            if (burningEffects.length > 0) {
+                const totalBurnDamage = burningEffects.reduce((sum: number, _: StatusEffect) => sum + Math.floor(combatant.stats.maxHealth * 0.05), 0);
+                combatant.currentHealth = Math.max(0, combatant.currentHealth - totalBurnDamage);
+                log.push({ 
+                    turn, 
+                    attacker: 'Podpalenie', 
+                    defender: combatant.name, 
+                    action: 'effectApplied', 
+                    effectApplied: 'burningTarget', 
+                    damage: totalBurnDamage, 
+                    ...getHealthState(playerState, enemyState) 
+                });
+            }
+
+            const isDwarfResistant = (combatant as any).data?.race === Race.Dwarf && (combatant as any).data?.learnedSkills?.includes('bedrock-foundation');
+            const reduction = isDwarfResistant ? 2 : 1;
+            
+            combatant.statusEffects = combatant.statusEffects
+                .map(e => ({...e, duration: e.duration - reduction}))
+                .filter(e => e.duration > 0);
+        }
 
         const attacker = playerAttacksFirst ? playerState : enemyState;
         const defender = playerAttacksFirst ? enemyState : playerState;
@@ -139,7 +172,6 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
             }
         }
         
-        // ... (defender attacks logic - similar update needed)
         if (defender.currentHealth > 0) {
             const isPlayer = 'data' in defender;
             const stats = defender.stats;

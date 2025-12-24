@@ -41,7 +41,7 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
         `, [member.userId]);
 
         if (res.rows.length > 0) {
-            // Fix: Add missing blockChance property to defaultStats
+            // Fix: Add missing special stat fields to defaultStats including blockChance
              const defaultStats: CharacterStats = {
                 strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0, statPoints: 0,
                 currentHealth: 1, maxHealth: 1, currentEnergy: 1, maxEnergy: 1, currentMana: 0, maxMana: 0,
