@@ -179,6 +179,7 @@ export default {
         goldGained: 'Złoto',
         experience: 'Doświadczenie',
         itemsFound: 'Znalezione Przedmioty',
+        itemsLostWarning: 'Uwaga! Twój plecak był pełny. Przez brak miejsca straciłeś bezpowrotnie {count} przedmiotów.',
         victory: 'Zwycięstwo',
         defeat: 'Porażka',
         damageMeter: {

@@ -5,6 +5,7 @@ import { ExpeditionRewardSummary, EssenceType, ItemRarity, ItemTemplate, Affix, 
 import { CoinsIcon } from '../../icons/CoinsIcon';
 import { StarIcon } from '../../icons/StarIcon';
 import { rarityStyles, getGrammaticallyCorrectFullName } from '../../shared/ItemSlot';
+import { ShieldIcon } from '../../icons/ShieldIcon';
 
 const essenceToRarityMap: Record<EssenceType, ItemRarity> = {
     [EssenceType.Common]: ItemRarity.Common,
@@ -118,13 +119,31 @@ export const StandardRewardsPanel: React.FC<{
                 </div>
             </div>
 
-            <div>
-                <h3 className="text-base font-bold text-gray-300 mb-3 flex items-center gap-2">
-                    <CoinsIcon className="h-4 w-4 text-indigo-400"/> {t('expedition.itemsFound')}
-                </h3>
-                <div className="bg-slate-800/30 rounded-lg p-1.5 min-h-[80px] border border-slate-700/50">
+            <div className="flex flex-col h-full">
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-base font-bold text-gray-300 flex items-center gap-2">
+                        <ShieldIcon className="h-4 w-4 text-indigo-400"/> {t('expedition.itemsFound')}
+                    </h3>
+                    {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                        <div className="bg-red-950/80 border border-red-500 text-red-400 text-[9px] font-black uppercase px-2 py-1 rounded animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                            Stracono {reward.itemsLostCount} łupów!
+                        </div>
+                    )}
+                </div>
+
+                {reward.itemsLostCount && reward.itemsLostCount > 0 && (
+                    <p className="text-[10px] text-red-400/80 italic mb-2 px-1">
+                        {t('expedition.itemsLostWarning', { count: reward.itemsLostCount })}
+                    </p>
+                )}
+
+                <div className="bg-slate-800/30 rounded-lg p-1.5 min-h-[80px] border border-slate-700/50 flex-grow">
                     {reward.itemsFound.length === 0 ? (
-                        <p className="text-gray-600 text-center py-6 italic text-xs">{t('expedition.noEnemies')}</p>
+                        <p className="text-gray-600 text-center py-6 italic text-xs">
+                            {reward.itemsLostCount && reward.itemsLostCount > 0 
+                                ? "Wszystkie znalezione przedmioty przepadły przez brak miejsca." 
+                                : t('expedition.noEnemies')}
+                        </p>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                             {reward.itemsFound.map((item, idx) => {
@@ -149,9 +168,6 @@ export const StandardRewardsPanel: React.FC<{
                                         <div className="flex-grow min-w-0">
                                             <p className={`text-[11px] font-bold truncate ${style.text}`}>{fullName}</p>
                                             <p className="text-[8px] text-gray-500 uppercase leading-none">{t(`equipment.slot.${template.slot}`)}</p>
-                                        </div>
-                                        <div className="text-[9px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            INFO
                                         </div>
                                     </div>
                                 );
