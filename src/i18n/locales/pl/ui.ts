@@ -36,6 +36,52 @@ export default {
         guild: 'Gildia',
         tower: 'Wieża Mroku',
     },
+    statistics: {
+        title: 'Statystyki Bohatera',
+        baseAttributes: 'Atrybuty Główne',
+        vitals: 'Witalność',
+        combatStats: 'Statystyki Bojowe',
+        pointsToSpend: 'Punkty do rozdania',
+        save: 'Zapisz Atrybuty',
+        strength: 'Siła',
+        agility: 'Zręczność',
+        accuracy: 'Celność',
+        stamina: 'Wytrzymałość',
+        intelligence: 'Inteligencja',
+        energy: 'Energia',
+        luck: 'Szczęście',
+        health: 'Punkty Życia',
+        mana: 'Mana',
+        manaRegen: 'Regeneracja Many',
+        physicalDamage: 'Obrażenia Fizyczne',
+        magicDamage: 'Obrażenia Magiczne',
+        armor: 'Pancerz',
+        critChance: 'Szansa na Krytyk',
+        critDamageModifier: 'Obrażenia Krytyczne',
+        dodgeChance: 'Szansa na Unik',
+        attacksPerTurn: 'Liczba Ataków',
+        armorPenetration: 'Penetracja Pancerza',
+        lifeSteal: 'Wyssanie Życia',
+        manaSteal: 'Wyssanie Many',
+        reset: {
+            button: 'Zresetuj Atrybuty',
+            free: 'za darmo (pierwszy reset)',
+            cost: 'za {cost} złota',
+            confirm: 'Czy na pewno chcesz zresetować atrybuty {costText}? Wszystkie punkty wrócą do puli.',
+            applyChangesFirst: 'Najpierw zapisz obecne zmiany atrybutów.',
+            freeResetNote: 'Pierwszy reset jest bezpłatny.'
+        },
+        tabs: {
+            stats: 'Atrybuty',
+            developmentPath: 'Ścieżka Rozwoju',
+            skills: 'Moje Umiejętności',
+            knowledge: 'Wiedza o Świecie'
+        },
+        racialBonusTitle: 'Bonus Rasowy'
+    },
+    university: {
+        learningDuration: 'Czas trwania nauki'
+    },
     options: {
         title: 'Opcje',
         languageSettings: 'Ustawienia Języka',
@@ -422,11 +468,11 @@ export default {
             selectItemToUpgrade: 'Wybierz przedmiot z listy po lewej, aby go ulepszyć.',
             howItWorks: {
                 title: 'Jak działa ulepszanie?',
-                statIncrease: 'Każdy poziom zwiększa statystyki bazowe o 10%.',
+                statIncrease: 'Cada poziom zwiększa statystyki bazowe o 10%.',
                 scope: 'Statystyki z afiksów (magiczne) również rosną o 10% za każdy poziom, jednak ten bonus działa maksymalnie do poziomu +5.',
                 cost: 'Koszt rośnie wraz z poziomem i rzadkością.',
                 chance: 'Szansa powodzenia spada o 10% z każdym poziomem.',
-                failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótce).'
+                failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótcestrip).'
             },
             upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie TRWALE zniszczy przedmiot. Czy na pewno chcesz spróbować?',
             upgradeSuccess: 'Ulepszono przedmiot do poziomu +{level}!',

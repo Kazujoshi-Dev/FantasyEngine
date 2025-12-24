@@ -98,11 +98,14 @@ const SkillCard: React.FC<{
                 <div>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Wymagania</p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        {skill.requirements.level && (
-                             <p className={`text-xs ${levelMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Poziom: {skill.requirements.level}</p>
+                        {skill.requirements.race && (
+                             <p className={`text-xs ${raceMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Rasa: {t(`race.${skill.requirements.race}`)}</p>
                         )}
                         {skill.requirements.characterClass && (
                              <p className={`text-xs ${classMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Klasa: {t(`class.${skill.requirements.characterClass}`)}</p>
+                        )}
+                        {skill.requirements.level && (
+                             <p className={`text-xs ${levelMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Poziom: {skill.requirements.level}</p>
                         )}
                         {statOrder.map(req => {
                             const val = (skill.requirements as any)[req];
@@ -119,29 +122,33 @@ const SkillCard: React.FC<{
                 </div>
 
                 {!isLearned && !isLearning && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Koszt</p>
-                            <div className="flex flex-wrap gap-3">
-                                {/* Type assertion fix: Object.entries on skill.cost */}
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Koszt całkowity</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {(Object.entries(skill.cost) as [keyof SkillCost, number][]).map(([res, val]) => {
                                     if (!val) return null;
                                     const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= (val as number);
                                     const isGold = res === 'gold';
+                                    const resourceName = isGold ? t('resources.gold') : t(`resources.${res}`).replace(' Esencja', '');
+
                                     return (
-                                        <div key={res} className="flex items-center gap-1">
-                                            {isGold ? <CoinsIcon className="h-3 w-3 text-amber-500" /> : <StarIcon className="h-3 w-3 text-sky-400" />}
+                                        <div key={res} className="flex items-center justify-between bg-slate-900/50 px-2 py-1.5 rounded border border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                {isGold ? <CoinsIcon className="h-3 w-3 text-amber-500" /> : <StarIcon className="h-3 w-3 text-sky-400" />}
+                                                <span className="text-[10px] text-gray-400 uppercase font-bold">{resourceName}</span>
+                                            </div>
                                             <span className={`text-xs font-mono font-bold ${hasEnough ? 'text-gray-300' : 'text-red-500'}`}>{val}</span>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Czas nauki</p>
+                        <div className="flex justify-between items-center bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{t('university.learningDuration')}</span>
                             <div className="flex items-center gap-1.5 text-indigo-300">
                                 <ClockIcon className="h-3 w-3" />
-                                <span className="text-xs font-bold">{formatLearningTime(skill.learningTimeMinutes || 0)}</span>
+                                <span className="text-xs font-bold font-mono">{formatLearningTime(skill.learningTimeMinutes || 0)}</span>
                             </div>
                         </div>
                     </div>
@@ -172,7 +179,7 @@ const SkillCard: React.FC<{
                 <button 
                     onClick={() => onLearn(skill.id)}
                     disabled={!canBuy}
-                    className={`w-full py-2.5 rounded-lg text-white font-bold text-xs transition-all shadow-lg active:scale-95 ${canBuy ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed opacity-50'}`}
+                    className={`w-full py-2.5 rounded-lg text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 ${canBuy ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed opacity-50'}`}
                 >
                     {isOtherSkillLearning ? 'UCZYSZ SIĘ CZEGOŚ INNEGO' : 'ROZPOCZNIJ NAUKĘ'}
                 </button>
@@ -251,7 +258,6 @@ export const University: React.FC = () => {
             {/* Nawigacja */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
-                    {/* Type assertion fix: Object.values iteration on enum */}
                     {(Object.values(SkillType) as SkillType[]).map(type => (
                         <button
                             key={type}
