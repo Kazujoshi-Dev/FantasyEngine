@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult } from '../types';
@@ -11,8 +10,6 @@ import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { StarIcon } from './icons/StarIcon';
-import { InfoIcon } from './icons/InfoIcon';
-import { ShieldIcon } from './icons/ShieldIcon';
 import { api } from '../api';
 import { CharacterCard } from './shared/CharacterCard';
 import { GuildCard } from './shared/GuildCard';
@@ -62,9 +59,6 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   const [activeTab, setActiveTab] = useState<'PLAYERS' | 'GUILDS'>('PLAYERS');
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
-  
-  // Nowe stany dla Kodeksu Zasad
-  const [activeRule, setActiveRule] = useState<'honor' | 'pvp' | 'espionage' | 'protection' | null>(null);
   
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
   const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
@@ -128,13 +122,6 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       return null;
   };
 
-  const rules = [
-    { id: 'honor' as const, icon: StarIcon, title: t('ranking.rules.honor.title'), desc: t('ranking.rules.honor.desc'), color: 'text-fantasy-amber' },
-    { id: 'pvp' as const, icon: CrossedSwordsIcon, title: t('ranking.rules.pvp.title'), desc: t('ranking.rules.pvp.desc'), color: 'text-red-400' },
-    { id: 'espionage' as const, icon: EyeIcon, title: t('ranking.rules.espionage.title'), desc: t('ranking.rules.espionage.desc'), color: 'text-emerald-400' },
-    { id: 'protection' as const, icon: ShieldIcon, title: t('ranking.rules.protection.title'), desc: t('ranking.rules.protection.desc'), color: 'text-sky-400' },
-  ];
-
   return (
     <ContentPanel title={t('ranking.title')}>
       {viewingProfileName && (
@@ -160,53 +147,6 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       )}
       
       <div className="bg-slate-900/40 p-6 rounded-xl h-[75vh] flex flex-col">
-         
-         {/* ELEGANT INFO CODEX - INTEGRATED PANEL */}
-         <div className="mb-8 flex flex-col md:flex-row gap-4 bg-slate-950/60 p-1 rounded-2xl border border-white/5 shadow-2xl overflow-hidden min-h-[140px]">
-            {/* Sidebar with icons */}
-            <div className="flex md:flex-col gap-1 p-2 md:border-r border-white/5 md:min-w-[200px]">
-                <div className="px-3 py-1 mb-2 hidden md:block">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">{t('ranking.legendTitle')}</span>
-                </div>
-                {rules.map(rule => (
-                    <button
-                        key={rule.id}
-                        onClick={() => setActiveRule(activeRule === rule.id ? null : rule.id)}
-                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
-                            ${activeRule === rule.id ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50 shadow-lg' : 'hover:bg-white/5 opacity-60 hover:opacity-100'}
-                        `}
-                    >
-                        <rule.icon className={`h-4 w-4 transition-transform group-hover:scale-110 ${activeRule === rule.id ? rule.color : 'text-gray-400'}`} />
-                        <span className={`text-xs font-bold whitespace-nowrap hidden md:block ${activeRule === rule.id ? 'text-white' : 'text-gray-400'}`}>
-                            {rule.title}
-                        </span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Description Area */}
-            <div className="flex-1 p-6 flex items-center justify-center relative bg-indigo-500/[0.02]">
-                {activeRule ? (
-                    <div className="animate-fade-in w-full">
-                        <div className="flex items-center gap-2 mb-2 md:hidden">
-                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
-                                {rules.find(r => r.id === activeRule)?.title}
-                            </span>
-                        </div>
-                        <p className="text-sm text-gray-300 leading-relaxed max-w-2xl font-medium">
-                            {rules.find(r => r.id === activeRule)?.desc}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="text-center opacity-30 select-none flex flex-col items-center gap-2">
-                        <InfoIcon className="h-8 w-8 text-indigo-400" />
-                        <span className="text-xs font-black uppercase tracking-[0.3em]">{t('ranking.legendTitle')}</span>
-                        <p className="text-[10px] uppercase font-bold text-gray-400">Wybierz temat, aby dowiedzieć się więcej</p>
-                    </div>
-                )}
-            </div>
-         </div>
-
          <div className="flex justify-between items-center mb-6 flex-shrink-0">
              <div className="flex gap-4">
                  <button 
@@ -226,7 +166,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
         </div>
 
         {activeTab === 'PLAYERS' && (
-            <div className="overflow-auto flex-grow custom-scrollbar">
+            <div className="overflow-auto flex-grow">
             <table className="w-full text-left">
                 <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
@@ -338,7 +278,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
         )}
 
         {activeTab === 'GUILDS' && (
-            <div className="overflow-auto flex-grow custom-scrollbar">
+            <div className="overflow-auto flex-grow">
             <table className="w-full text-left">
                 <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>

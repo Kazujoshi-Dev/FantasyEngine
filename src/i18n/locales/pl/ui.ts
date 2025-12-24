@@ -116,7 +116,6 @@ export default {
     ranking: {
         title: 'Ranking',
         header: 'Najlepsi Gracze wg Doświadczenia',
-        legendTitle: 'Zasady Świata Kronik',
         refresh: 'Odśwież',
         refreshing: 'Odświeżanie...',
         rank: 'Ranga',
@@ -131,24 +130,6 @@ export default {
         noPlayers: 'Jeszcze nie ma graczy w rankingu.',
         administrator: 'Administrator',
         attack: 'Atakuj',
-        rules: {
-            honor: {
-                title: 'System Honoru',
-                desc: 'Honor zdobywasz atakując graczy o równym lub wyższym poziomie. Pokonanie znacznie słabszego przeciwnika skutkuje dużym ujemnym honorem.'
-            },
-            pvp: {
-                title: 'Pojedynki (PvP)',
-                desc: 'Atak kosztuje 3 Energii. Możesz atakować graczy tylko w określonym zasięgu poziomów od Twojego własnego. Wygrana pozwala zrabować 10% złota przeciwnika.'
-            },
-            espionage: {
-                title: 'Szpiegowanie',
-                desc: 'Wymaga umiejętności "Nauki Szpiegowskie". Szansa na sukces zależy od Twojej Inteligencji i Szczęścia w porównaniu do statystyk celu.'
-            },
-            protection: {
-                title: 'Ochrona',
-                desc: 'Po ataku gracz otrzymuje czasową ochronę, w trakcie której nikt inny nie może go zaatakować. Wyjątkiem są rajdy gildyjne.'
-            }
-        }
     },
     news: {
         title: 'Nowości i Ogłoszenia',
