@@ -102,8 +102,8 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
     };
 
     const prepareRaidSummary = (raid: GuildRaid) => {
-        const isAttacker = raid.attackerGuildId === myGuildId;
-        const didWin = raid.winnerGuildId === myGuildId;
+        const isAttacker = Number(raid.attackerGuildId) === Number(myGuildId);
+        const didWin = Number(raid.winnerGuildId) === Number(myGuildId);
         
         const friendlyTeam = isAttacker ? raid.attackerParticipants : raid.defenderParticipants;
         const opposingTeam = isAttacker ? raid.defenderParticipants : raid.attackerParticipants;
@@ -166,7 +166,8 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-red-900/30">
+                {/* Panel Lewy: Inicjacja wojny */}
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-red-900/30 flex flex-col h-full">
                     <h3 className="text-xl font-bold text-red-500 mb-4 flex items-center gap-2"><SwordsIcon className="h-5 w-5"/> Wypowiedz Wojnę</h3>
                     {canManage ? (
                         <div className="space-y-4">
@@ -182,16 +183,17 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                                     <input type="radio" checked={raidType === RaidType.SPARRING} onChange={() => setRaidType(RaidType.SPARRING)} /> Sparing
                                 </label>
                             </div>
-                            <button onClick={handleCreate} disabled={!selectedTarget || isLoading} className="w-full py-2 bg-red-700 hover:bg-red-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700">WYPOWIEDZ WOJNĘ</button>
+                            <button onClick={handleCreate} disabled={!selectedTarget || isLoading} className="w-full py-2 bg-red-700 hover:bg-red-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700 transition-all">WYPOWIEDZ WOJNĘ</button>
                         </div>
                     ) : (
                         <p className="text-gray-500 italic text-sm">Tylko liderzy i oficerowie mogą inicjować operacje wojenne.</p>
                     )}
                 </div>
 
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-indigo-900/30">
+                {/* Panel Prawy: Aktywne Bitwy */}
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-indigo-900/30 flex flex-col h-full">
                     <h3 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2"><ShieldIcon className="h-5 w-5"/> Aktywne Bitwy</h3>
-                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar flex-grow">
                         {raids.active.length === 0 && <p className="text-gray-500 text-center py-6 italic text-sm">Brak aktywnych bitew.</p>}
                         {raids.active.map(raid => {
                             const isAttacker = Number(raid.attackerGuildId) === Number(myGuildId);
@@ -221,6 +223,45 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                             );
                         })}
                     </div>
+                </div>
+            </div>
+
+            {/* SEKCJA: Historia Bitew */}
+            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-800">
+                <h3 className="text-xl font-bold text-gray-400 mb-6 border-b border-slate-800 pb-2">Ostatnie Bitwy (Historia)</h3>
+                <div className="space-y-2">
+                    {raids.history.length === 0 && <p className="text-gray-600 text-center py-10 italic">Wasza gildia nie brała jeszcze udziału w żadnej wojnie.</p>}
+                    {raids.history.slice(0, 10).map(raid => {
+                        const isAttacker = Number(raid.attackerGuildId) === Number(myGuildId);
+                        const didWin = Number(raid.winnerGuildId) === Number(myGuildId);
+                        const opposingName = isAttacker ? raid.defenderGuildName : raid.attackerGuildName;
+                        const date = new Date(raid.createdAt).toLocaleDateString();
+
+                        return (
+                            <div key={raid.id} className={`flex flex-col md:flex-row justify-between items-center bg-slate-800/40 p-4 rounded-lg border transition-colors ${didWin ? 'border-green-900/30 hover:bg-green-900/10' : 'border-red-900/30 hover:bg-red-900/10'}`}>
+                                <div className="flex items-center gap-4 mb-4 md:mb-0">
+                                    <div className={`p-2 rounded-full ${didWin ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'}`}>
+                                        {didWin ? <ShieldIcon className="h-6 w-6"/> : <SwordsIcon className="h-6 w-6"/>}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-white text-md">
+                                            {didWin ? 'Zwycięstwo' : 'Porażka'} przeciwko <span className="text-indigo-400">{opposingName}</span>
+                                        </h4>
+                                        <p className="text-xs text-gray-500">
+                                            {date} • {raid.type === 'RESOURCES' ? 'Wojna o Zasoby' : 'Sparing'} 
+                                            {raid.loot?.gold ? <span className="text-amber-500 ml-2"> • +{raid.loot.gold}g</span> : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => prepareRaidSummary(raid)}
+                                    className="px-6 py-2 bg-slate-700 hover:bg-indigo-600 rounded text-xs font-black uppercase tracking-widest text-white transition-all shadow-md"
+                                >
+                                    Zobacz Raport
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
