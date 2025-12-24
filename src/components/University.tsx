@@ -75,7 +75,7 @@ const SkillCard: React.FC<{
     };
 
     return (
-        <div className={`p-5 rounded-xl border transition-all duration-300 ${isLearned ? 'bg-indigo-900/20 border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.1)]' : isLearning ? 'bg-amber-900/10 border-amber-500/50' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'}`}>
+        <div className={`p-5 rounded-xl border flex flex-col h-full transition-all duration-300 ${isLearned ? 'bg-indigo-900/20 border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.1)]' : isLearning ? 'bg-amber-900/10 border-amber-500/50' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'}`}>
             <div className="flex justify-between items-start mb-3">
                 <div>
                     <h4 className="text-lg font-bold text-white mb-0.5">{skill.name}</h4>
@@ -90,14 +90,14 @@ const SkillCard: React.FC<{
                 ) : null}
             </div>
 
-            <p className="text-sm text-gray-400 italic mb-6 leading-relaxed line-clamp-3 hover:line-clamp-none transition-all">
+            <p className="text-sm text-gray-400 italic mb-6 leading-relaxed min-h-[3rem]">
                 {skill.description}
             </p>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-4 mb-6 flex-grow">
                 <div>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Wymagania</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         {skill.requirements.race && (
                              <p className={`text-xs ${raceMatch ? 'text-gray-400' : 'text-red-500 font-bold'}`}>Rasa: {t(`race.${skill.requirements.race}`)}</p>
                         )}
@@ -155,35 +155,37 @@ const SkillCard: React.FC<{
                 )}
             </div>
 
-            {isLearning ? (
-                <div className="space-y-3">
-                    <div className="w-full bg-slate-900 rounded-full h-2 border border-slate-700 overflow-hidden">
-                        <div 
-                            className="bg-gradient-to-r from-amber-600 to-amber-400 h-full transition-all duration-1000" 
-                            style={{ width: `${100 - (timeLeft / ((skill.learningTimeMinutes || 1) * 60)) * 100}%` }}
-                        ></div>
+            <div className="mt-auto">
+                {isLearning ? (
+                    <div className="space-y-3">
+                        <div className="w-full bg-slate-900 rounded-full h-2 border border-slate-700 overflow-hidden">
+                            <div 
+                                className="bg-gradient-to-r from-amber-600 to-amber-400 h-full transition-all duration-1000" 
+                                style={{ width: `${100 - (timeLeft / ((skill.learningTimeMinutes || 1) * 60)) * 100}%` }}
+                            ></div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs font-mono text-amber-400 font-bold">{formatSeconds(timeLeft)}</span>
+                            {timeLeft === 0 && (
+                                <button 
+                                    onClick={onComplete}
+                                    className="px-4 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-[10px] uppercase tracking-widest transition-all animate-bounce"
+                                >
+                                    ZAKOŃCZ NAUKĘ
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs font-mono text-amber-400 font-bold">{formatSeconds(timeLeft)}</span>
-                        {timeLeft === 0 && (
-                            <button 
-                                onClick={onComplete}
-                                className="px-4 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-[10px] uppercase tracking-widest transition-all animate-bounce"
-                            >
-                                ZAKOŃCZ NAUKĘ
-                            </button>
-                        )}
-                    </div>
-                </div>
-            ) : !isLearned && (
-                <button 
-                    onClick={() => onLearn(skill.id)}
-                    disabled={!canBuy}
-                    className={`w-full py-2.5 rounded-lg text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 ${canBuy ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed opacity-50'}`}
-                >
-                    {isOtherSkillLearning ? 'UCZYSZ SIĘ CZEGOŚ INNEGO' : 'ROZPOCZNIJ NAUKĘ'}
-                </button>
-            )}
+                ) : !isLearned && (
+                    <button 
+                        onClick={() => onLearn(skill.id)}
+                        disabled={!canBuy}
+                        className={`w-full py-2.5 rounded-lg text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 ${canBuy ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed opacity-50'}`}
+                    >
+                        {isOtherSkillLearning ? 'UCZYSZ SIĘ CZEGOŚ INNEGO' : 'ROZPOCZNIJ NAUKĘ'}
+                    </button>
+                )}
+            </div>
         </div>
     );
 };
@@ -283,7 +285,7 @@ export const University: React.FC = () => {
                         <p className="text-xl font-bold uppercase tracking-widest">Brak dostępnych nauk</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in pb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in pb-8 items-stretch">
                         {filteredSkills.map(skill => (
                             <SkillCard 
                                 key={skill.id} 
