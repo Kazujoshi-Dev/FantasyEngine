@@ -62,7 +62,9 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   const [activeTab, setActiveTab] = useState<'PLAYERS' | 'GUILDS'>('PLAYERS');
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
-  const [isLegendOpen, setIsLegendOpen] = useState(false);
+  
+  // Nowe stany dla Kodeksu Zasad
+  const [activeRule, setActiveRule] = useState<'honor' | 'pvp' | 'espionage' | 'protection' | null>(null);
   
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
   const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
@@ -126,6 +128,13 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       return null;
   };
 
+  const rules = [
+    { id: 'honor' as const, icon: StarIcon, title: t('ranking.rules.honor.title'), desc: t('ranking.rules.honor.desc'), color: 'text-fantasy-amber' },
+    { id: 'pvp' as const, icon: CrossedSwordsIcon, title: t('ranking.rules.pvp.title'), desc: t('ranking.rules.pvp.desc'), color: 'text-red-400' },
+    { id: 'espionage' as const, icon: EyeIcon, title: t('ranking.rules.espionage.title'), desc: t('ranking.rules.espionage.desc'), color: 'text-emerald-400' },
+    { id: 'protection' as const, icon: ShieldIcon, title: t('ranking.rules.protection.title'), desc: t('ranking.rules.protection.desc'), color: 'text-sky-400' },
+  ];
+
   return (
     <ContentPanel title={t('ranking.title')}>
       {viewingProfileName && (
@@ -151,57 +160,50 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       )}
       
       <div className="bg-slate-900/40 p-6 rounded-xl h-[75vh] flex flex-col">
-         {/* COLLAPSIBLE LEGEND - IMPROVED UI */}
-         <div className="mb-6 bg-slate-950/80 border border-fantasy-gold/20 rounded-xl overflow-hidden transition-all duration-300 shadow-2xl">
-            <button 
-                onClick={() => setIsLegendOpen(!isLegendOpen)}
-                className={`w-full px-5 py-4 flex items-center justify-between transition-all ${isLegendOpen ? 'bg-indigo-900/20' : 'hover:bg-slate-800/60'}`}
-            >
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-600/20 rounded-lg border border-indigo-500/40">
-                        <InfoIcon className="h-5 w-5 text-indigo-400" />
-                    </div>
-                    <div className="text-left">
-                        <h4 className="text-sm font-black fantasy-header text-white uppercase tracking-widest">
-                            {t('ranking.legendTitle')}
-                        </h4>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold">{isLegendOpen ? 'Kliknij, aby ukryć' : 'Kliknij, aby poznać zasady świata'}</p>
-                    </div>
+         
+         {/* ELEGANT INFO CODEX - INTEGRATED PANEL */}
+         <div className="mb-8 flex flex-col md:flex-row gap-4 bg-slate-950/60 p-1 rounded-2xl border border-white/5 shadow-2xl overflow-hidden min-h-[140px]">
+            {/* Sidebar with icons */}
+            <div className="flex md:flex-col gap-1 p-2 md:border-r border-white/5 md:min-w-[200px]">
+                <div className="px-3 py-1 mb-2 hidden md:block">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">{t('ranking.legendTitle')}</span>
                 </div>
-                <div className={`transform transition-transform duration-500 ${isLegendOpen ? 'rotate-180 text-fantasy-gold' : 'text-gray-600'}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                </div>
-            </button>
-            
-            <div className={`overflow-hidden transition-all duration-700 ease-in-out ${isLegendOpen ? 'max-h-[2000px] opacity-100 p-5 pt-2' : 'max-h-0 opacity-0'}`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                    <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 shadow-inner">
-                        <h5 className="text-[11px] font-black text-indigo-300 fantasy-header uppercase tracking-tighter flex items-center gap-2 mb-2">
-                            <StarIcon className="h-4 w-4 text-fantasy-gold" /> {t('ranking.rules.honor.title')}
-                        </h5>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{t('ranking.rules.honor.desc')}</p>
+                {rules.map(rule => (
+                    <button
+                        key={rule.id}
+                        onClick={() => setActiveRule(activeRule === rule.id ? null : rule.id)}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
+                            ${activeRule === rule.id ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50 shadow-lg' : 'hover:bg-white/5 opacity-60 hover:opacity-100'}
+                        `}
+                    >
+                        <rule.icon className={`h-4 w-4 transition-transform group-hover:scale-110 ${activeRule === rule.id ? rule.color : 'text-gray-400'}`} />
+                        <span className={`text-xs font-bold whitespace-nowrap hidden md:block ${activeRule === rule.id ? 'text-white' : 'text-gray-400'}`}>
+                            {rule.title}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {/* Description Area */}
+            <div className="flex-1 p-6 flex items-center justify-center relative bg-indigo-500/[0.02]">
+                {activeRule ? (
+                    <div className="animate-fade-in w-full">
+                        <div className="flex items-center gap-2 mb-2 md:hidden">
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
+                                {rules.find(r => r.id === activeRule)?.title}
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed max-w-2xl font-medium">
+                            {rules.find(r => r.id === activeRule)?.desc}
+                        </p>
                     </div>
-                    <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 shadow-inner">
-                        <h5 className="text-[11px] font-black text-red-400 fantasy-header uppercase tracking-tighter flex items-center gap-2 mb-2">
-                            <CrossedSwordsIcon className="h-4 w-4" /> {t('ranking.rules.pvp.title')}
-                        </h5>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{t('ranking.rules.pvp.desc')}</p>
+                ) : (
+                    <div className="text-center opacity-30 select-none flex flex-col items-center gap-2">
+                        <InfoIcon className="h-8 w-8 text-indigo-400" />
+                        <span className="text-xs font-black uppercase tracking-[0.3em]">{t('ranking.legendTitle')}</span>
+                        <p className="text-[10px] uppercase font-bold text-gray-400">Wybierz temat, aby dowiedzieć się więcej</p>
                     </div>
-                    <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 shadow-inner">
-                        <h5 className="text-[11px] font-black text-emerald-400 fantasy-header uppercase tracking-tighter flex items-center gap-2 mb-2">
-                            <EyeIcon className="h-4 w-4" /> {t('ranking.rules.espionage.title')}
-                        </h5>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{t('ranking.rules.espionage.desc')}</p>
-                    </div>
-                    <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 shadow-inner">
-                        <h5 className="text-[11px] font-black text-sky-400 fantasy-header uppercase tracking-tighter flex items-center gap-2 mb-2">
-                            <ShieldIcon className="h-4 w-4" /> {t('ranking.rules.protection.title')}
-                        </h5>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{t('ranking.rules.protection.desc')}</p>
-                    </div>
-                </div>
+                )}
             </div>
          </div>
 
@@ -224,7 +226,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
         </div>
 
         {activeTab === 'PLAYERS' && (
-            <div className="overflow-auto flex-grow">
+            <div className="overflow-auto flex-grow custom-scrollbar">
             <table className="w-full text-left">
                 <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
@@ -336,7 +338,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
         )}
 
         {activeTab === 'GUILDS' && (
-            <div className="overflow-auto flex-grow">
+            <div className="overflow-auto flex-grow custom-scrollbar">
             <table className="w-full text-left">
                 <thead className="bg-slate-800/50 text-xs text-gray-400 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
