@@ -1,11 +1,26 @@
 
-import { Skill, SkillType, SkillCategory, CharacterClass, EssenceType } from '../types.js';
+import { Skill, SkillType, SkillCategory, CharacterClass, EssenceType, Race } from '../types.js';
 
 /**
  * Tutaj definiujemy wszystkie umiejętności dostępne w Uniwersytecie.
  * Dodanie nowej umiejętności tutaj automatycznie zsynchronizuje ją z bazą danych przy starcie.
  */
 export const GAME_SKILLS: Skill[] = [
+    {
+        id: 'pioneers-instinct',
+        name: 'Instynkt Pioniera',
+        description: 'Unikalna zdolność Ludzi. Zmniejsza koszt energii wypraw i wieży o 1 (min. 1), zwiększa najwyższy atrybut o 5% oraz daje +5% szansy na łup.',
+        type: SkillType.Race,
+        category: SkillCategory.Passive,
+        requirements: {
+            race: Race.Human,
+            level: 1
+        },
+        cost: {
+            gold: 1000,
+            commonEssence: 10
+        }
+    },
     {
         id: 'dual-wield-mastery',
         name: 'Sztuka Dwóch Mieczy',
@@ -56,5 +71,4 @@ export const GAME_SKILLS: Skill[] = [
             rareEssence: 5
         }
     }
-    // Tutaj możesz dopisywać kolejne umiejętności...
 ];

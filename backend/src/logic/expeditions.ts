@@ -175,7 +175,13 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         }
         
         const baseFindChance = 40;
-        const luckBonus = (characterWithStats.stats.luck || 0) * 0.25;
+        let luckBonus = (characterWithStats.stats.luck || 0) * 0.25;
+        
+        // --- Pioneer's Instinct Bonus Loot Chance ---
+        if (character.learnedSkills?.includes('pioneers-instinct')) {
+            luckBonus += 5; // Direct +5% chance
+        }
+
         const totalFindChance = Math.min(100, baseFindChance + luckBonus);
 
         for (let i = 0; i < maxPotentialItems; i++) {

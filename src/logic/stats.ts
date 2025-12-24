@@ -74,6 +74,22 @@ export const calculateDerivedStats = (
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
     if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
 
+    // --- Pioneer's Instinct (Ludzie) ---
+    if (character.learnedSkills?.includes('pioneers-instinct')) {
+        const primaryKeys = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
+        const values = primaryKeys.map(k => Number(totalPrimaryStats[k as keyof CharacterStats]));
+        const maxVal = Math.max(...values);
+        
+        if (maxVal > 0) {
+            const bonus = Math.floor(maxVal * 0.05);
+            primaryKeys.forEach(k => {
+                if (Number(totalPrimaryStats[k as keyof CharacterStats]) === maxVal) {
+                    (totalPrimaryStats as any)[k] += bonus;
+                }
+            });
+        }
+    }
+
     if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
 
     if (activeGuildBuffs && activeGuildBuffs.length > 0) {
