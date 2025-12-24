@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -52,7 +53,7 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
         critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRound: 0, attacksPerRoundBonus: 0,
-        dodgeChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
+        dodgeChanceBonus: 0, blockChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
         armorPenetrationPercent: 0, armorPenetrationFlat: 0,
         lifeStealPercent: 0, lifeStealFlat: 0,
         manaStealPercent: 0, manaStealFlat: 0,
@@ -72,6 +73,7 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         if (source.armorBonus) stats.armorBonus += source.armorBonus * (1 + factor);
         if (source.maxHealthBonus) stats.maxHealthBonus += source.maxHealthBonus * (1 + factor);
         if (source.critChanceBonus) stats.critChanceBonus += source.critChanceBonus * (1 + factor);
+        if (source.blockChanceBonus) stats.blockChanceBonus += source.blockChanceBonus * (1 + factor);
         if (source.critDamageModifierBonus) stats.critDamageModifierBonus += source.critDamageModifierBonus * (1 + factor);
         if (source.attacksPerRoundBonus) stats.attacksPerRoundBonus += source.attacksPerRoundBonus * (1 + factor);
         if (source.dodgeChanceBonus) stats.dodgeChanceBonus += source.dodgeChanceBonus * (1 + factor);
@@ -240,6 +242,7 @@ export const ItemDetailsPanel: React.FC<{
         if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
+        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) entries.push(renderStat(t('item.blockChanceBonus'), s.blockChanceBonus, 'blockChanceBonus', true));
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
         if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
@@ -270,10 +273,16 @@ export const ItemDetailsPanel: React.FC<{
                         {item.crafterName && (<div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50 z-10">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
                     </div>
                 )}
+
+                {template.isShield && (
+                    <div className="bg-amber-950/20 p-2 rounded-lg mt-1 border border-amber-900/30 flex items-center justify-center gap-2">
+                        <ShieldIcon className="h-4 w-4 text-amber-500" />
+                        <span className="text-xs font-black uppercase text-amber-400 tracking-widest">{t('item.isShield')}</span>
+                    </div>
+                )}
                 
                 <StatSection title="STATYSTYKI BAZOWE" source={item.rolledBaseStats || template} metadata={template} isAffix={false} />
                 
-                {/* Nowa sekcja Ataku Magicznego */}
                 {template.isMagical && template.magicAttackType && (
                     <div className={`bg-purple-950/20 p-3 rounded-lg mt-2 border border-purple-900/30 ${isSmall ? 'text-xs' : 'text-sm'}`}>
                         <h5 className="font-black uppercase text-[9px] tracking-widest text-purple-400 border-b border-purple-900/30 mb-2 pb-1">
@@ -365,7 +374,6 @@ export const ItemListItem: React.FC<{
             source,
             fromSlot 
         }));
-        // Wizualny efekt przeciągania
         const target = e.target as HTMLElement;
         target.style.opacity = '0.5';
     };

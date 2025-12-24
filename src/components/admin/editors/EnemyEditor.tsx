@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -23,6 +22,8 @@ export const EnemyEditor: React.FC<EnemyEditorProps> = ({ enemy, onSave, onCance
             critDamageModifier: 150,
             agility: 5,
             dodgeChance: 0,
+            // Fix: Added missing blockChance required property
+            blockChance: 0,
             maxMana: 0,
             manaRegen: 0,
             magicDamageMin: 0,

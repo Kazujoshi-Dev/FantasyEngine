@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
@@ -23,6 +22,8 @@ const defaultEnemyStats: EnemyStats = {
     attacksPerTurn: 1,
     critDamageModifier: 150,
     dodgeChance: 0,
+    // Fix: Added missing blockChance required property
+    blockChance: 0,
     magicAttackChance: 0,
     magicAttackManaCost: 0,
     magicDamageMax: 0,

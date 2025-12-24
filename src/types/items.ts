@@ -76,6 +76,7 @@ export interface ItemTemplate {
     
     isMagical?: boolean;
     isRanged?: boolean;
+    isShield?: boolean;
     magicAttackType?: MagicAttackType;
     manaCost?: { min: number; max: number };
     magicDamageMin?: number;
@@ -92,6 +93,7 @@ export interface ItemTemplate {
     manaStealPercent?: number;
     manaStealFlat?: number;
     dodgeChanceBonus?: number;
+    blockChanceBonus?: number;
 }
 
 export interface RolledAffixStats {
@@ -104,6 +106,7 @@ export interface RolledAffixStats {
     critDamageModifierBonus?: number;
     attacksPerRoundBonus?: number;
     dodgeChanceBonus?: number;
+    blockChanceBonus?: number;
     armorPenetrationPercent?: number;
     armorPenetrationFlat?: number;
     lifeStealPercent?: number;
@@ -153,6 +156,7 @@ export interface Affix {
     critDamageModifierBonus?: { min: number; max: number };
     attacksPerRoundBonus?: { min: number; max: number };
     dodgeChanceBonus?: { min: number; max: number };
+    blockChanceBonus?: { min: number; max: number };
     armorPenetrationPercent?: { min: number; max: number };
     armorPenetrationFlat?: { min: number; max: number };
     lifeStealPercent?: { min: number; max: number };
@@ -173,6 +177,7 @@ export interface ItemSetTier {
         goldBonusPercent?: number;
         damageBonusPercent?: number;
         damageReductionPercent?: number;
+        blockChanceBonus?: number;
     };
 }
 

@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -115,8 +114,9 @@ router.post('/', async (req: any, res: any) => {
                 currentEnergy: 10, maxEnergy: 10,
                 minDamage: 1, maxDamage: 2,
                 magicDamageMin: 0, magicDamageMax: 0,
+                // Fix: Added missing blockChance required property
                 armor: 0, critChance: 0, critDamageModifier: 200,
-                attacksPerRound: 1, dodgeChance: 0, manaRegen: 2,
+                attacksPerRound: 1, dodgeChance: 0, blockChance: 0, manaRegen: 2,
                 armorPenetrationPercent: 0, armorPenetrationFlat: 0,
                 lifeStealPercent: 0, lifeStealFlat: 0,
                 manaStealPercent: 0, manaStealFlat: 0,

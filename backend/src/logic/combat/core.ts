@@ -21,7 +21,7 @@ export interface AttackerState {
     isEmpowered?: boolean;
     manaSurgeUsed?: boolean;
     shadowBoltStacks?: number;
-    dodgeCritStacks?: number; // NOWE: Stosy dla Gnomiej Nadzaradności
+    dodgeCritStacks?: number;
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
 }
@@ -32,7 +32,7 @@ export interface DefenderState {
     currentMana: number;
     name: string;
     hardSkinTriggered?: boolean;
-    dodgeCritStacks?: number; // NOWE: Przechowywanie stosów obrońcy
+    dodgeCritStacks?: number;
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
     uniqueId?: string;
@@ -100,7 +100,6 @@ export const performAttack = <
     }
 
     if (Math.random() * 100 < tempDodgeChance) {
-        // --- GNOMISH OVER-ENGINEERING (DODGE STACK) ---
         if (defenderIsPlayer && defender.data?.race === Race.Gnome && defender.data?.learnedSkills?.includes('gnomish-overengineering')) {
             defender.dodgeCritStacks = Math.min(3, (defender.dodgeCritStacks || 0) + 1);
         }
@@ -112,7 +111,17 @@ export const performAttack = <
         };
     }
 
-    // Obliczanie szansy na krytyk z uwzględnieniem stosów Gnoma
+    // --- BLOCK LOGIC ---
+    if (defender.stats.blockChance && defender.stats.blockChance > 0) {
+        if (Math.random() * 100 < defender.stats.blockChance) {
+            return {
+                logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'block', isBlock: true, ...getHealthState(attacker, defender) }],
+                attackerState: attacker,
+                defenderState: defender,
+            };
+        }
+    }
+
     let finalCritChance = attacker.stats.critChance;
     if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome && attacker.dodgeCritStacks) {
         finalCritChance += (attacker.dodgeCritStacks * 10);
@@ -208,7 +217,6 @@ export const performAttack = <
         damageReduced += armorReduction;
     }
 
-    // Po ataku (niezależnie czy hit czy miss magiczny) czyścimy stosy Gnoma
     if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome) {
         attacker.dodgeCritStacks = 0;
     }
@@ -220,7 +228,6 @@ export const performAttack = <
         damageReduced += reductionVal;
     }
 
-    // --- ORC FURY LOGIC ---
     if (attackerIsPlayer && attacker.data?.race === Race.Orc) {
         let furyThreshold = 0.25;
         if (attacker.data.learnedSkills?.includes('behemoths-hide')) {

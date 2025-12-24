@@ -18,11 +18,11 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         const { name, value, type } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const isChecked = (e.target as HTMLInputElement).checked;
-        const isNumeric = ['value', 'requiredLevel'].includes(name);
+        const isNumeric = ['value', 'requiredLevel', 'attacksPerRound'].includes(name);
 
         setFormData(prev => ({
             ...prev,
-            [name]: isCheckbox ? isChecked : (isNumeric ? parseInt(value, 10) || 0 : value)
+            [name]: isCheckbox ? isChecked : (isNumeric ? parseFloat(value) || 0 : value)
         }));
     };
     
@@ -41,11 +41,11 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         const numValue = parseInt(value, 10);
         setFormData(prev => {
             const newCategory = { ...(prev as any)[category] };
-            if (field) { // min-max object
+            if (field) {
                  const newStat = { ...newCategory[key], [field]: isNaN(numValue) ? undefined : numValue };
                  if (newStat.min === undefined && newStat.max === undefined) delete newCategory[key];
                  else newCategory[key] = newStat;
-            } else { // direct value
+            } else {
                 if (isNaN(numValue) || numValue === 0) delete newCategory[key];
                 else newCategory[key] = numValue;
             }
@@ -82,7 +82,6 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
             <h3 className="text-xl font-bold text-indigo-400">{isEditing ? t('admin.item.edit') : t('admin.item.create')}</h3>
             
-            {/* Basic Info */}
             <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('admin.item.basicInfo')}</legend>
                 <div className="md:col-span-2"><label>{t('item.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
@@ -96,16 +95,16 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div><label>{t('item.levelRequirement')}:<input name="requiredLevel" type="number" value={formData.requiredLevel || 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </fieldset>
 
-            {/* Bonuses */}
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('admin.item.bonuses')}</legend>
                 <MinMaxInput label={t('item.damageMin')} field="damageMin" />
                 <MinMaxInput label={t('item.damageMax')} field="damageMax" />
                 <div><label>{t('item.attacksPerRound')}:<input name="attacksPerRound" type="number" step="0.1" value={formData.attacksPerRound || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <MinMaxInput label={t('item.armorBonus')} field="armorBonus" />
-                <MinMaxInput label={t('item.critChanceBonus')} field="critChanceBonus" />
-                <MinMaxInput label={t('item.maxHealthBonus')} field="maxHealthBonus" />
-                <MinMaxInput label={t('item.critDamageModifierBonus')} field="critDamageModifierBonus" />
+                <MinMaxInput label={t('statistics.armor')} field="armorBonus" />
+                <MinMaxInput label={t('statistics.critChance')} field="critChanceBonus" />
+                <MinMaxInput label={t('item.blockChanceBonus')} field="blockChanceBonus" />
+                <MinMaxInput label={t('statistics.health')} field="maxHealthBonus" />
+                <MinMaxInput label={t('statistics.critDamageModifier')} field="critDamageModifierBonus" />
                 <MinMaxInput label={t('item.armorPenetrationPercent')} field="armorPenetrationPercent" />
                 <MinMaxInput label={t('item.armorPenetrationFlat')} field="armorPenetrationFlat" />
                 <MinMaxInput label={t('item.lifeStealPercent')} field="lifeStealPercent" />
@@ -114,18 +113,17 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <MinMaxInput label={t('item.manaStealFlat')} field="manaStealFlat" />
             </fieldset>
 
-            {/* Magic Properties */}
-             <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
+            <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('item.magicProperties')}</legend>
                 <label className="flex items-center gap-2"><input name="isMagical" type="checkbox" checked={formData.isMagical || false} onChange={handleChange}/> {t('item.isMagical')}</label>
                 <label className="flex items-center gap-2"><input name="isRanged" type="checkbox" checked={formData.isRanged || false} onChange={handleChange}/> {t('item.isRanged')}</label>
+                <label className="flex items-center gap-2"><input name="isShield" type="checkbox" checked={formData.isShield || false} onChange={handleChange}/> {t('item.isShield')}</label>
                 <div><label>{t('item.magicAttackType')}:<select name="magicAttackType" value={formData.magicAttackType || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.general.none')} --</option>{Object.values(MagicAttackType).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
                 <MinMaxInput label={t('item.manaCost')} field="manaCost" />
                 <MinMaxInput label={t('item.magicDamageMin')} field="magicDamageMin" />
                 <MinMaxInput label={t('item.magicDamageMax')} field="magicDamageMax" />
             </fieldset>
 
-             {/* Requirements */}
             <fieldset className="border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">{t('item.requiredStats')}</legend>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

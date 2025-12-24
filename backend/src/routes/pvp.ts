@@ -80,6 +80,8 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
                 critDamageModifier: defenderWithStats.stats.critDamageModifier,
                 agility: defenderWithStats.stats.agility,
                 dodgeChance: defenderWithStats.stats.dodgeChance,
+                // Fix: Added missing blockChance required property
+                blockChance: defenderWithStats.stats.blockChance,
                 maxMana: defenderWithStats.stats.maxMana,
                 manaRegen: defenderWithStats.stats.manaRegen,
                 magicDamageMin: defenderWithStats.stats.magicDamageMin,

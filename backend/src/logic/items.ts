@@ -1,3 +1,4 @@
+
 import { ItemInstance, ItemTemplate, Affix, RolledAffixStats, AffixType, GrammaticalGender, ItemRarity, ItemCategory, EquipmentSlot, PlayerCharacter } from '../types.js';
 import { randomUUID } from 'crypto';
 
@@ -64,7 +65,7 @@ export const rollAffixStats = (affix: Affix, luck: number = 0): RolledAffixStats
             if (rolledStat !== undefined) (rolled.statsBonus as any)[key] = rolledStat;
         }
     }
-    const keys = ['damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'magicDamageMin', 'magicDamageMax'];
+    const keys = ['damageMin', 'damageMax', 'attacksPerRoundBonus', 'dodgeChanceBonus', 'blockChanceBonus', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'magicDamageMin', 'magicDamageMax'];
     for (const key of keys) {
         const val = rollValueWithLuck((affix as any)[key], luck);
         if (val !== undefined) (rolled as any)[key] = val;
@@ -81,7 +82,7 @@ export const rollTemplateStats = (template: ItemTemplate, luck: number = 0): Rol
             if (rolledStat !== undefined) (rolled.statsBonus as any)[key] = rolledStat;
         }
     }
-    const keys = ['damageMin', 'damageMax', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'magicDamageMin', 'magicDamageMax'];
+    const keys = ['damageMin', 'damageMax', 'armorBonus', 'critChanceBonus', 'maxHealthBonus', 'critDamageModifierBonus', 'armorPenetrationPercent', 'armorPenetrationFlat', 'lifeStealPercent', 'lifeStealFlat', 'manaStealPercent', 'manaStealFlat', 'magicDamageMin', 'magicDamageMax', 'blockChanceBonus'];
     for (const key of keys) {
         const value = rollValueWithLuck((template as any)[key], luck);
         if (value !== undefined) (rolled as any)[key] = value;

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Enemy, ItemTemplate, LootDrop, ResourceDrop, EssenceType, MagicAttackType, EnemyStats, SpecialAttackType, BossSpecialAttack } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -32,6 +31,8 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
             critDamageModifier: 200,
             agility: 10,
             dodgeChance: 0,
+            // Fix: Added missing blockChance required property
+            blockChance: 0,
             maxMana: 50,
             manaRegen: 5,
             magicDamageMin: 0,
@@ -116,7 +117,7 @@ export const BossEditor: React.FC<BossEditorProps> = ({ boss, onSave, onCancel, 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) {
-            alert(t('admin.enemy.nameRequired'));
+            alert(t('admin.general.nameRequired'));
             return;
         }
         onSave(formData as Enemy);

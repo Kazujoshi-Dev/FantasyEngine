@@ -49,11 +49,9 @@ export const Equipment: React.FC = () => {
     const [filterSlot, setFilterSlot] = useState<string>('all');
     const [rarityFilter, setRarityFilter] = useState<ItemRarity | 'all'>('all');
     
-    // Stany dla wizualnego feedbacku Drag and Drop
     const [isDragOverPaperDoll, setIsDragOverPaperDoll] = useState(false);
     const [isDragOverBackpack, setIsDragOverBackpack] = useState(false);
 
-    // Timer do debouncowania zamykania tooltipa
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (!character || !gameData) return null;
@@ -75,8 +73,6 @@ export const Equipment: React.FC = () => {
             if (!template) return false;
             
             const rarityMatch = rarityFilter === 'all' || template.rarity === rarityFilter;
-            
-            // Grupowanie pierścieni w logice filtra
             const itemSlotNormalized = template.slot.startsWith('ring') ? 'ring' : template.slot;
             const slotMatch = filterSlot === 'all' || itemSlotNormalized === filterSlot;
 
@@ -99,8 +95,6 @@ export const Equipment: React.FC = () => {
             setInspectedItem(null);
         } catch (e: any) { alert(e.message); }
     }, [updateCharacter]);
-
-    // --- Obsługa Drag and Drop ---
 
     const handleDragOver = (e: React.DragEvent, zone: 'paperdoll' | 'backpack') => {
         e.preventDefault();
@@ -125,12 +119,10 @@ export const Equipment: React.FC = () => {
             const data = JSON.parse(dataStr);
             const { uniqueId, source, fromSlot } = data;
 
-            // Logika: upuszczenie na Equipment
             if (targetZone === 'paperdoll' && source === 'inventory') {
                 const item = character.inventory.find(i => i.uniqueId === uniqueId);
                 if (item) await handleEquip(item);
             }
-            // Logika: upuszczenie na Backpack
             else if (targetZone === 'backpack' && source === 'equipment' && fromSlot) {
                 await handleUnequip(fromSlot);
             }
@@ -262,6 +254,7 @@ export const Equipment: React.FC = () => {
                                 <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ShieldIcon className="h-3 w-3" /> Defensywa</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Pancerz" value={character.stats.armor} color="text-sky-300" />
+                                    <StatRow label="Szansa na Blok" value={`${character.stats.blockChance.toFixed(1)}%`} color="text-amber-400" />
                                     <StatRow label="Szansa na Unik" value={`${character.stats.dodgeChance.toFixed(1)}%`} color="text-blue-400" />
                                     <StatRow label="Zdrowie" value={`${Math.ceil(character.stats.currentHealth)} / ${character.stats.maxHealth}`} color="text-green-400" />
                                 </div>

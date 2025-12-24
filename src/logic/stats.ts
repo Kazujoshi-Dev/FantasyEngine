@@ -58,23 +58,19 @@ export const calculateDerivedStats = (
         critDamageModifier: 200,
         attacksPerRound: 1,
         dodgeChance: 0,
+        blockChance: 0,
         manaRegen: 0,
         armorPenetrationPercent: 0,
         armorPenetrationFlat: 0,
-        lifeStealPercent: 0,
-        lifeStealFlat: 0,
-        manaStealPercent: 0,
-        manaStealFlat: 0,
-        expBonusPercent: 0,
-        goldBonusPercent: 0,
-        damageBonusPercent: 0,
-        damageReductionPercent: 0
+        lifeStealPercent: 0, lifeStealFlat: 0,
+        manaStealPercent: 0, manaStealFlat: 0,
+        expBonusPercent: 0, goldBonusPercent: 0,
+        damageBonusPercent: 0, damageReductionPercent: 0
     };
     
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
     if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
 
-    // --- Pioneer's Instinct (Ludzie) ---
     if (character.learnedSkills?.includes('pioneers-instinct')) {
         const primaryKeys = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
         const values = primaryKeys.map(k => Number(totalPrimaryStats[k as keyof CharacterStats]));
@@ -113,7 +109,7 @@ export const calculateDerivedStats = (
     let bonusMagicDmgMin = 0, bonusMagicDmgMax = 0;
     let ohMagicDmgMin = 0, ohMagicDmgMax = 0;
 
-    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
+    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0, bonusBlockChance = 0;
     let bonusAttacksPerRound = 0;
     let bonusCritDamageModifier = 0;
     let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
@@ -164,6 +160,7 @@ export const calculateDerivedStats = (
         bonusManaStealFlat += Number(source.manaStealFlat) || 0;
         bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
         bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
+        bonusBlockChance += Number(source.blockChanceBonus) || 0;
     };
 
     const equippedAffixCounts: Record<string, number> = {};
@@ -195,6 +192,7 @@ export const calculateDerivedStats = (
                 armorBonus: applyUp(base.armorBonus),
                 maxHealthBonus: applyUp(base.maxHealthBonus),
                 critChanceBonus: (Number(base.critChanceBonus) || 0) * (1 + upFact),
+                blockChanceBonus: (Number(base.blockChanceBonus) || 0) * (1 + upFact),
                 critDamageModifierBonus: applyUp(base.critDamageModifierBonus),
                 armorPenetrationFlat: applyUp(base.armorPenetrationFlat),
                 lifeStealFlat: applyUp(base.lifeStealFlat),
@@ -268,7 +266,7 @@ export const calculateDerivedStats = (
     let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
     let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
     let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
-    let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0; // Fix magic max calc
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0;
 
     if (isDualWieldActive && ohItem) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
@@ -295,13 +293,11 @@ export const calculateDerivedStats = (
 
     let finalArmor = bonusArmor + (character.race === Race.Dwarf ? 5 : 0);
     
-    // --- Behemoth's Hide (Orkowie) ---
     if (character.learnedSkills?.includes('behemoths-hide')) {
         const strengthArmorBonus = Math.floor(totalPrimaryStats.strength / 10);
         finalArmor += strengthArmorBonus;
     }
 
-    // --- Bedrock Foundation (Krasnoludy) ---
     let bedrockArmorBonus = 0;
     let bedrockDamageBonus = 0;
     if (character.race === Race.Dwarf && character.learnedSkills?.includes('bedrock-foundation')) {
@@ -313,7 +309,6 @@ export const calculateDerivedStats = (
         if (ohMin > 0) ohMin += bedrockDamageBonus;
     }
 
-    // --- Ethereal Weave (Elfy) ---
     let elfManaRegenBonus = 0;
     let elfDodgeBonus = 0;
     if (character.race === Race.Elf && character.learnedSkills?.includes('ethereal-weave')) {
@@ -339,6 +334,7 @@ export const calculateDerivedStats = (
             critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
             dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0) + elfDodgeBonus),
+            blockChance: Math.min(75, bonusBlockChance),
             manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0) + elfManaRegenBonus,
             armorPenetrationPercent: bonusArmorPenetrationPercent,
             armorPenetrationFlat: bonusArmorPenetrationFlat,

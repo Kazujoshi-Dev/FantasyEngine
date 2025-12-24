@@ -86,6 +86,14 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
                     <span className="font-bold">{log.defender}</span> {hpSpan} {actionText}
                 </div>
             );
+        case 'block':
+            actionText = `${t('expedition.block')} ${log.attacker}`;
+            textColor = 'text-amber-500 italic';
+            return (
+                <div className={`text-sm ${textColor}`}>
+                    <span className="font-bold">{log.defender}</span> {hpSpan} {actionText}
+                </div>
+            );
         case 'death':
             actionText = `${log.defender} ginie!`;
             textColor = 'text-red-500 font-bold';

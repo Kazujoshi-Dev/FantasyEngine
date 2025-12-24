@@ -1,4 +1,3 @@
-
 // ... (zachowujemy istniejące importy)
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats, GuildBuff, QuestType } from '../types.js';
@@ -46,8 +45,10 @@ export const processPartyCombat = async (party: HuntingParty, gameData: GameData
                 strength: 0, agility: 0, accuracy: 0, stamina: 0, intelligence: 0, energy: 0, luck: 0, statPoints: 0,
                 currentHealth: 1, maxHealth: 1, currentEnergy: 1, maxEnergy: 1, currentMana: 0, maxMana: 0,
                 minDamage: 0, maxDamage: 1, magicDamageMin: 0, magicDamageMax: 0, critChance: 0, critDamageModifier: 150,
+                // Fix: Added missing blockChance required property
                 armor: 0, armorPenetrationPercent: 0, armorPenetrationFlat: 0, attacksPerRound: 1, manaRegen: 0,
                 lifeStealPercent: 0, lifeStealFlat: 0, manaStealPercent: 0, manaStealFlat: 0, dodgeChance: 0,
+                blockChance: 0,
                 expBonusPercent: 0, goldBonusPercent: 0, damageBonusPercent: 0, damageReductionPercent: 0
             };
 
