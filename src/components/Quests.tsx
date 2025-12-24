@@ -223,9 +223,6 @@ export const Quests: React.FC = () => {
     useEffect(() => {
         const updateTimer = () => {
             const serverNow = api.getServerTime();
-            const now = new Date(serverNow);
-            
-            // Obliczamy północ w strefie UTC na podstawie czasu serwera
             const nextReset = new Date(serverNow);
             nextReset.setUTCHours(24, 0, 0, 0); 
             
@@ -292,7 +289,7 @@ export const Quests: React.FC = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Czas Świata (CET):</p>
+                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Czas Świata:</p>
                          <p className="text-sm font-mono text-gray-300">
                             {new Date(api.getServerTime()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                          </p>
