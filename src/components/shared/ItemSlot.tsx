@@ -53,7 +53,7 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
         critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRound: 0, attacksPerRoundBonus: 0,
-        dodgeChanceBonus: 0, blockChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
+        dodgeChanceBonus: 0, blockChance: template.blockChance || 0, blockChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
         armorPenetrationPercent: 0, armorPenetrationFlat: 0,
         lifeStealPercent: 0, lifeStealFlat: 0,
         manaStealPercent: 0, manaStealFlat: 0,
@@ -135,13 +135,18 @@ export const ItemDetailsPanel: React.FC<{
     const isSmall = size === 'small';
     const safeAffixes = affixes || [];
     
+    const currentTotalStats = useMemo(() => {
+        if (!item || !template) return null;
+        return getItemTotalStats(item, template);
+    }, [item, template]);
+
     const compareTotalStats = useMemo(() => {
         if (!compareWith || !itemTemplates || itemTemplates.length === 0 || !item || compareWith.uniqueId === item.uniqueId) return null;
         const compTemplate = itemTemplates.find(t => t.id === compareWith.templateId);
         return compTemplate ? getItemTotalStats(compareWith, compTemplate) : null;
     }, [compareWith, itemTemplates, item]);
 
-    if (!item || !template) return null;
+    if (!item || !template || !currentTotalStats) return null;
 
     const style = rarityStyles[template.rarity];
     const upgradeLevel = item.upgradeLevel || 0;
@@ -199,14 +204,17 @@ export const ItemDetailsPanel: React.FC<{
             const val1 = isRange ? value[0] : value;
             const val2 = isRange ? value[1] : 0;
             const currentFactor = noScale ? 0 : upgradeFactor;
+            
             const formatValue = (v: number) => {
                 const scaled = v * (1 + currentFactor);
                 if (noScale || isPercent) return parseFloat(scaled.toFixed(2));
                 return Math.round(scaled);
             };
+
             const finalVal1 = formatValue(val1);
             const finalVal2 = isRange ? formatValue(val2) : 0;
             const isPerfect = isRange ? (checkPerfect((compareKey as [string, string])[0], val1) && checkPerfect((compareKey as [string, string])[1], val2)) : checkPerfect(compareKey as string, val1, isAttribute);
+            
             let delta = 0;
             if (compareTotalStats) {
                 if (isRange) {
@@ -236,14 +244,23 @@ export const ItemDetailsPanel: React.FC<{
 
         const entries = [];
         if (s.statsBonus) { Object.entries(s.statsBonus).forEach(([k, v]) => { if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true)); }); }
-        if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
+        if (s.damageMin !== undefined && s.damageMax !== undefined && !metadata.isShield) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
-        if (!isAffix && (metadata as ItemTemplate).attacksPerRound) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
-        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
+        
+        if (!isAffix && (metadata as ItemTemplate).attacksPerRound && !metadata.isShield) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
+        if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0 && !metadata.isShield) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
+        
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
-        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) entries.push(renderStat(t('statistics.blockChance'), s.blockChanceBonus, 'blockChanceBonus', true));
-        if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
+        
+        // Szansa na blok
+        if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) {
+            entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
+        }
+        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) {
+            entries.push(renderStat(t('statistics.blockChanceBonus'), s.blockChanceBonus, 'blockChanceBonus', true));
+        }
+
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
         if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
@@ -341,7 +358,6 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-// Fix: Add and export missing ItemListItem component
 export const ItemListItem: React.FC<{
     item: ItemInstance;
     template: ItemTemplate;
@@ -398,10 +414,13 @@ export const ItemListItem: React.FC<{
                     {upgradeLevel > 0 && <span className="text-[10px] font-black text-amber-500">+{upgradeLevel}</span>}
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-gray-500 uppercase font-black tracking-tighter">
-                    <span>{t(`equipment.slot.${template.slot}`)}</span>
+                    <span>{t(`item.slot.${template.slot}`)}</span>
                     {showPrimaryStat && (
                         <span className="font-mono text-gray-400">
-                            {template.category === 'Weapon' ? `DMG: ${template.damageMin}-${template.damageMax}` : `ARMOR: ${template.armorBonus || 0}`}
+                            {template.isShield 
+                                ? `BLOCK: ${template.blockChance}%`
+                                : (template.category === 'Weapon' ? `DMG: ${template.damageMin}-${template.damageMax}` : `ARMOR: ${template.armorBonus || 0}`)
+                            }
                         </span>
                     )}
                 </div>
@@ -428,7 +447,6 @@ export const ItemListItem: React.FC<{
     );
 };
 
-// Fix: Add and export missing EmptySlotListItem component
 export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
     <div className="flex items-center gap-3 p-2 rounded-xl border border-slate-700/30 bg-slate-900/20 opacity-40 grayscale">
         <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center border border-slate-800 bg-slate-950">
@@ -441,7 +459,6 @@ export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) 
     </div>
 );
 
-// Fix: Add and export missing ItemTooltip component
 export const ItemTooltip: React.FC<{
     instance: ItemInstance;
     template: ItemTemplate;
@@ -458,7 +475,7 @@ export const ItemTooltip: React.FC<{
 }> = ({ instance, template, affixes, character, compareWith, itemTemplates, x, y, onMouseEnter, onMouseLeave, isCentered, onClose }) => {
     const isFixed = x !== undefined && y !== undefined;
     
-    const style: React.CSSProperties = isFixed ? {
+    const style: React.CSSProperties = isFixed && !isCentered ? {
         position: 'fixed',
         top: y! + 20,
         left: x! + 20,
@@ -474,7 +491,7 @@ export const ItemTooltip: React.FC<{
 
     return (
         <div className={containerClasses} style={style} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={onClose}>
-            <div className={`bg-slate-900 border-2 border-slate-700 rounded-2xl shadow-2xl p-4 max-w-sm w-full relative overflow-hidden`} onClick={e => e.stopPropagation()}>
+            <div className={`bg-slate-900 border-2 border-slate-700 rounded-2xl shadow-2xl p-4 w-[380px] relative overflow-hidden`} onClick={e => e.stopPropagation()}>
                 {/* Background glow based on rarity */}
                 <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl opacity-20 ${rarityStyles[template.rarity].bg}`}></div>
                 
@@ -494,7 +511,6 @@ export const ItemTooltip: React.FC<{
     );
 };
 
-// Fix: Add and export missing ItemList component
 export const ItemList: React.FC<{
     items: ItemInstance[];
     itemTemplates: ItemTemplate[];
