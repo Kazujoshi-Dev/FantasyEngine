@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { PlayerCharacter, RankingPlayer, GuildRankingEntry, SpyReportResult } from '../types';
@@ -10,6 +11,9 @@ import { MailIcon } from './icons/MailIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { StarIcon } from './icons/StarIcon';
+import { InfoIcon } from './icons/InfoIcon';
+// Added ShieldIcon import to fix missing component error
+import { ShieldIcon } from './icons/ShieldIcon';
 import { api } from '../api';
 import { CharacterCard } from './shared/CharacterCard';
 import { GuildCard } from './shared/GuildCard';
@@ -59,6 +63,7 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
   const [activeTab, setActiveTab] = useState<'PLAYERS' | 'GUILDS'>('PLAYERS');
   const [guildRanking, setGuildRanking] = useState<GuildRankingEntry[]>([]);
   const [isGuildLoading, setIsGuildLoading] = useState(false);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   
   const [viewingProfileName, setViewingProfileName] = useState<string | null>(null);
   const [viewingGuildId, setViewingGuildId] = useState<number | null>(null);
@@ -147,6 +152,53 @@ export const Ranking: React.FC<RankingProps> = ({ ranking, isLoading, onAttack, 
       )}
       
       <div className="bg-slate-900/40 p-6 rounded-xl h-[75vh] flex flex-col">
+         {/* COLLAPSIBLE LEGEND */}
+         <div className="mb-6 bg-slate-800/40 border border-indigo-500/20 rounded-lg overflow-hidden transition-all duration-300">
+            <button 
+                onClick={() => setIsLegendOpen(!isLegendOpen)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/60 transition-colors"
+            >
+                <div className="flex items-center gap-2 text-indigo-300 font-bold uppercase tracking-widest text-xs">
+                    <InfoIcon className="h-4 w-4" />
+                    {t('ranking.legendTitle')}
+                </div>
+                <div className={`transform transition-transform duration-300 ${isLegendOpen ? 'rotate-180' : ''}`}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                </div>
+            </button>
+            
+            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isLegendOpen ? 'max-h-96 opacity-100 p-4 pt-0' : 'max-h-0 opacity-0'}`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                    <div className="bg-slate-900/50 p-3 rounded border border-white/5">
+                        <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter flex items-center gap-2 mb-1">
+                            <StarIcon className="h-3 w-3" /> {t('ranking.rules.honor.title')}
+                        </h5>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{t('ranking.rules.honor.desc')}</p>
+                    </div>
+                    <div className="bg-slate-900/50 p-3 rounded border border-white/5">
+                        <h5 className="text-[10px] font-black text-red-400 uppercase tracking-tighter flex items-center gap-2 mb-1">
+                            <CrossedSwordsIcon className="h-3 w-3" /> {t('ranking.rules.pvp.title')}
+                        </h5>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{t('ranking.rules.pvp.desc')}</p>
+                    </div>
+                    <div className="bg-slate-900/50 p-3 rounded border border-white/5">
+                        <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter flex items-center gap-2 mb-1">
+                            <EyeIcon className="h-3 w-3" /> {t('ranking.rules.espionage.title')}
+                        </h5>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{t('ranking.rules.espionage.desc')}</p>
+                    </div>
+                    <div className="bg-slate-900/50 p-3 rounded border border-white/5">
+                        <h5 className="text-[10px] font-black text-sky-400 uppercase tracking-tighter flex items-center gap-2 mb-1">
+                            <ShieldIcon className="h-3 w-3" /> {t('ranking.rules.protection.title')}
+                        </h5>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{t('ranking.rules.protection.desc')}</p>
+                    </div>
+                </div>
+            </div>
+         </div>
+
          <div className="flex justify-between items-center mb-6 flex-shrink-0">
              <div className="flex gap-4">
                  <button 
