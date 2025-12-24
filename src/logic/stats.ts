@@ -301,6 +301,18 @@ export const calculateDerivedStats = (
         finalArmor += strengthArmorBonus;
     }
 
+    // --- Bedrock Foundation (Krasnoludy) ---
+    let bedrockArmorBonus = 0;
+    let bedrockDamageBonus = 0;
+    if (character.race === Race.Dwarf && character.learnedSkills?.includes('bedrock-foundation')) {
+        bedrockArmorBonus = Math.floor(totalPrimaryStats.stamina / 5);
+        finalArmor += bedrockArmorBonus;
+        
+        bedrockDamageBonus = Math.floor(finalArmor / 10);
+        mhMin += bedrockDamageBonus;
+        if (ohMin > 0) ohMin += bedrockDamageBonus;
+    }
+
     // --- Ethereal Weave (Elfy) ---
     let elfManaRegenBonus = 0;
     let elfDodgeBonus = 0;

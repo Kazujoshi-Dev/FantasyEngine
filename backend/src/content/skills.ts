@@ -43,6 +43,24 @@ export const GAME_SKILLS: Skill[] = [
         }
     },
     {
+        id: 'bedrock-foundation',
+        name: 'Praca u Podstaw',
+        description: 'Dla krasnoluda pancerz to nie ciężar, lecz fundament potęgi. Każde 5 pkt Wytrzymałości zwiększa bazowy Pancerz o 1 pkt. Dodatkowo, krasnolud otrzymuje +1 do Minimalnych Obrażeń na każde 10 pkt całkowitego Pancerza i szybciej regeneruje się z negatywnych efektów statusu.',
+        type: SkillType.Race,
+        category: SkillCategory.Passive,
+        requirements: {
+            race: Race.Dwarf,
+            level: 16,
+            strength: 40,
+            stamina: 45
+        },
+        cost: {
+            gold: 18500,
+            rareEssence: 30,
+            epicEssence: 4
+        }
+    },
+    {
         id: 'gnomish-overengineering',
         name: 'Gnomia Nadzaradność',
         description: 'Gnomowie wyciskają z mechanizmów maksimum możliwości. Każdy punkt Szczęścia zwiększa szansę na dodatkowe esencje o 0.2%. Dodatkowo, każdy wykonany Unik zwiększa szansę na krytyk następnego ataku o 10% (max 3 stosy), a wygrana walka na ekspedycji daje 15% szansy na odzyskanie 1 pkt Energii.',

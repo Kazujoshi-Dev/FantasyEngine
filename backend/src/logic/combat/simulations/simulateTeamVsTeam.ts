@@ -193,7 +193,13 @@ export const simulateTeamVsTeamCombat = (
                 actor.currentMana = Math.min(actor.data.stats.maxMana, actor.currentMana + actor.data.stats.manaRegen);
             }
             
-            actor.statusEffects = actor.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
+            // --- Status Resistance Logic (Dwarves) ---
+            const isDwarfResistant = actor.data.race === Race.Dwarf && actor.data.learnedSkills?.includes('bedrock-foundation');
+            const reduction = isDwarfResistant ? 2 : 1;
+            
+            actor.statusEffects = actor.statusEffects
+                .map(e => ({...e, duration: e.duration - reduction}))
+                .filter(e => e.duration > 0);
             
             // --- Action ---
             // 1. Find Potential Targets (Living enemies)

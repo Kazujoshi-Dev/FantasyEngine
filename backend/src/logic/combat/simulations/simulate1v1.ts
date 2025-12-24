@@ -125,7 +125,13 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 });
             }
 
-            combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
+            // --- Status Resistance Logic (Dwarves) ---
+            const isDwarfResistant = (combatant as any).data?.race === Race.Dwarf && (combatant as any).data?.learnedSkills?.includes('bedrock-foundation');
+            const reduction = isDwarfResistant ? 2 : 1;
+            
+            combatant.statusEffects = combatant.statusEffects
+                .map(e => ({...e, duration: e.duration - reduction}))
+                .filter(e => e.duration > 0);
         }
 
         const attacker = playerAttacksFirst ? playerState : enemyState;

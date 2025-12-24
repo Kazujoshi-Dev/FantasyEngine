@@ -131,7 +131,14 @@ export const simulate1vManyCombat = (
                     log.push({ turn, attacker: 'Podpalenie', defender: combatant.name, action: isPlayer ? 'death' : 'enemy_death', ...getHealthState() });
                 }
             }
-            combatant.statusEffects = combatant.statusEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
+            
+            // --- Status Resistance Logic (Dwarves) ---
+            const isDwarfResistant = (combatant as any).data?.race === Race.Dwarf && (combatant as any).data?.learnedSkills?.includes('bedrock-foundation');
+            const reduction = isDwarfResistant ? 2 : 1;
+
+            combatant.statusEffects = combatant.statusEffects
+                .map(e => ({...e, duration: e.duration - reduction}))
+                .filter(e => e.duration > 0);
         }
         
         if (playerState.currentHealth <= 0) break;
@@ -154,8 +161,8 @@ export const simulate1vManyCombat = (
 
                         const attackOptions: any = { hand };
                         if (playerData.characterClass === CharacterClass.Warrior && i === 0 && hand === 'main') {
-                            attackOptions.critChanceOverride = 100;
                             attackOptions.ignoreDodge = true;
+                            attackOptions.critChanceOverride = 100;
                         }
 
                         const { logs: attackLogs, attackerState, defenderState } = performAttack(playerState, target, turn, gameData, enemiesState, false, attackOptions);
