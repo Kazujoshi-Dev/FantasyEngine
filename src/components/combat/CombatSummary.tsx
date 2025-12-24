@@ -49,7 +49,6 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
 
     const log = reward.combatLog || [];
 
-    // Helper to identify the opponent in PvP
     const pvpOpponentAsEnemy = useMemo(() => {
         if (!isPvp || !pvpData) return null;
         const opp = isDefenderView ? pvpData.attacker : pvpData.defender;
@@ -104,20 +103,14 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         let headerAddedForThisRound = false;
 
         displayedLogs.forEach((entry) => {
-            // Jeśli zmieniła się runda, resetujemy znacznik nagłówka
             if (entry.turn !== lastRound) {
                 lastRound = entry.turn;
                 headerAddedForThisRound = false;
             }
-
-            // Dodajemy nagłówek "Runda X", jeśli:
-            // 1. Nie jest to akcja powitalna "Vs" (która sama w sobie jest nagłówkiem tury 0)
-            // 2. Nagłówek dla tej rundy nie został jeszcze dodany
             if (entry.action !== 'starts a fight with' && !headerAddedForThisRound) {
                 result.push({ isHeader: true, round: entry.turn });
                 headerAddedForThisRound = true;
             }
-
             result.push(entry);
         });
         return result;
@@ -148,17 +141,28 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
         });
     };
 
-    const dynamicPartyHealth = useMemo(() => {
-        const healthMap: Record<string, { currentHealth: number, maxHealth: number }> = {};
+    const dynamicPartyStatus = useMemo(() => {
+        const statusMap: Record<string, { currentHealth: number, maxHealth: number, currentMana?: number, maxMana?: number }> = {};
         if (lastLog?.allPlayersHealth) {
             lastLog.allPlayersHealth.forEach(p => {
-                healthMap[p.name] = { currentHealth: p.currentHealth, maxHealth: p.maxHealth };
+                statusMap[p.name] = { 
+                    currentHealth: p.currentHealth, 
+                    maxHealth: p.maxHealth,
+                    currentMana: p.currentMana,
+                    maxMana: p.maxMana
+                };
             });
         } else if (lastLog) {
             const maxHP = log[0]?.playerStats?.maxHealth || 100;
-            healthMap[characterName] = { currentHealth: lastLog.playerHealth, maxHealth: maxHP };
+            const maxMP = log[0]?.playerStats?.maxMana || 0;
+            statusMap[characterName] = { 
+                currentHealth: lastLog.playerHealth, 
+                maxHealth: maxHP,
+                currentMana: lastLog.playerMana,
+                maxMana: maxMP
+            };
         }
-        return healthMap;
+        return statusMap;
     }, [lastLog, log, characterName]);
 
     const renderRewardsSection = () => {
@@ -200,9 +204,20 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                 <div className="flex flex-col lg:flex-row p-6 gap-6 min-h-fit">
                     <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col gap-4">
                         {selectedCombatant ? (
-                             <CombatantStatsPanel name={selectedCombatant.name} stats={selectedCombatant.stats} description={selectedCombatant.description} currentHealth={dynamicPartyHealth[selectedCombatant.name]?.currentHealth} />
+                             <CombatantStatsPanel 
+                                name={selectedCombatant.name} 
+                                stats={selectedCombatant.stats} 
+                                description={selectedCombatant.description} 
+                                currentHealth={dynamicPartyStatus[selectedCombatant.name]?.currentHealth}
+                                currentMana={dynamicPartyStatus[selectedCombatant.name]?.currentMana}
+                             />
                         ) : isPvp && pvpData ? (
-                             <CombatantStatsPanel name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} />
+                             <CombatantStatsPanel 
+                                name={isDefenderView ? pvpData.attacker.name : pvpData.defender.name} 
+                                stats={isDefenderView ? pvpData.attacker.stats : pvpData.defender.stats} 
+                                currentHealth={isDefenderView ? lastLog.enemyHealth : lastLog.playerHealth}
+                                currentMana={isDefenderView ? lastLog.enemyMana : lastLog.playerMana}
+                             />
                         ) : (
                             <DamageMeter damageData={damageMeterData} title=" Damage Meter" />
                         )}
@@ -222,12 +237,12 @@ export const ExpeditionSummaryModal: React.FC<CombatReportModalProps> = ({
                     <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col gap-4">
                         {isRaid ? (
                             <>
-                                <PartyMemberList members={huntingMembers || []} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
-                                <PartyMemberList isEnemyTeam members={opponents || []} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
+                                <PartyMemberList members={huntingMembers || []} finalPartyStatus={dynamicPartyStatus} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
+                                <PartyMemberList isEnemyTeam members={opponents || []} finalPartyStatus={dynamicPartyStatus} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
                             </>
                         ) : (
                             <>
-                                <PartyMemberList members={isHunting ? (huntingMembers || []) : [{ userId: 0, characterName, level: 1, race: Race.Human, status: PartyMemberStatus.Member, stats: log[0]?.playerStats }]} finalPartyHealth={dynamicPartyHealth} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
+                                <PartyMemberList members={isHunting ? (huntingMembers || []) : [{ userId: 0, characterName, level: 1, race: Race.Human, status: PartyMemberStatus.Member, stats: log[0]?.playerStats }]} finalPartyStatus={dynamicPartyStatus} onMemberClick={(m) => setSelectedCombatant({ name: m.characterName, stats: m.stats })} />
                                 <EnemyListPanel enemies={enemiesList} finalEnemiesHealth={lastLog?.allEnemiesHealth} globalEnemyHealth={lastLog?.enemyHealth} onEnemyClick={(e) => setSelectedCombatant({ name: e.name, stats: e.stats, description: e.description })} />
                             </>
                         )}

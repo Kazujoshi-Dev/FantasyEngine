@@ -20,10 +20,6 @@ export const EnemyListPanel: React.FC<{
                     const uniqueId = enemy.uniqueId || `enemy-${idx}`;
                     const healthSnapshot = finalEnemiesHealth?.find(h => h.uniqueId === uniqueId || h.name === enemy.name);
                     
-                    // ARCHITEKTURA FALLBACKU:
-                    // 1. Weź dane ze snapshotu (walki bossów / grupowe)
-                    // 2. Jeśli brak (walka 1v1), weź globalne enemyHealth z logu
-                    // 3. Jeśli brak (np. tura 0), weź maxHealth z szablonu
                     const maxHealth = healthSnapshot?.maxHealth ?? enemy.stats.maxHealth;
                     let currentHealth = maxHealth;
 
@@ -61,29 +57,33 @@ export const EnemyListPanel: React.FC<{
 
 export const PartyMemberList: React.FC<{ 
     members: PartyMember[]; 
-    finalPartyHealth: Record<string, { currentHealth: number, maxHealth: number }>;
+    finalPartyStatus: Record<string, { currentHealth: number, maxHealth: number, currentMana?: number, maxMana?: number }>;
     onMemberClick: (member: PartyMember) => void;
     selectedName?: string;
     isEnemyTeam?: boolean;
-}> = ({ members, finalPartyHealth, onMemberClick, selectedName, isEnemyTeam }) => {
+}> = ({ members, finalPartyStatus, onMemberClick, selectedName, isEnemyTeam }) => {
     const { t } = useTranslation();
     const titleColor = isEnemyTeam ? 'text-red-400' : 'text-sky-400';
     const borderColor = isEnemyTeam ? 'border-red-500/50' : 'border-sky-500/50';
-    const barColor = isEnemyTeam ? 'bg-red-600' : 'bg-green-500';
+    const hpBarColor = isEnemyTeam ? 'bg-red-600' : 'bg-green-500';
     
     return (
         <div className={`bg-slate-900/50 p-4 rounded-lg border ${borderColor} h-full overflow-y-auto overflow-visible`}>
              <h4 className={`font-bold text-xl text-center border-b ${borderColor} pb-2 mb-2 ${titleColor}`}>
                 {isEnemyTeam ? 'Przeciwnicy' : t('hunting.members')}
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {members.map((member, idx) => {
-                    const healthData = finalPartyHealth[member.characterName];
+                    const statusData = finalPartyStatus[member.characterName];
                     
-                    const currentHP = healthData?.currentHealth ?? (member.stats?.currentHealth ?? 1); 
-                    const maxHP = healthData?.maxHealth ?? (member.stats?.maxHealth ?? 1);
+                    const currentHP = statusData?.currentHealth ?? (member.stats?.currentHealth ?? 1); 
+                    const maxHP = statusData?.maxHealth ?? (member.stats?.maxHealth ?? 1);
+                    const currentMP = statusData?.currentMana ?? (member.stats?.currentMana ?? 0);
+                    const maxMP = statusData?.maxMana ?? (member.stats?.maxMana ?? 0);
                     
                     const hpPercent = Math.min(100, Math.max(0, (currentHP / maxHP) * 100));
+                    const mpPercent = maxMP > 0 ? Math.min(100, Math.max(0, (currentMP / maxMP) * 100)) : 0;
+                    
                     const isDead = currentHP <= 0;
                     const isSelected = selectedName === member.characterName;
 
@@ -96,10 +96,25 @@ export const PartyMemberList: React.FC<{
                             <p className={`font-bold text-sm ${isDead ? 'text-red-500 line-through' : 'text-white'}`}>
                                 {member.characterName}
                             </p>
+                            
+                            {/* Pasek HP */}
                             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
-                                <div className={`${barColor} h-1.5 transition-all`} style={{width: `${hpPercent}%`}}></div>
+                                <div className={`${hpBarColor} h-1.5 transition-all duration-500`} style={{width: `${hpPercent}%`}}></div>
                             </div>
-                            <p className="text-xs text-right text-gray-400 font-mono mt-0.5">{Math.max(0, Math.ceil(currentHP))} / {maxHP}</p>
+                            
+                            {/* Pasek Many - Wyświetlany tylko jeśli postać posiada manę */}
+                            {maxMP > 0 && (
+                                <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden mt-1 shadow-inner">
+                                    <div className="bg-blue-500 h-1 transition-all duration-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]" style={{width: `${mpPercent}%`}}></div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-center mt-1">
+                                <span className="text-[9px] text-gray-500 font-bold uppercase">{member.characterClass ? t(`class.${member.characterClass}`) : ''}</span>
+                                <p className="text-[10px] text-right text-gray-400 font-mono">
+                                    HP: {Math.max(0, Math.ceil(currentHP))} {maxMP > 0 && `| MP: ${Math.max(0, Math.ceil(currentMP))}`}
+                                </p>
+                            </div>
                         </div>
                     );
                 })}
