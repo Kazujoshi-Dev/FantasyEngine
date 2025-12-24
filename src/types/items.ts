@@ -71,10 +71,6 @@ export interface ItemTemplate {
     damageMax?: number;
     armorBonus?: number;
     
-    // Shield specifics
-    isShield?: boolean;
-    blockChance?: number;
-
     statsBonus?: Partial<CharacterStats>;
     requiredStats?: Partial<CharacterStats>;
     
@@ -108,7 +104,6 @@ export interface RolledAffixStats {
     critDamageModifierBonus?: number;
     attacksPerRoundBonus?: number;
     dodgeChanceBonus?: number;
-    blockChanceBonus?: number; // Added
     armorPenetrationPercent?: number;
     armorPenetrationFlat?: number;
     lifeStealPercent?: number;
@@ -158,7 +153,6 @@ export interface Affix {
     critDamageModifierBonus?: { min: number; max: number };
     attacksPerRoundBonus?: { min: number; max: number };
     dodgeChanceBonus?: { min: number; max: number };
-    blockChanceBonus?: { min: number; max: number }; // Added
     armorPenetrationPercent?: { min: number; max: number };
     armorPenetrationFlat?: { min: number; max: number };
     lifeStealPercent?: { min: number; max: number };

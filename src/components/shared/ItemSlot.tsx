@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -53,7 +52,7 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
         critChanceBonus: 0, critDamageModifierBonus: 0, attacksPerRound: 0, attacksPerRoundBonus: 0,
-        dodgeChanceBonus: 0, blockChance: template.blockChance || 0, blockChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
+        dodgeChanceBonus: 0, magicDamageMin: 0, magicDamageMax: 0,
         armorPenetrationPercent: 0, armorPenetrationFlat: 0,
         lifeStealPercent: 0, lifeStealFlat: 0,
         manaStealPercent: 0, manaStealFlat: 0,
@@ -76,7 +75,6 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
         if (source.critDamageModifierBonus) stats.critDamageModifierBonus += source.critDamageModifierBonus * (1 + factor);
         if (source.attacksPerRoundBonus) stats.attacksPerRoundBonus += source.attacksPerRoundBonus * (1 + factor);
         if (source.dodgeChanceBonus) stats.dodgeChanceBonus += source.dodgeChanceBonus * (1 + factor);
-        if (source.blockChanceBonus) stats.blockChanceBonus += source.blockChanceBonus * (1 + factor);
         if (source.magicDamageMin) stats.magicDamageMin += source.magicDamageMin * (1 + factor);
         if (source.magicDamageMax) stats.magicDamageMax += source.magicDamageMax * (1 + factor);
         
@@ -129,8 +127,7 @@ export const ItemDetailsPanel: React.FC<{
     compact?: boolean;
     compareWith?: ItemInstance | null;
     itemTemplates?: ItemTemplate[];
-    className?: string;
-}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith, itemTemplates = [], className = '' }) => {
+}> = ({ item, template, affixes, children, showIcon = true, character, size, hideAffixes, title, compact = false, compareWith, itemTemplates = [] }) => {
     const { t } = useTranslation();
     const { gameData, derivedCharacter } = useCharacter();
     const isSmall = size === 'small';
@@ -237,26 +234,12 @@ export const ItemDetailsPanel: React.FC<{
 
         const entries = [];
         if (s.statsBonus) { Object.entries(s.statsBonus).forEach(([k, v]) => { if (v) entries.push(renderStat(t(`statistics.${k}`), v as number, k, false, true)); }); }
-        
-        // Obrażenia - tylko jeśli to NIE jest tarcza
-        if (s.damageMin !== undefined && s.damageMax !== undefined && !metadata.isShield) {
-            entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
-        }
-        
+        if (s.damageMin !== undefined && s.damageMax !== undefined) entries.push(renderStat(t('item.damage'), [s.damageMin, s.damageMax], ['damageMin', 'damageMax']));
         if (s.magicDamageMin !== undefined && s.magicDamageMax > 0) entries.push(renderStat(t('statistics.magicDamage'), [s.magicDamageMin, s.magicDamageMax], ['magicDamageMin', 'magicDamageMax']));
         if (!isAffix && (metadata as ItemTemplate).attacksPerRound) entries.push(renderStat(t('item.attacksPerRound'), (metadata as ItemTemplate).attacksPerRound!, 'attacksPerRound', false, false, true));
         if (s.attacksPerRoundBonus && s.attacksPerRoundBonus > 0) entries.push(renderStat(t('item.attacksPerRoundBonus'), s.attacksPerRoundBonus, 'attacksPerRoundBonus', false, false, true));
         if (s.armorBonus !== undefined && s.armorBonus > 0) entries.push(renderStat(t('statistics.armor'), s.armorBonus, 'armorBonus'));
         if (s.dodgeChanceBonus !== undefined && s.dodgeChanceBonus > 0) entries.push(renderStat(t('statistics.dodgeChance'), s.dodgeChanceBonus, 'dodgeChanceBonus', true));
-        
-        // Szansa na blok - Wyświetlamy tylko jeśli to tarcza lub ma bonus do bloku
-        if (!isAffix && (metadata as ItemTemplate).isShield && (metadata as ItemTemplate).blockChance) {
-            entries.push(renderStat(t('statistics.blockChance'), (metadata as ItemTemplate).blockChance!, 'blockChance', true, false, true));
-        }
-        if (s.blockChanceBonus !== undefined && s.blockChanceBonus > 0) {
-            entries.push(renderStat(t('statistics.blockChanceBonus'), s.blockChanceBonus, 'blockChanceBonus', true));
-        }
-
         if (s.critChanceBonus !== undefined && s.critChanceBonus > 0) entries.push(renderStat(t('statistics.critChance'), s.critChanceBonus, 'critChanceBonus', true));
         if (s.critDamageModifierBonus !== undefined && s.critDamageModifierBonus > 0) entries.push(renderStat(t('statistics.critDamageModifier'), s.critDamageModifierBonus, 'critDamageModifierBonus', true));
         if (s.maxHealthBonus !== undefined && s.maxHealthBonus > 0) entries.push(renderStat(t('statistics.health'), s.maxHealthBonus, 'maxHealthBonus'));
@@ -269,7 +252,7 @@ export const ItemDetailsPanel: React.FC<{
     };
 
     return (
-        <div className={`flex flex-col w-full ${compact ? '' : 'h-full'} ${className}`}>
+        <div className={`flex flex-col w-full ${compact ? '' : 'h-full'}`}>
             <div className={`${compact ? '' : 'flex-grow overflow-y-auto'} ${isSmall ? 'pr-0.5' : 'pr-1'}`}>
                 {title && <h5 className="text-center font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">{title}</h5>}
                 <h4 className={`font-bold text-center leading-tight ${style.text} ${isSmall ? 'text-base mb-1' : 'text-lg mb-2'}`}>
@@ -354,192 +337,198 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-export const ItemListItem: React.FC<{
-    item: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    isSelected: boolean;
-    onClick: (item: ItemInstance) => void;
-    onMouseEnter?: (e: React.MouseEvent) => void;
-    onMouseLeave?: () => void;
-    onDoubleClick?: () => void;
-    isEquipped?: boolean;
-    className?: string;
-    showPrimaryStat?: boolean;
-    source?: 'equipment' | 'inventory';
+export const ItemListItem: React.FC<{ 
+    item: ItemInstance; 
+    template: ItemTemplate; 
+    affixes: Affix[]; 
+    isSelected: boolean; 
+    onClick: (e: React.MouseEvent) => void; 
+    onDoubleClick?: () => void; 
+    showPrimaryStat?: boolean; 
+    isEquipped?: boolean; 
+    meetsRequirements?: boolean; 
+    onMouseEnter?: (e: React.MouseEvent) => void; 
+    onMouseLeave?: (e: React.MouseEvent) => void; 
+    className?: string; 
+    price?: number; 
+    source?: 'inventory' | 'equipment'; 
     fromSlot?: EquipmentSlot;
-    onAction?: () => void;
+    onAction?: (e: React.MouseEvent) => void;
     actionType?: 'equip' | 'unequip';
-}> = ({ item, template, affixes, isSelected, onClick, onMouseEnter, onMouseLeave, onDoubleClick, isEquipped, className, showPrimaryStat = true, source, fromSlot, onAction, actionType }) => {
-    const { t } = useTranslation();
-    const style = rarityStyles[template.rarity];
-    const upgradeLevel = item.upgradeLevel || 0;
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price, source, fromSlot, onAction, actionType }) => { 
+    const style = rarityStyles[template.rarity]; 
+    const upgradeLevel = item.upgradeLevel || 0; 
     
     const handleDragStart = (e: React.DragEvent) => {
-        const data = { uniqueId: item.uniqueId, source, fromSlot };
-        e.dataTransfer.setData('application/json', JSON.stringify(data));
+        e.dataTransfer.setData('application/json', JSON.stringify({ 
+            uniqueId: item.uniqueId, 
+            source,
+            fromSlot 
+        }));
+        // Wizualny efekt przeciągania
+        const target = e.target as HTMLElement;
+        target.style.opacity = '0.5';
     };
 
-    return (
+    const handleDragEnd = (e: React.DragEvent) => {
+        const target = e.target as HTMLElement;
+        target.style.opacity = '1';
+    };
+
+    const handleActionClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onAction) onAction(e);
+    };
+
+    return ( 
         <div 
-            draggable 
+            draggable={!!source}
             onDragStart={handleDragStart}
-            onClick={() => onClick(item)}
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            onDoubleClick={onDoubleClick}
-            className={`flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer ${style.border} ${style.bg} ${isSelected ? 'ring-2 ring-indigo-500 scale-[1.02]' : 'hover:scale-[1.01] hover:brightness-110'} ${className}`}
-        >
-            <div className={`w-10 h-10 rounded border ${style.border} flex-shrink-0 overflow-hidden bg-slate-950 flex items-center justify-center p-1`}>
-                {template.icon ? <img src={template.icon} alt={template.name} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-gray-500">?</span>}
+            onDragEnd={handleDragEnd}
+            onClick={onClick} 
+            onDoubleClick={onDoubleClick} 
+            onMouseEnter={onMouseEnter} 
+            onMouseLeave={onMouseLeave} 
+            className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 group ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
+        > 
+            <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative shadow-inner`}> 
+                {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-600" />} 
+                {isEquipped && <div className="absolute -top-1 -left-1 bg-green-500 rounded-full p-0.5 shadow-md border border-slate-900"><ShieldIcon className="w-2 h-2 text-white" /></div>} 
+            </div> 
+            <div className="flex-grow min-w-0"> 
+                <p className={`text-sm font-bold truncate ${style.text}`}>{getGrammaticallyCorrectFullName(item, template, affixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}</p> 
+                <div className="flex justify-between items-center"> 
+                    <p className="text-[9px] text-gray-500 uppercase tracking-tighter">{template.slot}</p> 
+                    {price !== undefined && ( 
+                        <div className="flex items-center gap-0.5 text-amber-400 font-mono text-[10px] font-bold"> 
+                            {price.toLocaleString()} <CoinsIcon className="h-2.5 w-2.5" /> 
+                        </div> 
+                    )} 
+                </div> 
             </div>
-            <div className="flex-grow min-w-0">
-                <div className="flex justify-between items-start">
-                    <p className={`text-sm font-bold truncate ${style.text}`}>
-                        {getGrammaticallyCorrectFullName(item, template, affixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}
-                    </p>
-                    {isEquipped && <span className="text-[9px] bg-sky-900 text-sky-200 px-1 rounded uppercase font-bold">E</span>}
-                </div>
-                {showPrimaryStat && (
-                    <p className="text-[10px] text-gray-500 uppercase font-black">
-                        {t(`equipment.slot.${template.slot}` as any)} {item.isBorrowed && <span className="text-amber-500/70 ml-1">(Pożyczony)</span>}
-                    </p>
-                )}
-            </div>
-            {onAction && actionType && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onAction(); }}
-                    className={`p-1 rounded bg-slate-700 hover:bg-slate-600 text-white transition-colors flex-shrink-0`}
+
+            {onAction && (
+                <button
+                    onClick={handleActionClick}
+                    className={`ml-2 p-1.5 rounded-md transition-all duration-300 opacity-0 group-hover:opacity-100 flex items-center justify-center border ${
+                        actionType === 'equip' 
+                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 hover:bg-emerald-600 hover:text-white' 
+                        : 'bg-rose-600/20 border-rose-500 text-rose-400 hover:bg-rose-600 hover:text-white'
+                    }`}
                     title={actionType === 'equip' ? 'Załóż' : 'Zdejmij'}
                 >
-                    {actionType === 'equip' ? <PlusIcon className="h-4 w-4" /> : <MinusIcon className="h-4 w-4" />}
+                    {actionType === 'equip' ? <PlusIcon className="h-3 w-3" /> : <MinusIcon className="h-3 w-3" />}
                 </button>
             )}
-        </div>
-    );
+        </div> 
+    ); 
 };
 
-export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
-    <div className="flex items-center gap-3 p-2 rounded-lg border border-white/5 bg-slate-900/40 opacity-40 grayscale">
-        <div className="w-10 h-10 rounded border border-white/10 flex-shrink-0 bg-slate-950 flex items-center justify-center text-gray-600">
-            <PlusIcon className="h-5 w-5" />
-        </div>
-        <div className="flex-grow">
-            <p className="text-xs font-black uppercase text-gray-500 tracking-widest">{slotName}</p>
-        </div>
-    </div>
+export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => ( 
+    <div className="flex items-center p-2 rounded-lg bg-slate-900/20 border border-dashed border-slate-800 opacity-40"> 
+        <div className="w-10 h-10 rounded border border-slate-800 bg-slate-950 flex items-center justify-center mr-3"> 
+            <ShieldIcon className="w-5 h-5 text-slate-800" /> 
+        </div> 
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{slotName}</p> 
+    </div> 
 );
 
-export const ItemTooltip: React.FC<{
-    instance: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    character?: PlayerCharacter;
-    compareWith?: ItemInstance | null;
-    itemTemplates?: ItemTemplate[];
-    x?: number;
-    y?: number;
-    isCentered?: boolean;
-    onClose?: () => void;
-    onMouseEnter?: () => void;
-    onMouseLeave?: () => void;
-}> = ({ instance, template, affixes, character, compareWith, itemTemplates, x, y, isCentered, onClose, onMouseEnter, onMouseLeave }) => {
-    const isFixed = x !== undefined && y !== undefined;
-    const [adjustedPos, setAdjustedPos] = useState({ top: y || 0, left: x || 0 });
+export const ItemTooltip: React.FC<{ 
+    instance: ItemInstance; 
+    template: ItemTemplate; 
+    affixes: Affix[]; 
+    character?: PlayerCharacter; 
+    compareWith?: ItemInstance | null; 
+    x?: number; 
+    y?: number; 
+    itemTemplates?: ItemTemplate[]; 
+    isCentered?: boolean; 
+    onClose?: () => void; 
+    onMouseEnter?: () => void; 
+    onMouseLeave?: () => void; 
+}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose, onMouseEnter, onMouseLeave }) => { 
+    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' }); 
+    
+    const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
+    const actualCompareWith = isSameItem ? null : compareWith; 
+    const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
-    useEffect(() => {
-        if (isFixed) {
-            let left = x! + 20;
-            let top = y! + 20;
-            if (left + 320 > window.innerWidth) left = x! - 340;
-            if (top + 400 > window.innerHeight) top = window.innerHeight - 410;
-            setAdjustedPos({ left, top });
-        }
-    }, [x, y, isFixed]);
+    useEffect(() => { 
+        const tooltipWidth = actualCompareWith ? 600 : 300;
 
-    const containerClasses = isCentered 
-        ? "fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        : isFixed
-            ? "fixed z-[9999] pointer-events-auto"
-            : "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[100] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200";
+        if (isCentered || onClose) { 
+            setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
+            return; 
+        } 
+        
+        setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
+    }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
 
-    const content = (
-        <div 
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            className="bg-slate-900 border-2 border-slate-700 rounded-xl p-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-            style={!isCentered && !isFixed ? { width: '280px' } : {}}
-            onClick={e => e.stopPropagation()}
-        >
-            {isCentered && onClose && (
-                <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white z-10">✕</button>
-            )}
-            
-            <ItemDetailsPanel 
-                item={instance} 
-                template={template} 
-                affixes={affixes} 
-                character={character} 
-                itemTemplates={itemTemplates}
-                compareWith={compareWith}
-                size="small"
-                compact={true}
-            />
+    if (isCentered || onClose) { 
+        return ( 
+            <div className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} onClick={onClose} > 
+                <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-[200] pointer-events-auto overflow-hidden" style={{ width: style.width, maxWidth: '95vw' }} onClick={e => e.stopPropagation()} > 
+                    {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
+                    {actualCompareWith && compareTemplate && ( 
+                        <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
+                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                                <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
+                            </div> 
+                        </div> 
+                    )} 
+                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col max-h-full`}> 
+                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
+                        </div> 
+                    </div> 
+                </div> 
+            </div> 
+        ); 
+    } 
+
+    return ( 
+        <div className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center">
+            <div 
+                onMouseEnter={onMouseEnter} 
+                onMouseLeave={onMouseLeave} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden`} 
+                style={{ width: style.width }} 
+            > 
+                <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
+                    {actualCompareWith && compareTemplate && ( 
+                        <div className="w-1/2 border-r border-white/5 pr-3 flex flex-col"> 
+                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                                <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
+                            </div> 
+                        </div> 
+                    )} 
+                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col`}> 
+                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
+                        </div> 
+                    </div> 
+                </div> 
+            </div> 
         </div>
-    );
-
-    if (isCentered) {
-        return (
-            <div className={containerClasses} onClick={onClose}>
-                {content}
-            </div>
-        );
-    }
-
-    return (
-        <div className={containerClasses} style={isFixed ? { top: adjustedPos.top, left: adjustedPos.left, maxWidth: '320px', width: '100vw' } : undefined}>
-            {content}
-        </div>
-    );
+    ); 
 };
 
-export const ItemList: React.FC<{
-    items: ItemInstance[];
-    itemTemplates: ItemTemplate[];
-    affixes: Affix[];
-    selectedItem: ItemInstance | null;
-    onSelectItem: (item: ItemInstance) => void;
-    selectedIds?: Set<string>;
-    priceSelector?: (item: ItemInstance) => number;
-}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, priceSelector }) => {
-    return (
-        <div className="grid grid-cols-1 gap-2">
-            {items.map(item => {
-                const template = itemTemplates.find(t => t.id === item.templateId);
-                if (!template) return null;
-                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds && selectedIds.has(item.uniqueId));
-                const price = priceSelector ? priceSelector(item) : null;
-
-                return (
-                    <div key={item.uniqueId} className="relative">
-                        <ItemListItem 
-                            item={item} 
-                            template={template} 
-                            affixes={affixes} 
-                            isSelected={!!isSelected} 
-                            onClick={onSelectItem} 
-                            showPrimaryStat={true}
-                        />
-                        {price !== null && (
-                            <div className="absolute right-12 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <span className="font-mono text-amber-400 font-bold text-xs bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700">
-                                    {price}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
+export const ItemList: React.FC<{ items: ItemInstance[]; itemTemplates: ItemTemplate[]; affixes: Affix[]; selectedItem: ItemInstance | null; onSelectItem: (item: ItemInstance) => void; selectedIds?: Set<string>; priceSelector?: (item: ItemInstance) => number; }> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, priceSelector }) => ( 
+    <div className="space-y-1"> 
+        {items.map(item => { 
+            const template = itemTemplates.find(t => t.id === item.templateId); 
+            if (!template) return null; 
+            return ( 
+                <ItemListItem 
+                    key={item.uniqueId} 
+                    item={item} 
+                    template={template} 
+                    affixes={affixes} 
+                    isSelected={selectedItem?.uniqueId === item.uniqueId || !!selectedIds?.has(item.uniqueId)} 
+                    onClick={() => onSelectItem(item)} 
+                    price={priceSelector ? priceSelector(item) : undefined} 
+                /> 
+            ); 
+        })} 
+    </div> 
+);

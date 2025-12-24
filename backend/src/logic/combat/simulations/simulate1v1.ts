@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, EquipmentSlot } from '../../../types.js';
+import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from '../core.js';
 
 const defaultEnemyStats: EnemyStats = {
@@ -125,6 +125,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 });
             }
 
+            // --- Status Resistance Logic (Dwarves) ---
             const isDwarfResistant = (combatant as any).data?.race === Race.Dwarf && (combatant as any).data?.learnedSkills?.includes('bedrock-foundation');
             const reduction = isDwarfResistant ? 2 : 1;
             
@@ -148,11 +149,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 const pData = isPlayer ? (attacker as any).data as PlayerCharacter : null;
-                const ohItem = pData?.equipment?.offHand;
-                const ohTemplate = ohItem ? gameData.itemTemplates.find(t => t.id === ohItem.templateId) : null;
-                
-                // CRITICAL FIX: Dual wielding requires the off-hand to NOT be a shield
-                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && ohItem && !ohTemplate?.isShield;
+                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
                 
                 for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
                     const hands: ('main' | 'off')[] = isDualWielding ? ['main', 'off'] : ['main'];
@@ -184,9 +181,7 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 const pData = isPlayer ? (defender as any).data as PlayerCharacter : null;
-                const ohItem = pData?.equipment?.offHand;
-                const ohTemplate = ohItem ? gameData.itemTemplates.find(t => t.id === ohItem.templateId) : null;
-                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && ohItem && !ohTemplate?.isShield;
+                const isDualWielding = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
 
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
                     const hands: ('main' | 'off')[] = isDualWielding ? ['main', 'off'] : ['main'];

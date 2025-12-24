@@ -54,7 +54,6 @@ export interface CharacterStats {
     critDamageModifier: number;
     attacksPerRound: number;
     dodgeChance: number;
-    blockChance: number; // Added
     manaRegen: number;
     
     armorPenetrationPercent: number;

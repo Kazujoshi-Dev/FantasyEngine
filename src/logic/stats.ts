@@ -58,7 +58,6 @@ export const calculateDerivedStats = (
         critDamageModifier: 200,
         attacksPerRound: 1,
         dodgeChance: 0,
-        blockChance: 0,
         manaRegen: 0,
         armorPenetrationPercent: 0,
         armorPenetrationFlat: 0,
@@ -75,6 +74,7 @@ export const calculateDerivedStats = (
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
     if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
 
+    // --- Pioneer's Instinct (Ludzie) ---
     if (character.learnedSkills?.includes('pioneers-instinct')) {
         const primaryKeys = ['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'];
         const values = primaryKeys.map(k => Number(totalPrimaryStats[k as keyof CharacterStats]));
@@ -113,7 +113,7 @@ export const calculateDerivedStats = (
     let bonusMagicDmgMin = 0, bonusMagicDmgMax = 0;
     let ohMagicDmgMin = 0, ohMagicDmgMax = 0;
 
-    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0, bonusBlockChance = 0;
+    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0;
     let bonusAttacksPerRound = 0;
     let bonusCritDamageModifier = 0;
     let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
@@ -164,7 +164,6 @@ export const calculateDerivedStats = (
         bonusManaStealFlat += Number(source.manaStealFlat) || 0;
         bonusAttacksPerRound += Number(source.attacksPerRoundBonus) || 0;
         bonusDodgeChance += Number(source.dodgeChanceBonus) || 0;
-        bonusBlockChance += Number(source.blockChanceBonus) || 0;
     };
 
     const equippedAffixCounts: Record<string, number> = {};
@@ -179,13 +178,7 @@ export const calculateDerivedStats = (
         if (item.suffixId) equippedAffixCounts[item.suffixId] = (equippedAffixCounts[item.suffixId] || 0) + 1;
 
         const isMH = slot === EquipmentSlot.MainHand || slot === EquipmentSlot.TwoHand;
-        // Off-Hand item is only treated as a weapon for stats if it's NOT a shield
-        const isOHWeapon = slot === EquipmentSlot.OffHand && !template.isShield;
-        
-        if (template.isShield && template.blockChance) {
-            totalPrimaryStats.blockChance += template.blockChance;
-        }
-
+        const isOH = slot === EquipmentSlot.OffHand;
         const upLvl = item.upgradeLevel || 0;
         const upFact = upLvl * 0.1;
 
@@ -205,13 +198,12 @@ export const calculateDerivedStats = (
                 critDamageModifierBonus: applyUp(base.critDamageModifierBonus),
                 armorPenetrationFlat: applyUp(base.armorPenetrationFlat),
                 lifeStealFlat: applyUp(base.lifeStealFlat),
-                manaStealFlat: applyUp(base.manaStealFlat),
-                blockChanceBonus: applyUp(base.blockChanceBonus)
+                manaStealFlat: applyUp(base.manaStealFlat)
             };
-            applyStatsFromRolled(upgradedSource, isMH, isOHWeapon);
+            applyStatsFromRolled(upgradedSource, isMH, isOH);
         }
-        if (item.rolledPrefix) applyStatsFromRolled(item.rolledPrefix, isMH, isOHWeapon);
-        if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOHWeapon);
+        if (item.rolledPrefix) applyStatsFromRolled(item.rolledPrefix, isMH, isOH);
+        if (item.rolledSuffix) applyStatsFromRolled(item.rolledSuffix, isMH, isOH);
     }
 
     if (Array.isArray(itemSets)) {
@@ -259,14 +251,13 @@ export const calculateDerivedStats = (
     mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
     let ohMin = 0, ohMax = 0;
-    // Off-hand damage is only calculated if it's NOT a shield
-    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
+    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
         ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
         ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
     }
 
-    if (isDualWieldActive && ohItem && !ohTemplate?.isShield) {
+    if (isDualWieldActive && ohItem) {
         mhMin = Math.floor(mhMin * 0.75);
         mhMax = Math.floor(mhMax * 0.75);
         ohMin = Math.floor(ohMin * 0.75);
@@ -277,9 +268,9 @@ export const calculateDerivedStats = (
     let mhMagMin = bonusMagicDmgMin > 0 ? bonusMagicDmgMin + intBonus : 0;
     let mhMagMax = bonusMagicDmgMax > 0 ? bonusMagicDmgMax + intBonus : 0;
     let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
-    let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0;
+    let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0; // Fix magic max calc
 
-    if (isDualWieldActive && ohItem && !ohTemplate?.isShield) {
+    if (isDualWieldActive && ohItem) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
         mhMagMax = Math.floor(mhMagMax * 0.75);
         ohMagMin = Math.floor(ohMagMin * 0.75);
@@ -304,11 +295,13 @@ export const calculateDerivedStats = (
 
     let finalArmor = bonusArmor + (character.race === Race.Dwarf ? 5 : 0);
     
+    // --- Behemoth's Hide (Orkowie) ---
     if (character.learnedSkills?.includes('behemoths-hide')) {
         const strengthArmorBonus = Math.floor(totalPrimaryStats.strength / 10);
         finalArmor += strengthArmorBonus;
     }
 
+    // --- Bedrock Foundation (Krasnoludy) ---
     let bedrockArmorBonus = 0;
     let bedrockDamageBonus = 0;
     if (character.race === Race.Dwarf && character.learnedSkills?.includes('bedrock-foundation')) {
@@ -320,6 +313,7 @@ export const calculateDerivedStats = (
         if (ohMin > 0) ohMin += bedrockDamageBonus;
     }
 
+    // --- Ethereal Weave (Elfy) ---
     let elfManaRegenBonus = 0;
     let elfDodgeBonus = 0;
     if (character.race === Race.Elf && character.learnedSkills?.includes('ethereal-weave')) {
@@ -345,7 +339,6 @@ export const calculateDerivedStats = (
             critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
             dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0) + elfDodgeBonus),
-            blockChance: Math.min(50, totalPrimaryStats.blockChance + bonusBlockChance), // Clamped to 50% max
             manaRegen: totalPrimaryStats.intelligence * 2 + (character.race === Race.Elf ? 10 : 0) + elfManaRegenBonus,
             armorPenetrationPercent: bonusArmorPenetrationPercent,
             armorPenetrationFlat: bonusArmorPenetrationFlat,

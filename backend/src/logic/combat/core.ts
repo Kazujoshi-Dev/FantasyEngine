@@ -92,7 +92,6 @@ export const performAttack = <
     let bonusDamage = 0;
     let manaSpent = 0;
 
-    // --- DODGE LOGIC ---
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
@@ -108,16 +107,6 @@ export const performAttack = <
 
         return {
             logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'dodge', isDodge: true, ...getHealthState(attacker, defender) }],
-            attackerState: attacker,
-            defenderState: defender,
-        };
-    }
-
-    // --- BLOCK LOGIC (100% Reduction) ---
-    const tempBlockChance = defender.stats.blockChance || 0;
-    if (tempBlockChance > 0 && Math.random() * 100 < tempBlockChance) {
-        return {
-            logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'block', ...getHealthState(attacker, defender) }],
             attackerState: attacker,
             defenderState: defender,
         };

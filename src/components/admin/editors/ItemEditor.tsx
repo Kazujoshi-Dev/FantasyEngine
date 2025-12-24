@@ -18,7 +18,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         const { name, value, type } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const isChecked = (e.target as HTMLInputElement).checked;
-        const isNumeric = ['value', 'requiredLevel', 'blockChance'].includes(name);
+        const isNumeric = ['value', 'requiredLevel'].includes(name);
 
         setFormData(prev => ({
             ...prev,
@@ -94,19 +94,6 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div><label>{t('admin.item.iconPath')}:<input name="icon" value={formData.icon || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.value')}:<input name="value" type="number" value={formData.value || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.levelRequirement')}:<input name="requiredLevel" type="number" value={formData.requiredLevel || 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                
-                {/* NOWE: Obsługa Tarczy */}
-                <div className="flex items-center space-x-2 pt-6">
-                    <input type="checkbox" name="isShield" checked={formData.isShield || false} onChange={handleChange} className="form-checkbox h-4 w-4 text-indigo-600 rounded bg-slate-700 border-slate-600"/>
-                    <label className="text-sm font-bold text-amber-400">Tarcza</label>
-                </div>
-                {formData.isShield && (
-                    <div>
-                        <label>Szansa na blok (%):
-                            <input name="blockChance" type="number" value={formData.blockChance || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
-                        </label>
-                    </div>
-                )}
             </fieldset>
 
             {/* Bonuses */}
@@ -115,17 +102,16 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <MinMaxInput label={t('item.damageMin')} field="damageMin" />
                 <MinMaxInput label={t('item.damageMax')} field="damageMax" />
                 <div><label>{t('item.attacksPerRound')}:<input name="attacksPerRound" type="number" step="0.1" value={formData.attacksPerRound || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <MinMaxInput label={t('statistics.armor')} field="armorBonus" />
-                <MinMaxInput label={t('statistics.critChance')} field="critChanceBonus" />
-                <MinMaxInput label={t('statistics.health')} field="maxHealthBonus" />
-                <MinMaxInput label={t('statistics.critDamageModifier')} field="critDamageModifierBonus" />
+                <MinMaxInput label={t('item.armorBonus')} field="armorBonus" />
+                <MinMaxInput label={t('item.critChanceBonus')} field="critChanceBonus" />
+                <MinMaxInput label={t('item.maxHealthBonus')} field="maxHealthBonus" />
+                <MinMaxInput label={t('item.critDamageModifierBonus')} field="critDamageModifierBonus" />
                 <MinMaxInput label={t('item.armorPenetrationPercent')} field="armorPenetrationPercent" />
                 <MinMaxInput label={t('item.armorPenetrationFlat')} field="armorPenetrationFlat" />
                 <MinMaxInput label={t('item.lifeStealPercent')} field="lifeStealPercent" />
                 <MinMaxInput label={t('item.lifeStealFlat')} field="lifeStealFlat" />
                 <MinMaxInput label={t('item.manaStealPercent')} field="manaStealPercent" />
                 <MinMaxInput label={t('item.manaStealFlat')} field="manaStealFlat" />
-                <MinMaxInput label={t('statistics.dodgeChance')} field="dodgeChanceBonus" />
             </fieldset>
 
             {/* Magic Properties */}
