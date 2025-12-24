@@ -1,5 +1,6 @@
+
 import { CurrencyType } from './common.js';
-import { ItemInstance } from './items.js';
+import { ItemInstance, ItemTemplate } from './items.js';
 import { CharacterStats } from './character.js';
 import { EquipmentSlot } from './items.js';
 
@@ -85,4 +86,22 @@ export interface SpyReportResult {
     stats?: CharacterStats;
     equipment?: Record<EquipmentSlot, ItemInstance | null>;
     inventoryCount?: number;
+}
+
+export interface ItemSearchResult {
+    item: ItemInstance;
+    template: ItemTemplate;
+    locations: { userId: number; ownerName: string; location: string }[];
+}
+
+export interface DuplicationAuditResult {
+    uniqueId: string;
+    itemName: string;
+    instances: { ownerName: string; location: string }[];
+}
+
+export interface OrphanAuditResult {
+    userId: number;
+    characterName: string;
+    orphans: { uniqueId: string; templateId: string; location: string }[];
 }

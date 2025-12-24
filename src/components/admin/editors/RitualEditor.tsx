@@ -22,6 +22,7 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
         durationMinutes: 60,
         cost: [],
         stats: {},
+        image: '',
         ...ritual
     });
 
@@ -90,7 +91,6 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
         onSave(formData as Ritual);
     };
 
-    // Helper for stat inputs
     const StatInput = ({ label, statKey, isPercentage = false }: { label: string, statKey: keyof CharacterStats | 'expBonus', isPercentage?: boolean }) => (
         <div className="flex flex-col">
             <label className="text-xs text-gray-400 mb-1">{label}</label>
@@ -127,13 +127,17 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
                     </select>
                 </div>
                 <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">URL Grafiki</label>
+                    <input name="image" value={formData.image || ''} onChange={handleChange} className="w-full bg-slate-700 border border-slate-600 rounded p-2" placeholder="https://..." />
+                    {formData.image && <img src={formData.image} className="mt-2 h-20 rounded border border-slate-600" alt="preview" />}
+                </div>
+                <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300 mb-1">{t('admin.general.description')}</label>
                     <textarea name="description" value={formData.description || ''} onChange={handleChange} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded p-2" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Czas Trwania (minuty)</label>
                     <input type="number" name="durationMinutes" value={formData.durationMinutes || 0} onChange={handleChange} className="w-full bg-slate-700 border border-slate-600 rounded p-2" />
-                    <p className="text-xs text-gray-500 mt-1">Przykład: 1440 = 24h, 2880 = 48h</p>
                 </div>
             </div>
 
@@ -170,13 +174,11 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
             {/* Bonuses */}
             <div className="space-y-4">
                 <h4 className="font-bold text-gray-200 border-b border-slate-700 pb-1">Bonusy</h4>
-                
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="col-span-full mb-2">
                          <h5 className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-2">Specjalne</h5>
                          <StatInput label="Bonus Doświadczenia (%)" statKey="expBonus" isPercentage />
                     </div>
-
                     <div className="col-span-full border-t border-slate-700/50 pt-2">
                          <h5 className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">Atrybuty</h5>
                     </div>
@@ -187,7 +189,6 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
                     <StatInput label={t('statistics.luck')} statKey="luck" />
                     <StatInput label={t('statistics.accuracy')} statKey="accuracy" />
                     <StatInput label={t('statistics.energy')} statKey="energy" />
-
                     <div className="col-span-full border-t border-slate-700/50 pt-2 mt-2">
                          <h5 className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">Walka</h5>
                     </div>
@@ -201,14 +202,9 @@ export const RitualEditor: React.FC<RitualEditorProps> = ({ ritual, onSave, onCa
                 </div>
             </div>
 
-            {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                <button type="button" onClick={onCancel} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white font-medium">
-                    {t('admin.general.cancel')}
-                </button>
-                <button type="submit" className="px-6 py-2 rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-900/20">
-                    {t('admin.general.save')}
-                </button>
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white font-medium">{t('admin.general.cancel')}</button>
+                <button type="submit" className="px-6 py-2 rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-white font-bold shadow-lg shadow-fuchsia-900/20">{t('admin.general.save')}</button>
             </div>
         </form>
     );

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ContentPanel } from './ContentPanel';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Skill, SkillCategory, SkillType, CharacterStats } from '../types';
+import { Skill, SkillCategory, SkillType, CharacterStats, SkillCost } from '../types';
 import { useCharacter } from '@/contexts/CharacterContext';
 import { api } from '../api';
 import { CoinsIcon } from './icons/CoinsIcon';
@@ -62,7 +62,7 @@ const SkillCard: React.FC<{
     // Check Costs
     const costMet = (Object.entries(skill.cost)).every(([key, val]) => {
         if (val === undefined) return true;
-        return (character.resources[key as keyof typeof character.resources] || 0) >= val;
+        return (character.resources[key as keyof typeof character.resources] || 0) >= (val as number);
     });
 
     const canBuy = !isLearned && !isLearning && !isOtherSkillLearning && reqsMet && costMet;
@@ -123,7 +123,8 @@ const SkillCard: React.FC<{
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Koszt</p>
                             <div className="flex flex-wrap gap-3">
-                                {Object.entries(skill.cost).map(([res, val]) => {
+                                {/* Type assertion fix: Object.entries on skill.cost */}
+                                {(Object.entries(skill.cost) as [keyof SkillCost, number][]).map(([res, val]) => {
                                     if (!val) return null;
                                     const hasEnough = (character.resources[res as keyof typeof character.resources] || 0) >= (val as number);
                                     const isGold = res === 'gold';
@@ -250,11 +251,12 @@ export const University: React.FC = () => {
             {/* Nawigacja */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
-                    {Object.values(SkillType).map(type => (
+                    {/* Type assertion fix: Object.values iteration on enum */}
+                    {(Object.values(SkillType) as SkillType[]).map(type => (
                         <button
                             key={type}
                             onClick={() => setMainTab(type)}
-                            className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${mainTab === type ? 'border-indigo-500 text-white bg-indigo-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                            className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${mainTab === type ? 'border-indigo-500 text-white bg-indigo-500/5' : 'border-transparent text-gray-400 hover:text-gray-300'}`}
                         >
                             {t(`university.${type.toLowerCase()}` as any)}
                         </button>

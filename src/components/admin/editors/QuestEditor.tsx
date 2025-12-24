@@ -140,7 +140,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
         switch (formData.objective?.type) {
             case QuestType.Kill: return gameData.enemies.map(e => <option key={e.id} value={e.id}>{e.name}</option>);
             case QuestType.Gather: return gameData.itemTemplates.map(i => <option key={i.id} value={i.id}>{i.name}</option>);
-            case QuestType.GatherResource: return Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>);
+            case QuestType.GatherResource: return (Object.values(EssenceType) as EssenceType[]).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>);
             default: return null;
         }
     };
@@ -151,7 +151,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <div className="md:col-span-2"><label className="text-sm font-bold text-gray-400">Nazwa:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                 <div><label className="text-sm font-bold text-gray-400">Kategoria:<select name="category" value={formData.category} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(QuestCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></label></div>
+                 {/* Type assertion fix: Object.values iteration on enum */}
+                 <div><label className="text-sm font-bold text-gray-400">Kategoria:<select name="category" value={formData.category} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{(Object.values(QuestCategory) as QuestCategory[]).map(c => <option key={c} value={c}>{c}</option>)}</select></label></div>
                  
                  <div className="md:col-span-2">
                     <label className="text-sm font-bold text-gray-400">URL Grafiki:
@@ -196,7 +197,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
 
             <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-bold text-indigo-300">Cel Zadania</legend>
-                <div><label className="text-xs text-gray-400">Typ:<select name="type" value={formData.objective?.type || ''} onChange={handleObjectiveChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(QuestType).map(t => <option key={t} value={t}>{t}</option>)}</select></label></div>
+                {/* Type assertion fix: Object.values iteration on enum */}
+                <div><label className="text-xs text-gray-400">Typ:<select name="type" value={formData.objective?.type || ''} onChange={handleObjectiveChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{(Object.values(QuestType) as QuestType[]).map(t => <option key={t} value={t}>{t}</option>)}</select></label></div>
                 {formData.objective?.type !== QuestType.PayGold && <div><label className="text-xs text-gray-400">Cel:<select name="targetId" value={formData.objective?.targetId || ''} onChange={handleObjectiveChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{getTargetOptions()}</select></label></div>}
                 <div><label className="text-xs text-gray-400">Ilość:<input name="amount" type="number" value={formData.objective?.amount || 0} onChange={handleObjectiveChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
             </fieldset>
@@ -224,7 +226,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
                     <h4 className="text-sm font-bold text-amber-400">Losowe Przedmioty (Loot Box)</h4>
                     {(formData.rewards?.randomItemRewards || []).map((reward, index) => (
                         <div key={index} className="flex gap-2 items-center">
-                            <select value={reward.rarity} onChange={e => handleRandomItemRewardChange(index, 'rarity', e.target.value as ItemRarity)} className="flex-grow bg-slate-700 p-1.5 rounded-md text-sm">{Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}</select>
+                            {/* Type assertion fix: Object.values iteration on enum */}
+                            <select value={reward.rarity} onChange={e => handleRandomItemRewardChange(index, 'rarity', e.target.value as ItemRarity)} className="flex-grow bg-slate-700 p-1.5 rounded-md text-sm">{(Object.values(ItemRarity) as ItemRarity[]).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}</select>
                             <input type="number" value={reward.quantity} onChange={e => handleRandomItemRewardChange(index, 'quantity', parseInt(e.target.value))} className="w-20 bg-slate-700 p-1.5 rounded-md text-sm" />
                             <button type="button" onClick={() => removeRandomItemReward(index)} className="px-2 py-1.5 rounded bg-red-800 text-xs font-bold">X</button>
                         </div>
@@ -236,7 +239,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({ quest, onSave, onCance
                     <h4 className="text-sm font-bold text-gray-300">Esencje</h4>
                     {(formData.rewards?.resourceRewards || []).map((reward, index) => (
                         <div key={index} className="flex gap-2 items-center">
-                            <select value={reward.resource} onChange={e => handleResourceRewardChange(index, 'resource', e.target.value as EssenceType)} className="flex-grow bg-slate-700 p-1.5 rounded-md text-sm">{Object.values(EssenceType).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select>
+                            {/* Type assertion fix: Object.values iteration on enum */}
+                            <select value={reward.resource} onChange={e => handleResourceRewardChange(index, 'resource', e.target.value as EssenceType)} className="flex-grow bg-slate-700 p-1.5 rounded-md text-sm">{(Object.values(EssenceType) as EssenceType[]).map(e => <option key={e} value={e}>{t(`resources.${e}`)}</option>)}</select>
                             <input type="number" value={reward.quantity} onChange={e => handleResourceRewardChange(index, 'quantity', parseInt(e.target.value))} className="w-20 bg-slate-700 p-1.5 rounded-md text-sm" />
                             <button type="button" onClick={() => removeResourceReward(index)} className="px-2 py-1.5 rounded bg-red-800 text-xs font-bold">X</button>
                         </div>

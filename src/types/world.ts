@@ -7,12 +7,12 @@ export interface Location {
     id: string;
     name: string;
     description: string;
-    image?: string;
     travelTime: number;
     travelCost: number;
     travelEnergyCost: number;
     availableTabs: Tab[];
     isStartLocation: boolean;
+    image?: string;
 }
 
 export interface ExpeditionEnemy {
@@ -24,25 +24,21 @@ export interface Expedition {
     id: string;
     name: string;
     description: string;
-    image?: string;
     duration: number;
     goldCost: number;
     energyCost: number;
-    
     minBaseGoldReward: number;
     maxBaseGoldReward: number;
     minBaseExperienceReward: number;
     maxBaseExperienceReward: number;
-    
     locationIds: string[];
     enemies: ExpeditionEnemy[];
     lootTable: LootDrop[];
     resourceLootTable: ResourceDrop[];
-    maxEnemies: number;
+    maxEnemies?: number;
     maxItems?: number;
+    image?: string;
 }
-
-// --- Quests ---
 
 export enum QuestType {
     Kill = 'Kill',
@@ -77,7 +73,8 @@ export interface Quest {
     description: string;
     image?: string;
     category: QuestCategory;
-    locationIds: string[];
+    locationIds?: string[];
+    repeatable: number;
     objective: {
         type: QuestType;
         targetId: string;
@@ -86,12 +83,11 @@ export interface Quest {
     rewards: {
         gold: number;
         experience: number;
-        itemRewards: ItemReward[];
+        itemRewards?: ItemReward[];
         randomItemRewards?: RandomItemReward[];
-        resourceRewards: ResourceReward[];
+        resourceRewards?: ResourceReward[];
         lootTable?: LootDrop[];
     };
-    repeatable: number; // 0 = infinite
 }
 
 export interface PlayerQuestProgress {
@@ -100,8 +96,6 @@ export interface PlayerQuestProgress {
     completions: number;
     lastCompletedAt?: number;
 }
-
-// --- Skills & Rituals ---
 
 export enum SkillType {
     Universal = 'Universal',
@@ -114,19 +108,6 @@ export enum SkillCategory {
     Active = 'Active'
 }
 
-export interface SkillRequirements {
-    level?: number;
-    strength?: number;
-    agility?: number;
-    accuracy?: number;
-    stamina?: number;
-    intelligence?: number;
-    energy?: number;
-    luck?: number; 
-    characterClass?: CharacterClass;
-    race?: Race;
-}
-
 export interface SkillCost {
     gold?: number;
     commonEssence?: number;
@@ -136,15 +117,28 @@ export interface SkillCost {
     legendaryEssence?: number;
 }
 
+export interface SkillRequirements {
+    level?: number;
+    characterClass?: CharacterClass;
+    race?: Race;
+    strength?: number;
+    agility?: number;
+    accuracy?: number;
+    stamina?: number;
+    intelligence?: number;
+    energy?: number;
+    luck?: number;
+}
+
 export interface Skill {
     id: string;
     name: string;
     description: string;
     type: SkillType;
     category: SkillCategory;
+    manaMaintenanceCost?: number;
     requirements: SkillRequirements;
     cost: SkillCost;
-    manaMaintenanceCost?: number;
     learningTimeMinutes?: number;
 }
 
@@ -156,38 +150,7 @@ export interface Ritual {
     durationMinutes: number;
     cost: { type: EssenceType | 'gold'; amount: number }[];
     stats: Partial<CharacterStats> & { expBonus?: number };
-}
-
-// --- Towers ---
-
-export interface Tower {
-    id: string;
-    name: string;
-    description: string;
-    locationId: string;
-    totalFloors: number;
-    floors: TowerFloor[];
     image?: string;
-    grandPrize: {
-        gold: number;
-        experience: number;
-        items: ItemInstance[];
-        essences: Partial<Record<EssenceType, number>>;
-        randomItemRewards?: { rarity: ItemRarity; chance: number; amount: number; affixCount?: number }[];
-    };
-    isActive: boolean;
-}
-
-export interface TowerFloor {
-    floorNumber: number;
-    enemies: { enemyId: string; spawnChance: number }[];
-    energyCost: number;
-    duration: number; // Seconds
-    guaranteedReward?: { gold: number; experience: number };
-    lootTable?: LootDrop[];
-    resourceLootTable?: ResourceDrop[];
-    specificItemRewards?: ItemInstance[];
-    randomItemRewards?: { rarity: ItemRarity; chance: number; amount: number; affixCount?: number }[];
 }
 
 export interface ActiveTowerRun {
@@ -204,4 +167,34 @@ export interface ActiveTowerRun {
         essences: Partial<Record<EssenceType, number>>;
     };
     status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'RETREATED';
+}
+
+export interface TowerFloor {
+    floorNumber: number;
+    enemies: ExpeditionEnemy[];
+    energyCost: number;
+    duration: number;
+    guaranteedReward?: { gold: number; experience: number };
+    specificItemRewards?: ItemInstance[];
+    randomItemRewards?: { rarity: ItemRarity; chance: number; amount: number; affixCount?: number }[];
+    resourceLootTable?: ResourceDrop[];
+    lootTable?: LootDrop[];
+}
+
+export interface Tower {
+    id: string;
+    name: string;
+    description: string;
+    locationId: string;
+    totalFloors: number;
+    floors: TowerFloor[];
+    grandPrize?: {
+        gold: number;
+        experience: number;
+        items: ItemInstance[];
+        essences: Partial<Record<EssenceType, number>>;
+        randomItemRewards: { rarity: ItemRarity; chance: number; amount: number; affixCount?: number }[];
+    };
+    isActive: boolean;
+    image?: string;
 }

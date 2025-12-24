@@ -10,7 +10,9 @@ import { MapIcon } from '../icons/MapIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { StarIcon } from '../icons/StarIcon';
 import { EyeIcon } from '../icons/EyeIcon';
+import { CoinsIcon } from '../icons/CoinsIcon';
 import { rarityStyles } from '../shared/ItemSlot';
+import { useCharacter } from '@/contexts/CharacterContext';
 
 const essenceToRarityMap: Record<EssenceType, any> = {
     [EssenceType.Common]: rarityStyles['Common'],
@@ -67,51 +69,19 @@ const getBuildingCost = (type: string, level: number): { gold: number, costs: { 
         return { gold, costs: [{ type: EssenceType.Legendary, amount: essenceAmount }] };
     }
     if (type === 'spyHideout') {
-        if (level === 0) { // Upgrade to Level 1
-            return {
-                gold: 15000,
-                costs: [
-                    { type: EssenceType.Common, amount: 25 },
-                    { type: EssenceType.Rare, amount: 20 }
-                ]
-            };
-        } else if (level === 1) { // Upgrade to Level 2
-            return {
-                gold: 30000,
-                costs: [
-                    { type: EssenceType.Common, amount: 25 },
-                    { type: EssenceType.Rare, amount: 20 },
-                    { type: EssenceType.Epic, amount: 10 }
-                ]
-            };
-        } else if (level === 2) { // Upgrade to Level 3
-            return {
-                gold: 50000,
-                costs: [
-                    { type: EssenceType.Common, amount: 25 },
-                    { type: EssenceType.Rare, amount: 20 },
-                    { type: EssenceType.Epic, amount: 10 },
-                    { type: EssenceType.Legendary, amount: 5 }
-                ]
-            };
-        }
+        if (level === 0) return { gold: 15000, costs: [{ type: EssenceType.Common, amount: 25 }, { type: EssenceType.Rare, amount: 20 }] };
+        else if (level === 1) return { gold: 30000, costs: [{ type: EssenceType.Common, amount: 25 }, { type: EssenceType.Rare, amount: 20 }, { type: EssenceType.Epic, amount: 10 }] };
+        else if (level === 2) return { gold: 50000, costs: [{ type: EssenceType.Common, amount: 25 }, { type: EssenceType.Rare, amount: 20 }, { type: EssenceType.Epic, amount: 10 }, { type: EssenceType.Legendary, amount: 5 }] };
         return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
     }
-
     if (type === 'stables') {
-        if (level === 0) {
-            return { gold: 50000, costs: [{ type: EssenceType.Common, amount: 100 }, { type: EssenceType.Uncommon, amount: 50 }, { type: EssenceType.Rare, amount: 25 }] };
-        } else if (level === 1) {
-            return { gold: 75000, costs: [{ type: EssenceType.Common, amount: 75 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 30 }] };
-        } else if (level === 2) {
-            return { gold: 100000, costs: [{ type: EssenceType.Common, amount: 50 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 40 }] };
-        }
+        if (level === 0) return { gold: 50000, costs: [{ type: EssenceType.Common, amount: 100 }, { type: EssenceType.Uncommon, amount: 50 }, { type: EssenceType.Rare, amount: 25 }] };
+        else if (level === 1) return { gold: 75000, costs: [{ type: EssenceType.Common, amount: 75 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 30 }] };
+        else if (level === 2) return { gold: 100000, costs: [{ type: EssenceType.Common, amount: 50 }, { type: EssenceType.Uncommon, amount: 75 }, { type: EssenceType.Rare, amount: 40 }] };
     }
-
     return { gold: Infinity, costs: [{ type: EssenceType.Common, amount: Infinity }] };
 }
 
-// Definition of all available buildings to ensure they are rendered loop-based
 const BUILDING_DEFINITIONS = [
     { id: 'headquarters', icon: HomeIcon, color: 'text-amber-400', maxLevel: 999 },
     { id: 'armory', icon: ShieldIcon, color: 'text-indigo-400', maxLevel: 999 },
@@ -125,10 +95,10 @@ const BUILDING_DEFINITIONS = [
 
 export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | undefined, onUpdate: () => void }> = ({ guild, myRole, onUpdate }) => {
     const { t } = useTranslation();
+    const { gameData } = useCharacter();
     const canManage = myRole === GuildRole.LEADER || myRole === GuildRole.OFFICER;
-    
-    // Fallback to empty object if buildings is undefined
     const buildingsData = guild.buildings || {};
+    const customImages = gameData?.settings?.guildBuildingImages || {};
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -137,7 +107,6 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 const isMaxLevel = level >= def.maxLevel;
                 const { gold, costs } = isMaxLevel ? { gold: 0, costs: [] } : getBuildingCost(def.id, level);
                 const currentGuildGold = guild.resources.gold || 0;
-                
                 const hasGold = currentGuildGold >= gold;
                 const hasAllEssences = costs.every(c => (guild.resources[c.type] || 0) >= c.amount);
 
@@ -145,17 +114,13 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                     try {
                         await api.upgradeGuildBuilding(def.id);
                         onUpdate();
-                    } catch (e: any) {
-                        alert(e.message);
-                    }
+                    } catch (e: any) { alert(e.message); }
                 }
                 
                 const Icon = def.icon;
-
-                let effectKey = `guild.buildings.${def.id}Effect`; // Generic key fallback
+                const customImage = customImages[def.id];
                 let effect = '';
                 
-                // Specific effect descriptions based on ID
                 if (def.id === 'headquarters') effect = t('guild.buildings.maxMembers', { count: 10 + level });
                 else if (def.id === 'armory') effect = `Pojemność: ${10 + level}`;
                 else if (def.id === 'barracks') effect = `Bonus obrażeń: +${level * 5}%`;
@@ -166,48 +131,46 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                 else if (def.id === 'stables') effect = t('guild.buildings.stablesEffect', { count: level * 10 });
 
                 return (
-                    <div key={def.id} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex flex-col">
-                        <div className="flex items-center gap-3 mb-4">
-                            <Icon className={`h-8 w-8 ${def.color}`} />
-                            <div>
-                                <h4 className="text-xl font-bold text-white">{t(`guild.buildings.${def.id}` as any) || def.id}</h4>
-                                <p className="text-xs text-gray-400">{t(`guild.buildings.${def.id}Desc` as any)}</p>
+                    <div key={def.id} className="bg-slate-800/50 rounded-xl border border-slate-700 flex flex-col overflow-hidden shadow-lg group">
+                        {/* SEKCJA GRAFIKI / IKONY */}
+                        <div className="h-40 relative overflow-hidden bg-slate-900 flex items-center justify-center border-b border-slate-700">
+                            {customImage ? (
+                                <img src={customImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={def.id} />
+                            ) : (
+                                <Icon className={`h-16 w-16 ${def.color} opacity-40`} />
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
+                            <div className="absolute bottom-3 left-4 flex flex-col">
+                                <h4 className="text-xl font-black text-white uppercase tracking-tighter">{t(`guild.buildings.${def.id}` as any) || def.id}</h4>
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Level {level}</span>
                             </div>
                         </div>
-                        
-                        <div className="flex-grow space-y-4">
-                            <div className="bg-slate-900/50 p-3 rounded">
-                                <p className="text-sm text-gray-400">{t('guild.buildings.level')}: <span className="text-white font-bold">{level} {def.maxLevel !== 999 ? `/ ${def.maxLevel}` : ''}</span></p>
-                                <p className="text-sm text-gray-400">{t('guild.buildings.currentEffect')}: <span className="text-green-400 font-bold">{effect}</span></p>
+
+                        <div className="p-5 flex-grow space-y-4">
+                            <p className="text-xs text-gray-400 h-8 line-clamp-2">{t(`guild.buildings.${def.id}Desc` as any)}</p>
+                            
+                            <div className="bg-slate-950/50 p-3 rounded-lg border border-white/5">
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('guild.buildings.currentEffect')}</p>
+                                <p className="text-sm text-green-400 font-bold">{effect}</p>
                             </div>
                             
                             {!isMaxLevel ? (
-                                <div className="border-t border-slate-700 pt-4">
-                                    <p className="text-sm font-bold text-gray-300 mb-2">{t('guild.buildings.upgradeCost')}:</p>
-                                    <div className="flex justify-between items-center text-sm mb-1">
-                                        <span className="text-gray-400">Złoto</span>
-                                        <div>
-                                            <span className={`font-mono font-bold ${hasGold ? 'text-amber-400' : 'text-red-400'}`}>{gold.toLocaleString()}</span>
-                                            <span className={`text-xs ml-1 ${hasGold ? 'text-green-500' : 'text-red-500'}`}>({currentGuildGold.toLocaleString()})</span>
-                                        </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('guild.buildings.upgradeCost')}</p>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-gray-400 flex items-center gap-1"><CoinsIcon className="h-3 w-3" /> Złoto</span>
+                                        <span className={`font-mono font-bold ${hasGold ? 'text-amber-400' : 'text-red-400'}`}>{gold.toLocaleString()}</span>
                                     </div>
-                                    
-                                    {costs.map((costItem, idx) => {
-                                        const hasThisEssence = (guild.resources[costItem.type] || 0) >= costItem.amount;
-                                        return (
-                                            <div key={idx} className="flex justify-between items-center text-sm">
-                                                <span className={`${essenceToRarityMap[costItem.type].text}`}>{t(`resources.${costItem.type}`)}</span>
-                                                <div>
-                                                    <span className={`font-mono font-bold ${hasThisEssence ? 'text-sky-400' : 'text-red-400'}`}>{costItem.amount}</span>
-                                                    <span className={`text-xs ml-1 ${hasThisEssence ? 'text-green-500' : 'text-red-500'}`}>({guild.resources[costItem.type] || 0})</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    {costs.map((costItem, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs">
+                                            <span className={`${essenceToRarityMap[costItem.type].text} flex items-center gap-1`}><StarIcon className="h-3 w-3" /> {t(`resources.${costItem.type}`).replace(' Esencja', '')}</span>
+                                            <span className={`font-mono font-bold ${(guild.resources[costItem.type] || 0) >= costItem.amount ? 'text-sky-400' : 'text-red-400'}`}>{costItem.amount}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
-                                <div className="border-t border-slate-700 pt-4">
-                                    <p className="text-center text-amber-400 font-bold text-sm">Maksymalny Poziom</p>
+                                <div className="text-center py-2">
+                                    <p className="text-amber-400 font-black uppercase text-xs tracking-tighter">Maksymalny Poziom Osiągnięty</p>
                                 </div>
                             )}
                         </div>
@@ -216,7 +179,7 @@ export const GuildBuildings: React.FC<{ guild: GuildType, myRole: GuildRole | un
                             <button 
                                 onClick={handleUpgrade} 
                                 disabled={!canManage || !hasGold || !hasAllEssences}
-                                className="w-full mt-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-bold text-white disabled:bg-slate-700 disabled:text-gray-500"
+                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-none font-black text-white text-xs uppercase tracking-[0.2em] disabled:bg-slate-700 disabled:text-gray-500 transition-all"
                             >
                                 {t('guild.buildings.upgrade')}
                             </button>

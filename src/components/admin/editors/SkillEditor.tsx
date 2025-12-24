@@ -49,7 +49,8 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
     };
 
     const requirementKeys: (keyof SkillRequirements)[] = ['level', 'strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy'];
-    const costKeys: (keyof SkillCost)[] = ['gold', ...Object.values(EssenceType)];
+    {/* Type assertion fix: Casting enum iteration and object keys to satisfy strict types */}
+    const costKeys = ['gold', ...Object.values(EssenceType)] as (keyof SkillCost)[];
 
     return (
         <form onSubmit={handleSubmit} className="bg-slate-900/40 p-6 rounded-xl mt-6 space-y-6">
@@ -58,8 +59,10 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label>Nazwa:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
-                <div><label>Typ:<select name="type" value={formData.type || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillType).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
-                <div><label>Kategoria:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{Object.values(SkillCategory).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
+                {/* Type assertion fix: Object.values iteration on enum */}
+                <div><label>Typ:<select name="type" value={formData.type || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{(Object.values(SkillType) as SkillType[]).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
+                {/* Type assertion fix: Object.values iteration on enum */}
+                <div><label>Kategoria:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- Wybierz --</option>{(Object.values(SkillCategory) as SkillCategory[]).map(v => <option key={v} value={v}>{v}</option>)}</select></label></div>
                 
                 <div><label>Czas Nauki (Minuty):<input name="learningTimeMinutes" type="number" value={formData.learningTimeMinutes || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 
@@ -74,7 +77,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">Wymagania</legend>
                 {requirementKeys.map(key => (
-                     <div key={key}><label>{t(`statistics.${key}` as any)}:<input type="number" value={(formData.requirements as any)?.[key] || ''} onChange={e => handleNumericChange('requirements', key, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                     <div key={String(key)}><label>{t(`statistics.${key}` as any)}:<input type="number" value={(formData.requirements as any)?.[key] || ''} onChange={e => handleNumericChange('requirements', String(key), e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 ))}
             </fieldset>
 
@@ -82,7 +85,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({ skill, onSave, onCance
             <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
                 <legend className="px-2 font-semibold">Koszt</legend>
                 {costKeys.map(key => (
-                    <div key={key}><label>{t(`resources.${key}` as any)}:<input type="number" value={(formData.cost as any)?.[key] || ''} onChange={e => handleNumericChange('cost', key, e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                    <div key={String(key)}><label>{t(`resources.${key}` as any)}:<input type="number" value={(formData.cost as any)?.[key] || ''} onChange={e => handleNumericChange('cost', String(key), e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 ))}
             </fieldset>
             

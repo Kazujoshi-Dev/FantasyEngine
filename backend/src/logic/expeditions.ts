@@ -1,5 +1,5 @@
 
-import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType, LootDrop, ItemInstance } from '../types.js';
+import { PlayerCharacter, Expedition, Enemy, GameData, ExpeditionRewardSummary, RewardSource, CombatLogEntry, Race, PlayerQuestProgress, QuestType, CharacterClass, EssenceType, LootDrop, ResourceDrop, ItemInstance } from '../types.js';
 import { simulate1v1Combat, simulate1vManyCombat } from './combat/simulations/index.js';
 import { createItemInstance, pickWeighted } from './items.js';
 // Fix: Import getBackpackCapacity from stats.js
@@ -114,7 +114,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             rewardBreakdown.push({ source: `Pokonano: ${enemy.name}`, gold: goldReward, experience: experienceReward });
 
             if (enemy.lootTable && enemy.lootTable.length > 0) {
-                 const droppedTemplateId = pickWeighted(enemy.lootTable)?.templateId;
+                 // Type assertion fix: Property 'templateId' on pickWeighted result
+                 const droppedTemplateId = (pickWeighted(enemy.lootTable) as LootDrop | null)?.templateId;
                  if (droppedTemplateId) {
                      if (finalCharacter.inventory.length < backpackCapacity) {
                         const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
@@ -125,7 +126,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             }
             
             if (enemy.resourceLootTable && enemy.resourceLootTable.length > 0) {
-                 const drop = pickWeighted(enemy.resourceLootTable);
+                 // Type assertion fix: Property access on pickWeighted result
+                 const drop = pickWeighted(enemy.resourceLootTable) as ResourceDrop | null;
                  if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                     if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) amount *= 2;
@@ -179,7 +181,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         for (let i = 0; i < maxPotentialItems; i++) {
              if (Math.random() * 100 > totalFindChance) continue;
              if (expedition.lootTable && expedition.lootTable.length > 0) {
-                 const droppedTemplateId = pickWeighted(expedition.lootTable)?.templateId;
+                 // Type assertion fix: Property access on pickWeighted result
+                 const droppedTemplateId = (pickWeighted(expedition.lootTable) as LootDrop | null)?.templateId;
                  if (droppedTemplateId && finalCharacter.inventory.length < backpackCapacity) {
                     const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
                     finalCharacter.inventory.push(newItem);
@@ -191,7 +194,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         const resourceRolls = 1 + (scoutHouseLevel > 0 ? 1 : 0);
         for (let i = 0; i < resourceRolls; i++) {
             if (expedition.resourceLootTable && expedition.resourceLootTable.length > 0) {
-                const drop = pickWeighted(expedition.resourceLootTable);
+                // Type assertion fix: Property access on pickWeighted result
+                const drop = pickWeighted(expedition.resourceLootTable) as ResourceDrop | null;
                 if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
                     if(character.characterClass === CharacterClass.Engineer && Math.random() < 0.5) amount *= 2;

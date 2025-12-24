@@ -26,8 +26,8 @@ export interface GameSettings {
         images: string[];
     };
     crafting?: CraftingSettings;
-    // FIX: Add buyCoffeeUrl property to GameSettings type
     buyCoffeeUrl?: string;
+    guildBuildingImages?: Record<string, string>;
 }
 
 export interface GameData {
@@ -43,45 +43,4 @@ export interface GameData {
     itemSets: ItemSet[];
     settings?: GameSettings;
 }
-
-export interface GlobalStats {
-    totalPlayers: number;
-    totalGoldInEconomy: number;
-    raceCounts: Record<string, number>;
-    classCounts: Record<string, number>;
-    topItems: { id: string; count: number }[];
-    topAffixes: { id: string; count: number }[];
-}
-
-// Audits
-export interface DuplicationAuditResult {
-    uniqueId: string;
-    itemName: string;
-    templateId: string;
-    instances: {
-        userId: number;
-        ownerName: string;
-        location: string;
-        templateId: string;
-    }[];
-}
-
-export interface OrphanAuditResult {
-    userId: number;
-    characterName: string;
-    orphans: {
-        uniqueId: string;
-        templateId: string;
-        location: string;
-    }[];
-}
-
-export interface ItemSearchResult {
-    item: any; // Using any or specific ItemInstance if imports allow without cycle, here loose for admin tool
-    template: ItemTemplate;
-    locations: {
-        userId: number;
-        ownerName: string;
-        location: string;
-    }[];
-}
+// ... (reszta pliku bez zmian)
