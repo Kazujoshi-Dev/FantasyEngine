@@ -34,6 +34,7 @@ export default {
         university: 'Uniwersytet',
         hunting: 'Polowanie',
         guild: 'Gildia',
+        tower: 'Wieża Mroku',
     },
     options: {
         title: 'Opcje',
@@ -338,7 +339,7 @@ export default {
         upgrade: 'Ulepsz',
         notEnoughGold: "Nie masz wystarczająco złota, aby ulepszyć obóz.",
         mustStopResting: 'Musisz zakończyć odpoczynek, aby ulepszyć obóz.',
-        unavailableDuringTravel: 'Akcje w obozie są niedostępne podczas podróży.',
+        unavailableDuringTravel: 'Akcje w obozie są niedostępne podczas podróżowania.',
         chestTitle: 'Skrzynia',
         chestLevel: 'Poziom Skrzyni',
         chestCapacity: 'Pojemność',

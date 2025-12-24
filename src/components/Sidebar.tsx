@@ -55,7 +55,7 @@ const MENU_STRUCTURE: MenuSectionConfig[] = [
         labelKey: 'sidebar.sections.actions',
         items: [
             { tab: Tab.Expedition, icon: IconMap, labelKey: 'sidebar.expedition' },
-            { tab: Tab.Tower, icon: IconMap, labelKey: 'Tower' }, // Fallback label
+            { tab: Tab.Tower, icon: IconMap, labelKey: 'sidebar.tower' },
             { tab: Tab.Hunting, icon: IconShield, labelKey: 'sidebar.hunting' }, 
             { tab: Tab.Quests, icon: QuestIcon, labelKey: 'sidebar.quests' },
         ]
