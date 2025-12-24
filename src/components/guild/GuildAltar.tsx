@@ -84,7 +84,6 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeBuffs.map((buff, idx) => {
                         const minutesLeft = Math.max(0, Math.ceil((buff.expiresAt - Date.now()) / 60000));
-                        // Znajdź grafikę rytuału (zakładamy że buff name == ritual name)
                         const originalRitual = rituals.find(r => r.name === buff.name);
                         return (
                             <div key={idx} className="bg-purple-900/20 border border-purple-500/50 rounded-lg flex items-stretch shadow-lg overflow-hidden h-24">
@@ -132,10 +131,10 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                                         
                                         {!isUnlocked && <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"></div>}
 
-                                        {/* Grafika Rytuału */}
+                                        {/* Grafika Rytuału - Usunięto efekt scale-110 */}
                                         <div className="h-32 relative bg-slate-900 border-b border-slate-700">
                                             {ritual.image ? (
-                                                <img src={ritual.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={ritual.name} />
+                                                <img src={ritual.image} className="w-full h-full object-cover" alt={ritual.name} />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-purple-900"><StarIcon className="h-12 w-12" /></div>
                                             )}
