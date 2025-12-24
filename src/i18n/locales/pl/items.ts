@@ -16,8 +16,6 @@ export default {
         attacksPerRound: 'Ataki na rundę',
         attacksPerRoundBonus: 'Bonus Ataków',
         dodgeChanceBonus: 'Szansa na Unik',
-        blockChance: 'Szansa na Blok',
-        blockChanceBonus: 'Bonus Szansy na Blok',
         armorPenetrationPercent: 'Penetracja Pancerza (%)',
         armorPenetrationFlat: 'Penetracja Pancerza',
         lifeStealPercent: 'Kradzież Życia (%)',
@@ -52,9 +50,9 @@ export default {
              ring: 'Pierścień',
              ring1: 'Pierścień 1',
              ring2: 'Pierścień 2',
-             mainHand: 'Broń',
-             offHand: 'Off-Hand',
-             twoHand: 'Broń 2H',
+             mainHand: 'Główna ręka',
+             offHand: 'Druga ręka',
+             twoHand: 'Dwuręczna',
              consumable: 'Użytkowy'
         },
         magic: {
@@ -114,9 +112,9 @@ export default {
             ring: 'Pierścień',
             ring1: 'Pierścień 1',
             ring2: 'Pierścień 2',
-            mainHand: 'Broń',
-            offHand: 'Off-Hand',
-            twoHand: 'Broń 2H',
+            mainHand: 'Główna ręka',
+            offHand: 'Druga ręka',
+            twoHand: 'Dwuręczna',
             consumable: 'Użytkowy'
         }
     },

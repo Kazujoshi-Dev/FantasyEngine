@@ -76,8 +76,6 @@ export interface ItemTemplate {
     
     isMagical?: boolean;
     isRanged?: boolean;
-    isShield?: boolean;
-    blockChance?: number;
     magicAttackType?: MagicAttackType;
     manaCost?: { min: number; max: number };
     magicDamageMin?: number;
@@ -106,7 +104,6 @@ export interface RolledAffixStats {
     critDamageModifierBonus?: number;
     attacksPerRoundBonus?: number;
     dodgeChanceBonus?: number;
-    blockChanceBonus?: number;
     armorPenetrationPercent?: number;
     armorPenetrationFlat?: number;
     lifeStealPercent?: number;
@@ -151,7 +148,6 @@ export interface Affix {
     damageMax?: { min: number; max: number };
     armorBonus?: { min: number; max: number };
     maxHealthBonus?: { min: number; max: number };
-    blockChanceBonus?: { min: number; max: number };
     
     critChanceBonus?: { min: number; max: number };
     critDamageModifierBonus?: { min: number; max: number };

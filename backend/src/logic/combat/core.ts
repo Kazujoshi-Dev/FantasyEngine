@@ -21,7 +21,7 @@ export interface AttackerState {
     isEmpowered?: boolean;
     manaSurgeUsed?: boolean;
     shadowBoltStacks?: number;
-    dodgeCritStacks?: number; 
+    dodgeCritStacks?: number; // NOWE: Stosy dla Gnomiej Nadzaradności
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
 }
@@ -32,7 +32,7 @@ export interface DefenderState {
     currentMana: number;
     name: string;
     hardSkinTriggered?: boolean;
-    dodgeCritStacks?: number; 
+    dodgeCritStacks?: number; // NOWE: Przechowywanie stosów obrońcy
     statusEffects: StatusEffect[];
     data?: PlayerCharacter;
     uniqueId?: string;
@@ -81,19 +81,6 @@ export const performAttack = <
         enemyMana: defenderIsPlayer ? currentAttacker.currentMana : currentDefender.currentMana,
     });
 
-    // --- ZABEZPIECZENIE PRZED ATAKIEM TARCZĄ ---
-    if (attackerIsPlayer && hand === 'off') {
-        const playerData = (attacker as any).data as PlayerCharacter;
-        const offHandItem = playerData.equipment?.offHand;
-        if (offHandItem) {
-            const template = gameData.itemTemplates.find(t => t.id === offHandItem.templateId);
-            if (template?.isShield) {
-                // Tarcza nie służy do ataku - przerywamy funkcję bez dodawania logów (pusta akcja)
-                return { logs, attackerState: attacker, defenderState: defender };
-            }
-        }
-    }
-
     let damage = 0;
     let isCrit = false;
     let damageReduced = 0;
@@ -105,7 +92,6 @@ export const performAttack = <
     let bonusDamage = 0;
     let manaSpent = 0;
 
-    // --- SPRAWDZENIE UNIKU ---
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
@@ -114,6 +100,7 @@ export const performAttack = <
     }
 
     if (Math.random() * 100 < tempDodgeChance) {
+        // --- GNOMISH OVER-ENGINEERING (DODGE STACK) ---
         if (defenderIsPlayer && defender.data?.race === Race.Gnome && defender.data?.learnedSkills?.includes('gnomish-overengineering')) {
             defender.dodgeCritStacks = Math.min(3, (defender.dodgeCritStacks || 0) + 1);
         }
@@ -125,16 +112,7 @@ export const performAttack = <
         };
     }
 
-    // --- MECHANIKA BLOKU (TARCZA) ---
-    const blockChance = defender.stats.blockChance || 0;
-    if (blockChance > 0 && Math.random() * 100 < blockChance) {
-        return {
-            logs: [{ turn, attacker: attacker.name, defender: defender.name, action: 'block', isBlock: true, ...getHealthState(attacker, defender) }],
-            attackerState: attacker,
-            defenderState: defender,
-        };
-    }
-
+    // Obliczanie szansy na krytyk z uwzględnieniem stosów Gnoma
     let finalCritChance = attacker.stats.critChance;
     if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome && attacker.dodgeCritStacks) {
         finalCritChance += (attacker.dodgeCritStacks * 10);
@@ -230,6 +208,7 @@ export const performAttack = <
         damageReduced += armorReduction;
     }
 
+    // Po ataku (niezależnie czy hit czy miss magiczny) czyścimy stosy Gnoma
     if (attackerIsPlayer && (attacker as any).data?.race === Race.Gnome) {
         attacker.dodgeCritStacks = 0;
     }
@@ -241,6 +220,7 @@ export const performAttack = <
         damageReduced += reductionVal;
     }
 
+    // --- ORC FURY LOGIC ---
     if (attackerIsPlayer && attacker.data?.race === Race.Orc) {
         let furyThreshold = 0.25;
         if (attacker.data.learnedSkills?.includes('behemoths-hide')) {

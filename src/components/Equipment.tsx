@@ -65,7 +65,7 @@ export const Equipment: React.FC = () => {
         const uniqueSlots = Array.from(new Set(slots.map(s => s.startsWith('ring') ? 'ring' : s)));
         return uniqueSlots.map(s => ({
             id: s,
-            label: s === 'ring' ? t('item.slot.ring') : t(`item.slot.${s}`)
+            label: s === 'ring' ? t('item.slot.ring') : t(`equipment.slot.${s}`)
         })).sort((a, b) => a.label.localeCompare(b.label));
     }, [t]);
 
@@ -168,12 +168,6 @@ export const Equipment: React.FC = () => {
 
     const getCompareItem = (template: ItemTemplate): ItemInstance | null => {
         if (!character) return null;
-        
-        // Dla tarcz zawsze porównujemy z OffHand
-        if (template.isShield) {
-            return character.equipment.offHand || null;
-        }
-
         if (template.slot === 'ring') {
             return character.equipment.ring1 || character.equipment.ring2 || null;
         }
@@ -182,9 +176,6 @@ export const Equipment: React.FC = () => {
         }
         if (template.slot === EquipmentSlot.MainHand) {
              return character.equipment.mainHand || character.equipment.twoHand || null;
-        }
-        if (template.slot === EquipmentSlot.OffHand) {
-            return character.equipment.offHand || null;
         }
         return character.equipment[template.slot as EquipmentSlot] || null;
     };
@@ -229,7 +220,7 @@ export const Equipment: React.FC = () => {
                                         actionType="unequip"
                                     />
                                 </div>
-                            ) : ( <EmptySlotListItem key={slot} slotName={t(`item.slot.${slot}`)} /> );
+                            ) : ( <EmptySlotListItem key={slot} slotName={t(`equipment.slot.${slot}`)} /> );
                         })}
                     </div>
                 </div>
@@ -271,7 +262,6 @@ export const Equipment: React.FC = () => {
                                 <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ShieldIcon className="h-3 w-3" /> Defensywa</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                     <StatRow label="Pancerz" value={character.stats.armor} color="text-sky-300" />
-                                    <StatRow label="Szansa na Blok" value={`${character.stats.blockChance.toFixed(1)}%`} color="text-sky-400" />
                                     <StatRow label="Szansa na Unik" value={`${character.stats.dodgeChance.toFixed(1)}%`} color="text-blue-400" />
                                     <StatRow label="Zdrowie" value={`${Math.ceil(character.stats.currentHealth)} / ${character.stats.maxHealth}`} color="text-green-400" />
                                 </div>
