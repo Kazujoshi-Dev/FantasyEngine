@@ -293,6 +293,14 @@ export const calculateDerivedStats = (
         ohMagMin = Math.floor(ohMagMin * mult); ohMax = Math.floor(ohMax * mult);
     }
 
+    let finalArmor = bonusArmor + (character.race === Race.Dwarf ? 5 : 0);
+    
+    // --- Behemoth's Hide (Orkowie) ---
+    if (character.learnedSkills?.includes('behemoths-hide')) {
+        const strengthArmorBonus = Math.floor(totalPrimaryStats.strength / 10);
+        finalArmor += strengthArmorBonus;
+    }
+
     return {
         ...character,
         stats: {
@@ -307,7 +315,7 @@ export const calculateDerivedStats = (
             currentMana: Math.min(character.stats.currentMana ?? maxMana, maxMana),
             currentEnergy: Math.min(character.stats.currentEnergy ?? 10, 10 + Math.floor(totalPrimaryStats.energy / 2)),
             maxEnergy: 10 + Math.floor(totalPrimaryStats.energy / 2),
-            armor: bonusArmor + (character.race === Race.Dwarf ? 5 : 0),
+            armor: finalArmor,
             critChance: totalPrimaryStats.accuracy * 0.1 + bonusCritChance,
             critDamageModifier: 200 + bonusCritDamageModifier,
             dodgeChance: Math.min(30, totalPrimaryStats.agility * 0.1 + bonusDodgeChance + (character.race === Race.Gnome ? 10 : 0)),

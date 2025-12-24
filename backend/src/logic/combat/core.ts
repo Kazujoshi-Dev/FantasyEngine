@@ -191,10 +191,19 @@ export const performAttack = <
         damageReduced += reductionVal;
     }
 
-    if (attackerIsPlayer && attacker.data?.race === Race.Orc && attacker.currentHealth < attacker.stats.maxHealth * 0.25) {
-        damage = Math.floor(damage * 1.25);
-        logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'orc_fury', ...getHealthState(attacker, defender) });
+    // --- ORC FURY LOGIC ---
+    if (attackerIsPlayer && attacker.data?.race === Race.Orc) {
+        let furyThreshold = 0.25;
+        if (attacker.data.learnedSkills?.includes('behemoths-hide')) {
+            furyThreshold = 0.35;
+        }
+
+        if (attacker.currentHealth < attacker.stats.maxHealth * furyThreshold) {
+            damage = Math.floor(damage * 1.25);
+            logs.push({ turn, attacker: attacker.name, defender: defender.name, action: 'orc_fury', ...getHealthState(attacker, defender) });
+        }
     }
+
     if (defenderIsPlayer && defender.data?.race === Race.Dwarf && defender.currentHealth < defender.stats.maxHealth * 0.5) {
         const reduction = Math.floor(damage * 0.20);
         damage -= reduction;

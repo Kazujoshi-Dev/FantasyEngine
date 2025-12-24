@@ -102,6 +102,15 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     if (isVictory) {
         const backpackCapacity = getBackpackCapacity(finalCharacter);
         
+        // --- Energy Syphon (Orkowie - Skóra Behemota) ---
+        if (finalCharacter.race === Race.Orc && finalCharacter.learnedSkills?.includes('behemoths-hide')) {
+            if (finalCharacter.stats.currentHealth < characterWithStats.stats.maxHealth * 0.5) {
+                if (Math.random() < 0.10) {
+                    finalCharacter.stats.currentEnergy = Math.min(characterWithStats.stats.maxEnergy, finalCharacter.stats.currentEnergy + 1);
+                }
+            }
+        }
+
         for (const enemy of encounteredEnemies) {
             const minGold = enemy.rewards?.minGold ?? 0;
             const maxGold = enemy.rewards?.maxGold ?? 0;
@@ -114,7 +123,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             rewardBreakdown.push({ source: `Pokonano: ${enemy.name}`, gold: goldReward, experience: experienceReward });
 
             if (enemy.lootTable && enemy.lootTable.length > 0) {
-                 // Type assertion fix: Property 'templateId' on pickWeighted result
                  const droppedTemplateId = (pickWeighted(enemy.lootTable) as LootDrop | null)?.templateId;
                  if (droppedTemplateId) {
                      if (finalCharacter.inventory.length < backpackCapacity) {
@@ -126,7 +134,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             }
             
             if (enemy.resourceLootTable && enemy.resourceLootTable.length > 0) {
-                 // Type assertion fix: Property access on pickWeighted result
                  const drop = pickWeighted(enemy.resourceLootTable) as ResourceDrop | null;
                  if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;
@@ -153,11 +160,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             totalExperience += rb.experience;
         });
         
-        // Aplikacja bonusów klasowych (które nie są w statystykach)
         if(character.characterClass === CharacterClass.Thief) totalGold = Math.floor(totalGold * 1.25);
         
-        // APLIKACJA WSZYSTKICH BONUSÓW PROCENTOWYCH ZE STATYSTYK (Zestawy, Buffy, Rasa)
-        // stats.expBonusPercent i goldBonusPercent zawierają już wszystko co wyliczył calculateDerivedStats
         if (characterWithStats.stats.goldBonusPercent > 0) {
             totalGold += Math.floor(totalGold * (characterWithStats.stats.goldBonusPercent / 100));
         }
@@ -165,7 +169,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
             totalExperience += Math.floor(totalExperience * (characterWithStats.stats.expBonusPercent / 100));
         }
         
-        // Przeszukiwanie (Scavenging)
         let maxPotentialItems = (expedition.maxItems || 0) || 1;
         maxPotentialItems += scoutHouseLevel;
         if (character.activeSkills?.includes('dokladne-przeszukiwanie')) maxPotentialItems += 1;
@@ -177,9 +180,8 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         const baseFindChance = 40;
         let luckBonus = (characterWithStats.stats.luck || 0) * 0.25;
         
-        // --- Pioneer's Instinct Bonus Loot Chance ---
         if (character.learnedSkills?.includes('pioneers-instinct')) {
-            luckBonus += 5; // Direct +5% chance
+            luckBonus += 5;
         }
 
         const totalFindChance = Math.min(100, baseFindChance + luckBonus);
@@ -187,7 +189,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         for (let i = 0; i < maxPotentialItems; i++) {
              if (Math.random() * 100 > totalFindChance) continue;
              if (expedition.lootTable && expedition.lootTable.length > 0) {
-                 // Type assertion fix: Property access on pickWeighted result
                  const droppedTemplateId = (pickWeighted(expedition.lootTable) as LootDrop | null)?.templateId;
                  if (droppedTemplateId && finalCharacter.inventory.length < backpackCapacity) {
                     const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates || [], gameData.affixes || [], finalCharacter);
@@ -200,7 +201,6 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
         const resourceRolls = 1 + (scoutHouseLevel > 0 ? 1 : 0);
         for (let i = 0; i < resourceRolls; i++) {
             if (expedition.resourceLootTable && expedition.resourceLootTable.length > 0) {
-                // Type assertion fix: Property access on pickWeighted result
                 const drop = pickWeighted(expedition.resourceLootTable) as ResourceDrop | null;
                 if (drop) {
                     let amount = Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min;

@@ -7,6 +7,24 @@ import { Skill, SkillType, SkillCategory, CharacterClass, EssenceType, Race } fr
  */
 export const GAME_SKILLS: Skill[] = [
     {
+        id: 'behemoths-hide',
+        name: 'Skóra Behemota',
+        description: 'Mistrzowska technika hartowania ciała Orków. Dodaje 1 pkt pancerza na każde 10 pkt bazowej Siły. Zwiększa próg aktywacji rasowej Furii do 35% PŻ i daje 10% szansy na odzyskanie energii w trudnych walkach (<50% PŻ).',
+        type: SkillType.Race,
+        category: SkillCategory.Passive,
+        requirements: {
+            race: Race.Orc,
+            level: 15,
+            strength: 40,
+            stamina: 30
+        },
+        cost: {
+            gold: 15000,
+            rareEssence: 20,
+            epicEssence: 5
+        }
+    },
+    {
         id: 'pioneers-instinct',
         name: 'Instynkt Pioniera',
         description: 'Unikalna zdolność Ludzi. Zmniejsza koszt energii wypraw i wieży o 1 (min. 1), zwiększa najwyższy atrybut o 5% oraz daje +5% szansy na łup.',
