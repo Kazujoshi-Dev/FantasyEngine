@@ -219,13 +219,17 @@ export const Quests: React.FC = () => {
     const { t } = useTranslation();
     const [timeToReset, setTimeToReset] = useState('');
 
-    // Licznik do północy UTC
+    // Licznik do północy UTC opartej o CZAS SERWERA (api.getServerTime())
     useEffect(() => {
         const updateTimer = () => {
-            const now = new Date();
-            const nextReset = new Date();
-            nextReset.setUTCHours(24, 0, 0, 0);
-            const diff = nextReset.getTime() - now.getTime();
+            const serverNow = api.getServerTime();
+            const now = new Date(serverNow);
+            
+            // Obliczamy północ w strefie UTC na podstawie czasu serwera
+            const nextReset = new Date(serverNow);
+            nextReset.setUTCHours(24, 0, 0, 0); 
+            
+            const diff = nextReset.getTime() - serverNow;
             
             const hours = Math.floor(diff / (1000 * 60 * 60));
             const minutes = Math.floor((diff / (1000 * 60)) % 60);
@@ -252,7 +256,7 @@ export const Quests: React.FC = () => {
         
         const progress = character.questProgress?.find(p => p.questId === q.id);
         if (progress) {
-            const lastReset = new Date();
+            const lastReset = new Date(api.getServerTime());
             lastReset.setUTCHours(0, 0, 0, 0);
             const completedToday = progress.lastCompletedAt && progress.lastCompletedAt >= lastReset.getTime();
 
@@ -288,8 +292,10 @@ export const Quests: React.FC = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Aktualny czas serwera:</p>
-                         <p className="text-sm font-mono text-gray-300">{new Date().toUTCString().split(' ')[4]} UTC</p>
+                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Czas Świata (CET):</p>
+                         <p className="text-sm font-mono text-gray-300">
+                            {new Date(api.getServerTime()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                         </p>
                     </div>
                 </div>
 

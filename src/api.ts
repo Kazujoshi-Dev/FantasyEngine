@@ -38,6 +38,8 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 let serverTimeOffset = 0;
+// Korekta o 1 godzinę (3600000 ms) - UTC do CET
+const SERVER_TIMEZONE_OFFSET_MS = 3600000;
 
 export const api = {
     getAuthToken,
@@ -48,7 +50,10 @@ export const api = {
             const { time } = await fetchApi('/time');
             const end = Date.now();
             const latency = (end - start) / 2;
-            serverTimeOffset = time - (Date.now() - latency);
+            
+            // Dodajemy korektę strefy czasowej bezpośrednio do offsetu
+            serverTimeOffset = (time + SERVER_TIMEZONE_OFFSET_MS) - (Date.now() - latency);
+            
             return serverTimeOffset;
         } catch { return 0; }
     },
