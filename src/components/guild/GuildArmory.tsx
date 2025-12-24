@@ -5,7 +5,7 @@ import { api } from '../../api';
 import { Guild as GuildType, GuildRole, GuildArmoryItem, ItemInstance, ItemTemplate, Affix, ItemRarity, EquipmentSlot, PlayerCharacter } from '../../types';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { HandshakeIcon } from '../icons/HandshakeIcon'; // Używam HandshakeIcon jako ikony wypożyczeń
-import { ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel } from '../shared/ItemSlot';
+import { ItemListItem, getGrammaticallyCorrectFullName, ItemDetailsPanel, rarityStyles } from '../shared/ItemSlot';
 
 export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacter | null, onUpdate: () => void, templates: ItemTemplate[], affixes: Affix[] }> = ({ guild, character, onUpdate, templates, affixes }) => {
     const { t } = useTranslation();
@@ -253,14 +253,19 @@ export const GuildArmory: React.FC<{ guild: GuildType, character: PlayerCharacte
                                 {armoryData.borrowedItems.map((entry, idx) => {
                                     const template = templates.find(t => t.id === entry.item.templateId);
                                     
+                                    // Style and upgrade level
+                                    const rarityStyle = template ? rarityStyles[template.rarity] : null;
+                                    const upgradeLevel = entry.item.upgradeLevel || 0;
+
                                     // Logic to determine if user can manage this specific entry
                                     const isMyItem = entry.ownerId === userId;
                                     const canRecall = canManage || isMyItem;
 
                                     return (
                                         <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                                            <td className="p-3 cursor-pointer" onClick={() => template && handleItemClick(entry.item, template)}>
+                                            <td className={`p-3 cursor-pointer font-bold ${rarityStyle?.text || 'text-white'}`} onClick={() => template && handleItemClick(entry.item, template)}>
                                                 {template ? getGrammaticallyCorrectFullName(entry.item, template, affixes) : 'Unknown'}
+                                                {upgradeLevel > 0 && <span className="ml-1 text-xs opacity-80">+{upgradeLevel}</span>}
                                             </td>
                                             <td className="p-3 text-gray-300">{entry.ownerName}</td>
                                             <td className="p-3 text-sky-400 font-bold">{entry.borrowedBy}</td>
