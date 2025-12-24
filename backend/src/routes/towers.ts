@@ -3,11 +3,11 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry, ExpeditionRewardSummary, ItemInstance, EssenceType, CharacterClass, ItemRarity, ItemTemplate, AffixType, Race } from '../types.js';
-import { calculateDerivedStatsOnServer } from '../logic/stats.js';
+// Fix: Import getBackpackCapacity and calculateDerivedStatsOnServer from stats.js
+import { calculateDerivedStatsOnServer, getBackpackCapacity } from '../logic/stats.js';
 import { simulate1vManyCombat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
 import { createItemInstance, rollAffixStats } from '../logic/items.js';
-import { getBackpackCapacity } from '../logic/helpers.js';
 import { randomUUID } from 'crypto';
 
 const router = express.Router();

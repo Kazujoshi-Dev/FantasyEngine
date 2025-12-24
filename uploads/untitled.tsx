@@ -1,0 +1,1 @@
+// Plik do usunięcia - pozostałość po generowaniu

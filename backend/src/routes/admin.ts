@@ -8,7 +8,8 @@ import auditRoutes from './admin/audit.js';
 import { PlayerCharacter, ItemTemplate, Affix } from '../types.js';
 import { rollTemplateStats, rollAffixStats } from '../logic/items.js';
 import { randomUUID } from 'crypto';
-import { getBackpackCapacity } from '../logic/helpers.js';
+// Fix: Import getBackpackCapacity from stats.js
+import { getBackpackCapacity } from '../logic/stats.js';
 
 const router = express.Router();
 

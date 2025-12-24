@@ -2,10 +2,11 @@
 // ... (zachowujemy istniejące importy)
 import { pool } from '../db.js';
 import { PartyStatus, PartyMemberStatus, HuntingParty, PlayerCharacter, GameData, Enemy, ItemTemplate, Affix, EssenceType, ItemInstance, CharacterClass, ExpeditionRewardSummary, CharacterResources, CharacterStats, GuildBuff, QuestType } from '../types.js';
-import { calculateDerivedStatsOnServer } from './stats.js';
+// Fix: Import getBackpackCapacity from stats.js, keep enforceInboxLimit from helpers.js
+import { calculateDerivedStatsOnServer, getBackpackCapacity } from './stats.js';
 import { simulateTeamVsBossCombat } from './combat/simulations/index.js';
 import { createItemInstance, pickWeighted } from './items.js';
-import { getBackpackCapacity, enforceInboxLimit } from './helpers.js';
+import { enforceInboxLimit } from './helpers.js';
 
 export const getPartyByLeader = async (leaderId: number): Promise<HuntingParty | null> => {
     const res = await pool.query('SELECT * FROM hunting_parties WHERE leader_id = $1', [leaderId]);

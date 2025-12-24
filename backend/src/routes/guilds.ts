@@ -4,8 +4,10 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 import { getBuildingCost, canManage, pruneExpiredBuffs } from '../logic/guilds.js';
-import { GuildRole, EssenceType, ItemInstance, ItemTemplate, Affix, RaidType } from '../types.js';
-import { getBackpackCapacity, enforceInboxLimit, fetchFullCharacter } from '../logic/helpers.js';
+import { GuildRole, EssenceType, ItemInstance, ItemTemplate, Affix, RaidType } from '../types';
+// Fix: Import getBackpackCapacity from stats.js, keep enforceInboxLimit and fetchFullCharacter from helpers.js
+import { getBackpackCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
+import { enforceInboxLimit, fetchFullCharacter } from '../logic/helpers.js';
 
 const router = express.Router();
 

@@ -1,7 +1,8 @@
 
 import { EssenceType, ItemRarity, PlayerCharacter, GameData, ItemTemplate, EquipmentSlot, CharacterClass, ItemInstance, CraftingSettings } from '../types.js';
 import { createItemInstance, rollAffixStats, rollTemplateStats } from './items.js';
-import { getBackpackCapacity } from './helpers.js';
+// Fix: Import getBackpackCapacity from stats.js
+import { getBackpackCapacity } from './stats.js';
 
 export const calculateCraftingCost = (rarity: ItemRarity, character: PlayerCharacter, settings?: CraftingSettings) => {
     let gold = 0;

@@ -4,7 +4,8 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, GameData, ItemInstance, TraderInventoryData, ItemTemplate, Affix, GameSettings, Language, TraderData } from '../types.js';
 import { generateTraderInventory } from '../logic/items.js';
-import { getBackpackCapacity } from '../logic/helpers.js';
+// Fix: Import getBackpackCapacity from stats.js
+import { getBackpackCapacity } from '../logic/stats.js';
 
 const router = express.Router();
 

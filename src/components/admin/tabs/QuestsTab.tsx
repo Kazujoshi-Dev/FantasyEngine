@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { GameData, Quest } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
@@ -10,7 +9,8 @@ interface QuestsTabProps {
   onGameDataUpdate: (key: string, data: any) => void;
 }
 
-const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate }) => {
+// Fix: Changed from default export to named export to satisfy the named import in AdminTabRegistry.ts
+export const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate }) => {
   const { t } = useTranslation();
   const [editingQuest, setEditingQuest] = useState<Partial<Quest> | null>(null);
 
@@ -72,5 +72,3 @@ const QuestsTab: React.FC<QuestsTabProps> = ({ gameData, onGameDataUpdate }) => 
     </div>
   );
 };
-
-export default QuestsTab;

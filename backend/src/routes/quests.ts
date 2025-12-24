@@ -4,7 +4,8 @@ import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { PlayerCharacter, Quest, QuestType, QuestCategory, EssenceType, ItemInstance, ItemTemplate, Race, CharacterClass, ItemRarity } from '../types.js';
 import { createItemInstance } from '../logic/items.js';
-import { getBackpackCapacity } from '../logic/helpers.js';
+// Fix: Import getBackpackCapacity from stats.js
+import { getBackpackCapacity } from '../logic/stats.js';
 
 const router = express.Router();
 
@@ -91,7 +92,7 @@ router.post('/complete', authenticateToken, async (req: any, res: any) => {
 
     try {
         await client.query('BEGIN');
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [req.user.id]);
         const character: PlayerCharacter = charRes.rows[0].data;
         ensureQuestArrays(character);
 

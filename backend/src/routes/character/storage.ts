@@ -1,8 +1,8 @@
 
 import express from 'express';
 import { pool } from '../../db.js';
-import { getTreasuryCapacity, getWarehouseCapacity, getTreasuryUpgradeCost, getWarehouseUpgradeCost } from '../../logic/stats.js';
-import { getBackpackCapacity } from '../../logic/helpers.js';
+// Fix: Import getBackpackCapacity from stats.js
+import { getTreasuryCapacity, getWarehouseCapacity, getTreasuryUpgradeCost, getWarehouseUpgradeCost, getBackpackCapacity } from '../../logic/stats.js';
 
 const router = express.Router();
 
