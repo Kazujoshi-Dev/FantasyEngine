@@ -21,7 +21,7 @@ export default {
             borrowConfirm: 'Wypożyczenie tego przedmiotu kosztuje {value} złota (Podatek: {taxRate}%). Kontynuować?',
             recall: 'Wycofaj',
             recallConfirm: 'Czy na pewno chcesz wymusić zwrot tego przedmiotu do zbrojowni?',
-            deleteConfirm: 'Czy na pewno chcesz TRWALE usunąć ten przedmiot ze zbrojowni?',
+            deleteConfirm: 'Czy na pewno chcesz usunąć ten przedmiot ze zbrojowni? Zostanie on zwrócony pierwotnemu właścicielowi (do plecaka lub pocztą).',
             empty: 'Zbrojownia jest pusta.',
         },
         buildings: {

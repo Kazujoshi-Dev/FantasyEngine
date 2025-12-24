@@ -322,18 +322,70 @@ router.post('/armory/recall', async (req: any, res: any) => {
     }
 });
 
-// DELETE /api/guilds/armory/:armoryId - Usunięcie przedmiotu ze zbrojowni (tylko lider)
+// DELETE /api/guilds/armory/:armoryId - Usunięcie przedmiotu ze zbrojowni (zwraca go do właściciela)
 router.delete('/armory/:armoryId', async (req: any, res: any) => {
     const { armoryId } = req.params;
+    const client = await pool.connect();
     try {
-        const myMemberRes = await pool.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
+        await client.query('BEGIN');
+
+        // 1. Sprawdź uprawnienia lidera
+        const myMemberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (myMemberRes.rows.length === 0 || myMemberRes.rows[0].role !== GuildRole.LEADER) {
+            await client.query('ROLLBACK');
             return res.status(403).json({ message: "Tylko lider może usuwać przedmioty." });
         }
-        await pool.query('DELETE FROM guild_armory_items WHERE id = $1 AND guild_id = $2', [armoryId, myMemberRes.rows[0].guild_id]);
+        const guildId = myMemberRes.rows[0].guild_id;
+
+        // 2. Pobierz przedmiot, aby poznać właściciela
+        const itemRes = await client.query(
+            'SELECT item_data, owner_id FROM guild_armory_items WHERE id = $1 AND guild_id = $2 FOR UPDATE',
+            [armoryId, guildId]
+        );
+        if (itemRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: "Przedmiot nie znaleziony." });
+        }
+
+        const { item_data: item, owner_id: ownerId } = itemRes.rows[0];
+
+        // 3. Usuń ze zbrojowni
+        await client.query('DELETE FROM guild_armory_items WHERE id = $1', [armoryId]);
+
+        // 4. Zwróć przedmiot właścicielowi
+        const ownerCharRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [ownerId]);
+        if (ownerCharRes.rows.length > 0) {
+            const ownerChar = ownerCharRes.rows[0].data;
+            const backpackCap = getBackpackCapacity(ownerChar);
+
+            if (ownerChar.inventory.length < backpackCap) {
+                // Do plecaka
+                ownerChar.inventory.push(item);
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(ownerChar), ownerId]);
+            } else {
+                // Plecak pełny -> Wyślij pocztą systemową (ITEM_RETURNED pozwala na claim)
+                await enforceInboxLimit(client, ownerId);
+                const body = { 
+                    type: 'ITEM_RETURNED', 
+                    itemName: 'Zwrot ze zbrojowni gildii', 
+                    item 
+                };
+                await client.query(
+                    `INSERT INTO messages (recipient_id, sender_name, message_type, subject, body) 
+                     VALUES ($1, 'Gildia', 'market_notification', 'Twój przedmiot został zwrócony ze zbrojowni', $2)`,
+                    [ownerId, JSON.stringify(body)]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
         res.sendStatus(204);
     } catch (err) {
-        res.status(500).json({ message: "Błąd serwera." });
+        await client.query('ROLLBACK');
+        console.error("Armory Delete/Return Error:", err);
+        res.status(500).json({ message: "Błąd podczas usuwania przedmiotu." });
+    } finally {
+        client.release();
     }
 });
 
