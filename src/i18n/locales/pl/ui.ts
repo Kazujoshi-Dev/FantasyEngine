@@ -1,3 +1,4 @@
+
 export default {
     sidebar: {
         title: 'Kroniki Mroku',
@@ -86,13 +87,7 @@ export default {
         universal: 'Uniwersalne',
         class: 'Klasowe',
         race: 'Rasowe',
-        description: `Uniwersytet Mrocznych Rzemiosł
-
-Ukryty w mglistej Dolinie Cieni uniwersytet szkoli tych, którzy chcą przetrwać w bezlitosnym świecie. W jego murach magia splata się z brutalną praktyką, a nauka odbywa się zarówno w bibliotekach pełnych zakazanych ksiąg, jak i w katakumbach służących jako sale ćwiczeń.
-
-Studenci uczą się magii przetrwania, walki z potworami, alchemii nocnej oraz sztuki obcowania z duchami i zmarłymi. Kadra wymaga nie tylko wiedzy, ale i odwagi wielu wykładów nie kończy się w komplecie.
-
-To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodzą stąd przygotowani na mrok, który czyha poza bramami uczelni.`
+        underConstruction: 'Ta sekcja jest w budowie.',
     },
     options: {
         title: 'Opcje',
@@ -510,7 +505,6 @@ To miejsce, gdzie każdy rok nauki jest testem charakteru, a absolwenci wychodz�
         completed: 'Ukończono',
         objectiveKill: 'Pokonaj: {amount}x {targetName}',
         objectiveGather: 'Zbierz: {amount}x {targetName}',
-        /* Fix duplicate property 'objectiveGatherResource' by removing the extra entry */
         objectiveGatherResource: 'Zbierz: {amount}x {targetName}',
         objectivePayGold: 'Zapłać: {amount} złota',
         completions: 'Ukończono: {count} / {total}'

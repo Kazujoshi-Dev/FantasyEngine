@@ -219,45 +219,9 @@ export const University: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     };
 
-    const universityImageUrl = gameData.settings?.universityImage;
-
     return (
         <ContentPanel title={t('university.title')}>
-            {/* Nowy Lore-Header Card */}
-            <div className="bg-slate-900/60 p-6 rounded-2xl border border-indigo-500/20 mb-8 relative overflow-hidden group shadow-2xl">
-                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
-                    <BookOpenIcon className="h-64 w-64 text-indigo-400" />
-                </div>
-                
-                <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center lg:items-start">
-                    <div className="flex-1">
-                        <h4 className="text-indigo-400 font-black uppercase tracking-widest text-[11px] mb-4 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                            Kronika Uniwersytetu
-                        </h4>
-                        <div className="max-h-[120px] lg:max-h-[180px] overflow-y-auto pr-4 custom-scrollbar">
-                            <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap">
-                                {t('university.description')}
-                            </p>
-                        </div>
-                    </div>
-
-                    {universityImageUrl && (
-                        <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
-                            <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-indigo-500/30 shadow-[0_0_25px_rgba(79,70,229,0.15)] group-hover:shadow-[0_0_35px_rgba(79,70,229,0.25)] transition-all duration-500">
-                                <img 
-                                    src={universityImageUrl} 
-                                    alt="Uniwersytet Mrocznych Rzemiosł" 
-                                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Nowa Nawigacja Typów Umiejętności */}
+            {/* Nawigacja Typów Umiejętności */}
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 mb-8 gap-4">
                 <div className="flex gap-2">
                     {(Object.values(SkillType) as SkillType[]).map(type => (
@@ -279,7 +243,7 @@ export const University: React.FC = () => {
             </div>
 
             {/* Siatka Umiejętności */}
-            <div className="h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
                 {filteredSkills.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-30">
                         <StarIcon className="h-16 w-16 mb-4" />
