@@ -18,11 +18,11 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
         const { name, value, type } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const isChecked = (e.target as HTMLInputElement).checked;
-        const isNumeric = ['value', 'requiredLevel'].includes(name);
+        const isNumeric = ['value', 'requiredLevel', 'blockChance'].includes(name);
 
         setFormData(prev => ({
             ...prev,
-            [name]: isCheckbox ? isChecked : (isNumeric ? parseInt(value, 10) || 0 : value)
+            [name]: isCheckbox ? isChecked : (isNumeric ? parseFloat(value) || 0 : value)
         }));
     };
     
@@ -94,6 +94,21 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div><label>{t('admin.item.iconPath')}:<input name="icon" value={formData.icon || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.value')}:<input name="value" type="number" value={formData.value || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.levelRequirement')}:<input name="requiredLevel" type="number" value={formData.requiredLevel || 1} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+            </fieldset>
+
+            {/* Defensive Section */}
+            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border p-4 rounded-md border-slate-700">
+                <legend className="px-2 font-semibold">Właściwości Obronne</legend>
+                <div className="flex items-center gap-2 mt-6">
+                    <input name="isShield" type="checkbox" checked={formData.isShield || false} onChange={handleChange} className="w-4 h-4" />
+                    <label className="text-sm font-bold text-sky-400">Tarcza</label>
+                </div>
+                {formData.isShield && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300">Szansa na Blok (%)</label>
+                        <input name="blockChance" type="number" step="0.1" value={formData.blockChance || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
+                    </div>
+                )}
             </fieldset>
 
             {/* Bonuses */}
