@@ -87,14 +87,13 @@ export const performAttack = <
     let magicAttackType: MagicAttackType | undefined = undefined;
     let useMagicAttack = false;
     let weaponName: string | undefined = undefined;
-    let arcaneMissileBonusDamage = 0;
+    let bonusDamage = 0;
     let manaSpent = 0;
 
     let tempDodgeChance: number = defender.stats.dodgeChance || 0;
     if (options.ignoreDodge || defender.statusEffects.some(e => e.type === 'frozen_no_dodge')) {
         tempDodgeChance = 0;
     } else {
-        // Hard Cap at 30% for balance
         tempDodgeChance = Math.min(30, tempDodgeChance);
     }
 
@@ -185,7 +184,6 @@ export const performAttack = <
         damageReduced += armorReduction;
     }
 
-    // Aplikacja redukcji obrażeń (np. z zestawów)
     const reductionPercent = (defender.stats as CharacterStats).damageReductionPercent || 0;
     if (reductionPercent > 0) {
         const reductionVal = Math.floor(damage * (reductionPercent / 100));
@@ -223,7 +221,7 @@ export const performAttack = <
             const context: SpellContext = { attacker, defender, turn, baseDamage: damage, allEnemies };
             const result = spellLogic(context);
             logs.push(...result.logs.map(log => ({ ...log, ...getHealthState(attacker, defender) })));
-            if (result.bonusDamage) arcaneMissileBonusDamage = result.bonusDamage;
+            if (result.bonusDamage) bonusDamage = result.bonusDamage;
             if (result.healthGained) healthGained += result.healthGained;
             if (result.damageMultiplier) damage = Math.floor(damage * result.damageMultiplier);
             if (result.aoeData) aoeData = result.aoeData;
@@ -247,9 +245,9 @@ export const performAttack = <
         }
     }
     
-    const totalDamage = damage + arcaneMissileBonusDamage;
+    const totalDamage = damage + bonusDamage;
     defender.currentHealth = Math.max(0, defender.currentHealth - totalDamage);
-    const finalLogEntry: CombatLogEntry = { turn, attacker: attacker.name, defender: defender.name, action: useMagicAttack ? 'magicAttack' : 'attacks', damage: totalDamage, bonusDamage: arcaneMissileBonusDamage > 0 ? arcaneMissileBonusDamage : undefined, isCrit, damageReduced: damageReduced > 0 ? damageReduced : undefined, healthGained: healthGained > 0 ? healthGained : undefined, manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined, magicAttackType, weaponName, manaSpent: manaSpent > 0 ? manaSpent : undefined, ...getHealthState(attacker, defender), };
+    const finalLogEntry: CombatLogEntry = { turn, attacker: attacker.name, defender: defender.name, action: useMagicAttack ? 'magicAttack' : 'attacks', damage: totalDamage, bonusDamage: bonusDamage > 0 ? bonusDamage : undefined, isCrit, damageReduced: damageReduced > 0 ? damageReduced : undefined, healthGained: healthGained > 0 ? healthGained : undefined, manaGained: manaGainedFromSteal > 0 ? manaGainedFromSteal : undefined, magicAttackType, weaponName, manaSpent: manaSpent > 0 ? manaSpent : undefined, ...getHealthState(attacker, defender), };
     logs.push(finalLogEntry);
     return { logs, attackerState: attacker, defenderState: defender, aoeData, chainData };
 };

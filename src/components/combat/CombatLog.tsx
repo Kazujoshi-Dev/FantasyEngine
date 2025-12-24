@@ -69,13 +69,14 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             );
             break;
         case 'magicAttack':
-            const spellName = log.magicAttackType ? t(`item.magic.${log.magicAttackType}`) : 'Magia';
+            const spellName = log.magicAttackType ? t(`item.magic.${log.magicAttackType}`) : ' заклинание';
+            const manaCostText = log.manaSpent ? ` [-${log.manaSpent}MP]` : '';
             actionText = (
                 <span>
-                    {t('expedition.casts')} {spellName} {t('expedition.on')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan}
+                    {t('expedition.casts')} <span className="font-black underline decoration-purple-500/50">{spellName}</span>{manaCostText} {t('expedition.on')} <span className="font-bold text-gray-400">{log.defender}</span> {hpSpan}
                 </span>
             );
-            textColor = 'text-purple-300';
+            textColor = 'text-purple-300 drop-shadow-[0_0_2px_rgba(168,85,247,0.4)]';
             break;
         case 'dodge':
             actionText = `${t('expedition.dodge')} ${log.attacker}`;
@@ -98,11 +99,12 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             const effectName = t(`expedition.combatLog.effect.${log.effectApplied || 'applied'}`, { 
                 target: log.defender, 
                 damage: log.damage,
-                stacks: log.damage
+                stacks: log.damage,
+                attacker: log.attacker
             });
             return (
-                <div className="text-xs text-yellow-500 italic text-center">
-                    {effectName} {log.damage && log.damage > 0 ? hpSpan : null}
+                <div className="text-[11px] text-yellow-500 italic text-center py-0.5 bg-yellow-500/5 rounded">
+                    ✨ {effectName} {log.damage && log.damage > 0 ? hpSpan : null}
                 </div>
             );
         case 'specialAttackLog': {
@@ -183,6 +185,7 @@ export const CombatLogRow: React.FC<CombatLogRowProps> = ({ log, characterName, 
             {log.damage !== undefined && (
                 <>
                     {t('expedition.dealing')} <span className={damageClass}>{log.damage}</span> {t('expedition.damage')}
+                    {log.bonusDamage && <span className="text-purple-400 text-xs ml-1" title="Bonusowe obrażenia magiczne">(+{log.bonusDamage})</span>}
                     {log.isCrit && <span className="text-yellow-400 ml-1 font-bold">{t('expedition.critical')}</span>}
                 </>
             )}
