@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -87,8 +86,19 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         const tower = gameData.towers.find(t => t.id === towerId);
         if (!tower) throw new Error("Wieża nie istnieje.");
 
-        const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
+        const charRes = await client.query(`
+            SELECT c.data, g.buildings, g.active_buffs 
+            FROM characters c 
+            LEFT JOIN guild_members gm ON c.user_id = gm.user_id
+            LEFT JOIN guilds g ON gm.guild_id = g.id
+            WHERE c.user_id = $1 FOR UPDATE OF c
+        `, [userId]);
+        
+        if (charRes.rows.length === 0) throw new Error("Character not found");
+        
         const char = charRes.rows[0].data as PlayerCharacter;
+        const guildBuildings = charRes.rows[0].buildings || {};
+        const activeBuffs = charRes.rows[0].active_buffs || [];
 
         // Koszt wejścia ustalony w edytorze
         const entryCost = tower.entryEnergyCost || 0;
@@ -97,15 +107,26 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
             throw new Error(`Brak energii na wejście do wieży (Wymagane: ${entryCost}).`);
         }
 
-        const derived = calculateDerivedStatsOnServer(char, gameData.itemTemplates, gameData.affixes, 0, 0, gameData.skills);
+        // Fix: Używamy pełnych danych do wyliczenia statystyk, aby Max HP było spójne z widokiem w mieście
+        const derived = calculateDerivedStatsOnServer(
+            char, 
+            gameData.itemTemplates, 
+            gameData.affixes, 
+            guildBuildings.barracks || 0, 
+            guildBuildings.shrine || 0, 
+            gameData.skills,
+            activeBuffs,
+            gameData.itemSets || []
+        );
 
         char.stats.currentEnergy -= entryCost;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
 
+        // Fix: Inicjalizujemy current_health rzeczywistym HP gracza, a nie max HP (aby uniknąć darmowego leczenia)
         const resRun = await client.query(
             `INSERT INTO tower_runs (user_id, tower_id, current_floor, current_health, current_mana, accumulated_rewards, status)
              VALUES ($1, $2, $3, $4, $5, $6, 'IN_PROGRESS') RETURNING *`,
-            [userId, towerId, 1, derived.stats.maxHealth, derived.stats.maxMana, JSON.stringify({ gold: 0, experience: 0, items: [], essences: {} })]
+            [userId, towerId, 1, char.stats.currentHealth, char.stats.currentMana, JSON.stringify({ gold: 0, experience: 0, items: [], essences: {} })]
         );
 
         await client.query('COMMIT');
@@ -175,7 +196,17 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             return template ? { ...template, uniqueId: randomUUID() } : null;
         }).filter(e => e !== null) as Enemy[];
 
-        const derivedChar = calculateDerivedStatsOnServer(charData, gameData.itemTemplates, gameData.affixes, guildBuildings.barracks || 0, guildBuildings.shrine || 0, gameData.skills, activeBuffs);
+        // Fix: Dodano parametr itemSets, aby statystyki były identyczne z widokiem postaci
+        const derivedChar = calculateDerivedStatsOnServer(
+            charData, 
+            gameData.itemTemplates, 
+            gameData.affixes, 
+            guildBuildings.barracks || 0, 
+            guildBuildings.shrine || 0, 
+            gameData.skills, 
+            activeBuffs,
+            gameData.itemSets || []
+        );
         
         const combatReadyChar = {
             ...derivedChar,
@@ -193,8 +224,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         let rewards = activeRun.accumulated_rewards || { gold: 0, experience: 0, items: [], essences: {} };
 
         if (victory) {
-            // Zabierz energię TYLKO przy zwycięstwie lub jakiejkolwiek próbie?
-            // Standard RPG: Energia pobierana w momencie rozpoczęcia akcji.
+            // Zabierz energię TYLKO przy zwycięstwie
             charData.stats.currentEnergy -= floorConfig.energyCost;
 
             rewards.gold += (floorConfig.guaranteedReward?.gold || 0);
@@ -281,7 +311,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 while (charData.experience >= charData.experienceToNextLevel) {
                     charData.experience -= charData.experienceToNextLevel;
                     charData.level += 1;
-                    charData.stats.statPoints += 1;
+                    charData.stats.statPoints += 2;
                     charData.experienceToNextLevel = Math.floor(100 * Math.pow(charData.level, 1.3));
                 }
 
@@ -299,7 +329,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             res.json({ victory: true, combatLog, rewards, isTowerComplete, enemies: encounteredEnemies, currentFloor: isTowerComplete ? activeRun.current_floor : activeRun.current_floor + 1 });
 
         } else {
-            // Przy porażce też zabieramy energię za podjętą próbę
+            // Przy porażce też zabieramy energię
             charData.stats.currentEnergy -= floorConfig.energyCost;
             await client.query("UPDATE tower_runs SET status = 'FAILED' WHERE id = $1", [activeRun.id]);
             charData.stats.currentHealth = 0;
@@ -336,11 +366,10 @@ router.post('/retreat', authenticateToken, async (req: any, res: any) => {
             (char.resources as any)[k] = ((char.resources as any)[k] || 0) + (v as number);
         });
 
-        // Fix: Use 'char' instead of undefined 'charData'
         while (char.experience >= char.experienceToNextLevel) {
             char.experience -= char.experienceToNextLevel;
             char.level += 1;
-            char.stats.statPoints += 1;
+            char.stats.statPoints += 2;
             char.experienceToNextLevel = Math.floor(100 * Math.pow(char.level, 1.3));
         }
 
