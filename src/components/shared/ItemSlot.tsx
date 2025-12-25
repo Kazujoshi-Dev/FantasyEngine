@@ -457,7 +457,7 @@ export const ItemTooltip: React.FC<{
     onMouseEnter?: () => void; 
     onMouseLeave?: () => void; 
 }> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose, onMouseEnter, onMouseLeave }) => { 
-    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', opacity: 0 }); 
+    const [style, setStyle] = useState<React.CSSProperties>({ width: '300px' }); 
     const tooltipRef = useRef<HTMLDivElement>(null);
     
     const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
@@ -465,94 +465,40 @@ export const ItemTooltip: React.FC<{
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
     useLayoutEffect(() => { 
-        // Stały rozmiar tooltipów
         const tooltipWidth = actualCompareWith ? 600 : 300;
+        setStyle({ width: `${tooltipWidth}px` });
+    }, [actualCompareWith]); 
 
-        // Tryb modalny (wyśrodkowany z tłem) lub klikalny
-        if (isCentered || onClose) { 
-            setStyle({ 
-                position: 'fixed', 
-                top: '50%', 
-                left: '50%', 
-                transform: 'translate(-50%, -50%)', 
-                visibility: 'visible', 
-                opacity: 1,
-                display: 'flex', 
-                width: `${tooltipWidth}px`, 
-                zIndex: 99999, 
-                pointerEvents: 'auto' 
-            }); 
-            return; 
-        } 
-        
-        // Zawsze na środku ekranu dla trybu hover, aby zapobiec migotaniu i ułatwić porównywanie.
-        // Używamy transform: translate(-50%, -50%) dla idealnego centrowania matematycznego.
-        setStyle({ 
-            position: 'fixed', 
-            top: '50%', 
-            left: '50%', 
-            transform: 'translate(-50%, -50%)', 
-            visibility: 'visible', 
-            opacity: 1,
-            display: 'flex', 
-            width: `${tooltipWidth}px`, 
-            zIndex: 99999, 
-            pointerEvents: 'none' // PRZEZROCZYSTOŚĆ DLA KURZORA - tooltip nie blokuje myszki
-        });
-    }, [actualCompareWith, instance.uniqueId, isCentered, onClose]); 
-
-    if (isCentered || onClose) { 
-        return ( 
-            <div className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} onClick={onClose} > 
-                <div 
-                    ref={tooltipRef}
-                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-[200] pointer-events-auto overflow-hidden" 
-                    style={{ width: style.width, maxWidth: '95vw' }} 
-                    onClick={e => e.stopPropagation()} 
-                > 
-                    {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
-                    {actualCompareWith && compareTemplate && ( 
-                        <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
-                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
-                                <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
-                            </div> 
-                        </div> 
-                    )} 
-                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col max-h-full`}> 
-                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
-                            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
-                        </div> 
-                    </div> 
-                </div> 
-            </div> 
-        ); 
-    } 
-
+    // GWARANTOWANE CENTROWANIE: Używamy kontenera fixed inset-0 z flexboxem.
+    // To ignoruje transformacje rodziców i zawsze trafia w środek ekranu.
     return ( 
-        <div className="fixed inset-0 z-[99998] pointer-events-none">
+        <div 
+            className={`fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} 
+            onClick={onClose} 
+        > 
             <div 
                 ref={tooltipRef}
-                onMouseEnter={onMouseEnter} 
-                onMouseLeave={onMouseLeave} 
-                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20`} 
-                style={style} 
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+                className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20" 
+                style={{ width: style.width, maxWidth: '95vw', pointerEvents: onClose ? 'auto' : 'none' }} 
+                onClick={e => e.stopPropagation()} 
             > 
-                <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
-                    {actualCompareWith && compareTemplate && ( 
-                        <div className="w-1/2 border-r border-white/5 pr-3 flex flex-col"> 
-                            <div className="flex-grow overflow-y-auto custom-scrollbar"> 
-                                <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
-                            </div> 
-                        </div> 
-                    )} 
-                    <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col`}> 
+                {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
+                {actualCompareWith && compareTemplate && ( 
+                    <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
                         <div className="flex-grow overflow-y-auto custom-scrollbar"> 
-                            <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
+                            <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                         </div> 
+                    </div> 
+                )} 
+                <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col max-h-full`}> 
+                    <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                        <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
                     </div> 
                 </div> 
             </div> 
-        </div>
+        </div> 
     ); 
 };
 
