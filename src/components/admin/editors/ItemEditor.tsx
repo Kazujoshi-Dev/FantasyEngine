@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ItemTemplate, EquipmentSlot, ItemRarity, ItemCategory, GrammaticalGender, CharacterStats, MagicAttackType } from '../../../types';
+import { ItemTemplate, EquipmentSlot, ItemRarity, ItemCategory, GrammaticalGender, CharacterStats, MagicAttackType, Gender } from '../../../types';
 import { useTranslation } from '../../../contexts/LanguageContext';
 
 interface ItemEditorProps {
@@ -12,7 +12,10 @@ interface ItemEditorProps {
 
 export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, isEditing }) => {
     const { t } = useTranslation();
-    const [formData, setFormData] = useState<Partial<ItemTemplate>>(item);
+    const [formData, setFormData] = useState<Partial<ItemTemplate>>({
+        requiredGender: null,
+        ...item
+    });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -89,6 +92,17 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div className="md:col-span-3"><label>{t('item.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.category')}:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}</select></label></div>
                 <div><label>{t('item.rarity')}:<select name="rarity" value={formData.rarity || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}</select></label></div>
+                
+                {/* Gender Constraints */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 uppercase font-bold">Wymagana Płeć:</label>
+                    <select name="requiredGender" value={formData.requiredGender || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">
+                        <option value="">-- Dowolna --</option>
+                        <option value={Gender.Male}>{t('gender.Male')}</option>
+                        <option value={Gender.Female}>{t('gender.Female')}</option>
+                    </select>
+                </div>
+
                 <div><label>{t('admin.item.grammaticalGender')}:<select name="gender" value={formData.gender || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">{Object.values(GrammaticalGender).map(g => <option key={g} value={g}>{g}</option>)}</select></label></div>
                 <div><label>{t('admin.item.iconPath')}:<input name="icon" value={formData.icon || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.value')}:<input name="value" type="number" value={formData.value || 0} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>

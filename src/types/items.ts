@@ -1,6 +1,6 @@
 
 import { CharacterStats } from './character.js';
-import { EssenceType, ResourceCost } from './common.js';
+import { EssenceType, ResourceCost, Gender } from './common.js';
 
 export enum ItemRarity {
     Common = 'Common',
@@ -65,7 +65,8 @@ export interface ItemTemplate {
     rarity: ItemRarity;
     value: number;
     requiredLevel: number;
-    gender: GrammaticalGender;
+    gender: GrammaticalGender; // Używane do odmiany nazw (np. Miecz vs Tarcza)
+    requiredGender?: Gender | null; // Ograniczenie płci użytkownika
     
     damageMin?: number;
     damageMax?: number;

@@ -6,6 +6,7 @@ export default {
         slotLabel: 'Slot',
         levelRequirement: 'Wymagany Poziom',
         requirements: 'Wymagania',
+        requiredGender: 'Wymagana Płeć',
         damage: 'Obrażenia',
         damageMin: 'Min. Obrażenia',
         damageMax: 'Maks. Obrażenia',
