@@ -37,7 +37,6 @@ export const useTowerGame = () => {
     });
 
     const fetchData = useCallback(async () => {
-        // Nie przerywamy pobierania, jeśli mamy tylko floorReport (gracz musi widzieć postęp)
         if (state.endGameSummary || state.pendingFinalVictory) return;
 
         setState(prev => ({ ...prev, loading: prev.towers.length === 0 })); 
@@ -56,7 +55,6 @@ export const useTowerGame = () => {
         }
     }, [state.endGameSummary, state.pendingFinalVictory]);
 
-    // KLUCZOWA POPRAWKA: hook musi reagować na zmianę lokacji postaci!
     useEffect(() => {
         fetchData();
     }, [fetchData, character?.currentLocationId]);
@@ -65,13 +63,15 @@ export const useTowerGame = () => {
         setState(prev => ({ ...prev, loading: true }));
         try {
             const res = await api.startTower(towerId);
+            // Ustawiamy od razu stan, ale też pobieramy świeże dane aby upewnić się, że wrogowie są widoczni
             setState(prev => ({
                 ...prev,
                 activeRun: res.activeRun,
                 activeTower: res.tower,
                 loading: false
             }));
-            api.getCharacter().then(updateCharacter); 
+            updateCharacter(character!); // Wyzwalacz odświeżenia przez context
+            await fetchData(); // Dodatkowe odświeżenie listy i stanu biegu
         } catch (e: any) {
             alert(e.message);
             setState(prev => ({ ...prev, loading: false }));

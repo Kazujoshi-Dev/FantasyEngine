@@ -1,10 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ActiveTowerRun, Tower as TowerType, PlayerCharacter, GameData, ItemInstance, ItemTemplate, EssenceType, ItemRarity, Enemy } from '../../types';
 import { BoltIcon } from '../icons/BoltIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { CoinsIcon } from '../icons/CoinsIcon';
-import { ItemDetailsPanel, ItemListItem, rarityStyles } from '../shared/ItemSlot';
+import { ItemDetailsPanel, ItemListItem, rarityStyles, ItemTooltip } from '../shared/ItemSlot';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { EnemyPreview } from './EnemyPreview';
 
@@ -31,49 +31,61 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     activeRun, activeTower, character, gameData, onFight, onRetreat, isMoving, progress 
 }) => {
     const { t } = useTranslation();
-    const [hoveredItem, setHoveredItem] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+    const [hoveredItemData, setHoveredItemData] = useState<{ item: ItemInstance, template: ItemTemplate, x: number, y: number } | null>(null);
 
-    const getFloorEnemies = useCallback((floorNum: number) => {
-        if (!activeTower || !gameData) return [];
-        const floor = activeTower.floors.find(f => f.floorNumber === floorNum);
+    // Wyliczanie wrogów dla obecnego piętra
+    const currentFloorEnemies = useMemo(() => {
+        if (!activeTower || !gameData || !activeRun) return [];
+        const floor = activeTower.floors.find(f => Number(f.floorNumber) === Number(activeRun.currentFloor));
         if (!floor) return [];
-        return floor.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(e => !!e) as Enemy[];
-    }, [activeTower, gameData]);
+        return floor.enemies
+            .map(fe => gameData.enemies.find(e => e.id === fe.enemyId))
+            .filter((e): e is Enemy => !!e);
+    }, [activeTower, gameData, activeRun.currentFloor]);
 
-    // FIX: Rygorystyczne rzutowanie na Number, aby wyeliminować NaN
+    // Wyliczanie wrogów dla następnego piętra
+    const nextFloorEnemies = useMemo(() => {
+        if (!activeTower || !gameData || !activeRun) return [];
+        const floor = activeTower.floors.find(f => Number(f.floorNumber) === Number(activeRun.currentFloor) + 1);
+        if (!floor) return [];
+        return floor.enemies
+            .map(fe => gameData.enemies.find(e => e.id === fe.enemyId))
+            .filter((e): e is Enemy => !!e);
+    }, [activeTower, gameData, activeRun.currentFloor]);
+
     const curH = Number(activeRun.currentHealth) || 0;
     const maxH = Number(character.stats.maxHealth) || 1;
     const curM = Number(activeRun.currentMana) || 0;
     const maxM = Number(character.stats.maxMana) || 1;
 
-    const hpPercent = (curH / maxH) * 100;
-    const manaPercent = (curM / maxM) * 100;
+    const hpPercent = Math.max(0, Math.min(100, (curH / maxH) * 100));
+    const manaPercent = Math.max(0, Math.min(100, (curM / maxM) * 100));
     const rewards = activeRun.accumulatedRewards;
     
-    const currentFloorConfig = activeTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
-    const currentFloorEnemies = getFloorEnemies(activeRun.currentFloor);
-    const nextFloorEnemies = getFloorEnemies(activeRun.currentFloor + 1);
+    const currentFloorConfig = activeTower.floors.find(f => Number(f.floorNumber) === Number(activeRun.currentFloor));
     
     const floorCost = currentFloorConfig?.energyCost || 0;
     const floorDuration = currentFloorConfig?.duration || 0;
     const canAfford = character.stats.currentEnergy >= floorCost;
 
+    const handleItemMouseEnter = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
+        setHoveredItemData({ item, template, x: e.clientX, y: e.clientY });
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             
-            {/* Tooltip */}
-             {hoveredItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-                    <div className="bg-slate-900 border-2 border-slate-600 rounded-xl p-4 shadow-2xl max-w-sm w-full pointer-events-auto relative animate-fade-in">
-                         <ItemDetailsPanel 
-                            item={hoveredItem.item} 
-                            template={hoveredItem.template} 
-                            affixes={gameData.affixes} 
-                            size="small"
-                            compact={true}
-                         />
-                    </div>
-                </div>
+            {/* Standardowy Tooltip zapobiegający migotaniu */}
+             {hoveredItemData && (
+                <ItemTooltip 
+                    instance={hoveredItemData.item}
+                    template={hoveredItemData.template}
+                    affixes={gameData.affixes}
+                    itemTemplates={gameData.itemTemplates}
+                    x={hoveredItemData.x}
+                    y={hoveredItemData.y}
+                    onMouseLeave={() => setHoveredItemData(null)}
+                />
             )}
 
             {/* Left: Status & Progress */}
@@ -81,7 +93,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                 <div>
                     <h3 className="text-2xl font-bold text-white mb-2">Piętro {activeRun.currentFloor} <span className="text-gray-500 text-lg">/ {activeTower.totalFloors}</span></h3>
                     <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden mb-6 border border-slate-600">
-                        <div className="bg-purple-600 h-full transition-all" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
+                        <div className="bg-purple-600 h-full transition-all duration-700" style={{ width: `${(activeRun.currentFloor / activeTower.totalFloors) * 100}%` }}></div>
                     </div>
 
                     <div className="space-y-4 mb-6">
@@ -101,7 +113,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                                 <span className="text-white font-mono">{Math.ceil(curM)} / {maxM}</span>
                             </div>
                             <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                                <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
+                                <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${manaPercent}%` }}></div>
                             </div>
                         </div>
                          <div className="bg-slate-800/50 p-2 rounded flex justify-between items-center text-sm border border-slate-700/50">
@@ -192,8 +204,8 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                             <div 
                                 key={item.uniqueId} 
                                 className="relative group cursor-help"
-                                onMouseEnter={() => setHoveredItem({ item, template })}
-                                onMouseLeave={() => setHoveredItem(null)}
+                                onMouseEnter={(e) => handleItemMouseEnter(item, template, e)}
+                                onMouseLeave={() => setHoveredItemData(null)}
                             >
                                 <ItemListItem 
                                     item={item} 
