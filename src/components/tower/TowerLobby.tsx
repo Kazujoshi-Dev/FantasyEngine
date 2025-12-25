@@ -5,7 +5,7 @@ import { BoltIcon } from '../icons/BoltIcon';
 import { ShieldIcon } from '../icons/ShieldIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
 import { StarIcon } from '../icons/StarIcon';
-import { rarityStyles } from '../shared/ItemSlot';
+import { rarityStyles, ItemListItem, ItemTooltip } from '../shared/ItemSlot';
 import { useTranslation } from '../../contexts/LanguageContext';
 
 interface TowerLobbyProps {
@@ -35,16 +35,16 @@ export const TowerLobby: React.FC<TowerLobbyProps> = ({ towers, character, gameD
 
     const handleStartClick = () => {
         if (!selectedTower) return;
-        const floor1Cost = selectedTower.floors.find(f => f.floorNumber === 1)?.energyCost || 0;
+        const entryCost = selectedTower.entryEnergyCost || 0;
         
-        if (!confirm('Czy na pewno chcesz wejść do Wieży? Pamiętaj: zdrowie się nie regeneruje, a porażka oznacza utratę łupów!')) return;
+        if (!confirm(`Czy na pewno chcesz wejść do Wieży? Koszt wejścia: ${entryCost} Energii. Pamiętaj: zdrowie się nie regeneruje, a porażka oznacza utratę łupów!`)) return;
         
-        if (character.stats.currentEnergy < floor1Cost) {
-            alert('Brak energii.');
+        if (character.stats.currentEnergy < entryCost) {
+            alert('Brak energii na wejście.');
             return;
         }
 
-        onStart(selectedTower.id, floor1Cost);
+        onStart(selectedTower.id, entryCost);
     };
 
     return (
@@ -63,7 +63,7 @@ export const TowerLobby: React.FC<TowerLobbyProps> = ({ towers, character, gameD
                     ) : (
                         towers.map(tower => {
                             const isSelected = selectedTowerId === tower.id;
-                            const floor1Cost = tower.floors.find(f => f.floorNumber === 1)?.energyCost || 0;
+                            const entryCost = tower.entryEnergyCost || 0;
                             return (
                                 <button
                                     key={tower.id}
@@ -75,8 +75,8 @@ export const TowerLobby: React.FC<TowerLobbyProps> = ({ towers, character, gameD
                                         <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{tower.totalFloors} Pięter</p>
                                     </div>
                                     <div className="text-right flex-shrink-0 ml-4">
-                                        <span className={`text-sm font-mono font-bold flex items-center gap-1 ${character.stats.currentEnergy >= floor1Cost ? 'text-sky-400' : 'text-red-500'}`}>
-                                            {floor1Cost} <BoltIcon className="h-3 w-3"/>
+                                        <span className={`text-sm font-mono font-bold flex items-center gap-1 ${character.stats.currentEnergy >= entryCost ? 'text-sky-400' : 'text-red-500'}`}>
+                                            {entryCost} <BoltIcon className="h-3 w-3"/>
                                         </span>
                                     </div>
                                 </button>
@@ -120,7 +120,7 @@ export const TowerLobby: React.FC<TowerLobbyProps> = ({ towers, character, gameD
                             <div className="bg-slate-800/60 p-4 rounded-lg border border-slate-700 text-center backdrop-blur-sm">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Koszt Wejścia</p>
                                 <p className="text-sky-400 font-bold font-mono flex items-center justify-center gap-1">
-                                    {(selectedTower.floors.find(f => f.floorNumber === 1)?.energyCost || 0)} <BoltIcon className="h-4 w-4"/>
+                                    {selectedTower.entryEnergyCost || 0} <BoltIcon className="h-4 w-4"/>
                                 </p>
                             </div>
                         </div>
@@ -169,11 +169,11 @@ export const TowerLobby: React.FC<TowerLobbyProps> = ({ towers, character, gameD
                         <div className="relative z-10 mt-6 pt-6 border-t border-slate-700/50">
                             <button 
                                 onClick={handleStartClick}
-                                disabled={character.stats.currentEnergy < (selectedTower.floors.find(f => f.floorNumber === 1)?.energyCost || 0)}
+                                disabled={character.stats.currentEnergy < (selectedTower.entryEnergyCost || 0)}
                                 className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow-xl transition-all transform hover:scale-[1.01] active:scale-95 disabled:bg-slate-700 disabled:text-gray-500 disabled:transform-none flex items-center justify-center gap-3 text-lg uppercase tracking-widest"
                             >
                                 <SwordsIcon className="h-6 w-6"/>
-                                {character.stats.currentEnergy < (selectedTower.floors.find(f => f.floorNumber === 1)?.energyCost || 0) ? 'Brak Energii' : 'Rzuć Wyzwanie'}
+                                {character.stats.currentEnergy < (selectedTower.entryEnergyCost || 0) ? 'Brak Energii' : 'Rzuć Wyzwanie'}
                             </button>
                         </div>
                     </>

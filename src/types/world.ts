@@ -187,6 +187,7 @@ export interface Tower {
     description: string;
     locationId: string;
     totalFloors: number;
+    entryEnergyCost: number;
     floors: TowerFloor[];
     grandPrize?: {
         gold: number;

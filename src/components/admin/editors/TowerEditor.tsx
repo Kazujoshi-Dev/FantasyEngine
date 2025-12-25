@@ -22,6 +22,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
         description: '',
         locationId: '',
         totalFloors: 0,
+        entryEnergyCost: 0,
         floors: [],
         grandPrize: { gold: 0, experience: 0, items: [], essences: {}, randomItemRewards: [] },
         isActive: true,
@@ -98,8 +99,6 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
     const addEssenceToFloor = (floorIndex: number, type: EssenceType) => {
         const floor = formData.floors![floorIndex];
         const currentResources = floor.resourceLootTable || [];
-        // Use ResourceDrop structure: { resource, min, max, weight }
-        // For specific rewards, weight should be 100.
         updateFloor(floorIndex, { 
             resourceLootTable: [...currentResources, { resource: type, min: 1, max: 1, weight: 100 }]
         });
@@ -308,6 +307,10 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                     </select>
                 </div>
                 <div>
+                    <label className="block text-sm text-gray-400 font-bold text-amber-400">Koszt Wejścia (Energia)</label>
+                    <input type="number" className="w-full bg-slate-700 p-2 rounded" value={formData.entryEnergyCost || 0} onChange={e => setFormData({...formData, entryEnergyCost: parseInt(e.target.value)||0})} />
+                </div>
+                <div>
                     <label className="block text-sm text-gray-400">Obrazek (URL)</label>
                     <input className="w-full bg-slate-700 p-2 rounded" value={formData.image || ''} onChange={e => setFormData({...formData, image: e.target.value})} />
                 </div>
@@ -431,7 +434,7 @@ export const TowerEditor: React.FC<TowerEditorProps> = ({ tower, onSave, onCance
                                 
                                 {/* Costs */}
                                  <div className="flex gap-4 mb-3 border-b border-slate-700/50 pb-3">
-                                    <label className="text-xs text-gray-400">Koszt Energii: 
+                                    <label className="text-xs text-gray-400">Energia na piętrze: 
                                         <input type="number" className="w-16 bg-slate-900 p-1 rounded ml-1 text-white" value={floor.energyCost || 0} onChange={e => updateFloor(idx, { energyCost: parseInt(e.target.value)||0 })} />
                                     </label>
                                     <label className="text-xs text-gray-400">Czas (s): 

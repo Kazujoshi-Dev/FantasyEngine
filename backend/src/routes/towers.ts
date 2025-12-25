@@ -90,9 +90,16 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
         const char = charRes.rows[0].data as PlayerCharacter;
 
+        // Koszt wejścia ustalony w edytorze
+        const entryCost = tower.entryEnergyCost || 0;
+
+        if (char.stats.currentEnergy < entryCost) {
+            throw new Error(`Brak energii na wejście do wieży (Wymagane: ${entryCost}).`);
+        }
+
         const derived = calculateDerivedStatsOnServer(char, gameData.itemTemplates, gameData.affixes, 0, 0, gameData.skills);
 
-        char.stats.currentEnergy -= tower.floors[0].energyCost;
+        char.stats.currentEnergy -= entryCost;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
 
         const resRun = await client.query(
@@ -158,6 +165,11 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const activeBuffs = charRes.rows[0].active_buffs || [];
 
+        // Sprawdź energię na piętro
+        if (charData.stats.currentEnergy < floorConfig.energyCost) {
+            throw new Error(`Brak energii na walkę na tym piętrze (Wymagane: ${floorConfig.energyCost}).`);
+        }
+
         const encounteredEnemies: Enemy[] = floorConfig.enemies.map(fe => {
             const template = gameData.enemies.find(e => e.id === fe.enemyId);
             return template ? { ...template, uniqueId: randomUUID() } : null;
@@ -181,6 +193,10 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         let rewards = activeRun.accumulated_rewards || { gold: 0, experience: 0, items: [], essences: {} };
 
         if (victory) {
+            // Zabierz energię TYLKO przy zwycięstwie lub jakiejkolwiek próbie?
+            // Standard RPG: Energia pobierana w momencie rozpoczęcia akcji.
+            charData.stats.currentEnergy -= floorConfig.energyCost;
+
             rewards.gold += (floorConfig.guaranteedReward?.gold || 0);
             rewards.experience += (floorConfig.guaranteedReward?.experience || 0);
             
@@ -192,9 +208,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 rewards.experience += exp;
             });
 
-            // NOWOŚĆ: Przetwarzanie lootTable (Weighted) z piętra
             if (floorConfig.lootTable && floorConfig.lootTable.length > 0) {
-                // Szansa bazowa 50% na przedmiot z tabeli wagowej
                 if (Math.random() < 0.5) {
                     const droppedTemplateId = pickWeighted(floorConfig.lootTable)?.templateId;
                     if (droppedTemplateId) {
@@ -204,7 +218,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 }
             }
 
-            // NOWOŚĆ: Przetwarzanie randomItemRewards (Rzadkość) z piętra
             if (floorConfig.randomItemRewards && floorConfig.randomItemRewards.length > 0) {
                 floorConfig.randomItemRewards.forEach(rir => {
                     if (Math.random() * 100 < rir.chance) {
@@ -241,7 +254,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     rewards.experience += (tower.grandPrize.experience || 0);
                     rewards.items.push(...(tower.grandPrize.items || []).map(i => ({ ...i, uniqueId: randomUUID() })));
                     
-                    // Grand Prize Random Items
                     if (tower.grandPrize.randomItemRewards) {
                         tower.grandPrize.randomItemRewards.forEach(rir => {
                             if (Math.random() * 100 < rir.chance) {
@@ -280,12 +292,15 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                     "UPDATE tower_runs SET current_floor = current_floor + 1, current_health = $1, current_mana = $2, accumulated_rewards = $3 WHERE id = $4",
                     [lastEntry.playerHealth, lastEntry.playerMana, JSON.stringify(rewards), activeRun.id]
                 );
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
             }
 
             await client.query('COMMIT');
             res.json({ victory: true, combatLog, rewards, isTowerComplete, enemies: encounteredEnemies, currentFloor: isTowerComplete ? activeRun.current_floor : activeRun.current_floor + 1 });
 
         } else {
+            // Przy porażce też zabieramy energię za podjętą próbę
+            charData.stats.currentEnergy -= floorConfig.energyCost;
             await client.query("UPDATE tower_runs SET status = 'FAILED' WHERE id = $1", [activeRun.id]);
             charData.stats.currentHealth = 0;
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
@@ -296,7 +311,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
     } catch (err: any) {
         await client.query('ROLLBACK');
         console.error("TOWER FIGHT ERROR:", err);
-        res.status(500).json({ message: err.message });
+        res.status(400).json({ message: err.message });
     } finally {
         client.release();
     }
