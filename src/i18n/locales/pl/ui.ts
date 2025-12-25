@@ -1,4 +1,3 @@
-
 export default {
     sidebar: {
         title: 'Kroniki Mroku',
@@ -52,6 +51,7 @@ export default {
         luck: 'Szczęście',
         health: 'Punkty Życia',
         mana: 'Mana',
+        level: 'Poziom',
         manaRegen: 'Regeneracja Many',
         physicalDamage: 'Obrażenia Fizyczne',
         magicDamage: 'Obrażenia Magiczne',
@@ -255,7 +255,7 @@ export default {
                 stunned: '{target} zostaje ogłuszony!',
                 reduced_attacks: 'Piorun paraliżuje {target}, redukując liczbę ataków!',
                 armor_broken: 'Pancerz {target} zostaje strzaskany!',
-                shadowBoltStack: 'Cień wokえる {attacker} gęstnieje! (Stosy: {stacks})',
+                shadowBoltStack: 'Cień wokół {attacker} gęstnieje! (Stosy: {stacks})',
                 earthquakeSplash: 'Ziemia drży pod całą grupą!',
                 meteorSwarmSplash: 'Deszcz ognia uderza w całą grupą!'
             }

@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet, Gender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -168,20 +167,13 @@ export const ItemDetailsPanel: React.FC<{
     const RequirementsSection: React.FC = () => {
         const reqs = [];
         
-        // 1. Level Requirement
+        // 1. Level Check
         if (template.requiredLevel > 1) {
             const levelMet = !character || character.level >= template.requiredLevel;
-            reqs.push(
-                <div key="req-lvl" className="flex justify-between items-center py-0.5">
-                    <span className="text-gray-500">{t('statistics.level')}:</span>
-                    <span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>
-                        {template.requiredLevel}
-                    </span>
-                </div>
-            );
+            reqs.push(<div key="req-lvl" className="flex justify-between items-center py-0.5"><span className="text-gray-500">{t('statistics.level')}:</span><span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>{template.requiredLevel}</span></div>);
         }
 
-        // 2. Gender Requirement (NEW)
+        // 2. Gender Requirement
         if (template.requiredGender) {
             const genderMet = !character || character.gender === template.requiredGender;
             reqs.push(
@@ -296,13 +288,6 @@ export const ItemDetailsPanel: React.FC<{
                         `}>
                             <img src={template.icon} alt={template.name} className="w-full h-full object-contain bg-slate-950 rounded-lg p-2 shadow-inner" />
                         </div>
-                        {/* CRAFTER BADGE (NEW) */}
-                        {item.crafterName && (
-                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-2 py-1 rounded shadow-lg whitespace-nowrap border border-amber-400/50 z-10 flex items-center gap-1">
-                                <AnvilIcon className="h-2 w-2" />
-                                WYKUTY PRZEZ: {item.crafterName.toUpperCase()}
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -341,7 +326,7 @@ export const ItemDetailsPanel: React.FC<{
                         <div key={set.id} className="mt-3 bg-emerald-950/20 border border-emerald-500/30 rounded-lg p-2.5">
                             <div className="flex justify-between items-center border-b border-emerald-500/20 pb-1 mb-2">
                                 <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">ZESTAW: {set.name.toUpperCase()}</h5>
-                                <span className="text-[9px] font-mono text-emerald-500 font-bold">({currentCount} / {Math.max(...set.tiers.map(t => t.requiredPieces))})</span>
+                                <span className="text-9px] font-mono text-emerald-500 font-bold">({currentCount} / {Math.max(...set.tiers.map(t => t.requiredPieces))})</span>
                             </div>
                             <div className="space-y-2">
                                 {set.tiers.map((tier, tidx) => {
@@ -372,6 +357,18 @@ export const ItemDetailsPanel: React.FC<{
                         </div>
                     );
                 })}
+                
+                {item.crafterName && (
+                    <div className="mt-4 pt-3 border-t border-slate-700/50 flex flex-col items-center">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-900/20 border border-amber-500/30 rounded-full shadow-lg">
+                            <AnvilIcon className="h-3 w-3 text-amber-500" />
+                            <span className="text-[9px] font-black uppercase text-amber-400 tracking-widest whitespace-nowrap">
+                                Wykute przez: {item.crafterName.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 <RequirementsSection />
             </div>
         </div>
@@ -497,26 +494,26 @@ export const ItemTooltip: React.FC<{
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
     useLayoutEffect(() => { 
-        const tooltipWidth = actualCompareWith ? 600 : 300;
+        const tooltipWidth = actualCompareWith ? 700 : 350;
         setStyle({ width: `${tooltipWidth}px` });
     }, [actualCompareWith]); 
 
     return ( 
         <div 
-            className={`fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} 
+            className="fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in bg-black/60 backdrop-blur-sm pointer-events-auto" 
             onClick={onClose} 
         > 
             <div 
                 ref={tooltipRef}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
-                className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20" 
+                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 flex gap-6 max-h-[90vh] relative z-10 overflow-hidden transition-all duration-300 shadow-purple-500/10" 
                 style={{ width: style.width, maxWidth: '95vw', pointerEvents: 'auto' }} 
                 onClick={e => e.stopPropagation()} 
             > 
-                {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
+                {onClose && ( <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-white transition-colors z-20 text-xl"> ✕ </button> )} 
                 {actualCompareWith && compareTemplate && ( 
-                    <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
+                    <div className="w-1/2 border-r border-slate-700/50 pr-6 hidden md:flex flex-col max-h-full"> 
                         <div className="flex-grow overflow-y-auto custom-scrollbar"> 
                             <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
                         </div> 
