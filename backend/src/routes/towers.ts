@@ -281,7 +281,7 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 while (charData.experience >= charData.experienceToNextLevel) {
                     charData.experience -= charData.experienceToNextLevel;
                     charData.level += 1;
-                    charData.stats.statPoints += 2;
+                    charData.stats.statPoints += 1;
                     charData.experienceToNextLevel = Math.floor(100 * Math.pow(charData.level, 1.3));
                 }
 
@@ -336,10 +336,11 @@ router.post('/retreat', authenticateToken, async (req: any, res: any) => {
             (char.resources as any)[k] = ((char.resources as any)[k] || 0) + (v as number);
         });
 
+        // Fix: Use 'char' instead of undefined 'charData'
         while (char.experience >= char.experienceToNextLevel) {
             char.experience -= char.experienceToNextLevel;
             char.level += 1;
-            char.stats.statPoints += 2;
+            char.stats.statPoints += 1;
             char.experienceToNextLevel = Math.floor(100 * Math.pow(char.level, 1.3));
         }
 

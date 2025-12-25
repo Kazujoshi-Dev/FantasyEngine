@@ -187,7 +187,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacte
                             <div>
                                 <h4 className="text-sm font-black text-white mb-1 uppercase tracking-tight">System Atrybutów</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Każdy poziom to 2 punkty statystyk. Wybór rasy definiuje Twoje początkowe predyspozycje, ale to Ty zdecydujesz, jak ukształtować bohatera.
+                                    Każdy poziom to 1 punkt statystyk. Wybór rasy definiuje Twoje początkowe predyspozycje, ale to Ty zdecydujesz, jak ukształtować bohatera.
                                 </p>
                             </div>
                         </div>

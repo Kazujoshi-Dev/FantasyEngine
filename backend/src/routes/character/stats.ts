@@ -58,8 +58,8 @@ router.post('/reset', async (req: any, res: any) => {
         if (character.resources.gold < cost) throw new Error("Brak złota na reset atrybutów.");
         
         // Prawidłowa całkowita pula punktów dla poziomu postaci
-        // Wzór: 20 (startowe) + (Level - 1) * 2
-        const totalPointsForLevel = 20 + (Math.max(1, character.level) - 1) * 2;
+        // Wzór: 20 (startowe) + (Level - 1) * 1 (Było * 2)
+        const totalPointsForLevel = 20 + (Math.max(1, character.level) - 1) * 1;
         
         character.resources.gold -= cost;
         character.stats.statPoints = totalPointsForLevel;

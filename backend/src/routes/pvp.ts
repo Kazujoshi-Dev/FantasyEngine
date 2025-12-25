@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -149,7 +150,7 @@ router.post('/attack/:defenderId', authenticateToken, async (req: any, res: any)
         while (attacker.experience >= attacker.experienceToNextLevel) {
             attacker.experience -= attacker.experienceToNextLevel;
             attacker.level += 1;
-            attacker.stats.statPoints += 2;
+            attacker.stats.statPoints += 1;
             attacker.experienceToNextLevel = Math.floor(100 * Math.pow(attacker.level, 1.3));
         }
 

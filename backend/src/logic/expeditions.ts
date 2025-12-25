@@ -238,7 +238,7 @@ export const processCompletedExpedition = (character: PlayerCharacter, gameData:
     while (finalCharacter.experience >= finalCharacter.experienceToNextLevel) {
         finalCharacter.experience -= finalCharacter.experienceToNextLevel;
         finalCharacter.level += 1;
-        finalCharacter.stats.statPoints += 2; 
+        finalCharacter.stats.statPoints += 1; 
         finalCharacter.experienceToNextLevel = Math.floor(100 * Math.pow(finalCharacter.level, 1.3));
     }
     
