@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { pool } from '../../db.js';
-import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData, Gender } from '../../types.js';
+import { PlayerCharacter, EquipmentSlot, ItemTemplate, CharacterStats, GameData } from '../../types.js';
 import { calculateDerivedStatsOnServer, getBackpackCapacity } from '../../logic/stats.js';
 
 const router = express.Router();
@@ -14,8 +14,10 @@ const canEquip = (character: PlayerCharacter, template: ItemTemplate, totalStats
 
     // 2. Gender Lock Check
     if (template.requiredGender && character.gender !== template.requiredGender) {
-        const requiredLabel = template.requiredGender === Gender.Male ? 'Mężczyzn' : 'Kobiet';
-        return { success: false, message: `Ten przedmiot jest przeznaczony wyłącznie dla ${requiredLabel}.` };
+        return { 
+            success: false, 
+            message: `Ten przedmiot może być używany wyłącznie przez: ${template.requiredGender === 'Male' ? 'Mężczyzn' : 'Kobiety'}.` 
+        };
     }
 
     // 3. Stats Check

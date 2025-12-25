@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet, Gender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -9,6 +8,8 @@ import { SparklesIcon } from '../icons/SparklesIcon';
 import { HandshakeIcon } from '../icons/HandshakeIcon';
 import { PlusIcon } from '../icons/PlusIcon';
 import { MinusIcon } from '../icons/MinusIcon';
+// Fix: Import AnvilIcon which was missing
+import { AnvilIcon } from '../icons/AnvilIcon';
 import { useCharacter } from '../../contexts/CharacterContext';
 
 export const rarityStyles = {
@@ -167,7 +168,7 @@ export const ItemDetailsPanel: React.FC<{
     const RequirementsSection: React.FC = () => {
         const reqs = [];
         
-        // 1. Level Requirement
+        // 1. Level Check
         if (template.requiredLevel > 1) {
             const levelMet = !character || character.level >= template.requiredLevel;
             reqs.push(<div key="req-lvl" className="flex justify-between items-center py-0.5"><span className="text-gray-500">{t('statistics.level')}:</span><span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>{template.requiredLevel}</span></div>);
@@ -288,7 +289,6 @@ export const ItemDetailsPanel: React.FC<{
                         `}>
                             <img src={template.icon} alt={template.name} className="w-full h-full object-contain bg-slate-950 rounded-lg p-2 shadow-inner" />
                         </div>
-                        {item.crafterName && (<div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-lg whitespace-nowrap border border-amber-400/50 z-10">WYKUTY PRZEZ: {item.crafterName.toUpperCase()}</div>)}
                     </div>
                 )}
 
@@ -358,6 +358,19 @@ export const ItemDetailsPanel: React.FC<{
                         </div>
                     );
                 })}
+                
+                {/* Crafter Info Section */}
+                {item.crafterName && (
+                    <div className="mt-4 pt-3 border-t border-slate-700/50 flex flex-col items-center">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-900/20 border border-amber-500/30 rounded-full shadow-lg">
+                            <AnvilIcon className="h-3 w-3 text-amber-500" />
+                            <span className="text-[9px] font-black uppercase text-amber-400 tracking-widest whitespace-nowrap">
+                                Wykute przez: {item.crafterName.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 <RequirementsSection />
             </div>
         </div>

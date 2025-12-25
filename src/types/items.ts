@@ -66,7 +66,7 @@ export interface ItemTemplate {
     value: number;
     requiredLevel: number;
     gender: GrammaticalGender;
-    requiredGender?: Gender | null; // NOWE: Wymagana płeć postaci
+    requiredGender?: Gender | null; // Ograniczenie płci użytkownika
     
     damageMin?: number;
     damageMax?: number;
