@@ -31,7 +31,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     activeRun, activeTower, character, gameData, onFight, onRetreat, isMoving, progress 
 }) => {
     const { t } = useTranslation();
-    const [hoveredItemData, setHoveredItemData] = useState<{ item: ItemInstance, template: ItemTemplate, x: number, y: number } | null>(null);
+    const [hoveredItemData, setHoveredItemData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
 
     // Wyliczanie wrogów dla obecnego piętra
     const currentFloorEnemies = useMemo(() => {
@@ -68,22 +68,20 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     const floorDuration = currentFloorConfig?.duration || 0;
     const canAfford = character.stats.currentEnergy >= floorCost;
 
-    const handleItemMouseMove = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
-        setHoveredItemData({ item, template, x: e.clientX, y: e.clientY });
+    const handleItemMouseEnter = (item: ItemInstance, template: ItemTemplate) => {
+        setHoveredItemData({ item, template });
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             
-            {/* Standardowy Tooltip zapobiegający migotaniu dzięki pointer-events: none */}
+            {/* Tooltip stały na środku ekranu - pointer-events: none zapewnia brak migotania */}
              {hoveredItemData && (
                 <ItemTooltip 
                     instance={hoveredItemData.item}
                     template={hoveredItemData.template}
                     affixes={gameData.affixes}
                     itemTemplates={gameData.itemTemplates}
-                    x={hoveredItemData.x}
-                    y={hoveredItemData.y}
                     onMouseLeave={() => setHoveredItemData(null)}
                 />
             )}
@@ -204,8 +202,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                             <div 
                                 key={item.uniqueId} 
                                 className="relative group cursor-help"
-                                onMouseEnter={(e) => handleItemMouseMove(item, template, e)}
-                                onMouseMove={(e) => handleItemMouseMove(item, template, e)}
+                                onMouseEnter={() => handleItemMouseEnter(item, template)}
                                 onMouseLeave={() => setHoveredItemData(null)}
                             >
                                 <ItemListItem 

@@ -465,6 +465,8 @@ export const ItemTooltip: React.FC<{
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
     useLayoutEffect(() => { 
+        // WYMUSZENIE POZYCJI CENTRALNEJ DLA WSZYSTKICH TOOLTIPÓW PODCZAS HOVERU
+        // Eliminuje migotanie poprzez pointer-events: none i stałą pozycję
         if (isCentered || onClose) { 
             const tooltipWidth = actualCompareWith ? 600 : 300;
             setStyle({ 
@@ -482,44 +484,21 @@ export const ItemTooltip: React.FC<{
             return; 
         } 
         
-        if (x !== undefined && y !== undefined && tooltipRef.current) {
-            const tooltipWidth = actualCompareWith ? 600 : 300;
-            const tooltipHeight = tooltipRef.current.offsetHeight;
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            const padding = 20;
-            const offset = 20;
-
-            let finalX = x + offset;
-            let finalY = y + offset;
-
-            // Horizontal bounds check
-            if (finalX + tooltipWidth + padding > windowWidth) {
-                finalX = x - tooltipWidth - offset;
-            }
-
-            // Vertical bounds check
-            if (finalY + tooltipHeight + padding > windowHeight) {
-                finalY = y - tooltipHeight - offset;
-            }
-
-            // Absolute minimum bounds (don't go off top/left)
-            finalX = Math.max(padding, finalX);
-            finalY = Math.max(padding, finalY);
-
-            setStyle({ 
-                position: 'fixed', 
-                top: `${finalY}px`, 
-                left: `${finalX}px`, 
-                visibility: 'visible', 
-                opacity: 1,
-                display: 'flex', 
-                width: `${tooltipWidth}px`, 
-                zIndex: 99999, 
-                pointerEvents: 'none' 
-            });
-        }
-    }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
+        // Zawsze na środku ekranu dla trybu hover, aby zapobiec migotaniu i ułatwić porównywanie
+        const tooltipWidth = actualCompareWith ? 600 : 300;
+        setStyle({ 
+            position: 'fixed', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)', 
+            visibility: 'visible', 
+            opacity: 1,
+            display: 'flex', 
+            width: `${tooltipWidth}px`, 
+            zIndex: 99999, 
+            pointerEvents: 'none' // PRZEZROCZYSTOŚĆ DLA KURZORA - zapobiega MouseLeave na przedmiocie
+        });
+    }, [actualCompareWith, instance.uniqueId, isCentered, onClose]); 
 
     if (isCentered || onClose) { 
         return ( 
@@ -554,7 +533,7 @@ export const ItemTooltip: React.FC<{
                 ref={tooltipRef}
                 onMouseEnter={onMouseEnter} 
                 onMouseLeave={onMouseLeave} 
-                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden transition-opacity duration-200`} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20`} 
                 style={style} 
             > 
                 <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
