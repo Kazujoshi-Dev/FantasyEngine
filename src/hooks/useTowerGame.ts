@@ -40,13 +40,11 @@ export const useTowerGame = () => {
         // Nie przerywamy pobierania, jeśli mamy tylko floorReport (gracz musi widzieć postęp)
         if (state.endGameSummary || state.pendingFinalVictory) return;
 
-        setState(prev => ({ ...prev, loading: prev.towers.length === 0 })); // Spinner tylko za pierwszym razem
+        setState(prev => ({ ...prev, loading: prev.towers.length === 0 })); 
         try {
             const data = await api.getTowers();
             setState(prev => ({
                 ...prev,
-                // FIX: Nie zerujemy listy wież, jeśli jest aktywny bieg. 
-                // Backend powinien zwracać pełną listę dostępnych wież niezależnie od statusu biegu.
                 towers: data.towers || [],
                 activeRun: data.activeRun || null,
                 activeTower: data.tower || null,
@@ -58,9 +56,10 @@ export const useTowerGame = () => {
         }
     }, [state.endGameSummary, state.pendingFinalVictory]);
 
+    // KLUCZOWA POPRAWKA: hook musi reagować na zmianę lokacji postaci!
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, character?.currentLocationId]);
 
     const startTower = async (towerId: string) => {
         setState(prev => ({ ...prev, loading: true }));
@@ -217,7 +216,6 @@ export const useTowerGame = () => {
 
     const closeSummary = () => {
         setState(prev => ({ ...prev, endGameSummary: null }));
-        // Zmuszamy do natychmiastowego odświeżenia danych wież po zamknięciu podsumowania
         api.getTowers().then(data => {
             setState(p => ({ ...p, towers: data.towers || [], loading: false }));
         });
