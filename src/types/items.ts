@@ -65,8 +65,8 @@ export interface ItemTemplate {
     rarity: ItemRarity;
     value: number;
     requiredLevel: number;
-    gender: GrammaticalGender; // Używane do odmiany nazw (np. Miecz vs Tarcza)
-    requiredGender?: Gender | null; // Ograniczenie płci użytkownika
+    gender: GrammaticalGender;
+    requiredGender?: Gender | null; // NOWE: Wymagana płeć postaci
     
     damageMin?: number;
     damageMax?: number;

@@ -1,5 +1,6 @@
-import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet, Gender } from '../../types';
+
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet, Gender } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
 import { StarIcon } from '../icons/StarIcon'; 
@@ -10,7 +11,6 @@ import { PlusIcon } from '../icons/PlusIcon';
 import { MinusIcon } from '../icons/MinusIcon';
 import { useCharacter } from '../../contexts/CharacterContext';
 
-// Scentralizowane style rzadkości przedmiotów
 export const rarityStyles = {
     [ItemRarity.Common]: { 
         border: 'border-slate-700', 
@@ -49,7 +49,6 @@ export const rarityStyles = {
     },
 };
 
-// Obliczanie sumarycznych statystyk przedmiotu z uwzględnieniem ulepszeń
 const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     const stats: any = {
         damageMin: 0, damageMax: 0, armorBonus: 0, maxHealthBonus: 0,
@@ -95,7 +94,6 @@ const getItemTotalStats = (item: ItemInstance, template: ItemTemplate) => {
     return stats;
 };
 
-// Odmiana gramatyczna afiksów
 export const getGrammaticallyCorrectAffixName = (affix: Affix | undefined, template: ItemTemplate): string => {
     if (!affix) return '';
     let genderKey: 'masculine' | 'feminine' | 'neuter' = 'masculine';
@@ -106,7 +104,6 @@ export const getGrammaticallyCorrectAffixName = (affix: Affix | undefined, templ
     return (affix.name as any)[genderKey] || affix.name.masculine || '';
 };
 
-// Pełna nazwa przedmiotu z uwzględnieniem afiksów i odmiany
 export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: ItemTemplate, affixes: Affix[]): string => {
     const safeAffixes = affixes || [];
     const prefixAffix = safeAffixes.find(a => a.id === item.prefixId);
@@ -119,7 +116,6 @@ export const getGrammaticallyCorrectFullName = (item: ItemInstance, template: It
     ].filter(Boolean).join(' ');
 }
 
-// Panel szczegółów przedmiotu
 export const ItemDetailsPanel: React.FC<{
     item: ItemInstance | null;
     template: ItemTemplate | null;
@@ -368,164 +364,176 @@ export const ItemDetailsPanel: React.FC<{
     );
 };
 
-// Komponent Tooltipa przedmiotu
-export const ItemTooltip: React.FC<{
-    instance: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    character?: PlayerCharacter;
-    compareWith?: ItemInstance | null;
-    itemTemplates?: ItemTemplate[];
-    x?: number;
-    y?: number;
-    isCentered?: boolean;
-    onClose?: () => void;
-    onMouseEnter?: () => void;
-    onMouseLeave?: () => void;
-}> = ({ instance, template, affixes, character, compareWith, itemTemplates, x, y, isCentered, onClose, onMouseEnter, onMouseLeave }) => {
-    const style = isCentered 
-        ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-        : x !== undefined && y !== undefined 
-            ? { top: y + 10, left: x + 10 }
-            : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-
-    return (
-        <div 
-            className="fixed z-[10000] min-w-[320px] max-w-[400px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 animate-fade-in pointer-events-auto overflow-hidden"
-            style={style}
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-        >
-            {onClose && (
-                <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white z-10">✕</button>
-            )}
-            <ItemDetailsPanel 
-                item={instance} 
-                template={template} 
-                affixes={affixes} 
-                character={character} 
-                compareWith={compareWith}
-                itemTemplates={itemTemplates}
-            />
-        </div>
-    );
-};
-
-// Komponent elementu listy przedmiotów
-export const ItemListItem: React.FC<{
-    item: ItemInstance;
-    template: ItemTemplate;
-    affixes: Affix[];
-    isSelected?: boolean;
-    onClick: () => void;
-    onMouseEnter?: (e: React.MouseEvent) => void;
-    onMouseLeave?: () => void;
-    onDoubleClick?: () => void;
-    source?: 'equipment' | 'inventory';
+export const ItemListItem: React.FC<{ 
+    item: ItemInstance; 
+    template: ItemTemplate; 
+    affixes: Affix[]; 
+    isSelected: boolean; 
+    onClick: (e: React.MouseEvent) => void; 
+    onDoubleClick?: () => void; 
+    showPrimaryStat?: boolean; 
+    isEquipped?: boolean; 
+    meetsRequirements?: boolean; 
+    onMouseEnter?: (e: React.MouseEvent) => void; 
+    onMouseLeave?: (e: React.MouseEvent) => void; 
+    onMouseMove?: (e: React.MouseEvent) => void; 
+    className?: string; 
+    price?: number; 
+    source?: 'inventory' | 'equipment'; 
     fromSlot?: EquipmentSlot;
-    onAction?: () => void;
+    onAction?: (e: React.MouseEvent) => void;
     actionType?: 'equip' | 'unequip';
-    isEquipped?: boolean;
-    showPrimaryStat?: boolean;
-    className?: string;
-}> = ({ item, template, affixes, isSelected, onClick, onMouseEnter, onMouseLeave, onDoubleClick, source, fromSlot, onAction, actionType, isEquipped, showPrimaryStat = true, className }) => {
-    const style = rarityStyles[template.rarity];
-    const fullName = getGrammaticallyCorrectFullName(item, template, affixes);
-
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, onMouseMove, className, price, source, fromSlot, onAction, actionType }) => { 
+    const style = rarityStyles[template.rarity]; 
+    const upgradeLevel = item.upgradeLevel || 0; 
+    
     const handleDragStart = (e: React.DragEvent) => {
-        if (source) {
-            e.dataTransfer.setData('application/json', JSON.stringify({ uniqueId: item.uniqueId, source, fromSlot }));
-        }
+        e.dataTransfer.setData('application/json', JSON.stringify({ 
+            uniqueId: item.uniqueId, 
+            source,
+            fromSlot 
+        }));
+        const target = e.target as HTMLElement;
+        target.style.opacity = '0.5';
     };
 
-    return (
+    const handleDragEnd = (e: React.DragEvent) => {
+        const target = e.target as HTMLElement;
+        target.style.opacity = '1';
+    };
+
+    const handleActionClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onAction) onAction(e);
+    };
+
+    return ( 
         <div 
             draggable={!!source}
             onDragStart={handleDragStart}
-            onClick={onClick}
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            onDoubleClick={onDoubleClick}
-            className={`
-                flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer select-none
-                ${isSelected ? 'bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500 shadow-md' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 hover:bg-slate-800'}
-                ${isEquipped ? 'opacity-50 ring-2 ring-sky-500/30' : ''}
-                ${className || ''}
-            `}
-        >
-            <div className={`w-10 h-10 rounded border flex-shrink-0 flex items-center justify-center ${style.border} ${style.bg} relative shadow-inner overflow-hidden`}>
-                <div className={`absolute inset-0 ${style.bg} opacity-20`}></div>
-                {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain relative z-10" /> : <span className="text-gray-500 relative z-10">?</span>}
-                {item.upgradeLevel && item.upgradeLevel > 0 && (
-                    <div className="absolute -top-1 -right-1 bg-amber-500 text-[8px] text-white font-black px-1 rounded shadow z-20">+{item.upgradeLevel}</div>
-                )}
+            onDragEnd={handleDragEnd}
+            onClick={onClick} 
+            onDoubleClick={onDoubleClick} 
+            onMouseEnter={onMouseEnter} 
+            onMouseLeave={onMouseLeave} 
+            onMouseMove={onMouseMove}
+            className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 group ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
+        > 
+            <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative shadow-inner`}> 
+                {template.icon ? <img src={template.icon} alt="" className="w-8 h-8 object-contain" /> : <ShieldIcon className="w-6 h-6 text-slate-600" />} 
+                {isEquipped && <div className="absolute -top-1 -left-1 bg-green-500 rounded-full p-0.5 shadow-md border border-slate-900"><ShieldIcon className="w-2 h-2 text-white" /></div>} 
+            </div> 
+            <div className="flex-grow min-w-0"> 
+                <p className={`text-sm font-bold truncate ${style.text}`}>{getGrammaticallyCorrectFullName(item, template, affixes)} {upgradeLevel > 0 && `+${upgradeLevel}`}</p> 
+                <div className="flex justify-between items-center"> 
+                    <p className="text-[9px] text-gray-500 uppercase tracking-tighter">{template.slot}</p> 
+                    {price !== undefined && ( 
+                        <div className="flex items-center gap-0.5 text-amber-400 font-mono text-[10px] font-bold"> 
+                            {price.toLocaleString()} <CoinsIcon className="h-2.5 w-2.5" /> 
+                        </div> 
+                    )} 
+                </div> 
             </div>
-            <div className="flex-grow min-w-0">
-                <p className={`text-xs font-bold truncate ${style.text}`}>{fullName}</p>
-                <div className="flex items-center gap-2 text-[9px] text-gray-500 uppercase tracking-tighter">
-                    <span>{template.slot}</span>
-                    {item.isBorrowed && <span className="text-amber-500 font-bold flex items-center gap-0.5"><HandshakeIcon className="h-2 w-2" /> Pożyczony</span>}
-                </div>
-            </div>
-            {showPrimaryStat && (
-                <div className="text-right flex-shrink-0">
-                    {template.damageMax ? (
-                        <p className="text-[10px] font-mono font-bold text-red-400">{Math.round(template.damageMin || 0)}-{Math.round(template.damageMax)}</p>
-                    ) : template.armorBonus ? (
-                        <p className="text-[10px] font-mono font-bold text-sky-400">{Math.round(template.armorBonus)}</p>
-                    ) : null}
-                </div>
+
+            {onAction && (
+                <button
+                    onClick={handleActionClick}
+                    className={`ml-2 p-1.5 rounded-md transition-all duration-300 opacity-0 group-hover:opacity-100 flex items-center justify-center border ${
+                        actionType === 'equip' 
+                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 hover:bg-emerald-600 hover:text-white' 
+                        : 'bg-rose-600/20 border-rose-500 text-rose-400 hover:bg-rose-600 hover:text-white'
+                    }`}
+                    title={actionType === 'equip' ? 'Załóż' : 'Zdejmij'}
+                >
+                    {actionType === 'equip' ? <PlusIcon className="h-3 w-3" /> : <MinusIcon className="h-3 w-3" />}
+                </button>
             )}
-        </div>
-    );
+        </div> 
+    ); 
 };
 
-// Komponent pustego slotu ekwipunku
-export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => (
-    <div className="flex items-center gap-3 p-2 rounded-lg border border-dashed border-slate-700 bg-slate-900/20 opacity-40 grayscale">
-        <div className="w-10 h-10 rounded border border-slate-800 bg-slate-900/50 flex items-center justify-center">
-            <PlusIcon className="h-4 w-4 text-slate-700" />
-        </div>
-        <p className="text-xs font-bold text-gray-600 uppercase tracking-widest">{slotName}</p>
-    </div>
+export const EmptySlotListItem: React.FC<{ slotName: string }> = ({ slotName }) => ( 
+    <div className="flex items-center p-2 rounded-lg bg-slate-900/20 border border-dashed border-slate-800 opacity-40"> 
+        <div className="w-10 h-10 rounded border border-slate-800 bg-slate-950 flex items-center justify-center mr-3"> 
+            <ShieldIcon className="w-5 h-5 text-slate-800" /> 
+        </div> 
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{slotName}</p> 
+    </div> 
 );
 
-// Komponent listy przedmiotów
-export const ItemList: React.FC<{
-    items: ItemInstance[];
-    itemTemplates: ItemTemplate[];
-    affixes: Affix[];
-    selectedItem: ItemInstance | null;
-    onSelectItem: (item: ItemInstance) => void;
-    priceSelector?: (item: ItemInstance) => number;
-    selectedIds?: Set<string>;
-    showPrimaryStat?: boolean;
-}> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, priceSelector, selectedIds, showPrimaryStat = true }) => {
-    return (
-        <div className="space-y-1">
-            {items.map(item => {
-                const template = itemTemplates.find(t => t.id === item.templateId);
-                if (!template) return null;
-                const isSelected = selectedItem?.uniqueId === item.uniqueId || (selectedIds && selectedIds.has(item.uniqueId));
-                
-                return (
-                    <div key={item.uniqueId} className="relative group">
-                         <ItemListItem 
-                            item={item} 
-                            template={template} 
-                            affixes={affixes} 
-                            isSelected={isSelected} 
-                            onClick={() => onSelectItem(item)}
-                            showPrimaryStat={showPrimaryStat}
-                        />
-                        {priceSelector && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-slate-900/80 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-amber-400 border border-amber-500/20 pointer-events-none">
-                                {priceSelector(item)} <CoinsIcon className="h-2 w-2" />
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
+export const ItemTooltip: React.FC<{ 
+    instance: ItemInstance; 
+    template: ItemTemplate; 
+    affixes: Affix[]; 
+    character?: PlayerCharacter; 
+    compareWith?: ItemInstance | null; 
+    x?: number; 
+    y?: number; 
+    itemTemplates?: ItemTemplate[]; 
+    isCentered?: boolean; 
+    onClose?: () => void; 
+    onMouseEnter?: () => void; 
+    onMouseLeave?: () => void; 
+}> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose, onMouseEnter, onMouseLeave }) => { 
+    const [style, setStyle] = useState<React.CSSProperties>({ width: '300px' }); 
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    
+    const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
+    const actualCompareWith = isSameItem ? null : compareWith; 
+    const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
+
+    useLayoutEffect(() => { 
+        const tooltipWidth = actualCompareWith ? 600 : 300;
+        setStyle({ width: `${tooltipWidth}px` });
+    }, [actualCompareWith]); 
+
+    return ( 
+        <div 
+            className={`fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} 
+            onClick={onClose} 
+        > 
+            <div 
+                ref={tooltipRef}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+                className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20" 
+                style={{ width: style.width, maxWidth: '95vw', pointerEvents: 'auto' }} 
+                onClick={e => e.stopPropagation()} 
+            > 
+                {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
+                {actualCompareWith && compareTemplate && ( 
+                    <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
+                        <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                            <ItemDetailsPanel item={actualCompareWith} template={compareTemplate} affixes={affixes} size="small" compact={true} title="OBECNIE ZAŁOŻONY" itemTemplates={itemTemplates} /> 
+                        </div> 
+                    </div> 
+                )} 
+                <div className={`${actualCompareWith ? 'w-1/2' : 'w-full'} flex flex-col max-h-full`}> 
+                    <div className="flex-grow overflow-y-auto custom-scrollbar"> 
+                        <ItemDetailsPanel item={instance} template={template} affixes={affixes} size="small" compact={true} character={character} compareWith={actualCompareWith} itemTemplates={itemTemplates} title={actualCompareWith ? "NOWY PRZEDMIOT" : undefined} /> 
+                    </div> 
+                </div> 
+            </div> 
+        </div> 
+    ); 
 };
+
+export const ItemList: React.FC<{ items: ItemInstance[]; itemTemplates: ItemTemplate[]; affixes: Affix[]; selectedItem: ItemInstance | null; onSelectItem: (item: ItemInstance) => void; selectedIds?: Set<string>; priceSelector?: (item: ItemInstance) => number; }> = ({ items, itemTemplates, affixes, selectedItem, onSelectItem, selectedIds, priceSelector }) => ( 
+    <div className="space-y-1"> 
+        {items.map(item => { 
+            const template = itemTemplates.find(t => t.id === item.templateId); 
+            if (!template) return null; 
+            return ( 
+                <ItemListItem 
+                    key={item.uniqueId} 
+                    item={item} 
+                    template={template} 
+                    affixes={affixes} 
+                    isSelected={selectedItem?.uniqueId === item.uniqueId || !!selectedIds?.has(item.uniqueId)} 
+                    onClick={() => onSelectItem(item)} 
+                    price={priceSelector ? priceSelector(item) : undefined} 
+                /> 
+            ); 
+        })} 
+    </div> 
+);
