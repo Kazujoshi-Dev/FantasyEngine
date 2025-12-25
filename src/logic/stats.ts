@@ -1,4 +1,3 @@
-
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass, CraftingSettings, ItemSet } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -245,15 +244,18 @@ export const calculateDerivedStats = (
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
-    mhMin = 1 + (attrDmg * 1) + globalBonusDmgMin + mhWeaponBonusDmgMin;
-    mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
+    // Skalowanie atrybutów fizycznych (Siła/Zręczność) zmniejszone o połowę:
+    // Wcześniej: (attrDmg * 1) / (attrDmg * 2)
+    // Teraz: (attrDmg * 0.5) / (attrDmg * 1)
+    mhMin = 1 + (attrDmg * 0.5) + globalBonusDmgMin + mhWeaponBonusDmgMin;
+    mhMax = 2 + (attrDmg * 1.0) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
     let ohMin = 0, ohMax = 0;
     // CRITICAL FIX: Ensure OffHand item is a Weapon AND NOT a Shield
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
-        ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
-        ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
+        ohMin = 1 + (ohAttrDmg * 0.5) + globalBonusDmgMin + ohWeaponBonusDmgMin;
+        ohMax = 2 + (ohAttrDmg * 1.0) + globalBonusDmgMax + ohWeaponBonusDmgMax;
     }
 
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
@@ -322,8 +324,8 @@ export const calculateDerivedStats = (
         stats: {
             ...character.stats, ...totalPrimaryStats,
             maxHealth, maxMana,
-            minDamage: mhMin, maxDamage: mhMax,
-            offHandMinDamage: ohMin, offHandMaxDamage: ohMax,
+            minDamage: Math.floor(mhMin), maxDamage: Math.floor(mhMax),
+            offHandMinDamage: Math.floor(ohMin), offHandMaxDamage: Math.floor(ohMax),
             magicDamageMin: mhMagMin, magicDamageMax: mhMagMax,
             offHandMagicDamageMin: ohMagMin, offHandMagicDamageMax: ohMagMax,
             attacksPerRound, 
