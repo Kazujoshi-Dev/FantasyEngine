@@ -68,14 +68,14 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     const floorDuration = currentFloorConfig?.duration || 0;
     const canAfford = character.stats.currentEnergy >= floorCost;
 
-    const handleItemMouseEnter = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
+    const handleItemMouseMove = (item: ItemInstance, template: ItemTemplate, e: React.MouseEvent) => {
         setHoveredItemData({ item, template, x: e.clientX, y: e.clientY });
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             
-            {/* Standardowy Tooltip zapobiegający migotaniu */}
+            {/* Standardowy Tooltip zapobiegający migotaniu dzięki pointer-events: none */}
              {hoveredItemData && (
                 <ItemTooltip 
                     instance={hoveredItemData.item}
@@ -204,7 +204,8 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                             <div 
                                 key={item.uniqueId} 
                                 className="relative group cursor-help"
-                                onMouseEnter={(e) => handleItemMouseEnter(item, template, e)}
+                                onMouseEnter={(e) => handleItemMouseMove(item, template, e)}
+                                onMouseMove={(e) => handleItemMouseMove(item, template, e)}
                                 onMouseLeave={() => setHoveredItemData(null)}
                             >
                                 <ItemListItem 

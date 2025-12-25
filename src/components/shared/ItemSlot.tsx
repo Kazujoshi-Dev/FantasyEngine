@@ -358,13 +358,14 @@ export const ItemListItem: React.FC<{
     meetsRequirements?: boolean; 
     onMouseEnter?: (e: React.MouseEvent) => void; 
     onMouseLeave?: (e: React.MouseEvent) => void; 
+    onMouseMove?: (e: React.MouseEvent) => void; 
     className?: string; 
     price?: number; 
     source?: 'inventory' | 'equipment'; 
     fromSlot?: EquipmentSlot;
     onAction?: (e: React.MouseEvent) => void;
     actionType?: 'equip' | 'unequip';
-}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, className, price, source, fromSlot, onAction, actionType }) => { 
+}> = ({ item, template, affixes, isSelected, onClick, onDoubleClick, isEquipped, meetsRequirements = true, onMouseEnter, onMouseLeave, onMouseMove, className, price, source, fromSlot, onAction, actionType }) => { 
     const style = rarityStyles[template.rarity]; 
     const upgradeLevel = item.upgradeLevel || 0; 
     
@@ -397,6 +398,7 @@ export const ItemListItem: React.FC<{
             onDoubleClick={onDoubleClick} 
             onMouseEnter={onMouseEnter} 
             onMouseLeave={onMouseLeave} 
+            onMouseMove={onMouseMove}
             className={`flex items-center p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all duration-200 group ${ isSelected ? 'ring-2 ring-indigo-500 bg-indigo-900/20' : 'bg-slate-800/50 hover:bg-slate-700/50 border-transparent' } ${!meetsRequirements ? 'opacity-50 grayscale' : ''} ${className || ''}`} 
         > 
             <div className={`w-10 h-10 rounded border ${style.border} ${style.bg} flex items-center justify-center mr-3 relative shadow-inner`}> 
@@ -469,7 +471,30 @@ export const ItemTooltip: React.FC<{
             return; 
         } 
         
-        setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
+        // Follow mouse logic with safe offsets and disabled interactions to prevent flickering
+        if (x !== undefined && y !== undefined) {
+            const offsetX = 20;
+            const offsetY = 20;
+            
+            // Boundary checks to keep tooltip on screen
+            let top = y + offsetY;
+            let left = x + offsetX;
+            
+            if (left + tooltipWidth > window.innerWidth) {
+                left = x - tooltipWidth - offsetX;
+            }
+            
+            setStyle({ 
+                position: 'fixed', 
+                top: `${top}px`, 
+                left: `${left}px`, 
+                visibility: 'visible', 
+                display: 'flex', 
+                width: `${tooltipWidth}px`, 
+                zIndex: 99999, 
+                pointerEvents: 'none' // CRITICAL: Tooltip must not capture mouse events during hover
+            });
+        }
     }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
 
     if (isCentered || onClose) { 
@@ -495,12 +520,12 @@ export const ItemTooltip: React.FC<{
     } 
 
     return ( 
-        <div className="fixed inset-0 z-[99998] pointer-events-none flex items-center justify-center">
+        <div className="fixed inset-0 z-[99998] pointer-events-none">
             <div 
                 onMouseEnter={onMouseEnter} 
                 onMouseLeave={onMouseLeave} 
-                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl pointer-events-auto p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden`} 
-                style={{ width: style.width }} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden`} 
+                style={style} 
             > 
                 <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
                     {actualCompareWith && compareTemplate && ( 
