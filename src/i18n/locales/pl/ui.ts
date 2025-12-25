@@ -101,6 +101,8 @@ export default {
             avatarUrl: 'URL Awaitara',
             description: 'Opis Postaci',
             descriptionPlaceholder: 'Napisz coś o swojej postaci...',
+            chooseGenderMigration: 'Wybierz płeć bohatera',
+            genderMigrationNote: '* Jest to wybór jednorazowy wymagany do dostosowania Twojego konta do nowych systemów gry.',
         },
         security: {
             title: 'Bezpieczeństwo',

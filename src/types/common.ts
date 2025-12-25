@@ -51,6 +51,11 @@ export enum Race {
     Dwarf = 'Dwarf'
 }
 
+export enum Gender {
+    Male = 'Male',
+    Female = 'Female'
+}
+
 export enum CharacterClass {
     Mage = 'Mage',
     Warrior = 'Warrior',

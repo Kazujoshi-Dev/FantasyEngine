@@ -1,3 +1,4 @@
+
 import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { pool } from '../db.js';
 import { RankingPlayer } from '../types.js';
@@ -12,6 +13,7 @@ router.get('/', async (req: any, res: any) => {
                 c.user_id as id,
                 COALESCE(c.data->>'name', 'Nieznany') as name,
                 COALESCE(c.data->>'race', 'Human') as race,
+                COALESCE(c.data->>'gender', 'Male') as gender,
                 c.data->>'characterClass' as "characterClass",
                 COALESCE((c.data->>'level')::int, 1) as level,
                 COALESCE((c.data->>'experience')::bigint, 0) as experience,

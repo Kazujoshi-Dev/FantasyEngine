@@ -1,7 +1,8 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
-import { PlayerCharacter, Race } from '../types.js';
+import { PlayerCharacter, Race, Gender } from '../types.js';
 // centralize fetching logic
 import { fetchFullCharacter } from '../logic/helpers.js';
 
@@ -43,9 +44,9 @@ router.get('/', async (req: any, res: any) => {
     }
 });
 
-// POST /api/character/update-profile - Aktualizacja profilu (Avatar, Opis, Settings)
+// POST /api/character/update-profile - Aktualizacja profilu (Avatar, Opis, Settings, Gender)
 router.post('/update-profile', async (req: any, res: any) => {
-    const { description, avatarUrl, settings, email } = req.body;
+    const { description, avatarUrl, settings, email, gender } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -58,6 +59,13 @@ router.post('/update-profile', async (req: any, res: any) => {
         if (description !== undefined) character.description = description;
         if (avatarUrl !== undefined) character.avatarUrl = avatarUrl;
         if (settings !== undefined) character.settings = { ...character.settings, ...settings };
+        
+        // JEDNORAZOWY WYBÓR PŁCI DLA STARYCH KONT
+        if (gender !== undefined && (character.gender === undefined || character.gender === null)) {
+            if (Object.values(Gender).includes(gender)) {
+                character.gender = gender;
+            }
+        }
         
         // Aktualizacja danych w tabeli characters
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
@@ -79,8 +87,8 @@ router.post('/update-profile', async (req: any, res: any) => {
 
 // POST /api/character - Tworzenie nowej postaci
 router.post('/', async (req: any, res: any) => {
-    const { name, race, startLocationId } = req.body;
-    if (!name || !race) return res.status(400).json({ message: 'Imię i rasa są wymagane.' });
+    const { name, race, gender, startLocationId } = req.body;
+    if (!name || !race || !gender) return res.status(400).json({ message: 'Imię, rasa i płeć są wymagane.' });
 
     const client = await pool.connect();
     try {
@@ -103,6 +111,7 @@ router.post('/', async (req: any, res: any) => {
         const initialCharacter: Partial<PlayerCharacter> = {
             name: name,
             race: race as Race,
+            gender: gender as Gender,
             level: 1,
             experience: 0,
             experienceToNextLevel: 100,
@@ -114,7 +123,6 @@ router.post('/', async (req: any, res: any) => {
                 currentEnergy: 10, maxEnergy: 10,
                 minDamage: 1, maxDamage: 2,
                 magicDamageMin: 0, magicDamageMax: 0,
-                // Fix: Added missing blockChance required property
                 armor: 0, critChance: 0, critDamageModifier: 200,
                 attacksPerRound: 1, dodgeChance: 0, blockChance: 0, manaRegen: 2,
                 armorPenetrationPercent: 0, armorPenetrationFlat: 0,

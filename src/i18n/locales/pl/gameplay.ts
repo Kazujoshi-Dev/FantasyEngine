@@ -11,6 +11,10 @@ export default {
         classSelectionNote: 'Klasę postaci będzie można wybrać po osiągnięciu 10. poziomu.',
         raceBonusTitle: 'Atrybut Rasowy',
     },
+    gender: {
+        Male: 'Mężczyzna',
+        Female: 'Kobieta'
+    },
     race: {
         Human: 'Człowiek',
         Elf: 'Elf',

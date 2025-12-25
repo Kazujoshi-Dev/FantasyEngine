@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
 import { PublicCharacterProfile } from '../../types';
@@ -86,7 +87,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
                    
                     <h2 className="text-3xl font-bold text-white mb-1">{profile.name}</h2>
                     <p className="text-indigo-400 font-medium">
-                        {t(`race.${profile.race}`)} {profile.characterClass ? `| ${t(`class.${profile.characterClass}`)}` : ''} | Lvl {profile.level}
+                        {t(`gender.${profile.gender}`)} | {t(`race.${profile.race}`)} {profile.characterClass ? `| ${t(`class.${profile.characterClass}`)}` : ''} | Lvl {profile.level}
                     </p>
                 </div>
 
@@ -108,14 +109,14 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
                             <StarIcon className="h-4 w-4 mr-1" />
                             <span className="text-[10px] font-bold uppercase">PD</span>
                         </div>
-                        <span className="text-sm font-mono font-bold text-white" title="Całkowite PD">{profile.experience.toLocaleString()}</span>
+                        <span className="text-sm font-mono text-xl font-bold text-white" title="Całkowite PD">{profile.experience.toLocaleString()}</span>
                     </div>
                     <div className="bg-slate-700/30 p-3 rounded-lg flex flex-col items-center">
                         <div className="flex items-center text-indigo-400 mb-1">
                             <StarIcon className="h-4 w-4 mr-1" />
                             <span className="text-[10px] font-bold uppercase">Honor</span>
                         </div>
-                        <span className={`text-sm font-mono font-bold ${profile.honor > 0 ? 'text-indigo-400' : profile.honor < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                        <span className={`text-sm font-mono text-xl font-bold ${profile.honor > 0 ? 'text-indigo-400' : profile.honor < 0 ? 'text-red-500' : 'text-gray-400'}`}>
                             {profile.honor > 0 ? `+${profile.honor}` : profile.honor}
                         </span>
                     </div>
@@ -124,7 +125,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ characterName, onC
                             <TrophyIcon className="h-4 w-4 mr-1" />
                             <span className="text-[10px] font-bold uppercase">PvP (W/L)</span>
                         </div>
-                        <span className="text-sm font-mono font-bold text-white">
+                        <span className="text-sm font-mono text-xl font-bold text-white">
                             <span className="text-green-400">{profile.pvpWins}</span>/<span className="text-red-400">{profile.pvpLosses}</span>
                         </span>
                     </div>

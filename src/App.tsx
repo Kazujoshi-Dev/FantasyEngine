@@ -25,7 +25,7 @@ import { Tower } from './components/Tower';
 import { PublicReportViewer } from './components/PublicReportViewer';
 import { ModalManager } from './components/layout/ModalManager';
 import { api } from './api';
-import { Tab, Race, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary } from './types';
+import { Tab, Race, Language, ItemInstance, ExpeditionRewardSummary, RankingPlayer, PvpRewardSummary, Gender } from './types';
 import { LanguageContext } from './contexts/LanguageContext';
 import { getT } from './i18n';
 import { CharacterProvider, useCharacter } from './contexts/CharacterContext';
@@ -147,7 +147,7 @@ const AppContent: React.FC = () => {
                     onCharacterCreate={async (d) => {
                         try {
                             const startLoc = gameData?.locations.find(l => l.isStartLocation)?.id || 'start';
-                            const newChar = await api.createCharacter(d.name, d.race, startLoc);
+                            const newChar = await api.createCharacter(d.name, d.race, d.gender, startLoc);
                             setCharacter(newChar);
                         } catch (err: any) {
                             alert(err.message || 'Nie udało się stworzyć postaci.');

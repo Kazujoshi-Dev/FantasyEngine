@@ -1,19 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Race, CharacterClass } from '../types';
+import { Race, CharacterClass, Gender } from '../types';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { SwordsIcon } from './icons/SwordsIcon';
 
 interface CharacterCreationProps {
-    onCharacterCreate: (data: { name: string; race: Race }) => void;
+    onCharacterCreate: (data: { name: string; race: Race; gender: Gender }) => void;
 }
 
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate }) => {
     const { t } = useTranslation();
     const [name, setName] = useState('');
     const [race, setRace] = useState<Race>(Race.Human);
+    const [gender, setGender] = useState<Gender>(Gender.Male);
     const [isCreating, setIsCreating] = useState(false);
 
     // Mapowanie klas dla rasy (spójne z ProgressionPanel)
@@ -31,7 +32,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacte
         e.preventDefault();
         if (!name.trim() || name.length < 3) return;
         setIsCreating(true);
-        onCharacterCreate({ name: name.trim(), race });
+        onCharacterCreate({ name: name.trim(), race, gender });
     };
 
     return (
@@ -69,6 +70,37 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacte
                                 minLength={3}
                                 maxLength={20}
                             />
+                        </div>
+
+                        {/* Wybór Płci */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                                Wybierz Płeć
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setGender(Gender.Male)}
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all duration-300 ${
+                                        gender === Gender.Male 
+                                            ? 'bg-blue-600/20 border-blue-500 ring-4 ring-blue-500/10 text-blue-400' 
+                                            : 'bg-slate-800/40 border-slate-700 text-slate-500 hover:border-slate-500'
+                                    }`}
+                                >
+                                    <span className="font-black uppercase tracking-widest">{t('gender.Male')}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setGender(Gender.Female)}
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all duration-300 ${
+                                        gender === Gender.Female 
+                                            ? 'bg-rose-600/20 border-rose-500 ring-4 ring-rose-500/10 text-rose-400' 
+                                            : 'bg-slate-800/40 border-slate-700 text-slate-500 hover:border-slate-500'
+                                    }`}
+                                >
+                                    <span className="font-black uppercase tracking-widest">{t('gender.Female')}</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Wybór Rasy */}

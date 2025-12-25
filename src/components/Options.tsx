@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ContentPanel } from './ContentPanel';
-import { Language } from '../types';
+import { Language, Gender } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { api } from '../api';
 import { useCharacter } from '@/contexts/CharacterContext';
@@ -16,6 +16,7 @@ export const Options: React.FC = () => {
   const [selectedLang, setSelectedLang] = useState(character.settings?.language || Language.PL);
   const [description, setDescription] = useState(character.description || '');
   const [avatarUrl, setAvatarUrl] = useState(character.avatarUrl || '');
+  const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
   
   // Security State
   const [oldPassword, setOldPassword] = useState('');
@@ -45,6 +46,11 @@ export const Options: React.FC = () => {
 
     if (!hasEmail && email.trim()) {
         updateData.email = email.trim();
+    }
+
+    // Dodaj płeć tylko jeśli nie jest jeszcze ustawiona
+    if (!character.gender && selectedGender) {
+        updateData.gender = selectedGender;
     }
 
     try {
@@ -104,6 +110,30 @@ export const Options: React.FC = () => {
                 <h3 className="text-xl font-bold text-indigo-400 mb-6 border-b border-indigo-500/20 pb-2">{t('options.profile.title')}</h3>
                 
                 <div className="space-y-5">
+                    {/* Migracja płci dla starych postaci */}
+                    {!character.gender && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl mb-4 animate-pulse">
+                            <label className="block text-xs font-black uppercase tracking-widest text-amber-500 mb-3">
+                                {t('options.profile.chooseGenderMigration')}
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setSelectedGender(Gender.Male)}
+                                    className={`py-2 rounded-lg border-2 font-bold text-xs uppercase tracking-widest transition-all ${selectedGender === Gender.Male ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'}`}
+                                >
+                                    {t('gender.Male')}
+                                </button>
+                                <button
+                                    onClick={() => setSelectedGender(Gender.Female)}
+                                    className={`py-2 rounded-lg border-2 font-bold text-xs uppercase tracking-widest transition-all ${selectedGender === Gender.Female ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'}`}
+                                >
+                                    {t('gender.Female')}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-amber-600 mt-2 italic font-medium">{t('options.profile.genderMigrationNote')}</p>
+                        </div>
+                    )}
+
                     <div>
                         <label htmlFor="language-select" className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">{t('options.language')}</label>
                         <select
@@ -188,7 +218,7 @@ export const Options: React.FC = () => {
                         {saveProfileStatus === 'saved' && <p className="text-green-400 font-bold text-sm mr-4 animate-fade-in">Profil zaktualizowany!</p>}
                         <button
                             onClick={handleSaveProfile}
-                            disabled={saveProfileStatus !== 'idle'}
+                            disabled={saveProfileStatus !== 'idle' || (!character.gender && !selectedGender)}
                             className="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest disabled:bg-slate-700 disabled:text-gray-500 transition-all shadow-lg active:scale-95"
                         >
                             {saveProfileStatus === 'saving' ? 'Zapisywanie...' : 'Zapisz Zmiany'}
