@@ -249,13 +249,14 @@ export const calculateDerivedStats = (
     mhMax = 2 + (attrDmg * 2) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
     let ohMin = 0, ohMax = 0;
-    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon') {
+    // CRITICAL FIX: Ensure OffHand item is a Weapon AND NOT a Shield
+    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
         ohMin = 1 + (ohAttrDmg * 1) + globalBonusDmgMin + ohWeaponBonusDmgMin;
         ohMax = 2 + (ohAttrDmg * 2) + globalBonusDmgMax + ohWeaponBonusDmgMax;
     }
 
-    if (isDualWieldActive && ohItem) {
+    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
         mhMin = Math.floor(mhMin * 0.75);
         mhMax = Math.floor(mhMax * 0.75);
         ohMin = Math.floor(ohMin * 0.75);
@@ -268,7 +269,7 @@ export const calculateDerivedStats = (
     let ohMagMin = ohMagicDmgMin > 0 ? ohMagicDmgMin + intBonus : 0;
     let ohMagMax = ohMagicDmgMax > 0 ? ohMagMin + intBonus : 0;
 
-    if (isDualWieldActive && ohItem) {
+    if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
         mhMagMin = Math.floor(mhMagMin * 0.75);
         mhMagMax = Math.floor(mhMagMax * 0.75);
         ohMagMin = Math.floor(ohMagMin * 0.75);

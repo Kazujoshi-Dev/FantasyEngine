@@ -46,6 +46,8 @@ export const getFullWeaponName = (playerData: PlayerCharacter, gameData: GameDat
         const offHand = playerData.equipment.offHand;
         if (!offHand) return undefined;
         const t = templates.find(temp => temp.id === offHand.templateId);
+        // Safety: If it's a shield, don't return as weapon name
+        if (t?.isShield) return undefined;
         return t ? getGrammaticallyCorrectFullName(offHand, t, affixes) : undefined;
     }
     const mainHand = playerData.equipment.mainHand || playerData.equipment.twoHand;
@@ -80,6 +82,19 @@ export const performAttack = <
         enemyHealth: defenderIsPlayer ? currentAttacker.currentHealth : currentDefender.currentHealth,
         enemyMana: defenderIsPlayer ? currentAttacker.currentMana : currentDefender.currentMana,
     });
+
+    // --- SECONDARY SHIELD PROTECTION ---
+    if (hand === 'off' && attackerIsPlayer) {
+        const playerData = (attacker as any).data as PlayerCharacter;
+        const offHandItem = playerData.equipment?.offHand;
+        if (offHandItem) {
+            const template = gameData.itemTemplates.find(t => t.id === offHandItem.templateId);
+            if (template?.isShield) {
+                // Return immediately without attack logs if it's a shield
+                return { logs: [], attackerState: attacker, defenderState: defender };
+            }
+        }
+    }
 
     let damage = 0;
     let isCrit = false;

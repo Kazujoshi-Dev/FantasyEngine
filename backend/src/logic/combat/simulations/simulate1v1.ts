@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, ItemCategory } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from '../core.js';
 
@@ -154,7 +155,8 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 if (pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand) {
                     const ohItem = pData.equipment.offHand;
                     const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
-                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                    // Check specifically for IS NOT SHIELD
+                    if (ohTemplate?.category === ItemCategory.Weapon && !ohTemplate.isShield) {
                         hands.push('off');
                     }
                 }
@@ -194,7 +196,8 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 if (pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand) {
                     const ohItem = pData.equipment.offHand;
                     const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
-                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                    // Check specifically for IS NOT SHIELD
+                    if (ohTemplate?.category === ItemCategory.Weapon && !ohTemplate.isShield) {
                         hands.push('off');
                     }
                 }
