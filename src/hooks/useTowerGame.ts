@@ -37,14 +37,17 @@ export const useTowerGame = () => {
     });
 
     const fetchData = useCallback(async () => {
-        if (state.endGameSummary || state.floorReport || state.pendingFinalVictory) return;
+        // Nie przerywamy pobierania, jeśli mamy tylko floorReport (gracz musi widzieć postęp)
+        if (state.endGameSummary || state.pendingFinalVictory) return;
 
-        setState(prev => ({ ...prev, loading: true }));
+        setState(prev => ({ ...prev, loading: prev.towers.length === 0 })); // Spinner tylko za pierwszym razem
         try {
             const data = await api.getTowers();
             setState(prev => ({
                 ...prev,
-                towers: data.activeRun ? [] : (data.towers || []),
+                // FIX: Nie zerujemy listy wież, jeśli jest aktywny bieg. 
+                // Backend powinien zwracać pełną listę dostępnych wież niezależnie od statusu biegu.
+                towers: data.towers || [],
                 activeRun: data.activeRun || null,
                 activeTower: data.tower || null,
                 loading: false
@@ -53,7 +56,7 @@ export const useTowerGame = () => {
             console.error(e);
             setState(prev => ({ ...prev, loading: false }));
         }
-    }, [state.endGameSummary, state.floorReport, state.pendingFinalVictory]);
+    }, [state.endGameSummary, state.pendingFinalVictory]);
 
     useEffect(() => {
         fetchData();
@@ -81,9 +84,6 @@ export const useTowerGame = () => {
         
         try {
             const res = await api.fightTower();
-            
-            // ARCHITEKTURA NAPRAWY: Używamy listy przeciwników przesłanej prosto z backendu.
-            // Posiada ona unikalne ID (UUID) identyczne z tymi w combatLog.
             const encounteredEnemies: Enemy[] = res.enemies || [];
 
             if (res.victory) {
@@ -140,9 +140,9 @@ export const useTowerGame = () => {
                     },
                     floorReport: {
                         isVictory: false,
-                        totalGold: 0,
+                        totalGold: 0, 
                         totalExperience: 0,
-                        itemsFound: [],
+                        itemsFound: [], 
                         essencesFound: {},
                         combatLog: res.combatLog,
                         rewardBreakdown: [],
@@ -217,7 +217,10 @@ export const useTowerGame = () => {
 
     const closeSummary = () => {
         setState(prev => ({ ...prev, endGameSummary: null }));
-        fetchData();
+        // Zmuszamy do natychmiastowego odświeżenia danych wież po zamknięciu podsumowania
+        api.getTowers().then(data => {
+            setState(p => ({ ...p, towers: data.towers || [], loading: false }));
+        });
         api.getCharacter().then(updateCharacter);
     };
 
