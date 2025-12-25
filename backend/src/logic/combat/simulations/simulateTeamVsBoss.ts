@@ -1,4 +1,4 @@
-import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType } from '../../../types.js';
+import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, SpecialAttackType, ItemCategory } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 
 export interface TeamCombatPlayerState {
@@ -22,7 +22,6 @@ const defaultEnemyStats: EnemyStats = {
     attacksPerTurn: 1,
     critDamageModifier: 150,
     dodgeChance: 0,
-    // Fix: Added missing blockChance required property
     blockChance: 0,
     magicAttackChance: 0,
     magicAttackManaCost: 0,
@@ -147,10 +146,17 @@ export const simulateTeamVsBossCombat = (
                 const reducedAttacksCount = player.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
                 const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
 
-                const isDual = player.data.activeSkills?.includes('dual-wield-mastery') && player.data.equipment?.offHand;
+                // --- DUAL WIELD VALIDATION ---
+                const hands: ('main' | 'off')[] = ['main'];
+                if (player.data.activeSkills?.includes('dual-wield-mastery') && player.data.equipment?.offHand) {
+                    const ohItem = player.data.equipment.offHand;
+                    const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
+                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                        hands.push('off');
+                    }
+                }
 
                 for (let i = 0; i < finalAttacks; i++) {
-                    const hands: ('main' | 'off')[] = isDual ? ['main', 'off'] : ['main'];
                     for (const hand of hands) {
                         if (bossState.currentHealth <= 0) break;
                         const attackOptions: any = { hand };

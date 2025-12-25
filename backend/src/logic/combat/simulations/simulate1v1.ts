@@ -1,4 +1,4 @@
-import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../../types.js';
+import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, ItemCategory } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, getFullWeaponName, StatusEffect } from '../core.js';
 
 const defaultEnemyStats: EnemyStats = {
@@ -11,7 +11,6 @@ const defaultEnemyStats: EnemyStats = {
     attacksPerTurn: 1,
     critDamageModifier: 150,
     dodgeChance: 0,
-    // Fix: Added missing blockChance required property
     blockChance: 0,
     magicAttackChance: 0,
     magicAttackManaCost: 0,
@@ -149,10 +148,18 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: attacker.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 const pData = isPlayer ? (attacker as any).data as PlayerCharacter : null;
-                const isDualWieldActive = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
+                
+                // --- DUAL WIELD VALIDATION ---
+                const hands: ('main' | 'off')[] = ['main'];
+                if (pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand) {
+                    const ohItem = pData.equipment.offHand;
+                    const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
+                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                        hands.push('off');
+                    }
+                }
                 
                 for (let i = 0; i < finalAttacks && defender.currentHealth > 0; i++) {
-                    const hands: ('main' | 'off')[] = isDualWieldActive ? ['main', 'off'] : ['main'];
                     for (const hand of hands) {
                         if (defender.currentHealth <= 0) break;
                         const attackOptions: any = { hand };
@@ -181,10 +188,18 @@ export const simulate1v1Combat = (playerData: PlayerCharacter, enemyData: Enemy,
                 log.push({ turn, attacker: defender.name, defender: '', action: 'effectApplied', effectApplied: 'frozen_no_attack', ...getHealthState(playerState, enemyState) });
             } else {
                 const pData = isPlayer ? (defender as any).data as PlayerCharacter : null;
-                const isDualWieldActive = pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand;
+                
+                // --- DUAL WIELD VALIDATION ---
+                const hands: ('main' | 'off')[] = ['main'];
+                if (pData?.activeSkills?.includes('dual-wield-mastery') && pData?.equipment?.offHand) {
+                    const ohItem = pData.equipment.offHand;
+                    const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
+                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                        hands.push('off');
+                    }
+                }
 
                 for (let i = 0; i < finalAttacks && attacker.currentHealth > 0; i++) {
-                    const hands: ('main' | 'off')[] = isDualWieldActive ? ['main', 'off'] : ['main'];
                     for (const hand of hands) {
                         if (attacker.currentHealth <= 0) break;
                         const attackOptions: any = { hand };

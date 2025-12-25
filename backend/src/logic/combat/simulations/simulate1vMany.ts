@@ -1,4 +1,4 @@
-import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData } from '../../../types.js';
+import { PlayerCharacter, Enemy, CombatLogEntry, CharacterStats, EnemyStats, Race, MagicAttackType, CharacterClass, GameData, ItemCategory } from '../../../types.js';
 import { performAttack, AttackerState, DefenderState, StatusEffect } from '../core.js';
 import { randomUUID } from 'crypto';
 
@@ -12,7 +12,6 @@ const defaultEnemyStats: EnemyStats = {
     attacksPerTurn: 1,
     critDamageModifier: 150,
     dodgeChance: 0,
-    // Fix: Added missing blockChance required property
     blockChance: 0,
     magicAttackChance: 0,
     magicAttackManaCost: 0,
@@ -133,7 +132,6 @@ export const simulate1vManyCombat = (
                 }
             }
             
-            // --- Status Resistance Logic (Dwarves) ---
             const isDwarfResistant = (combatant as any).data?.race === Race.Dwarf && (combatant as any).data?.learnedSkills?.includes('bedrock-foundation');
             const reduction = isDwarfResistant ? 2 : 1;
 
@@ -151,10 +149,18 @@ export const simulate1vManyCombat = (
                 const attacks = (playerState.stats as CharacterStats).attacksPerRound || 1;
                 const reducedAttacksCount = playerState.statusEffects.filter(e => e.type === 'reduced_attacks').reduce((sum: number, e: StatusEffect) => sum + (e.amount || 1), 0);
                 const finalAttacks = Math.max(1, Math.floor(attacks - reducedAttacksCount));
-                const isDual = playerState.data.activeSkills?.includes('dual-wield-mastery') && playerState.data.equipment?.offHand;
+                
+                // --- DUAL WIELD VALIDATION ---
+                const hands: ('main' | 'off')[] = ['main'];
+                if (playerState.data.activeSkills?.includes('dual-wield-mastery') && playerState.data.equipment?.offHand) {
+                    const ohItem = playerState.data.equipment.offHand;
+                    const ohTemplate = gameData.itemTemplates.find(t => t.id === ohItem.templateId);
+                    if (ohTemplate?.category === ItemCategory.Weapon) {
+                        hands.push('off');
+                    }
+                }
 
                 for(let i = 0; i < finalAttacks; i++) {
-                    const hands: ('main' | 'off')[] = isDual ? ['main', 'off'] : ['main'];
                     for (const hand of hands) {
                         const targetIndex = enemiesState.findIndex(e => e.currentHealth > 0);
                         if (targetIndex === -1) break;
