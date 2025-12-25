@@ -90,13 +90,19 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({ item, onSave, onCancel, 
                 <div className="md:col-span-2"><label>{t('item.name')}:<input name="name" value={formData.name || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
                 <div><label>{t('item.slotLabel')}:<select name="slot" value={formData.slot || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(EquipmentSlot).map(s => <option key={s} value={s}>{t(`item.slot.${s}`)}</option>)}<option value="ring">{t('item.slot.ring')}</option></select></label></div>
                 <div className="md:col-span-3"><label>{t('item.description')}:<textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1" /></label></div>
+                
                 <div><label>{t('item.category')}:<select name="category" value={formData.category || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemCategory).map(c => <option key={c} value={c}>{t(`item.categories.${c}`)}</option>)}</select></label></div>
                 <div><label>{t('item.rarity')}:<select name="rarity" value={formData.rarity || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1"><option value="">-- {t('admin.select')} --</option>{Object.values(ItemRarity).map(r => <option key={r} value={r}>{t(`rarity.${r}`)}</option>)}</select></label></div>
                 
-                {/* Gender Constraints */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500 uppercase font-bold">Wymagana Płeć:</label>
-                    <select name="requiredGender" value={formData.requiredGender || ''} onChange={handleChange} className="w-full bg-slate-700 p-2 rounded-md mt-1">
+                {/* Wymagana Płeć */}
+                <div>
+                    <label className="text-sm font-medium text-gray-300">{t('item.requiredGender')}:</label>
+                    <select 
+                        name="requiredGender" 
+                        value={formData.requiredGender || ''} 
+                        onChange={handleChange} 
+                        className="w-full bg-slate-700 p-2 rounded-md mt-1"
+                    >
                         <option value="">-- Dowolna --</option>
                         <option value={Gender.Male}>{t('gender.Male')}</option>
                         <option value={Gender.Female}>{t('gender.Female')}</option>
