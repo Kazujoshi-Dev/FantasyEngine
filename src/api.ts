@@ -48,11 +48,7 @@ export const api = {
             const { time } = await fetchApi('/time');
             const end = Date.now();
             const latency = (end - start) / 2;
-            
-            // Obliczamy różnicę między czasem serwera a lokalnym, uwzględniając opóźnienie sieci.
-            // Nie dodajemy ręcznie przesunięć stref czasowych, bo Date() obsłuży to przy wyświetlaniu.
             serverTimeOffset = time - (Date.now() - latency);
-            
             return serverTimeOffset;
         } catch { return 0; }
     },
@@ -85,7 +81,7 @@ export const api = {
 
     upgradeCamp: () => fetchApi('/character/camp/upgrade', { method: 'POST' }),
     
-    // Treasury & Warehouse (Fixed paths with /storage prefix)
+    // Treasury & Warehouse
     upgradeChest: () => fetchApi('/character/storage/treasury/upgrade', { method: 'POST' }),
     chestDeposit: (amount: number) => fetchApi('/character/storage/treasury/deposit', { method: 'POST', body: JSON.stringify({ amount }) }),
     chestWithdraw: (amount: number) => fetchApi('/character/storage/treasury/withdraw', { method: 'POST', body: JSON.stringify({ amount }) }),
@@ -132,7 +128,7 @@ export const api = {
     disenchantItem: (itemId: string) => fetchApi('/blacksmith/disenchant', { method: 'POST', body: JSON.stringify({ itemId }) }),
     upgradeItem: (itemId: string) => fetchApi('/blacksmith/upgrade', { method: 'POST', body: JSON.stringify({ itemId }) }),
     
-    // Workshop (NEW)
+    // Workshop
     upgradeWorkshop: () => fetchApi('/workshop/upgrade', { method: 'POST' }),
     craftItem: (slot: EquipmentSlot | 'ring' | 'consumable', rarity: ItemRarity) => fetchApi('/workshop/craft', { method: 'POST', body: JSON.stringify({ slot, rarity }) }),
     reforgeItem: (itemId: string, type: 'values' | 'affixes') => fetchApi('/workshop/reforge', { method: 'POST', body: JSON.stringify({ itemId, type }) }),
@@ -222,11 +218,11 @@ export const api = {
     resetCharacterStats: (id: number) => fetchApi(`/admin/characters/${id}/reset-stats`, { method: 'POST' }),
     resetCharacterProgress: (id: number) => fetchApi(`/admin/characters/${id}/reset-progress`, { method: 'POST' }),
     deleteCharacter: (id: number) => fetchApi(`/admin/characters/${id}`, { method: 'DELETE' }),
-    updateCharacterDetails: (id: number, data: any) => fetchApi(`/admin/character/${id}/update-details`, { method: 'POST', body: JSON.stringify(data) }),
-    changeUserPassword: (id: number, newPassword: string) => fetchApi(`/admin/users/${id}/password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+    updateCharacterDetails: (id: number, data: any) => fetchApi(`/admin/characters/${id}/update-details`, { method: 'POST', body: JSON.stringify(data) }),
+    changeUserPassword: (id: number, newPassword: string) => fetchApi(`/admin/characters/${id}/password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
     inspectCharacter: (id: number) => fetchApi(`/admin/characters/${id}/inspect`),
     deleteCharacterItem: (userId: number, uniqueId: string) => fetchApi(`/admin/characters/${userId}/items/${uniqueId}`, { method: 'DELETE' }),
-    updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/character/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
+    updateCharacterGold: (id: number, gold: number) => fetchApi(`/admin/characters/${id}/update-gold`, { method: 'POST', body: JSON.stringify({ gold }) }),
     findItemById: (id: string) => fetchApi(`/admin/items/find/${id}`),
     runAttributesAudit: () => fetchApi('/admin/audit/fix-attributes', { method: 'POST' }),
     runCharacterDataAudit: () => fetchApi('/admin/audit/fix-characters', { method: 'POST' }),
