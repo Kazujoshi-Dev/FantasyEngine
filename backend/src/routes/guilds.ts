@@ -1,18 +1,16 @@
-
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
 import { getActiveRaids, createRaid, joinRaid } from '../logic/guildRaids.js';
 import { getBuildingCost, canManage, pruneExpiredBuffs } from '../logic/guilds.js';
-// Added PlayerCharacter to imports to fix "Cannot find name 'PlayerCharacter'"
 import { GuildRole, EssenceType, ItemInstance, ItemTemplate, RaidType, Affix, PlayerCharacter } from '../types.js';
-// Fix: Import getBackpackCapacity from stats.js, keep enforceInboxLimit and fetchFullCharacter from helpers.js
 import { getBackpackCapacity, calculateDerivedStatsOnServer } from '../logic/stats.js';
 import { enforceInboxLimit, fetchFullCharacter } from '../logic/helpers.js';
 
 const router = express.Router();
 
-// Middleware: Wszystkie trasy wymagają autoryzacji
+// Middleware: Wszystkie trasy wymagają autoryzacji (z wyjątkiem profilu publicznego, jeśli tak zdecydujemy, 
+// ale tutaj trzymamy się spójności z api.ts, które przesyła token).
 router.use(authenticateToken);
 
 // GET /api/guilds/list - Publiczna lista gildii
@@ -34,6 +32,41 @@ router.get('/list', async (req: any, res: any) => {
         })));
     } catch (err) {
         res.status(500).json({ message: 'Błąd pobierania listy gildii' });
+    }
+});
+
+// GET /api/guilds/profile/:id - Publiczny profil gildii (Wizytówka)
+router.get('/profile/:id', async (req: any, res: any) => {
+    try {
+        const guildId = req.params.id;
+        const result = await pool.query(`
+            SELECT 
+                g.id, g.name, g.tag, g.description, g.crest_url as "crestUrl",
+                g.member_count as "memberCount", g.max_members as "maxMembers",
+                g.created_at as "createdAt", g.is_public as "isPublic", g.min_level as "minLevel",
+                c.data->>'name' as "leaderName",
+                COALESCE(SUM((mc.data->>'level')::int), 0) as "totalLevel"
+            FROM guilds g
+            JOIN characters c ON g.leader_id = c.user_id
+            LEFT JOIN guild_members gm ON g.id = gm.guild_id
+            LEFT JOIN characters mc ON gm.user_id = mc.user_id
+            WHERE g.id = $1
+            GROUP BY g.id, c.data->>'name'
+        `, [guildId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Gildia nie została znaleziona.' });
+        }
+
+        const row = result.rows[0];
+        res.json({
+            ...row,
+            totalLevel: parseInt(row.totalLevel) || 0,
+            memberCount: parseInt(row.memberCount) || 0
+        });
+    } catch (err) {
+        console.error('Error fetching public guild profile:', err);
+        res.status(500).json({ message: 'Błąd serwera' });
     }
 });
 
