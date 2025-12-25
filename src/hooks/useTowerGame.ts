@@ -63,15 +63,21 @@ export const useTowerGame = () => {
         setState(prev => ({ ...prev, loading: true }));
         try {
             const res = await api.startTower(towerId);
-            // Ustawiamy od razu stan, ale też pobieramy świeże dane aby upewnić się, że wrogowie są widoczni
+            
+            // CRITICAL FIX: Use raw character from backend to avoid double-boosting bug
+            if (res.updatedCharacter) {
+                updateCharacter(res.updatedCharacter);
+            }
+
             setState(prev => ({
                 ...prev,
                 activeRun: res.activeRun,
                 activeTower: res.tower,
                 loading: false
             }));
-            updateCharacter(character!); // Wyzwalacz odświeżenia przez context
-            await fetchData(); // Dodatkowe odświeżenie listy i stanu biegu
+            
+            // Refresh to ensure full sync
+            await fetchData();
         } catch (e: any) {
             alert(e.message);
             setState(prev => ({ ...prev, loading: false }));
@@ -83,19 +89,18 @@ export const useTowerGame = () => {
         
         try {
             const res = await api.fightTower();
+            
+            // Sync character state with raw data from backend
+            if (res.updatedCharacter) {
+                updateCharacter(res.updatedCharacter);
+            }
+
             const encounteredEnemies: Enemy[] = res.enemies || [];
 
             if (res.victory) {
-                const newFloor = res.currentFloor || state.activeRun.currentFloor + (res.isTowerComplete ? 0 : 1);
-                const updatedRun = {
-                    ...state.activeRun,
-                    currentFloor: newFloor,
-                    currentHealth: Math.max(0, res.combatLog[res.combatLog.length - 1].playerHealth),
-                    currentMana: Math.max(0, res.combatLog[res.combatLog.length - 1].playerMana),
-                    accumulatedRewards: res.rewards 
-                };
-                setState(prev => ({ ...prev, activeRun: updatedRun }));
-                api.getCharacter().then(updateCharacter);
+                // Rely on backend for next state
+                const data = await api.getTowers();
+                setState(prev => ({ ...prev, activeRun: data.activeRun }));
 
                 if (res.isTowerComplete) {
                     setState(prev => ({
@@ -188,6 +193,11 @@ export const useTowerGame = () => {
         if (!confirm('Czy na pewno chcesz uciec z wieży? Zabierzesz ze sobą wszystkie zgromadzone dotąd łupy.')) return;
         try {
             const res = await api.retreatTower();
+            
+            if (res.updatedCharacter) {
+                updateCharacter(res.updatedCharacter);
+            }
+
             setState(prev => ({
                 ...prev,
                 endGameSummary: {
@@ -196,7 +206,6 @@ export const useTowerGame = () => {
                 },
                 activeRun: null
             }));
-            api.getCharacter().then(updateCharacter);
         } catch (e: any) {
             alert(e.message);
         }
@@ -219,7 +228,6 @@ export const useTowerGame = () => {
         api.getTowers().then(data => {
             setState(p => ({ ...p, towers: data.towers || [], loading: false }));
         });
-        api.getCharacter().then(updateCharacter);
     };
 
     return {

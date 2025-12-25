@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { pool } from '../db.js';
@@ -100,14 +101,12 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const activeBuffs = charRes.rows[0].active_buffs || [];
 
-        // Koszt wejścia ustalony w edytorze
         const entryCost = tower.entryEnergyCost || 0;
 
         if (char.stats.currentEnergy < entryCost) {
             throw new Error(`Brak energii na wejście do wieży (Wymagane: ${entryCost}).`);
         }
 
-        // Fix: Używamy pełnych danych do wyliczenia statystyk, aby Max HP było spójne z widokiem w mieście
         const derived = calculateDerivedStatsOnServer(
             char, 
             gameData.itemTemplates, 
@@ -122,7 +121,6 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         char.stats.currentEnergy -= entryCost;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
 
-        // Fix: Inicjalizujemy current_health rzeczywistym HP gracza, a nie max HP (aby uniknąć darmowego leczenia)
         const resRun = await client.query(
             `INSERT INTO tower_runs (user_id, tower_id, current_floor, current_health, current_mana, accumulated_rewards, status)
              VALUES ($1, $2, $3, $4, $5, $6, 'IN_PROGRESS') RETURNING *`,
@@ -141,7 +139,8 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
                 currentMana: Number(row.current_mana),
                 accumulatedRewards: row.accumulated_rewards 
             },
-            tower
+            tower,
+            updatedCharacter: char
         });
     } catch (err: any) {
         await client.query('ROLLBACK');
@@ -186,7 +185,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const activeBuffs = charRes.rows[0].active_buffs || [];
 
-        // Sprawdź energię na piętro
         if (charData.stats.currentEnergy < floorConfig.energyCost) {
             throw new Error(`Brak energii na walkę na tym piętrze (Wymagane: ${floorConfig.energyCost}).`);
         }
@@ -196,7 +194,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             return template ? { ...template, uniqueId: randomUUID() } : null;
         }).filter(e => e !== null) as Enemy[];
 
-        // Fix: Dodano parametr itemSets, aby statystyki były identyczne z widokiem postaci
         const derivedChar = calculateDerivedStatsOnServer(
             charData, 
             gameData.itemTemplates, 
@@ -224,13 +221,11 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         let rewards = activeRun.accumulated_rewards || { gold: 0, experience: 0, items: [], essences: {} };
 
         if (victory) {
-            // Zabierz energię TYLKO przy zwycięstwie
             charData.stats.currentEnergy -= floorConfig.energyCost;
 
             rewards.gold += (floorConfig.guaranteedReward?.gold || 0);
             rewards.experience += (floorConfig.guaranteedReward?.experience || 0);
             
-            // Loot z wrogów
             encounteredEnemies.forEach(enemy => {
                 const gold = Math.floor(Math.random() * (enemy.rewards.maxGold - enemy.rewards.minGold + 1)) + enemy.rewards.minGold;
                 const exp = Math.floor(Math.random() * (enemy.rewards.maxExperience - enemy.rewards.minExperience + 1)) + enemy.rewards.minExperience;
@@ -326,16 +321,29 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             }
 
             await client.query('COMMIT');
-            res.json({ victory: true, combatLog, rewards, isTowerComplete, enemies: encounteredEnemies, currentFloor: isTowerComplete ? activeRun.current_floor : activeRun.current_floor + 1 });
+            res.json({ 
+                victory: true, 
+                combatLog, 
+                rewards, 
+                isTowerComplete, 
+                enemies: encounteredEnemies, 
+                currentFloor: isTowerComplete ? activeRun.current_floor : activeRun.current_floor + 1,
+                updatedCharacter: charData
+            });
 
         } else {
-            // Przy porażce też zabieramy energię
             charData.stats.currentEnergy -= floorConfig.energyCost;
             await client.query("UPDATE tower_runs SET status = 'FAILED' WHERE id = $1", [activeRun.id]);
             charData.stats.currentHealth = 0;
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
             await client.query('COMMIT');
-            res.json({ victory: false, combatLog, rewards: { gold: 0, experience: 0, items: [], essences: {} }, enemies: encounteredEnemies });
+            res.json({ 
+                victory: false, 
+                combatLog, 
+                rewards: { gold: 0, experience: 0, items: [], essences: {} }, 
+                enemies: encounteredEnemies,
+                updatedCharacter: charData
+            });
         }
 
     } catch (err: any) {
@@ -377,7 +385,7 @@ router.post('/retreat', authenticateToken, async (req: any, res: any) => {
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
 
         await client.query('COMMIT');
-        res.json({ rewards });
+        res.json({ rewards, updatedCharacter: char });
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: err.message });
