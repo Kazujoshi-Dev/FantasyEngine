@@ -6,7 +6,7 @@ import { GameData, PlayerCharacter, Tower, ActiveTowerRun, Enemy, CombatLogEntry
 import { calculateDerivedStatsOnServer, getBackpackCapacity } from '../logic/stats.js';
 import { simulate1vManyCombat } from '../logic/combat/simulations/index.js';
 import { enforceInboxLimit } from '../logic/helpers.js';
-import { createItemInstance, rollAffixStats } from '../logic/items.js';
+import { createItemInstance, rollAffixStats, pickWeighted } from '../logic/items.js';
 import { randomUUID } from 'crypto';
 
 const router = express.Router();
@@ -29,14 +29,14 @@ const getActiveRun = async (userId: number, client: any): Promise<ActiveTowerRun
         userId: row.user_id,
         towerId: row.tower_id,
         currentFloor: row.current_floor,
-        currentHealth: Number(row.current_health),
-        currentMana: Number(row.current_mana),
+        currentHealth: Number(row.current_health) || 0,
+        currentMana: Number(row.current_mana) || 0,
         accumulatedRewards: row.accumulated_rewards,
         status: row.status
     };
 };
 
-// GET /api/towers - Pobierz wieże dostępne w lokacji lub aktywny bieg
+// GET /api/towers
 router.get('/', authenticateToken, async (req: any, res: any) => {
     const userId = req.user.id;
     const client = await pool.connect();
@@ -48,16 +48,12 @@ router.get('/', authenticateToken, async (req: any, res: any) => {
         const gameData = await getGameData();
         const activeRun = await getActiveRun(userId, client);
         
-        // Pobierz wieże: 
-        // 1. Muszą być aktywne (lub isActive nie jest ustawione - traktujemy jako aktywne dla wstecznej kompatybilności)
-        // 2. Muszą być w obecnej lokacji gracza
         const towers = (gameData.towers || []).filter(t => {
             const isAtLocation = t.locationId === character.currentLocationId;
-            const isActive = t.isActive !== false; // null/undefined/true = active
+            const isActive = t.isActive !== false;
             return isAtLocation && isActive;
         });
 
-        // Jeśli trwa bieg, pobieramy też dane wieży, w której jest gracz (nawet jeśli już w niej nie jest fizycznie)
         let tower = null;
         if (activeRun) {
             tower = (gameData.towers || []).find(t => t.id === activeRun.towerId);
@@ -94,17 +90,9 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         const charRes = await client.query('SELECT data FROM characters WHERE user_id = $1 FOR UPDATE', [userId]);
         const char = charRes.rows[0].data as PlayerCharacter;
 
-        if (char.currentLocationId !== tower.locationId) throw new Error("Nie jesteś w odpowiedniej lokacji.");
-
-        const firstFloor = tower.floors.find(f => f.floorNumber === 1);
-        if (!firstFloor) throw new Error("Błąd konfiguracji wieży.");
-
-        if (char.stats.currentEnergy < firstFloor.energyCost) throw new Error("Brak energii.");
-
-        // Oblicz statystyki pochodne dla startowego zdrowia/many
         const derived = calculateDerivedStatsOnServer(char, gameData.itemTemplates, gameData.affixes, 0, 0, gameData.skills);
 
-        char.stats.currentEnergy -= firstFloor.energyCost;
+        char.stats.currentEnergy -= tower.floors[0].energyCost;
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), userId]);
 
         const resRun = await client.query(
@@ -114,8 +102,17 @@ router.post('/start', authenticateToken, async (req: any, res: any) => {
         );
 
         await client.query('COMMIT');
+        
+        const row = resRun.rows[0];
         res.json({
-            activeRun: { ...resRun.rows[0], userId: resRun.rows[0].user_id, towerId: resRun.rows[0].tower_id, accumulatedRewards: resRun.rows[0].accumulated_rewards },
+            activeRun: { 
+                ...row, 
+                userId: row.user_id, 
+                towerId: row.tower_id, 
+                currentHealth: Number(row.current_health),
+                currentMana: Number(row.current_mana),
+                accumulatedRewards: row.accumulated_rewards 
+            },
             tower
         });
     } catch (err: any) {
@@ -161,7 +158,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         const guildBuildings = charRes.rows[0].buildings || {};
         const activeBuffs = charRes.rows[0].active_buffs || [];
 
-        // Walka
         const encounteredEnemies: Enemy[] = floorConfig.enemies.map(fe => {
             const template = gameData.enemies.find(e => e.id === fe.enemyId);
             return template ? { ...template, uniqueId: randomUUID() } : null;
@@ -169,7 +165,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
 
         const derivedChar = calculateDerivedStatsOnServer(charData, gameData.itemTemplates, gameData.affixes, guildBuildings.barracks || 0, guildBuildings.shrine || 0, gameData.skills, activeBuffs);
         
-        // Podstawienie zdrowia z biegu do statystyk postaci na czas symulacji
         const combatReadyChar = {
             ...derivedChar,
             stats: { 
@@ -186,7 +181,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
         let rewards = activeRun.accumulated_rewards || { gold: 0, experience: 0, items: [], essences: {} };
 
         if (victory) {
-            // Dodaj nagrody z piętra
             rewards.gold += (floorConfig.guaranteedReward?.gold || 0);
             rewards.experience += (floorConfig.guaranteedReward?.experience || 0);
             
@@ -198,7 +192,34 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 rewards.experience += exp;
             });
 
-            // Resource Loot Table
+            // NOWOŚĆ: Przetwarzanie lootTable (Weighted) z piętra
+            if (floorConfig.lootTable && floorConfig.lootTable.length > 0) {
+                // Szansa bazowa 50% na przedmiot z tabeli wagowej
+                if (Math.random() < 0.5) {
+                    const droppedTemplateId = pickWeighted(floorConfig.lootTable)?.templateId;
+                    if (droppedTemplateId) {
+                        const newItem = createItemInstance(droppedTemplateId, gameData.itemTemplates, gameData.affixes, derivedChar);
+                        rewards.items.push(newItem);
+                    }
+                }
+            }
+
+            // NOWOŚĆ: Przetwarzanie randomItemRewards (Rzadkość) z piętra
+            if (floorConfig.randomItemRewards && floorConfig.randomItemRewards.length > 0) {
+                floorConfig.randomItemRewards.forEach(rir => {
+                    if (Math.random() * 100 < rir.chance) {
+                        const eligible = gameData.itemTemplates.filter(t => t.rarity === rir.rarity && t.slot !== 'consumable');
+                        if (eligible.length > 0) {
+                            for (let i = 0; i < (rir.amount || 1); i++) {
+                                const template = eligible[Math.floor(Math.random() * eligible.length)];
+                                const newItem = createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, derivedChar);
+                                rewards.items.push(newItem);
+                            }
+                        }
+                    }
+                });
+            }
+
             if (floorConfig.resourceLootTable) {
                 floorConfig.resourceLootTable.forEach(drop => {
                     if (Math.random() * 100 < drop.weight) {
@@ -208,7 +229,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 });
             }
 
-            // Specific Items
             if (floorConfig.specificItemRewards) {
                 rewards.items.push(...floorConfig.specificItemRewards.map(i => ({ ...i, uniqueId: randomUUID() })));
             }
@@ -216,17 +236,29 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             const isTowerComplete = activeRun.current_floor >= tower.totalFloors;
             
             if (isTowerComplete) {
-                // Dodaj nagrodę główną
                 if (tower.grandPrize) {
                     rewards.gold += (tower.grandPrize.gold || 0);
                     rewards.experience += (tower.grandPrize.experience || 0);
                     rewards.items.push(...(tower.grandPrize.items || []).map(i => ({ ...i, uniqueId: randomUUID() })));
+                    
+                    // Grand Prize Random Items
+                    if (tower.grandPrize.randomItemRewards) {
+                        tower.grandPrize.randomItemRewards.forEach(rir => {
+                            if (Math.random() * 100 < rir.chance) {
+                                const eligible = gameData.itemTemplates.filter(t => t.rarity === rir.rarity && t.slot !== 'consumable');
+                                if (eligible.length > 0) {
+                                    const template = eligible[Math.floor(Math.random() * eligible.length)];
+                                    rewards.items.push(createItemInstance(template.id, gameData.itemTemplates, gameData.affixes, derivedChar));
+                                }
+                            }
+                        });
+                    }
+
                     Object.entries(tower.grandPrize.essences || {}).forEach(([k, v]) => {
                         rewards.essences[k] = (rewards.essences[k] || 0) + (v as number);
                     });
                 }
 
-                // Finalize character
                 charData.resources.gold += rewards.gold;
                 charData.experience += rewards.experience;
                 charData.inventory.push(...rewards.items);
@@ -244,7 +276,6 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
                 await client.query("UPDATE tower_runs SET status = 'COMPLETED', accumulated_rewards = $1 WHERE id = $2", [JSON.stringify(rewards), activeRun.id]);
                 await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
             } else {
-                // Update run
                 await client.query(
                     "UPDATE tower_runs SET current_floor = current_floor + 1, current_health = $1, current_mana = $2, accumulated_rewards = $3 WHERE id = $4",
                     [lastEntry.playerHealth, lastEntry.playerMana, JSON.stringify(rewards), activeRun.id]
@@ -255,12 +286,9 @@ router.post('/fight', authenticateToken, async (req: any, res: any) => {
             res.json({ victory: true, combatLog, rewards, isTowerComplete, enemies: encounteredEnemies, currentFloor: isTowerComplete ? activeRun.current_floor : activeRun.current_floor + 1 });
 
         } else {
-            // Defeat
             await client.query("UPDATE tower_runs SET status = 'FAILED' WHERE id = $1", [activeRun.id]);
-            // Zresetuj zdrowie postaci do 0 (pół-śmierć)
             charData.stats.currentHealth = 0;
             await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(charData), userId]);
-            
             await client.query('COMMIT');
             res.json({ victory: false, combatLog, rewards: { gold: 0, experience: 0, items: [], essences: {} }, enemies: encounteredEnemies });
         }

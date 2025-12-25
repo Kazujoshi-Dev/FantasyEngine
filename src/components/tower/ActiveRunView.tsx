@@ -40,8 +40,14 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
         return floor.enemies.map(fe => gameData.enemies.find(e => e.id === fe.enemyId)).filter(e => !!e) as Enemy[];
     }, [activeTower, gameData]);
 
-    const hpPercent = (activeRun.currentHealth / character.stats.maxHealth) * 100;
-    const manaPercent = (activeRun.currentMana / character.stats.maxMana) * 100;
+    // FIX: Rygorystyczne rzutowanie na Number, aby wyeliminować NaN
+    const curH = Number(activeRun.currentHealth) || 0;
+    const maxH = Number(character.stats.maxHealth) || 1;
+    const curM = Number(activeRun.currentMana) || 0;
+    const maxM = Number(character.stats.maxMana) || 1;
+
+    const hpPercent = (curH / maxH) * 100;
+    const manaPercent = (curM / maxM) * 100;
     const rewards = activeRun.accumulatedRewards;
     
     const currentFloorConfig = activeTower.floors.find(f => f.floorNumber === activeRun.currentFloor);
@@ -82,17 +88,17 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                         <div>
                             <div className="flex justify-between text-sm mb-1">
                                 <span className="text-gray-300 font-bold">Zdrowie</span>
-                                <span className="text-white">{Math.ceil(activeRun.currentHealth)} / {character.stats.maxHealth}</span>
+                                <span className="text-white font-mono">{Math.ceil(curH)} / {maxH}</span>
                             </div>
                             <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                                <div className="bg-red-600 h-full transition-all" style={{ width: `${hpPercent}%` }}></div>
+                                <div className="bg-red-600 h-full transition-all duration-500" style={{ width: `${hpPercent}%` }}></div>
                             </div>
                             <p className="text-xs text-red-400 mt-1 italic">Zdrowie nie regeneruje się automatycznie!</p>
                         </div>
                         <div>
                             <div className="flex justify-between text-sm mb-1">
                                 <span className="text-gray-300 font-bold">Mana</span>
-                                <span className="text-white">{Math.ceil(activeRun.currentMana)} / {character.stats.maxMana}</span>
+                                <span className="text-white font-mono">{Math.ceil(curM)} / {maxM}</span>
                             </div>
                             <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
                                 <div className="bg-blue-600 h-full transition-all" style={{ width: `${manaPercent}%` }}></div>
