@@ -98,12 +98,12 @@ export const api = {
     healCharacter: () => fetchApi('/character/camp/heal', { method: 'POST' }),
 
     distributeStatPoints: (stats: Partial<CharacterStats>) => fetchApi('/character/stats', { method: 'POST', body: JSON.stringify({ stats }) }),
-    resetAttributes: () => fetchApi('/character/reset-stats', { method: 'POST' }),
+    resetAttributes: () => fetchApi('/character/stats/reset', { method: 'POST' }),
     
     learnSkill: (skillId: string) => fetchApi('/character/skills/learn', { method: 'POST', body: JSON.stringify({ skillId }) }),
     completeLearningSkill: () => fetchApi('/character/skills/complete-learning', { method: 'POST' }),
     toggleSkill: (skillId: string, isActive: boolean) => fetchApi('/character/skills/toggle', { method: 'POST', body: JSON.stringify({ skillId, isActive }) }),
-    selectClass: (characterClass: CharacterClass) => fetchApi('/character/class', { method: 'POST', body: JSON.stringify({ characterClass }) }),
+    selectClass: (characterClass: CharacterClass) => fetchApi('/character/stats/class', { method: 'POST', body: JSON.stringify({ characterClass }) }),
     convertEssence: (fromType: EssenceType) => fetchApi('/character/skills/convert-essence', { method: 'POST', body: JSON.stringify({ fromType }) }),
 
     startTravel: (destinationLocationId: string) => fetchApi('/character/travel/start', { method: 'POST', body: JSON.stringify({ destinationLocationId }) }),
