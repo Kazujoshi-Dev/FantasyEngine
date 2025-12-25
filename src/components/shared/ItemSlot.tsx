@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { ItemRarity, ItemTemplate, ItemInstance, EquipmentSlot, PlayerCharacter, CharacterStats, Affix, RolledAffixStats, GrammaticalGender, ItemSet } from '../../types';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { CoinsIcon } from '../icons/CoinsIcon';
@@ -457,42 +457,66 @@ export const ItemTooltip: React.FC<{
     onMouseEnter?: () => void; 
     onMouseLeave?: () => void; 
 }> = ({ instance, template, affixes, character, compareWith, x, y, itemTemplates = [], isCentered, onClose, onMouseEnter, onMouseLeave }) => { 
-    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', display: 'none' }); 
+    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', opacity: 0 }); 
+    const tooltipRef = useRef<HTMLDivElement>(null);
     
     const isSameItem = compareWith?.uniqueId === instance.uniqueId; 
     const actualCompareWith = isSameItem ? null : compareWith; 
     const compareTemplate = actualCompareWith ? itemTemplates.find(t => t.id === actualCompareWith.templateId) : null;
 
-    useEffect(() => { 
-        const tooltipWidth = actualCompareWith ? 600 : 300;
-
+    useLayoutEffect(() => { 
         if (isCentered || onClose) { 
-            setStyle({ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', visibility: 'visible', display: 'flex', width: `${tooltipWidth}px`, zIndex: 99999, pointerEvents: 'auto' }); 
-            return; 
-        } 
-        
-        // Follow mouse logic with safe offsets and disabled interactions to prevent flickering
-        if (x !== undefined && y !== undefined) {
-            const offsetX = 20;
-            const offsetY = 20;
-            
-            // Boundary checks to keep tooltip on screen
-            let top = y + offsetY;
-            let left = x + offsetX;
-            
-            if (left + tooltipWidth > window.innerWidth) {
-                left = x - tooltipWidth - offsetX;
-            }
-            
+            const tooltipWidth = actualCompareWith ? 600 : 300;
             setStyle({ 
                 position: 'fixed', 
-                top: `${top}px`, 
-                left: `${left}px`, 
+                top: '50%', 
+                left: '50%', 
+                transform: 'translate(-50%, -50%)', 
                 visibility: 'visible', 
+                opacity: 1,
                 display: 'flex', 
                 width: `${tooltipWidth}px`, 
                 zIndex: 99999, 
-                pointerEvents: 'none' // CRITICAL: Tooltip must not capture mouse events during hover
+                pointerEvents: 'auto' 
+            }); 
+            return; 
+        } 
+        
+        if (x !== undefined && y !== undefined && tooltipRef.current) {
+            const tooltipWidth = actualCompareWith ? 600 : 300;
+            const tooltipHeight = tooltipRef.current.offsetHeight;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const padding = 20;
+            const offset = 20;
+
+            let finalX = x + offset;
+            let finalY = y + offset;
+
+            // Horizontal bounds check
+            if (finalX + tooltipWidth + padding > windowWidth) {
+                finalX = x - tooltipWidth - offset;
+            }
+
+            // Vertical bounds check
+            if (finalY + tooltipHeight + padding > windowHeight) {
+                finalY = y - tooltipHeight - offset;
+            }
+
+            // Absolute minimum bounds (don't go off top/left)
+            finalX = Math.max(padding, finalX);
+            finalY = Math.max(padding, finalY);
+
+            setStyle({ 
+                position: 'fixed', 
+                top: `${finalY}px`, 
+                left: `${finalX}px`, 
+                visibility: 'visible', 
+                opacity: 1,
+                display: 'flex', 
+                width: `${tooltipWidth}px`, 
+                zIndex: 99999, 
+                pointerEvents: 'none' 
             });
         }
     }, [x, y, actualCompareWith, instance.uniqueId, isCentered, onClose]); 
@@ -500,7 +524,12 @@ export const ItemTooltip: React.FC<{
     if (isCentered || onClose) { 
         return ( 
             <div className={`fixed inset-0 z-[99998] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} onClick={onClose} > 
-                <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-[200] pointer-events-auto overflow-hidden" style={{ width: style.width, maxWidth: '95vw' }} onClick={e => e.stopPropagation()} > 
+                <div 
+                    ref={tooltipRef}
+                    className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-[200] pointer-events-auto overflow-hidden" 
+                    style={{ width: style.width, maxWidth: '95vw' }} 
+                    onClick={e => e.stopPropagation()} 
+                > 
                     {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 
                     {actualCompareWith && compareTemplate && ( 
                         <div className="w-1/2 border-r border-white/5 pr-3 hidden md:flex flex-col max-h-full"> 
@@ -522,9 +551,10 @@ export const ItemTooltip: React.FC<{
     return ( 
         <div className="fixed inset-0 z-[99998] pointer-events-none">
             <div 
+                ref={tooltipRef}
                 onMouseEnter={onMouseEnter} 
                 onMouseLeave={onMouseLeave} 
-                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden`} 
+                className={`bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-0 backdrop-blur-md animate-fade-in flex gap-3 relative z-10 overflow-hidden transition-opacity duration-200`} 
                 style={style} 
             > 
                 <div className="relative p-3 flex gap-3 max-h-[85vh] w-full overflow-hidden"> 
