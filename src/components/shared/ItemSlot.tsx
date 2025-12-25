@@ -170,7 +170,14 @@ export const ItemDetailsPanel: React.FC<{
         // 1. Level Check
         if (template.requiredLevel > 1) {
             const levelMet = !character || character.level >= template.requiredLevel;
-            reqs.push(<div key="req-lvl" className="flex justify-between items-center py-0.5"><span className="text-gray-500">{t('statistics.level')}:</span><span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>{template.requiredLevel}</span></div>);
+            reqs.push(
+                <div key="req-lvl" className="flex justify-between items-center py-0.5">
+                    <span className="text-gray-500">{t('statistics.level')}:</span>
+                    <span className={`font-mono font-bold ${levelMet ? 'text-gray-300' : 'text-red-500 animate-pulse'}`}>
+                        {template.requiredLevel}
+                    </span>
+                </div>
+            );
         }
 
         // 2. Gender Requirement
@@ -500,15 +507,15 @@ export const ItemTooltip: React.FC<{
 
     return ( 
         <div 
-            className="fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in bg-black/60 backdrop-blur-sm pointer-events-auto" 
+            className="fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in bg-black/40 backdrop-blur-sm pointer-events-none" 
             onClick={onClose} 
         > 
             <div 
                 ref={tooltipRef}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
-                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 flex gap-6 max-h-[90vh] relative z-10 overflow-hidden transition-all duration-300 shadow-purple-500/10" 
-                style={{ width: style.width, maxWidth: '95vw', pointerEvents: 'auto' }} 
+                className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 flex gap-6 max-h-[90vh] relative z-10 overflow-hidden transition-all duration-300 shadow-purple-500/10 pointer-events-auto" 
+                style={{ width: style.width, maxWidth: '95vw' }} 
                 onClick={e => e.stopPropagation()} 
             > 
                 {onClose && ( <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-white transition-colors z-20 text-xl"> ✕ </button> )} 

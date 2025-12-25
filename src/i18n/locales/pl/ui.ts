@@ -440,6 +440,13 @@ export default {
             lowLevel: 'Zbyt niski poziom warsztatu.',
             noResources: 'Niewystarczające zasoby.'
         },
+        workshop_upgrade: {
+            title: 'Ulepsz Warsztat',
+            level: 'Poziom Warsztatu',
+            upgrade: 'Ulepsz',
+            cost: 'Koszt ulepszenia',
+            maxLevel: 'Osiągnięto maksymalny poziom warsztatu.'
+        },
         warehouse: {
             title: 'Magazyn Przedmiotów',
             inWarehouse: 'W Magazynie',
@@ -483,7 +490,7 @@ export default {
                 scope: 'Statystyki z afiksów (magiczne) również rosną o 10% za każdy poziom, jednak ten bonus działa maksymalnie do poziomu +5.',
                 cost: 'Koszt rośnie wraz z poziomem i rzadkością.',
                 chance: 'Szansa powodzenia spada o 10% z każdym poziomem.',
-                failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótcestrip).'
+                failure: 'Porażka przy ulepszaniu niszczy przedmiot (chyba że masz specjalne zwoje - wkrótce).'
             },
             upgradeConfirm: 'Szansa powodzenia jest poniżej 100%. Nieudane ulepszenie TRWALE zniszczy przedmiot. Czy na pewno chcesz spróbować?',
             upgradeSuccess: 'Ulepszono przedmiot do poziomu +{level}!',
