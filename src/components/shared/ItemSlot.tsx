@@ -470,7 +470,9 @@ export const ItemTooltip: React.FC<{
     }, [actualCompareWith]); 
 
     // GWARANTOWANE CENTROWANIE: Używamy kontenera fixed inset-0 z flexboxem.
-    // To ignoruje transformacje rodziców i zawsze trafia w środek ekranu.
+    // Aby umożliwić przejechanie kursorem na tooltip bez jego znikania:
+    // 1. Tło jest pointer-events: none (nie blokuje reszty gry).
+    // 2. Sam kontener tooltipa jest pointer-events: auto (pozwala na hover i scroll).
     return ( 
         <div 
             className={`fixed inset-0 z-[100000] flex items-center justify-center p-4 animate-fade-in ${onClose ? 'bg-black/60 backdrop-blur-sm pointer-events-auto' : 'pointer-events-none'}`} 
@@ -481,7 +483,7 @@ export const ItemTooltip: React.FC<{
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
                 className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 flex gap-3 max-h-[90vh] relative z-10 overflow-hidden transition-opacity duration-200 shadow-purple-500/20" 
-                style={{ width: style.width, maxWidth: '95vw', pointerEvents: onClose ? 'auto' : 'none' }} 
+                style={{ width: style.width, maxWidth: '95vw', pointerEvents: 'auto' }} 
                 onClick={e => e.stopPropagation()} 
             > 
                 {onClose && ( <button onClick={onClose} className="absolute top-1.5 right-2 text-gray-500 hover:text-white transition-colors z-20"> ✕ </button> )} 

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { ActiveTowerRun, Tower as TowerType, PlayerCharacter, GameData, ItemInstance, ItemTemplate, EssenceType, ItemRarity, Enemy } from '../../types';
 import { BoltIcon } from '../icons/BoltIcon';
 import { SwordsIcon } from '../icons/SwordsIcon';
@@ -32,6 +32,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
 }) => {
     const { t } = useTranslation();
     const [hoveredItemData, setHoveredItemData] = useState<{ item: ItemInstance, template: ItemTemplate } | null>(null);
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Wyliczanie wrogów dla obecnego piętra
     const currentFloorEnemies = useMemo(() => {
@@ -69,20 +70,38 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
     const canAfford = character.stats.currentEnergy >= floorCost;
 
     const handleItemMouseEnter = (item: ItemInstance, template: ItemTemplate) => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
         setHoveredItemData({ item, template });
+    };
+
+    const handleItemMouseLeave = () => {
+        closeTimerRef.current = setTimeout(() => {
+            setHoveredItemData(null);
+        }, 300);
+    };
+
+    const handleTooltipEnter = () => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             
-            {/* Tooltip stały na środku ekranu - pointer-events: none zapewnia brak migotania */}
+            {/* Tooltip stały na środku ekranu */}
              {hoveredItemData && (
                 <ItemTooltip 
                     instance={hoveredItemData.item}
                     template={hoveredItemData.template}
                     affixes={gameData.affixes}
                     itemTemplates={gameData.itemTemplates}
-                    onMouseLeave={() => setHoveredItemData(null)}
+                    onMouseEnter={handleTooltipEnter}
+                    onMouseLeave={handleItemMouseLeave}
                 />
             )}
 
@@ -203,7 +222,7 @@ export const ActiveRunView: React.FC<ActiveRunViewProps> = ({
                                 key={item.uniqueId} 
                                 className="relative group cursor-help"
                                 onMouseEnter={() => handleItemMouseEnter(item, template)}
-                                onMouseLeave={() => setHoveredItemData(null)}
+                                onMouseLeave={handleItemMouseLeave}
                             >
                                 <ItemListItem 
                                     item={item} 
