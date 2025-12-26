@@ -64,28 +64,26 @@ router.get('/my-guild', async (req: any, res: any) => {
 router.get('/targets', async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
-        const myGuildId = memberRes.rows[0]?.guild_id || null;
+        const myGuildId = memberRes.rows[0]?.guild_id || -1;
 
-        // Używamy podzapytania skorelowanego, aby uniknąć problemów z GROUP BY i NULLami
-        const result = await pool.query(`
+        // Używamy GROUP BY zamiast subquery dla pewności wyników i stabilności typów
+        const query = `
             SELECT 
-                g.id, g.name, g.tag, g.member_count as "memberCount",
-                (
-                    SELECT COALESCE(SUM((c.data->>'level')::int), 0)
-                    FROM guild_members gm
-                    JOIN characters c ON gm.user_id = c.user_id
-                    WHERE gm.guild_id = g.id
-                ) as "totalLevel"
+                g.id, 
+                g.name, 
+                g.tag, 
+                g.member_count as "memberCount",
+                COALESCE(SUM((c.data->>'level')::int), 0)::int as "totalLevel"
             FROM guilds g
-            WHERE g.id != $1 OR $1 IS NULL
-            ORDER BY "totalLevel" DESC
-        `, [myGuildId]);
+            LEFT JOIN guild_members gm ON g.id = gm.guild_id
+            LEFT JOIN characters c ON gm.user_id = c.user_id
+            WHERE g.id != $1
+            GROUP BY g.id, g.name, g.tag, g.member_count
+            ORDER BY "totalLevel" DESC, g.name ASC
+        `;
 
-        res.json(result.rows.map(row => ({
-            ...row,
-            totalLevel: parseInt(row.totalLevel) || 0,
-            memberCount: parseInt(row.memberCount) || 0
-        })));
+        const result = await pool.query(query, [myGuildId]);
+        res.json(result.rows);
     } catch (err) {
         console.error('Error fetching guild targets:', err);
         res.status(500).json({ message: 'Błąd pobierania listy celów' });

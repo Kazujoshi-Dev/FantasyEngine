@@ -46,14 +46,13 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
     const fetchData = async () => {
         try {
-            const data = await api.getEspionage();
-            setActiveSpies(data.activeSpies);
-            setHistory(data.history);
-
-            if (spyLevel > 0) {
-                const targetList = await api.getGuildTargets();
-                setTargets(targetList);
-            }
+            const [espData, targetList] = await Promise.all([
+                api.getEspionage(),
+                api.getGuildTargets()
+            ]);
+            setActiveSpies(espData.activeSpies);
+            setHistory(espData.history);
+            setTargets(targetList);
         } catch (e) {
             console.error(e);
         }
@@ -61,9 +60,9 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 15000); // Częstsze odświeżanie danych szpiegowskich
+        const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
-    }, [spyLevel]); // Usunięcie pustych zależności, aby zapewnić odświeżanie przy zmianie parametrów gildii
+    }, [spyLevel]);
 
     const handleSendSpy = async () => {
         if (!selectedTarget) return;
@@ -150,13 +149,14 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                                 className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white disabled:opacity-50"
                                 value={selectedTarget}
                                 onChange={e => setSelectedTarget(Number(e.target.value))}
-                                disabled={activeSpies.length >= maxSpies || !canSpy}
+                                disabled={activeSpies.length >= maxSpies || !canSpy || spyLevel <= 0}
                              >
                                  <option value="">{t('guild.espionage.selectTarget')}</option>
                                  {targets.map(t => (
                                      <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Siła: {t.totalLevel} | Osób: {t.memberCount})</option>
                                  ))}
                              </select>
+                             {spyLevel <= 0 && <p className="text-xs text-amber-500 mt-1">Musisz wybudować Kryjówkę Szpiegów.</p>}
                         </div>
                         
                         <div className="text-sm space-y-3 bg-slate-800/50 p-4 rounded border border-slate-700">
@@ -189,12 +189,12 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
                         <button 
                             onClick={handleSendSpy} 
-                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies || !canAfford || !canSpy}
+                            disabled={loading || !selectedTarget || activeSpies.length >= maxSpies || !canAfford || !canSpy || spyLevel <= 0}
                             className="w-full py-3 bg-emerald-700 hover:bg-emerald-600 rounded font-bold text-white shadow-lg disabled:bg-slate-700 disabled:text-gray-500 transition-all hover:scale-[1.02]"
                         >
                             {loading ? '...' : t('guild.espionage.sendSpy')}
                         </button>
-                        {!canSpy && <p className="text-center text-xs text-red-400 font-bold mt-1">Tylko Lider i Oficerowie mogą wysyłać szpiegów.</p>}
+                        {!canSpy && spyLevel > 0 && <p className="text-center text-xs text-red-400 font-bold mt-1">Tylko Lider i Oficerowie mogą wysyłać szpiegów.</p>}
                     </div>
                 </div>
 
