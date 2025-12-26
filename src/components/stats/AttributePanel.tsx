@@ -7,6 +7,8 @@ import { InfoIcon } from '../icons/InfoIcon';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { api } from '../../api';
 import { calculateDerivedStats } from '../../logic/stats';
+import { SparklesIcon } from '../icons/SparklesIcon';
+import { ClockIcon } from '../icons/ClockIcon';
 
 const StatTooltip: React.FC<{ text: string }> = ({ text }) => (
     <div className="absolute w-48 p-2 bg-slate-900 text-gray-300 text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 group-hover:visible transition-opacity duration-300 pointer-events-none z-10 left-full ml-2 top-1/2 -translate-y-1/2">
@@ -125,7 +127,7 @@ export const AttributePanel: React.FC<{
         }
     };
 
-    // Podgląd statystyk pochodnych - poprawione przekazywanie parametrów
+    // Podgląd statystyk pochodnych
     const previewCharacter = useMemo(() => calculateDerivedStats(
         { ...baseCharacter, stats: pendingStats },
         gameData.itemTemplates, 
@@ -137,73 +139,112 @@ export const AttributePanel: React.FC<{
         gameData.itemSets || []
     ), [baseCharacter, pendingStats, gameData]);
 
+    const activeBuffs = useMemo(() => {
+        const now = Date.now();
+        return (baseCharacter.activeGuildBuffs || []).filter(b => b.expiresAt > now);
+    }, [baseCharacter.activeGuildBuffs]);
+
+    const formatDuration = (expiresAt: number) => {
+        const diff = expiresAt - Date.now();
+        if (diff <= 0) return '0m';
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
             {/* Kolumna 1: Atrybuty Podstawowe */}
-            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 flex flex-col">
-                <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.baseAttributes')}</h3>
-                {baseCharacter.stats.statPoints > 0 && (
-                    <div className="text-amber-400 font-bold mb-4 text-center bg-slate-800/50 p-2 rounded-lg mx-2">
-                        {t('statistics.pointsToSpend')}: {availablePoints}
-                    </div>
-                )}
-                <div className="space-y-1 flex-grow">
-                    {primaryStatKeys.map(key => {
-                        const baseValue = Number(baseCharacter.stats[key]) || 0;
-                        const pendingValue = Number(pendingStats[key]) || 0;
-                        const itemBonus = (Number(character.stats[key]) || 0) - (Number(baseCharacter.stats[key]) || 0);
-                        const totalValue = pendingValue + itemBonus;
-
-                        return (
-                            <StatRow
-                                key={key}
-                                label={t(`statistics.${key}`)}
-                                value={
-                                    <div className="flex items-baseline justify-end">
-                                        <span className="text-gray-400 mr-1">{pendingValue}</span>
-                                        {itemBonus > 0 && (
-                                            <>
-                                                <span className="text-green-400 text-xs">(+{itemBonus})</span>
-                                                <span className="text-sky-400 ml-1">({totalValue})</span>
-                                            </>
-                                        )}
-                                    </div>
-                                }
-                                onIncrease={() => handleStatChange(key, 1)}
-                                canIncrease={availablePoints > 0}
-                                onDecrease={() => handleStatChange(key, -1)}
-                                canDecrease={pendingValue > baseValue}
-                                description={t(`statistics.${key}Desc`)}
-                            />
-                        );
-                    })}
-                </div>
-                
-                <div className="mt-6 px-2 space-y-2">
-                    {spentPoints > 0 ? (
-                        <div className="flex gap-2">
-                            <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">{t('admin.general.cancel')}</button>
-                            <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2">
-                            <button 
-                                onClick={handleReset} 
-                                className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-gray-400 transition-colors uppercase font-bold tracking-widest"
-                            >
-                                {t('statistics.reset.button')}
-                            </button>
-                            <div className="text-center">
-                                {currentResetInfo.resetsUsed === 0 ? (
-                                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-tight">{t('statistics.reset.freeResetNote')}</p>
-                                ) : (
-                                    <p className="text-[10px] text-gray-500">
-                                        Koszt kolejnego resetu: <span className="text-amber-500 font-mono font-bold">{currentResetInfo.cost.toLocaleString()} złota</span>
-                                    </p>
-                                )}
-                            </div>
+            <div className="flex flex-col gap-6">
+                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 flex flex-col">
+                    <h3 className="text-xl font-bold text-indigo-400 mb-4 px-2">{t('statistics.baseAttributes')}</h3>
+                    {baseCharacter.stats.statPoints > 0 && (
+                        <div className="text-amber-400 font-bold mb-4 text-center bg-slate-800/50 p-2 rounded-lg mx-2">
+                            {t('statistics.pointsToSpend')}: {availablePoints}
                         </div>
                     )}
+                    <div className="space-y-1 flex-grow">
+                        {primaryStatKeys.map(key => {
+                            const baseValue = Number(baseCharacter.stats[key]) || 0;
+                            const pendingValue = Number(pendingStats[key]) || 0;
+                            
+                            // Łączny bonus = Wartość pochodna - Wartość bazowa zapisana (bez punktów rozdanych w locie)
+                            const totalBonus = (Number(character.stats[key]) || 0) - baseValue;
+                            const totalValue = pendingValue + totalBonus;
+
+                            return (
+                                <StatRow
+                                    key={key}
+                                    label={t(`statistics.${key}`)}
+                                    value={
+                                        <div className="flex items-baseline justify-end">
+                                            <span className="text-gray-400 mr-1">{pendingValue}</span>
+                                            {totalBonus > 0 && (
+                                                <>
+                                                    <span className="text-green-400 text-xs" title="Bonus z EQ i Rytuałów">(+{totalBonus})</span>
+                                                    <span className="text-sky-400 ml-1">({totalValue})</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    }
+                                    onIncrease={() => handleStatChange(key, 1)}
+                                    canIncrease={availablePoints > 0}
+                                    onDecrease={() => handleStatChange(key, -1)}
+                                    canDecrease={pendingValue > baseValue}
+                                    description={t(`statistics.${key}Desc`)}
+                                />
+                            );
+                        })}
+                    </div>
+                    
+                    <div className="mt-6 px-2 space-y-2">
+                        {spentPoints > 0 ? (
+                            <div className="flex gap-2">
+                                <button onClick={() => { setPendingStats(baseCharacter.stats); setSpentPoints(0); }} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">{t('admin.general.cancel')}</button>
+                                <button onClick={handleSave} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors">{t('statistics.save')}</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                <button 
+                                    onClick={handleReset} 
+                                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-gray-400 transition-colors uppercase font-bold tracking-widest"
+                                >
+                                    {t('statistics.reset.button')}
+                                </button>
+                                <div className="text-center">
+                                    {currentResetInfo.resetsUsed === 0 ? (
+                                        <p className="text-[10px] text-green-500 font-bold uppercase tracking-tight">{t('statistics.reset.freeResetNote')}</p>
+                                    ) : (
+                                        <p className="text-[10px] text-gray-500">
+                                            Koszt kolejnego resetu: <span className="text-amber-500 font-mono font-bold">{currentResetInfo.cost.toLocaleString()} złota</span>
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Sekcja: Aktywne Błogosławieństwa */}
+                <div className="bg-slate-900/40 p-4 rounded-xl border border-purple-900/30">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-3 flex items-center gap-2">
+                        <SparklesIcon className="h-4 w-4" /> Aktywne Błogosławieństwa
+                    </h3>
+                    <div className="space-y-2">
+                        {activeBuffs.length === 0 ? (
+                            <p className="text-xs text-gray-600 italic text-center py-2">Brak aktywnych efektów gildyjnych.</p>
+                        ) : (
+                            activeBuffs.map(buff => (
+                                <div key={buff.id} className="bg-purple-900/20 border border-purple-500/20 p-2 rounded-lg flex justify-between items-center">
+                                    <span className="text-xs font-bold text-purple-200">{buff.name}</span>
+                                    <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                        <ClockIcon className="h-2.5 w-2.5" /> {formatDuration(buff.expiresAt)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
             

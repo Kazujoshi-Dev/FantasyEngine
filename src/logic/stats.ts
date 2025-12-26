@@ -1,3 +1,4 @@
+
 import { PlayerCharacter, ItemTemplate, Affix, CharacterStats, EquipmentSlot, Race, RolledAffixStats, Skill, GuildBuff, EssenceType, CharacterClass, CraftingSettings, ItemSet } from '../types.js';
 
 export const calculateTotalExperience = (level: number, currentExperience: number | string): number => {
@@ -33,6 +34,7 @@ export const calculateDerivedStats = (
     const safeEquipment = character.equipment || {};
     const safeSkills = Array.isArray(skills) ? skills : [];
 
+    // Inicjalizacja statystyk podstawowych
     const totalPrimaryStats: CharacterStats = {
         strength: Number(character.stats.strength) || 0, 
         agility: Number(character.stats.agility) || 0, 
@@ -67,6 +69,59 @@ export const calculateDerivedStats = (
         damageBonusPercent: 0, damageReductionPercent: 0
     };
     
+    // Zmienne akumulujące bonusy bojowe (by uniknąć nadpisywania przez przypisania końcowe)
+    let globalBonusDmgMin = 0, globalBonusDmgMax = 0;
+    let mhWeaponBonusDmgMin = 0, mhWeaponBonusDmgMax = 0;
+    let ohWeaponBonusDmgMin = 0, ohWeaponBonusDmgMax = 0;
+    let bonusMagicDmgMin = 0, bonusMagicDmgMax = 0;
+    let ohMagicDmgMin = 0, ohMagicDmgMax = 0;
+
+    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0, bonusBlockChance = 0;
+    let bonusAttacksPerRound = 0;
+    let bonusCritDamageModifier = 0;
+    let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
+    let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
+    let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
+
+    // --- APLIKACJA BONUSÓW Z RYTUAŁÓW (GUILD BUFFS) ---
+    if (activeGuildBuffs && activeGuildBuffs.length > 0) {
+        const now = Date.now(); // Idealnie byłoby przekazać serverTime, ale Date.now() jest wystarczające przy sprawdzaniu na serwerze
+        activeGuildBuffs.forEach(buff => {
+            if (buff.expiresAt > now) {
+                for (const key in buff.stats) {
+                    const val = Number((buff.stats as any)[key]) || 0;
+                    
+                    // 1. Bonusy do atrybutów głównych
+                    if (['strength', 'agility', 'accuracy', 'stamina', 'intelligence', 'energy', 'luck'].includes(key)) {
+                        (totalPrimaryStats as any)[key] += val;
+                    }
+                    // 2. Bonusy do pancerza
+                    else if (key === 'armor') {
+                        bonusArmor += val;
+                    }
+                    // 3. Bonusy do obrażeń
+                    else if (key === 'minDamage') {
+                        globalBonusDmgMin += val;
+                    }
+                    else if (key === 'maxDamage') {
+                        globalBonusDmgMax += val;
+                    }
+                    // 4. Bonusy procentowe
+                    else if (key === 'expBonus' || key === 'expBonusPercent') {
+                        totalPrimaryStats.expBonusPercent += val;
+                    }
+                    else if (key === 'goldBonusPercent') {
+                        totalPrimaryStats.goldBonusPercent += val;
+                    }
+                    // 5. Inne statystyki CharacterStats
+                    else if (totalPrimaryStats.hasOwnProperty(key)) {
+                        (totalPrimaryStats as any)[key] += val;
+                    }
+                }
+            }
+        });
+    }
+
     if (character.race === Race.Human) totalPrimaryStats.expBonusPercent += 10;
     if (character.race === Race.Gnome) totalPrimaryStats.goldBonusPercent += 20;
 
@@ -86,34 +141,6 @@ export const calculateDerivedStats = (
     }
 
     if (guildShrineLevel > 0) totalPrimaryStats.luck += (guildShrineLevel * 5);
-
-    if (activeGuildBuffs && activeGuildBuffs.length > 0) {
-        const now = Date.now();
-        activeGuildBuffs.forEach(buff => {
-            if (buff.expiresAt > now) {
-                for (const key in buff.stats) {
-                    const statKey = key as keyof CharacterStats;
-                    if (totalPrimaryStats[statKey] !== undefined) {
-                        (totalPrimaryStats as any)[statKey] += (Number(buff.stats[statKey]) || 0);
-                    }
-                    if (key === 'expBonus') totalPrimaryStats.expBonusPercent += (Number(buff.stats[key]) || 0);
-                }
-            }
-        });
-    }
-
-    let globalBonusDmgMin = 0, globalBonusDmgMax = 0;
-    let mhWeaponBonusDmgMin = 0, mhWeaponBonusDmgMax = 0;
-    let ohWeaponBonusDmgMin = 0, ohWeaponBonusDmgMax = 0;
-    let bonusMagicDmgMin = 0, bonusMagicDmgMax = 0;
-    let ohMagicDmgMin = 0, ohMagicDmgMax = 0;
-
-    let bonusArmor = 0, bonusCritChance = 0, bonusMaxHealth = 0, bonusDodgeChance = 0, bonusBlockChance = 0;
-    let bonusAttacksPerRound = 0;
-    let bonusCritDamageModifier = 0;
-    let bonusArmorPenetrationPercent = 0, bonusArmorPenetrationFlat = 0;
-    let bonusLifeStealPercent = 0, bonusLifeStealFlat = 0;
-    let bonusManaStealPercent = 0, bonusManaStealFlat = 0;
 
     const isDualWieldActive = character.activeSkills?.includes('dual-wield-mastery');
 
@@ -244,14 +271,10 @@ export const calculateDerivedStats = (
     
     let mhMin, mhMax;
     const attrDmg = mhTemplate?.isMagical ? 0 : (mhTemplate?.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength);
-    // Skalowanie atrybutów fizycznych (Siła/Zręczność) zmniejszone o połowę:
-    // Wcześniej: (attrDmg * 1) / (attrDmg * 2)
-    // Teraz: (attrDmg * 0.5) / (attrDmg * 1)
     mhMin = 1 + (attrDmg * 0.5) + globalBonusDmgMin + mhWeaponBonusDmgMin;
     mhMax = 2 + (attrDmg * 1.0) + globalBonusDmgMax + mhWeaponBonusDmgMax;
 
     let ohMin = 0, ohMax = 0;
-    // CRITICAL FIX: Ensure OffHand item is a Weapon AND NOT a Shield
     if (isDualWieldActive && ohItem && ohTemplate?.category === 'Weapon' && !ohTemplate.isShield) {
         const ohAttrDmg = ohTemplate.isRanged ? totalPrimaryStats.agility : totalPrimaryStats.strength;
         ohMin = 1 + (ohAttrDmg * 0.5) + globalBonusDmgMin + ohWeaponBonusDmgMin;
