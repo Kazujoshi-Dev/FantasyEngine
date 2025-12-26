@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { pool } from '../../db.js';
-import { PlayerCharacter, ItemTemplate, Affix } from '../../types.js';
+import { PlayerCharacter, ItemTemplate, Affix, OrphanAuditResult, EquipmentSlot } from '../../types.js';
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.post('/fix-characters', async (req, res) => {
             let modified = false;
 
             if (!char.resources) { char.resources = { gold: 0, commonEssence: 0, uncommonEssence: 0, rareEssence: 0, epicEssence: 0, legendaryEssence: 0 }; modified = true; }
-            if (!char.stats) { modified = true; /* reset stats logic would go here if missing */ }
+            if (!char.stats) { modified = true; }
             if (!char.inventory) { char.inventory = []; modified = true; }
             if (!char.equipment) { char.equipment = { head: null, neck: null, chest: null, hands: null, waist: null, legs: null, feet: null, ring1: null, ring2: null, mainHand: null, offHand: null, twoHand: null }; modified = true; }
             if (!char.camp) { char.camp = { level: 1 }; modified = true; }
@@ -68,7 +68,6 @@ router.post('/fix-values', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        // Fix Templates
         const templatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
         let templates: ItemTemplate[] = templatesRes.rows[0]?.data || [];
         let itemsFixed = 0;
@@ -78,7 +77,6 @@ router.post('/fix-values', async (req, res) => {
         });
         await client.query("UPDATE game_data SET data = $1 WHERE key = 'itemTemplates'", [JSON.stringify(templates)]);
 
-        // Fix Affixes
         const affixesRes = await client.query("SELECT data FROM game_data WHERE key = 'affixes'");
         let affixes: Affix[] = affixesRes.rows[0]?.data || [];
         let affixesFixed = 0;
@@ -110,7 +108,6 @@ router.post('/fix-attributes', async (req, res) => {
             const char = row.data as PlayerCharacter;
             const stats = char.stats;
             
-            // Limit = 20 startowych + (Level-1)*1 (Zaktualizowano z *2)
             const maxAllowed = 20 + ((Math.max(1, char.level) - 1) * 1);
             const currentTotal = 
                 (stats.strength - 1) + (stats.agility - 1) + (stats.accuracy - 1) + 
@@ -118,7 +115,6 @@ router.post('/fix-attributes', async (req, res) => {
                 (stats.luck - 1) + (stats.statPoints || 0);
 
             if (currentTotal > maxAllowed) {
-                // Reset do 1 i przyznanie punktów wg prawidłowego wzoru
                 char.stats.strength = 1; char.stats.agility = 1; char.stats.accuracy = 1;
                 char.stats.stamina = 1; char.stats.intelligence = 1; char.stats.energy = 1;
                 char.stats.luck = 1;
@@ -131,6 +127,119 @@ router.post('/fix-attributes', async (req, res) => {
 
         await client.query('COMMIT');
         res.json({ checked: chars.rows.length, fixed: fixedCount });
+    } catch (err: any) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/admin/audit/orphans - Wyszukiwanie osieroconych przedmiotów
+router.get('/orphans', async (req, res) => {
+    try {
+        const templatesRes = await pool.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates: ItemTemplate[] = templatesRes.rows[0]?.data || [];
+        const templateIds = new Set(templates.map(t => t.id));
+
+        const charsRes = await pool.query('SELECT user_id, data FROM characters');
+        const results: OrphanAuditResult[] = [];
+
+        for (const row of charsRes.rows) {
+            const char = row.data as PlayerCharacter;
+            const orphans: any[] = [];
+
+            // Sprawdź plecak
+            char.inventory.forEach(item => {
+                if (!templateIds.has(item.templateId)) {
+                    orphans.push({ uniqueId: item.uniqueId, templateId: item.templateId, location: 'Plecak' });
+                }
+            });
+
+            // Sprawdź ekwipunek
+            Object.entries(char.equipment).forEach(([slot, item]) => {
+                if (item && !templateIds.has(item.templateId)) {
+                    orphans.push({ uniqueId: item.uniqueId, templateId: item.templateId, location: `Ekwipunek: ${slot}` });
+                }
+            });
+
+            // Sprawdź magazyn
+            if (char.warehouse?.items) {
+                char.warehouse.items.forEach(item => {
+                    if (!templateIds.has(item.templateId)) {
+                        orphans.push({ uniqueId: item.uniqueId, templateId: item.templateId, location: 'Magazyn' });
+                    }
+                });
+            }
+
+            if (orphans.length > 0) {
+                results.push({
+                    userId: row.user_id,
+                    characterName: char.name,
+                    orphans
+                });
+            }
+        }
+
+        res.json(results);
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/audit/resolve-orphans - Usuwanie osieroconych przedmiotów
+router.post('/resolve-orphans', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const templatesRes = await client.query("SELECT data FROM game_data WHERE key = 'itemTemplates'");
+        const templates: ItemTemplate[] = templatesRes.rows[0]?.data || [];
+        const templateIds = new Set(templates.map(t => t.id));
+
+        const charsRes = await client.query('SELECT user_id, data FROM characters FOR UPDATE');
+        let itemsRemoved = 0;
+        let charactersAffected = 0;
+
+        for (const row of charsRes.rows) {
+            let char = row.data as PlayerCharacter;
+            let modified = false;
+
+            // Filtruj plecak
+            const initialInvCount = char.inventory.length;
+            char.inventory = char.inventory.filter(item => templateIds.has(item.templateId));
+            if (char.inventory.length !== initialInvCount) {
+                itemsRemoved += (initialInvCount - char.inventory.length);
+                modified = true;
+            }
+
+            // Filtruj ekwipunek
+            Object.entries(char.equipment).forEach(([slot, item]) => {
+                if (item && !templateIds.has(item.templateId)) {
+                    (char.equipment as any)[slot] = null;
+                    itemsRemoved++;
+                    modified = true;
+                }
+            });
+
+            // Filtruj magazyn
+            if (char.warehouse?.items) {
+                const initialWhCount = char.warehouse.items.length;
+                char.warehouse.items = char.warehouse.items.filter(item => templateIds.has(item.templateId));
+                if (char.warehouse.items.length !== initialWhCount) {
+                    itemsRemoved += (initialWhCount - char.warehouse.items.length);
+                    modified = true;
+                }
+            }
+
+            if (modified) {
+                charactersAffected++;
+                await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(char), row.user_id]);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ itemsRemoved, charactersAffected });
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(500).json({ message: err.message });

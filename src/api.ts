@@ -231,7 +231,7 @@ export const api = {
     runDuplicationAudit: () => fetchApi('/admin/audit/duplicates'),
     resolveDuplications: () => fetchApi('/admin/resolve-duplicates', { method: 'POST' }),
     runOrphanAudit: () => fetchApi('/admin/audit/orphans'),
-    resolveOrphans: () => fetchApi('/admin/resolve-orphans', { method: 'POST' }),
+    resolveOrphans: () => fetchApi('/admin/audit/resolve-orphans', { method: 'POST' }),
     wipeGameData: () => fetchApi('/admin/wipe-game-data', { method: 'POST' }),
     resetAllPvpCooldowns: () => fetchApi('/admin/pvp/reset-cooldowns', { method: 'POST' }),
 
