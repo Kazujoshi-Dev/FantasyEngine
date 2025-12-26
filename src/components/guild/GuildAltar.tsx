@@ -17,6 +17,7 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
     
     const activeBuffs = useMemo(() => {
         const now = Date.now();
+        // Używamy activeBuffs (mapowane na backendzie)
         return [...(guild.activeBuffs || [])]
             .filter(b => b.expiresAt > now)
             .sort((a, b) => a.expiresAt - b.expiresAt);
@@ -26,6 +27,7 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
         if (!confirm('Czy na pewno chcesz wykonać ten rytuał? Koszt zostanie pobrany ze skarbca gildii.')) return;
         try {
             await api.performAltarSacrifice(ritualId);
+            // Wywołujemy onUpdate, który w Guild.tsx odpala fetchGuild i aktualizuje stan
             onUpdate();
         } catch(e: any) { alert(e.message); }
     };
@@ -131,7 +133,6 @@ export const GuildAltar: React.FC<{ guild: Guild, onUpdate: () => void }> = ({ g
                                         
                                         {!isUnlocked && <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"></div>}
 
-                                        {/* Grafika Rytuału - Usunięto efekt scale-110 */}
                                         <div className="h-32 relative bg-slate-900 border-b border-slate-700">
                                             {ritual.image ? (
                                                 <img src={ritual.image} className="w-full h-full object-cover" alt={ritual.name} />

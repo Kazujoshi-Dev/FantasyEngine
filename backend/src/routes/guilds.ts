@@ -100,6 +100,7 @@ router.get('/my-guild', async (req: any, res: any) => {
             ORDER BY h.created_at DESC LIMIT 50
         `, [guildId]);
 
+        // Mapowanie pól snake_case -> camelCase dla frontendu
         res.json({
             ...guild,
             createdAt: guild.created_at,
@@ -108,6 +109,7 @@ router.get('/my-guild', async (req: any, res: any) => {
             isPublic: guild.is_public,
             rentalTax: guild.rental_tax,
             huntingTax: guild.hunting_tax,
+            activeBuffs: guild.active_buffs || [], // Kluczowe mapowanie dla Ołtarza
             members: membersRes.rows,
             transactions: transactionsRes.rows.map(t => ({ ...t, timestamp: t.created_at })),
             myRole
@@ -176,7 +178,7 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
         await client.query('UPDATE guilds SET resources = $1, active_buffs = $2 WHERE id = $3', 
             [JSON.stringify(resources), JSON.stringify(activeBuffs), guildId]);
 
-        // 8. Log transakcji (opcjonalnie jako złoto, jeśli rytuał je kosztował)
+        // 8. Log transakcji
         const goldCost = ritual.cost.find(c => c.type === 'gold')?.amount || 0;
         if (goldCost > 0) {
             await client.query(
@@ -187,12 +189,13 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
         }
 
         await client.query('COMMIT');
-        res.json({ message: 'Rytuał odprawiony pomyślnie! Błogosławieństwo spłynęło na gildię.', activeBuffs });
         
         // Powiadomienie socketowe (jeśli req.io jest dostępne)
         if (req.io) {
             req.io.to(`guild_${guildId}`).emit('guild_update');
         }
+
+        res.json({ message: 'Rytuał odprawiony pomyślnie! Błogosławieństwo spłynęło na gildię.', activeBuffs });
 
     } catch (err: any) {
         await client.query('ROLLBACK');
@@ -202,7 +205,7 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
     }
 });
 
-// Pozostałe endpointy (armory, raids, etc.)
+// GET /api/guilds/armory
 router.get('/armory', async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
@@ -248,7 +251,5 @@ router.get('/armory', async (req: any, res: any) => {
         res.status(500).json({ message: 'Błąd zbrojowni' });
     }
 });
-
-// ... (reszta pliku pozostaje bez zmian)
 
 export default router;
