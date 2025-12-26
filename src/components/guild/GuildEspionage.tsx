@@ -61,9 +61,9 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000);
+        const interval = setInterval(fetchData, 15000); // Częstsze odświeżanie danych szpiegowskich
         return () => clearInterval(interval);
-    }, [spyLevel]);
+    }, [spyLevel]); // Usunięcie pustych zależności, aby zapewnić odświeżanie przy zmianie parametrów gildii
 
     const handleSendSpy = async () => {
         if (!selectedTarget) return;
@@ -154,7 +154,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                              >
                                  <option value="">{t('guild.espionage.selectTarget')}</option>
                                  {targets.map(t => (
-                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Lvl: {t.totalLevel} | Osób: {t.memberCount})</option>
+                                     <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Siła: {t.totalLevel} | Osób: {t.memberCount})</option>
                                  ))}
                              </select>
                         </div>
@@ -172,7 +172,7 @@ export const GuildEspionage: React.FC<{ guild: Guild }> = ({ guild }) => {
                                          <span className="text-white font-bold">{selectedTargetData.memberCount}</span>
                                      </div>
                                      <div className="flex justify-between items-center">
-                                         <span className="text-gray-400">Poziom celności (Suma):</span>
+                                         <span className="text-gray-400">Siła celu:</span>
                                          <span className="text-white">{selectedTargetData.totalLevel}</span>
                                      </div>
                                      <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-700/50">

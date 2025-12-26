@@ -63,19 +63,21 @@ router.get('/my-guild', async (req: any, res: any) => {
 // GET /api/guilds/targets - Lista gildii do atakowania/szpiegowania
 router.get('/targets', async (req: any, res: any) => {
     try {
-        // Pobierz gildię gracza, aby wykluczyć ją z listy celów
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
-        const myGuildId = memberRes.rows[0]?.guild_id;
+        const myGuildId = memberRes.rows[0]?.guild_id || null;
 
+        // Używamy podzapytania skorelowanego, aby uniknąć problemów z GROUP BY i NULLami
         const result = await pool.query(`
             SELECT 
                 g.id, g.name, g.tag, g.member_count as "memberCount",
-                COALESCE(SUM((c.data->>'level')::int), 0) as "totalLevel"
+                (
+                    SELECT COALESCE(SUM((c.data->>'level')::int), 0)
+                    FROM guild_members gm
+                    JOIN characters c ON gm.user_id = c.user_id
+                    WHERE gm.guild_id = g.id
+                ) as "totalLevel"
             FROM guilds g
-            LEFT JOIN guild_members gm ON g.id = gm.guild_id
-            LEFT JOIN characters c ON gm.user_id = c.user_id
             WHERE g.id != $1 OR $1 IS NULL
-            GROUP BY g.id
             ORDER BY "totalLevel" DESC
         `, [myGuildId]);
 
