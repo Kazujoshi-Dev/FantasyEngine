@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GuildRaid, RaidType, RaidStatus, RaidParticipant, ExpeditionRewardSummary, CombatLogEntry, PartyMember, PartyMemberStatus, ItemTemplate, Affix, Enemy } from '../../types';
 import { api } from '../../api';
 import { useTranslation } from '../../contexts/LanguageContext';
@@ -62,27 +62,35 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
     const [selectedRaid, setSelectedRaid] = useState<GuildRaid | null>(null);
     const [modalData, setModalData] = useState<{ summary: ExpeditionRewardSummary, opponents: any[] } | null>(null);
 
-    const fetchData = async () => {
-        setIsLoading(true);
+    const fetchRaids = useCallback(async () => {
         try {
-            const [raidData, targetList] = await Promise.all([
-                api.getRaids(),
-                api.getGuildTargets()
-            ]);
-            setRaids(raidData);
-            setTargets(targetList);
+            const raidData = await api.getRaids();
+            setRaids(raidData || { active: [], history: [] });
         } catch (e) {
-            console.error(e);
-        } finally {
-            setIsLoading(false);
+            console.error("Raids fetch error:", e);
         }
-    };
+    }, []);
+
+    const fetchTargets = useCallback(async () => {
+        try {
+            const targetList = await api.getGuildTargets();
+            setTargets(Array.isArray(targetList) ? targetList : []);
+        } catch (e) {
+            console.error("Guild targets fetch error:", e);
+        }
+    }, []);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        await Promise.allSettled([fetchRaids(), fetchTargets()]);
+        setIsLoading(false);
+    }, [fetchRaids, fetchTargets]);
 
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchData]);
 
     const handleCreate = async () => {
         if (!selectedTarget) return;
@@ -126,7 +134,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
              race: p.race,
              characterClass: p.characterClass,
              status: PartyMemberStatus.Member,
-             stats: initialStatsSnapshot ? initialStatsSnapshot[p.name] : undefined
+             stats: initialStatsSnapshot ? (initialStatsSnapshot as any)[p.name] : undefined
         });
 
         const summary: ExpeditionRewardSummary = {
@@ -171,7 +179,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                     <h3 className="text-xl font-bold text-red-500 mb-4 flex items-center gap-2"><SwordsIcon className="h-5 w-5"/> Wypowiedz Wojnę</h3>
                     {canManage ? (
                         <div className="space-y-4">
-                            <select className="w-full bg-slate-800 p-2 rounded border border-slate-600 text-white" value={selectedTarget} onChange={e => setSelectedTarget(e.target.value as any)}>
+                            <select className="w-full bg-slate-800 p-2 rounded border border-slate-600 text-white outline-none" value={selectedTarget} onChange={e => setSelectedTarget(e.target.value ? Number(e.target.value) : '')}>
                                 <option value="">Wybierz Gildię...</option>
                                 {targets.map(t => <option key={t.id} value={t.id}>[{t.tag}] {t.name} (Lvl: {t.totalLevel})</option>)}
                             </select>
@@ -199,7 +207,7 @@ export const GuildRaids: React.FC<GuildRaidsProps> = ({ myGuildId, myRole, myUse
                             const isAttacker = Number(raid.attackerGuildId) === Number(myGuildId);
                             const opposingName = isAttacker ? raid.defenderGuildName : raid.attackerGuildName;
                             const myTeam = isAttacker ? raid.attackerParticipants : raid.defenderParticipants;
-                            const alreadyJoined = myTeam.some(p => p.userId === myUserId);
+                            const alreadyJoined = myTeam.some(p => Number(p.userId) === Number(myUserId));
                             
                             return (
                                 <div key={raid.id} className="bg-slate-800 p-4 rounded border border-slate-700 hover:border-slate-500 transition-colors">

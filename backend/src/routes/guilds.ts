@@ -81,20 +81,19 @@ router.get('/targets', async (req: any, res: any) => {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
         const myGuildId = memberRes.rows[0]?.guild_id || -1;
 
+        // Używamy LEFT JOIN i rzutujemy wyniki na INTEGER, aby uniknąć problemów z typami w JS
         const query = `
             SELECT 
                 g.id, 
                 g.name, 
                 g.tag, 
                 g.member_count as "memberCount",
-                COALESCE((
-                    SELECT SUM((c.data->>'level')::int)
-                    FROM guild_members gm
-                    JOIN characters c ON gm.user_id = c.user_id
-                    WHERE gm.guild_id = g.id
-                ), 0)::int as "totalLevel"
+                COALESCE(SUM((c.data->>'level')::int), 0)::int as "totalLevel"
             FROM guilds g
+            LEFT JOIN guild_members gm ON g.id = gm.guild_id
+            LEFT JOIN characters c ON gm.user_id = c.user_id
             WHERE g.id != $1
+            GROUP BY g.id, g.name, g.tag, g.member_count
             ORDER BY "totalLevel" DESC, g.name ASC
         `;
 
@@ -108,7 +107,6 @@ router.get('/targets', async (req: any, res: any) => {
 
 // --- RAJDY ---
 
-// GET /api/guilds/raids - Aktywne rajdy i historia
 router.get('/raids', async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
@@ -122,7 +120,6 @@ router.get('/raids', async (req: any, res: any) => {
     }
 });
 
-// POST /api/guilds/raids/create - Rozpoczęcie rajdu
 router.post('/raids/create', async (req: any, res: any) => {
     const { targetGuildId, raidType } = req.body;
     try {
@@ -130,7 +127,7 @@ router.post('/raids/create', async (req: any, res: any) => {
         if (memberRes.rows.length === 0) return res.status(403).json({ message: 'Nie należysz do gildii.' });
         const { guild_id: myGuildId, role } = memberRes.rows[0];
 
-        if (!canManage(role as GuildRole)) return res.status(403).json({ message: 'Brak uprawnień do inicjowania wojny.' });
+        if (!canManage(role as GuildRole)) return res.status(403).json({ message: 'Brak uprawnień.' });
 
         const raid = await createRaid(myGuildId, req.user.id, targetGuildId, raidType);
         res.json(raid);
@@ -139,7 +136,6 @@ router.post('/raids/create', async (req: any, res: any) => {
     }
 });
 
-// POST /api/guilds/raids/join - Dołączenie do rajdu
 router.post('/raids/join', async (req: any, res: any) => {
     const { raidId } = req.body;
     try {
@@ -148,7 +144,7 @@ router.post('/raids/join', async (req: any, res: any) => {
         const guildId = memberRes.rows[0].guild_id;
 
         await joinRaid(raidId, req.user.id, guildId);
-        res.json({ message: 'Dołączono do rajdu.' });
+        res.json({ message: 'Dołączono.' });
     } catch (err: any) {
         res.status(400).json({ message: err.message });
     }
@@ -156,7 +152,6 @@ router.post('/raids/join', async (req: any, res: any) => {
 
 // --- SZPIEGOSTWO ---
 
-// GET /api/guilds/espionage - Aktywni szpiedzy i historia raportów
 router.get('/espionage', async (req: any, res: any) => {
     try {
         const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
@@ -188,7 +183,6 @@ router.get('/espionage', async (req: any, res: any) => {
     }
 });
 
-// POST /api/guilds/espionage/start - Wysłanie szpiega
 router.post('/espionage/start', async (req: any, res: any) => {
     const { targetGuildId } = req.body;
     const client = await pool.connect();
@@ -198,20 +192,19 @@ router.post('/espionage/start', async (req: any, res: any) => {
         if (memberRes.rows.length === 0) throw new Error('Nie należysz do gildii.');
         const { guild_id: myGuildId, role } = memberRes.rows[0];
 
-        if (!canManage(role as GuildRole)) throw new Error('Brak uprawnień do wysyłania szpiegów.');
+        if (!canManage(role as GuildRole)) throw new Error('Brak uprawnień.');
 
         const guildRes = await client.query('SELECT resources, buildings FROM guilds WHERE id = $1 FOR UPDATE', [myGuildId]);
         const myGuild = guildRes.rows[0];
         const spyLevel = myGuild.buildings?.spyHideout || 0;
         
-        if (spyLevel <= 0) throw new Error('Musisz najpierw wybudować Kryjówkę Szpiegów.');
+        if (spyLevel <= 0) throw new Error('Brak Kryjówki Szpiegów.');
 
         const activeCount = await client.query("SELECT COUNT(*) FROM guild_espionage WHERE attacker_guild_id = $1 AND status = 'IN_PROGRESS'", [myGuildId]);
-        if (parseInt(activeCount.rows[0].count) >= spyLevel) throw new Error('Osiągnięto limit aktywnych szpiegów.');
+        if (parseInt(activeCount.rows[0].count) >= spyLevel) throw new Error('Brak wolnych szpiegów.');
 
         const targetRes = await client.query(`
-            SELECT 
-                COALESCE(SUM((c.data->>'level')::int), 0)::int as "totalLevel"
+            SELECT COALESCE(SUM((c.data->>'level')::int), 0)::int as "totalLevel"
             FROM guild_members gm
             JOIN characters c ON gm.user_id = c.user_id
             WHERE gm.guild_id = $1
@@ -220,9 +213,8 @@ router.post('/espionage/start', async (req: any, res: any) => {
         const targetTotalLevel = targetRes.rows[0]?.totalLevel || 0;
         const cost = 1000 + (targetTotalLevel * 50);
 
-        if (myGuild.resources.gold < cost) throw new Error('Skarbiec gildii nie posiada wystarczającej ilości złota.');
+        if (myGuild.resources.gold < cost) throw new Error('Za mało złota w skarbcu.');
 
-        // Pobierz czas trwania na podstawie poziomu budynku
         let durationMin = 15;
         if (spyLevel === 2) durationMin = 10;
         if (spyLevel >= 3) durationMin = 5;
@@ -248,9 +240,7 @@ router.post('/espionage/start', async (req: any, res: any) => {
     }
 });
 
-// --- BANK I INNE ---
-
-// POST /api/guilds/bank - Wpłaty i wypłaty
+// POST /api/guilds/bank
 router.post('/bank', async (req: any, res: any) => {
     const { type, currency, amount } = req.body; 
     const val = parseInt(amount);
@@ -260,7 +250,6 @@ router.post('/bank', async (req: any, res: any) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
         const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
         if (memberRes.rows.length === 0) throw new Error('Nie należysz do gildii.');
         const { guild_id: guildId, role } = memberRes.rows[0];
@@ -273,37 +262,25 @@ router.post('/bank', async (req: any, res: any) => {
 
         if (type === 'DEPOSIT') {
             const playerAmount = currency === 'gold' ? character.resources.gold : character.resources[currency];
-            if ((playerAmount || 0) < val) throw new Error('Nie masz wystarczającej ilości zasobów w plecaku.');
-
+            if ((playerAmount || 0) < val) throw new Error('Brak zasobów.');
             if (currency === 'gold') character.resources.gold -= val;
             else character.resources[currency] -= val;
-
             guildResources[currency] = (guildResources[currency] || 0) + val;
         } else if (type === 'WITHDRAW') {
-            if (!canManage(role as GuildRole)) throw new Error('Tylko oficerowie mogą wypłacać zasoby ze skarbca.');
-            if ((guildResources[currency] || 0) < val) throw new Error('Skarbiec gildii nie posiada takiej ilości zasobów.');
-
+            if (!canManage(role as GuildRole)) throw new Error('Brak uprawnień.');
+            if ((guildResources[currency] || 0) < val) throw new Error('Brak zasobów w skarbcu.');
             guildResources[currency] -= val;
-
             if (currency === 'gold') character.resources.gold = (character.resources.gold || 0) + val;
             else character.resources[currency] = (character.resources[currency] || 0) + val;
-        } else {
-            throw new Error('Nieprawidłowy typ transakcji.');
         }
 
         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(guildResources), guildId]);
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
-
-        await client.query(
-            `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) 
-             VALUES ($1, $2, $3, $4, $5)`,
-            [guildId, req.user.id, type, currency, val]
-        );
+        await client.query(`INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) VALUES ($1, $2, $3, $4, $5)`, [guildId, req.user.id, type, currency, val]);
 
         await client.query('COMMIT');
         if (req.io) req.io.to(`guild_${guildId}`).emit('guild_update');
-
-        res.json({ message: 'Transakcja zakończona pomyślnie.', resources: guildResources, characterResources: character.resources });
+        res.json({ message: 'Sukces', resources: guildResources, characterResources: character.resources });
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: err.message });
@@ -319,7 +296,7 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
     try {
         await client.query('BEGIN');
         const memberRes = await client.query('SELECT guild_id, role FROM guild_members WHERE user_id = $1', [req.user.id]);
-        if (memberRes.rows.length === 0) throw new Error('Nie należysz do gildii.');
+        if (memberRes.rows.length === 0) throw new Error('Brak gildii.');
         const { guild_id: guildId, role } = memberRes.rows[0];
 
         if (!canManage(role as GuildRole)) throw new Error('Brak uprawnień.');
@@ -327,7 +304,7 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
         const ritualsRes = await client.query("SELECT data FROM game_data WHERE key = 'rituals'");
         const rituals: Ritual[] = ritualsRes.rows[0]?.data || [];
         const ritual = rituals.find(r => r.id === ritualId);
-        if (!ritual) throw new Error('Rytuał nie istnieje.');
+        if (!ritual) throw new Error('Brak rytuału.');
 
         const guildRes = await client.query('SELECT resources, buildings, active_buffs FROM guilds WHERE id = $1 FOR UPDATE', [guildId]);
         const guild = guildRes.rows[0];
@@ -337,12 +314,10 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
 
         const resources = guild.resources;
         for (const cost of ritual.cost) {
-            if ((resources[cost.type] || 0) < cost.amount) throw new Error(`Brak zasobów: ${cost.type}`);
+            if ((resources[cost.type] || 0) < cost.amount) throw new Error(`Brak: ${cost.type}`);
         }
 
-        for (const cost of ritual.cost) {
-            resources[cost.type] -= cost.amount;
-        }
+        for (const cost of ritual.cost) resources[cost.type] -= cost.amount;
 
         let activeBuffs: GuildBuff[] = guild.active_buffs || [];
         activeBuffs = activeBuffs.filter(b => b.name !== ritual.name);
@@ -353,9 +328,7 @@ router.post('/altar/sacrifice', async (req: any, res: any) => {
             expiresAt: Date.now() + (ritual.durationMinutes * 60 * 1000)
         });
 
-        await client.query('UPDATE guilds SET resources = $1, active_buffs = $2 WHERE id = $3', 
-            [JSON.stringify(resources), JSON.stringify(activeBuffs), guildId]);
-
+        await client.query('UPDATE guilds SET resources = $1, active_buffs = $2 WHERE id = $3', [JSON.stringify(resources), JSON.stringify(activeBuffs), guildId]);
         await client.query('COMMIT');
         if (req.io) req.io.to(`guild_${guildId}`).emit('guild_update');
         res.json({ message: 'Rytuał odprawiony.', activeBuffs });
