@@ -60,6 +60,36 @@ router.get('/my-guild', async (req: any, res: any) => {
     }
 });
 
+// GET /api/guilds/targets - Lista gildii do atakowania/szpiegowania
+router.get('/targets', async (req: any, res: any) => {
+    try {
+        // Pobierz gildię gracza, aby wykluczyć ją z listy celów
+        const memberRes = await pool.query('SELECT guild_id FROM guild_members WHERE user_id = $1', [req.user.id]);
+        const myGuildId = memberRes.rows[0]?.guild_id;
+
+        const result = await pool.query(`
+            SELECT 
+                g.id, g.name, g.tag, g.member_count as "memberCount",
+                COALESCE(SUM((c.data->>'level')::int), 0) as "totalLevel"
+            FROM guilds g
+            LEFT JOIN guild_members gm ON g.id = gm.guild_id
+            LEFT JOIN characters c ON gm.user_id = c.user_id
+            WHERE g.id != $1 OR $1 IS NULL
+            GROUP BY g.id
+            ORDER BY "totalLevel" DESC
+        `, [myGuildId]);
+
+        res.json(result.rows.map(row => ({
+            ...row,
+            totalLevel: parseInt(row.totalLevel) || 0,
+            memberCount: parseInt(row.memberCount) || 0
+        })));
+    } catch (err) {
+        console.error('Error fetching guild targets:', err);
+        res.status(500).json({ message: 'Błąd pobierania listy celów' });
+    }
+});
+
 // POST /api/guilds/bank - Wpłaty i wypłaty
 router.post('/bank', async (req: any, res: any) => {
     const { type, currency, amount } = req.body; // type: 'DEPOSIT' | 'WITHDRAW'
@@ -84,40 +114,28 @@ router.post('/bank', async (req: any, res: any) => {
         const character = charRes.rows[0].data;
 
         if (type === 'DEPOSIT') {
-            // SPRAWDZENIE ZASOBÓW GRACZA
             const playerAmount = currency === 'gold' ? character.resources.gold : character.resources[currency];
             if ((playerAmount || 0) < val) throw new Error('Nie masz wystarczającej ilości zasobów w plecaku.');
 
-            // ODEJMIJ OD GRACZA
             if (currency === 'gold') character.resources.gold -= val;
             else character.resources[currency] -= val;
 
-            // DODAJ DO GILDII
             guildResources[currency] = (guildResources[currency] || 0) + val;
-
         } else if (type === 'WITHDRAW') {
-            // TYLKO OFICER/LIDER
             if (!canManage(role as GuildRole)) throw new Error('Tylko oficerowie mogą wypłacać zasoby ze skarbca.');
-
-            // SPRAWDZENIE ZASOBÓW GILDII
             if ((guildResources[currency] || 0) < val) throw new Error('Skarbiec gildii nie posiada takiej ilości zasobów.');
 
-            // ODEJMIJ OD GILDII
             guildResources[currency] -= val;
 
-            // DODAJ DO GRACZA
             if (currency === 'gold') character.resources.gold = (character.resources.gold || 0) + val;
             else character.resources[currency] = (character.resources[currency] || 0) + val;
-
         } else {
             throw new Error('Nieprawidłowy typ transakcji.');
         }
 
-        // 3. Zapisz zmiany w bazie
         await client.query('UPDATE guilds SET resources = $1 WHERE id = $2', [JSON.stringify(guildResources), guildId]);
         await client.query('UPDATE characters SET data = $1 WHERE user_id = $2', [JSON.stringify(character), req.user.id]);
 
-        // 4. Zaloguj historię
         await client.query(
             `INSERT INTO guild_bank_history (guild_id, user_id, type, currency, amount) 
              VALUES ($1, $2, $3, $4, $5)`,
@@ -125,14 +143,9 @@ router.post('/bank', async (req: any, res: any) => {
         );
 
         await client.query('COMMIT');
-
-        // Powiadomienie socketowe o aktualizacji gildii
-        if (req.io) {
-            req.io.to(`guild_${guildId}`).emit('guild_update');
-        }
+        if (req.io) req.io.to(`guild_${guildId}`).emit('guild_update');
 
         res.json({ message: 'Transakcja zakończona pomyślnie.', resources: guildResources, characterResources: character.resources });
-
     } catch (err: any) {
         await client.query('ROLLBACK');
         res.status(400).json({ message: err.message });
