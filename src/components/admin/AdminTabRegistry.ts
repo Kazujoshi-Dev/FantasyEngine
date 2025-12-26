@@ -54,7 +54,9 @@ export const ADMIN_TABS: AdminTabDefinition[] = [
     { id: 'trivia', label: 'Info', component: TriviaTab },
     { id: 'itemCreator', label: 'Kreator', component: ItemCreatorTab, props: (d) => ({ itemTemplates: d.itemTemplates, affixes: d.affixes }) },
     { id: 'pvp', label: 'PvP', component: PvpTab },
-    { id: 'itemInspector', label: 'Inspektor', component: ItemInspectorTab },
-    { id: 'dataIntegrity', label: 'Audyty', component: DataIntegrityTab },
+    { id: 'itemInspector', label: 'Inspektor', component: ItemInspectorTab, props: (d) => ({ gameData: d }) },
+    { id: 'orphanAudit', label: 'Audyt Widm', component: OrphanAuditTab },
+    { id: 'duplicationAudit', label: 'Audyt Duplikatów', component: DuplicationAuditTab },
+    { id: 'dataIntegrity', label: 'Audyty Techniczne', component: DataIntegrityTab },
     { id: 'databaseEditor', label: 'Baza Danych', component: DatabaseEditorTab },
 ];

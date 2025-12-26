@@ -78,7 +78,6 @@ export const DataIntegrityTab: React.FC = () => {
         try {
             const result = await api.wipeGameData();
             alert(result.message);
-            // Reload the page to force re-authentication and character creation
             window.location.reload();
         } catch (err: any) {
             alert(`Wipe failed: ${err.message}`);
@@ -89,27 +88,29 @@ export const DataIntegrityTab: React.FC = () => {
   };
 
   return (
-    <div className="animate-fade-in">
-      <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.dataIntegrity.title')}</h3>
-      <p className="text-sm text-gray-400 mb-4">
-        {t('admin.dataIntegrity.description')}
-      </p>
-      <div className="flex flex-col items-start gap-4">
-        <button 
-          onClick={handleRunAudit} 
-          disabled={isLoading} 
-          className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600"
-        >
-          {isLoading ? t('admin.dataIntegrity.running') : t('admin.dataIntegrity.run')}
-        </button>
-        {resultMessage && (
-          <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
-            {resultMessage}
-          </div>
-        )}
+    <div className="animate-fade-in space-y-8">
+      <div>
+        <h3 className="text-2xl font-bold text-indigo-400 mb-4">{t('admin.dataIntegrity.title')}</h3>
+        <p className="text-sm text-gray-400 mb-4">
+          {t('admin.dataIntegrity.description')}
+        </p>
+        <div className="flex flex-col items-start gap-4">
+          <button 
+            onClick={handleRunAudit} 
+            disabled={isLoading} 
+            className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600"
+          >
+            {isLoading ? t('admin.dataIntegrity.running') : t('admin.dataIntegrity.run')}
+          </button>
+          {resultMessage && (
+            <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
+              {resultMessage}
+            </div>
+          )}
+        </div>
       </div>
 
-       <div className="border-t border-slate-700/50 mt-6 pt-6">
+       <div className="border-t border-slate-700/50 pt-6">
           <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.dataIntegrity.goldTitle')}</h3>
           <p className="text-sm text-gray-400 mb-4">
               {t('admin.dataIntegrity.goldDescription')}
@@ -125,7 +126,7 @@ export const DataIntegrityTab: React.FC = () => {
               )}
           </div>
       </div>
-       <div className="border-t border-slate-700/50 mt-6 pt-6">
+       <div className="border-t border-slate-700/50 pt-6">
           <h3 className="text-xl font-bold text-indigo-400 mb-4">{t('admin.dataIntegrity.valuesAuditTitle')}</h3>
           <p className="text-sm text-gray-400 mb-4">
               {t('admin.dataIntegrity.valuesAuditDescription')}
@@ -142,14 +143,15 @@ export const DataIntegrityTab: React.FC = () => {
           </div>
       </div>
 
-      <div className="border-t border-slate-700/50 mt-6 pt-6">
+      <div className="border-t border-slate-700/50 pt-6">
           <h3 className="text-xl font-bold text-indigo-400 mb-4">Audyt i Naprawa Atrybutów</h3>
           <p className="text-sm text-gray-400 mb-4">
-              Narzędzie to sprawdza, czy suma atrybutów postaci (bazowe statystyki + wolne punkty) nie przekracza dozwolonego limitu wynikającego z poziomu postaci. Jeśli wykryje nieprawidłowość (zbyt dużo punktów), <strong>zresetuje statystyki postaci do 0 i zwróci poprawną liczbę punktów do rozdania</strong>.
+              Narzędzie to sprawdza, czy suma atrybutów postaci nie przekracza limitu poziomu. 
+              W przypadku błędu, statystyki zostaną zresetowane do 0.
           </p>
           <div className="flex flex-col items-start gap-4">
               <button onClick={handleRunAttributesAudit} disabled={isAttributesAuditLoading} className="px-4 py-2 rounded-md bg-sky-700 hover:bg-sky-600 font-semibold disabled:bg-slate-600">
-                  {isAttributesAuditLoading ? 'Sprawdzanie i naprawianie...' : 'Uruchom audyt atrybutów'}
+                  {isAttributesAuditLoading ? 'Sprawdzanie...' : 'Uruchom audyt atrybutów'}
               </button>
               {attributesAuditMessage && (
                   <div className="bg-green-900/50 border border-green-700 text-green-300 text-center p-3 rounded-lg">
@@ -159,14 +161,13 @@ export const DataIntegrityTab: React.FC = () => {
           </div>
       </div>
 
-      <div className="border-t border-red-700/50 mt-8 pt-6">
+      <div className="border-t border-red-700/50 pt-8">
           <h3 className="text-2xl font-bold text-red-500 mb-4">Strefa Niebezpieczna</h3>
           <div className="bg-slate-800/50 p-4 rounded-lg border border-red-900/50">
               <h4 className="text-lg font-semibold text-red-400">Wyczyść dane gry (Wipe)</h4>
               <p className="text-sm text-gray-400 my-2">
                   Ta operacja usunie wszystkie postacie, wiadomości, oferty na rynku i wiadomości w tawernie.
-                  Konta użytkowników (loginy i hasła) zostaną zachowane. Użyj tej opcji, aby rozpocząć
-                  "nowy sezon" lub zresetować serwer do stanu początkowego.
+                  Konta użytkowników zostaną zachowane.
               </p>
               <p className="font-bold text-red-400">UWAGA: TEJ AKCJI NIE MOŻNA COFNĄĆ.</p>
               <button
